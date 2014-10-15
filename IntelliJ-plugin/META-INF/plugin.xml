@@ -1,0 +1,43 @@
+<idea-plugin version="2">
+  <id>com.eddy.generator</id>
+  <name>Eddy</name>
+  <version>1.0</version>
+  <vendor email="support@eddy.systems" url="http://eddy.systems">Eddy</vendor>
+
+  <description><![CDATA[
+      Eddy helps write code. You write pseudocode, and eddy will fill in details into the linked Java file. If Eddy
+      can't understand you, it'll ask questions. Of course, you can always inspect the generated Java, and fix it
+      as necessary.<br>
+    ]]></description>
+
+  <change-notes><![CDATA[
+    ]]>
+  </change-notes>
+
+  <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges for description -->
+  <idea-version since-build="131"/>
+
+  <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Plugin+Compatibility+with+IntelliJ+Platform+Products
+       on how to target different products -->
+  <depends>com.intellij.modules.lang</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- Add your extensions here -->
+  </extensions>
+
+  <application-components>
+    <!-- Add your application components here -->
+  </application-components>
+
+  <project-components>
+    <!-- Add your project components here -->
+  </project-components>
+
+  <actions>
+    <!-- Add your actions here -->
+      <action id="Eddy.EddyEdit" class="EddyEdit" text="Edit Using _Eddy" description="Edit this file using eddy.">
+          <add-to-group group-id="CodeMenu" anchor="last"/>
+      </action>
+  </actions>
+
+</idea-plugin>
