@@ -28,3 +28,5 @@ Follow the "Configuring IntelliJ IDEA SDK" from the [guide](http://www.jetbrains
 
 Clone git@github.com:eddysystems/eddy-plugin, and open it as a directory. It should now work.
 
+5. To see debug output using the Logger class used in the eddy plugin, make sure you see the IDEA Log in the output, and set the debug level to "all".
+

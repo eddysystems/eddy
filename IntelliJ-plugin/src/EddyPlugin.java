@@ -16,7 +16,7 @@ public class EddyPlugin implements ProjectComponent {
   public EddyPlugin(Project project) {
     logger.setLevel(Level.DEBUG);
     this.project = project;
-    injector = new EddyInjector();
+    injector = new EddyInjector(project);
   }
 
   public void initComponent() {

@@ -1,8 +1,7 @@
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.codeInsight.hint.HintUtil;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.lang.ASTNode;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -14,8 +13,11 @@ import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.ui.LightweightHint;
 import org.apache.log4j.Level;
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 
@@ -23,19 +25,25 @@ import javax.swing.*;
  * Created by martin on 15.10.14.
  */
 public class Eddy implements CaretListener, DocumentListener {
-  private final Editor editor;
-  private final Logger logger = Logger.getInstance(getClass());
+  private final @NotNull Editor editor;
+  private final @NotNull Document document;
+  private final @NotNull PsiFile psifile;
+  private final @NotNull Logger logger = Logger.getInstance(getClass());
 
-  public Eddy(TextEditor editor) {
+  public Eddy(TextEditor editor, @NotNull PsiFile psifile) {
     logger.setLevel(Level.DEBUG);
 
     this.editor = editor.getEditor();
+    this.document = this.editor.getDocument();
+    this.psifile = psifile;
 
-    VirtualFile file = FileDocumentManager.getInstance().getFile(this.editor.getDocument());
+    VirtualFile file = FileDocumentManager.getInstance().getFile(this.document);
     if (file != null)
       logger.debug("making eddy for editor for file " + file.getPresentableName());
     else
       logger.debug("making eddy for editor for file 'null'");
+
+    logger.debug("file type is " + psifile.getFileType().toString());
 
     // moving the caret around
     this.editor.getCaretModel().addCaretListener(this);
@@ -68,6 +76,7 @@ public class Eddy implements CaretListener, DocumentListener {
   /**
    * An action performing one of the edits that eddy suggested
    */
+  /*
   protected class EddyAcceptAction extends AnAction {
     EddyAcceptAction(String line) {
       super(line);
@@ -77,6 +86,7 @@ public class Eddy implements CaretListener, DocumentListener {
       logger.info("eddy thingy accepted, event: " + actionEvent.toString());
     }
   }
+  */
 
   @Override
   public void caretPositionChanged(CaretEvent e) {
@@ -84,10 +94,23 @@ public class Eddy implements CaretListener, DocumentListener {
       return;
 
     int lnum = e.getNewPosition().line;
-    Document doc = editor.getDocument();
-    String line = doc.getText(TextRange.create(doc.getLineStartOffset(lnum), doc.getLineEndOffset(lnum)));
+    TextRange lrange = TextRange.create(document.getLineStartOffset(lnum), document.getLineEndOffset(lnum));
+    int offset = document.getLineStartOffset(lnum) + e.getNewPosition().column;
+    String line = document.getText(lrange);
 
     logger.debug("caret moved to " + e.getNewPosition().toString() + " current line: " + line);
+
+    PsiElement elem = psifile.findElementAt(offset);
+    if (elem != null) {
+      ASTNode node = elem.getNode();
+      logger.debug("AST node: " + node.toString() + ", contained in this line: " + lrange.contains(node.getTextRange()));
+      node = node.getTreeParent();
+      while (node != null) {
+        logger.debug("  parent: " + node.toString() + ", contained in this line: " + lrange.contains(node.getTextRange()));
+        node = node.getTreeParent();
+      }
+    } else
+      logger.debug("PSI element not available.");
 
     showHint(line);
 

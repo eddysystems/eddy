@@ -1,6 +1,9 @@
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.*;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiFile;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
@@ -10,10 +13,12 @@ import java.util.HashMap;
  * Created by martin on 15.10.14.
  */
 public class EddyInjector implements FileEditorManagerListener {
+  private final Project project;
   private final Logger logger = Logger.getInstance(getClass());
   private final HashMap<FileEditor, Eddy> injected = new HashMap<FileEditor, Eddy>();
 
-  public EddyInjector() {
+  public EddyInjector(Project project) {
+    this.project = project;
     logger.setLevel(Level.DEBUG);
   }
 
@@ -25,21 +30,27 @@ public class EddyInjector implements FileEditorManagerListener {
     }
   }
 
-  private void inject(FileEditor editor) {
+  private void inject(final FileEditor editor) {
     if (this.injected.containsKey(editor)) {
       logger.debug("not injecting into already injected editor");
       return;
     }
 
-    this.injected.put(editor, null);
-
     if(!(editor instanceof TextEditor)) {
+      this.injected.put(editor, null);
       logger.debug("not injecting into non-text editor");
       return;
     }
 
+    // make sure we have a Psi aware editor here
+    PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(((TextEditor) editor).getEditor().getDocument());
+    if (psifile == null) {
+      logger.debug("not injecting into non-psi editor");
+      return;
+    }
+
     // make a new eddy which will attach to the editor
-    this.injected.put(editor, new Eddy((TextEditor)editor));
+    this.injected.put(editor, new Eddy((TextEditor)editor, psifile));
   }
 
   @Override
