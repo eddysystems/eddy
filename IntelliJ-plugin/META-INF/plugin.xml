@@ -31,13 +31,13 @@
 
   <project-components>
     <!-- Add your project components here -->
+      <component>
+          <implementation-class>EddyPlugin</implementation-class>
+      </component>
   </project-components>
 
   <actions>
     <!-- Add your actions here -->
-      <action id="Eddy.EddyEdit" class="EddyEdit" text="Edit Using _Eddy" description="Edit this file using eddy.">
-          <add-to-group group-id="CodeMenu" anchor="last"/>
-      </action>
   </actions>
 
 </idea-plugin>
