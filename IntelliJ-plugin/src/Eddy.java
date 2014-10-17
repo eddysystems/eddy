@@ -1,3 +1,4 @@
+import com.intellij.codeInsight.completion.proc.VariablesProcessor;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.codeInsight.hint.HintUtil;
@@ -11,28 +12,35 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.TextEditor;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
+import com.intellij.psi.*;
+import com.intellij.psi.scope.BaseScopeProcessor;
+import com.intellij.psi.scope.ElementClassHint;
+import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.ui.LightweightHint;
+import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import java.util.List;
 
 /**
  * Created by martin on 15.10.14.
  */
 public class Eddy implements CaretListener, DocumentListener {
+  private final @NotNull Project project;
   private final @NotNull Editor editor;
   private final @NotNull Document document;
   private final @NotNull PsiFile psifile;
   private final @NotNull Logger logger = Logger.getInstance(getClass());
 
-  public Eddy(TextEditor editor, @NotNull PsiFile psifile) {
+  public Eddy(Project project, TextEditor editor, @NotNull PsiFile psifile) {
     logger.setLevel(Level.DEBUG);
 
+    this.project = project;
     this.editor = editor.getEditor();
     this.document = this.editor.getDocument();
     this.psifile = psifile;
@@ -42,8 +50,6 @@ public class Eddy implements CaretListener, DocumentListener {
       logger.debug("making eddy for editor for file " + file.getPresentableName());
     else
       logger.debug("making eddy for editor for file 'null'");
-
-    logger.debug("file type is " + psifile.getFileType().toString());
 
     // moving the caret around
     this.editor.getCaretModel().addCaretListener(this);
@@ -86,7 +92,59 @@ public class Eddy implements CaretListener, DocumentListener {
       logger.info("eddy thingy accepted, event: " + actionEvent.toString());
     }
   }
-  */
+*/
+
+  public PsiVariable[] getVariablesInScope(PsiElement where) {
+    VariablesProcessor proc = new VariablesProcessor("", false);
+    PsiScopesUtil.treeWalkUp(proc, where, null);
+    return proc.getResultsAsArray();
+  }
+
+  public PsiClass[] getClassesInScope(PsiElement where) {
+    class ClassesProcessor extends BaseScopeProcessor implements ElementClassHint {
+      private final String prefix;
+      private final List<PsiClass> results = new SmartList<PsiClass>();
+
+      ClassesProcessor(String prefix) { this.prefix = prefix; }
+
+      @Override
+      public boolean shouldProcess(DeclarationKind kind) {
+        return kind == DeclarationKind.CLASS;
+      }
+
+      @Override
+      public boolean execute(@NotNull PsiElement element, ResolveState state) {
+        if (!(element instanceof PsiClass))
+          return true;
+
+        final PsiClass aClass = (PsiClass)element;
+        final String name = aClass.getName();
+        if (name.startsWith(prefix) && !results.contains(aClass))
+          results.add(aClass);
+
+        // accessibility, private stuff
+        //boolean accessible = myPlace == null || checkAccessibility(aClass);
+        //if (!accessible) return true;
+        //if (aClass.hasModifierProperty(PsiModifier.PRIVATE)) {
+        //  final PsiClass containingPlaceClass = PsiTreeUtil.getParentOfType(myPlace, PsiClass.class, false);
+        //  if (containingPlaceClass != null && !PsiTreeUtil.isAncestor(containingPlaceClass, aClass, false)){
+        //    return true;
+        //  }
+        //}
+        //return myCurrentFileContext instanceof PsiImportStatementBase;
+        return true;
+      }
+
+      public PsiClass[] getResultsAsArray() {
+        PsiClass[] res = new PsiClass[results.size()];
+        return results.toArray(res);
+      }
+    }
+
+    ClassesProcessor proc = new ClassesProcessor("");
+    PsiScopesUtil.treeWalkUp(proc, where, null);
+    return proc.getResultsAsArray();
+  }
 
   @Override
   public void caretPositionChanged(CaretEvent e) {
@@ -109,14 +167,23 @@ public class Eddy implements CaretListener, DocumentListener {
         logger.debug("  parent: " + node.toString() + ", contained in this line: " + lrange.contains(node.getTextRange()));
         node = node.getTreeParent();
       }
+
+      logger.debug("variables in scope: ");
+      for (final PsiVariable var : getVariablesInScope(elem)) {
+        logger.debug("  " + var.getName() + ": " + var.getType().getCanonicalText());
+      }
+      logger.debug("classes in scope: ");
+      for (final PsiClass cls : getClassesInScope(elem)) {
+        logger.debug("  " + cls.getName() + " fq name " + cls.getQualifiedName());
+      }
     } else
       logger.debug("PSI element not available.");
 
     showHint(line);
 
+    /*
     // this shows a popup, but it's way too intrusive. We need something like the hint, but have the options inside the
     // hint, only accessible by hotkeys (maybe ^arrows, ^enter, ^numbers)
-    /*
     DataContext context = DataManager.getInstance().getDataContext(editor.getComponent());
     DefaultActionGroup actions = new DefaultActionGroup();
     actions.add(new EddyAcceptAction(line));
@@ -136,11 +203,11 @@ public class Eddy implements CaretListener, DocumentListener {
 
   @Override
   public void beforeDocumentChange(DocumentEvent event) {
-    logger.debug("before document change");
+    //logger.debug("before document change");
   }
 
   @Override
   public void documentChanged(DocumentEvent event) {
-    logger.debug("document changed");
+    //logger.debug("document changed");
   }
 }

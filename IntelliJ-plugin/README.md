@@ -12,7 +12,7 @@ From [here](https://www.jetbrains.com/idea/download/).
 Instructions are [here](http://www.jetbrains.org/pages/viewpage.action?pageId=983225), but watch out for the notes below:
 
 * On modern MacOS, you will have to install JDK1.6, which you can get [here](http://support.apple.com/kb/DL1572). Once you have installed this, Java 1.6 should be in /System/Library/Java/JavaVirtualMachines. If it isn't, go to developer.apple.com/downloads, search for Java, and install the Java for OS X 2013-005 package, which ought to work.
-* 
+*
 * You do not have to copy lib/tools.jar anywhere. Ignore this step.
 * You have to build IntelliJ, but we will never actually use the version of IntelliJ you built.
 
@@ -30,3 +30,14 @@ Clone git@github.com:eddysystems/eddy-plugin, and open it as a directory. It sho
 
 5. To see debug output using the Logger class used in the eddy plugin, make sure you see the IDEA Log in the output, and set the debug level to "all".
 
+
+
+
+IntelliJ Stuff to know:
+
+To get classes defined in a file: PsiJavaFile.getClasses()
+Representation of variable and type: PsiVariable, PsiType
+Get all variables in scope: VariablesProcessor in PsiScopesUtil.treeWalkUp
+Get all class names in scope: modified ClassResolverProcessor in PsiScopesUtil.resolveAndWalk
+
+Not sure why ClassResolverProcessor is so much more complicated.

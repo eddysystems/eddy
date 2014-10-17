@@ -1,3 +1,4 @@
+import com.intellij.ide.highlighter.JavaFileType;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.*;
 import com.intellij.openapi.project.Project;
@@ -49,8 +50,14 @@ public class EddyInjector implements FileEditorManagerListener {
       return;
     }
 
+    // we can only deal with Java files
+    if (!(psifile.getFileType() instanceof JavaFileType)) {
+      logger.debug("not injecting into non-java editor");
+      return;
+    }
+
     // make a new eddy which will attach to the editor
-    this.injected.put(editor, new Eddy((TextEditor)editor, psifile));
+    this.injected.put(editor, new Eddy(project, (TextEditor)editor, psifile));
   }
 
   @Override
@@ -70,8 +77,8 @@ public class EddyInjector implements FileEditorManagerListener {
 
   @Override
   public void selectionChanged(@NotNull FileEditorManagerEvent fileEditorManagerEvent) {
-    logger.debug("selection changed");
+    //logger.debug("selection changed");
 
-    // TODO: disable popup on old editor (if active), enable popup on new editor (if needed)
+    // TODO: disable popup on old editor (if active), enable popup on new editor (if needed)?
   }
 }
