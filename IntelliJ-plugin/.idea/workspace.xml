@@ -52,9 +52,10 @@
       <file leaf-file-name="Eddy.java" pinned="false" current="true" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/Eddy.java">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="-1.0060976" vertical-offset="915" max-vertical-offset="5970">
-              <caret line="28" column="21" selection-start-line="28" selection-start-column="21" selection-end-line="28" selection-end-column="21" />
+            <state vertical-scroll-proportion="0.36585367" vertical-offset="915" max-vertical-offset="5970">
+              <caret line="73" column="5" selection-start-line="73" selection-start-column="5" selection-end-line="73" selection-end-column="5" />
               <folding>
+                <element signature="imports" expanded="true" />
                 <element signature="e#3832#3842#0" expanded="true" />
                 <element signature="e#3907#3920#0" expanded="true" />
                 <element signature="e#3981#3992#0" expanded="true" />
@@ -223,6 +224,20 @@
             <PATH_ELEMENT>
               <option name="myItemId" value="eddy" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PackageViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="tarski" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PackageViewModuleNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="eddy" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PackageViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="eddy" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PackageViewModuleNode" />
             </PATH_ELEMENT>
           </PATH>
         </subPane>
@@ -920,9 +935,10 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/Eddy.java">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="-1.0060976" vertical-offset="915" max-vertical-offset="5970">
-          <caret line="28" column="21" selection-start-line="28" selection-start-column="21" selection-end-line="28" selection-end-column="21" />
+        <state vertical-scroll-proportion="0.36585367" vertical-offset="915" max-vertical-offset="5970">
+          <caret line="73" column="5" selection-start-line="73" selection-start-column="5" selection-end-line="73" selection-end-column="5" />
           <folding>
+            <element signature="imports" expanded="true" />
             <element signature="e#3832#3842#0" expanded="true" />
             <element signature="e#3907#3920#0" expanded="true" />
             <element signature="e#3981#3992#0" expanded="true" />
