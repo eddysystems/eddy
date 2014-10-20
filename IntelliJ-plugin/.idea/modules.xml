@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/IntelliJ-plugin.iml" filepath="$PROJECT_DIR$/IntelliJ-plugin.iml" />
       <module fileurl="file://$PROJECT_DIR$/eddy.iml" filepath="$PROJECT_DIR$/eddy.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tarski/tarski.iml" filepath="$PROJECT_DIR$/tarski/tarski.iml" />
     </modules>
   </component>
 </project>

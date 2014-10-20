@@ -30,14 +30,3 @@ Clone git@github.com:eddysystems/eddy-plugin, and open it as a directory. It sho
 
 5. To see debug output using the Logger class used in the eddy plugin, make sure you see the IDEA Log in the output, and set the debug level to "all".
 
-
-
-
-IntelliJ Stuff to know:
-
-To get classes defined in a file: PsiJavaFile.getClasses()
-Representation of variable and type: PsiVariable, PsiType
-Get all variables in scope: VariablesProcessor in PsiScopesUtil.treeWalkUp
-Get all class names in scope: modified ClassResolverProcessor in PsiScopesUtil.resolveAndWalk
-
-Not sure why ClassResolverProcessor is so much more complicated.
