@@ -15,6 +15,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.source.tree.*;
 import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
 import com.intellij.psi.scope.JavaScopeProcessorEvent;
@@ -22,13 +23,12 @@ import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.ui.LightweightHint;
 import com.intellij.util.SmartList;
-import com.intellij.util.containers.HashMap;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by martin on 15.10.14.
@@ -105,7 +105,10 @@ public class Eddy implements CaretListener, DocumentListener {
     private final List<PsiMethod> methods = new SmartList<PsiMethod>();
     private final List<PsiPackage> packages = new SmartList<PsiPackage>();
     private final List<PsiEnumConstant> enums = new SmartList<PsiEnumConstant>();
-    private final List<PsiElement> elements = new SmartList<PsiElement>();
+    private final List<PsiNameIdentifierOwner> elements = new SmartList<PsiNameIdentifierOwner>();
+
+    // the expanded symbol dictionary
+    private List<EnvironmentInfo> environment = null;
 
     private final PsiElement place;
 
@@ -130,17 +133,14 @@ public class Eddy implements CaretListener, DocumentListener {
     class EnvironmentInfo {
       public PsiElement element;
 
-      // lower values shadow higher ones with the same name
-      int shadowingPriority;
-
       // a list of all paths to get to this element (there may be more than one)
       // each path starts with a symbol that's in scope. Concatenating the path with '.' and appending the element should
-      // yield a name that correclty qualifies the element from the current place.
+      // yield a name that correctly qualifies the element from the current place.
+      // For shadowed elements, the path is just large enough to overcome the shadowing
       public List<PsiElement[]> paths = new SmartList<PsiElement[]>();
 
-      EnvironmentInfo(PsiElement element, int shadowingPriority) {
+      EnvironmentInfo(PsiElement element) {
         this.element = element;
-        this.shadowingPriority = shadowingPriority;
       }
 
       float weight(String query) {
@@ -149,9 +149,27 @@ public class Eddy implements CaretListener, DocumentListener {
       }
     }
 
-    public Map<String, EnvironmentInfo> expand() {
+    public void expand() {
       // all elements in the environment are added with a zero length path
-      Map<String, EnvironmentInfo> result = new HashMap<String, EnvironmentInfo>();
+      environment = new SmartList<EnvironmentInfo>();
+
+      HashSet<String> shadowed = new HashSet<String>();
+
+      for (final PsiNameIdentifierOwner elem : getElements()) {
+        // add all non-shadowed items into the environment
+        PsiElement ident = elem.getNameIdentifier();
+
+        // for example, an anonymous class -- we can't do much with that, ignore it
+        if (ident == null)
+          continue;
+
+        if (shadowed.contains(ident.getText())) {
+          // check whether we can unshadow this by using either this. or super. or some part of the fully qualified name
+          // TODO
+        }
+
+        // TODO
+      }
 
       List<PsiElement> queue = new SmartList<PsiElement>();
       queue.addAll(this.getElements());
@@ -165,7 +183,8 @@ public class Eddy implements CaretListener, DocumentListener {
         // TODO...
       }
 
-      return result;
+      // fill environment
+      // TODO
     }
 
     /**
@@ -250,7 +269,7 @@ public class Eddy implements CaretListener, DocumentListener {
       return packages;
     }
 
-    public List<PsiElement> getElements() {
+    public List<PsiNameIdentifierOwner> getElements() {
       return elements;
     }
 
@@ -284,19 +303,19 @@ public class Eddy implements CaretListener, DocumentListener {
       }
 
       if (element instanceof PsiClass) {
-        elements.add(element);
+        elements.add((PsiNameIdentifierOwner) element);
         classes.add((PsiClass)element);
       } else if (element instanceof PsiEnumConstant) {
-        elements.add(element);
+        elements.add((PsiNameIdentifierOwner) element);
         enums.add((PsiEnumConstant)element);
       } else if (element instanceof PsiVariable) {
-        elements.add(element);
+        elements.add((PsiNameIdentifierOwner) element);
         variables.add((PsiVariable)element);
       } else if (element instanceof PsiMethod) {
-        elements.add(element);
+        elements.add((PsiNameIdentifierOwner) element);
         methods.add((PsiMethod)element);
       } else if (element instanceof PsiPackage) {
-        elements.add(element);
+        elements.add((PsiNameIdentifierOwner) element);
         packages.add((PsiPackage)element);
       }
       return true;
@@ -311,18 +330,74 @@ public class Eddy implements CaretListener, DocumentListener {
     }
   }
 
-  @Override
-  public void caretPositionChanged(CaretEvent e) {
-    if (!enabled())
-      return;
+  protected boolean statementComplete(PsiElement elem) {
+    return elem instanceof PsiStatement || elem instanceof PsiClass || elem instanceof PsiField;
+  }
 
-    int lnum = e.getNewPosition().line;
-    TextRange lrange = TextRange.create(document.getLineStartOffset(lnum), document.getLineEndOffset(lnum));
-    int offset = document.getLineStartOffset(lnum) + e.getNewPosition().column;
+  protected void processLineAt(int lnum, int column) {
+    int offset = document.getLineStartOffset(lnum) + column;
+    final TextRange lrange = TextRange.create(document.getLineStartOffset(lnum), document.getLineEndOffset(lnum));
     String line = document.getText(lrange);
 
-    logger.debug("caret moved to " + e.getNewPosition().toString() + " current line: " + line);
+    logger.debug("processing at " + lnum + "/" + column);
+    logger.debug("  current line: " + line);
 
+    // whitespace is counted toward the next token/statement, so start at the beginning of the line
+    PsiElement elem = psifile.findElementAt(document.getLineStartOffset(lnum));
+
+    // if we hit whitespace, advance until we find something substantial, or leave the line
+    if (elem instanceof PsiWhiteSpace) {
+      elem = elem.getNextSibling();
+      logger.debug("  found whitespace, next token " + elem);
+      if (!lrange.intersects(elem.getTextRange())) {
+        logger.debug("out of line range");
+        elem = null;
+      }
+    }
+
+    if (elem != null) {
+      // parse beginning of the line to the end of the line
+      ASTNode node = elem.getNode();
+
+      // walk up the tree until the line is fully contained
+      while (node != null && lrange.contains(node.getTextRange())) {
+        logger.debug("  PSI node: " + node.getPsi() + ", contained in this line: " + lrange.contains(node.getTextRange()));
+        node = node.getTreeParent();
+      }
+
+      // then walk the node subtree and output all tokens contained in any statement overlapping with the line
+      // now, node is the AST node we want to interpret.
+      if (node == null) {
+        logger.warn("cannot find a node to look at.");
+        return;
+      }
+
+      // get token stream for this node
+      assert node instanceof TreeElement;
+
+      final List<TreeElement> tokens = new SmartList<TreeElement>();
+
+      ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
+        @Override
+        protected boolean visitNode(TreeElement element) {
+          // if the element is not overlapping, don't output any of it
+          if (!lrange.intersects(element.getTextRange())) {
+            return false;
+          }
+
+          if (element instanceof LeafElement) {
+            logger.debug("    node: " + element);
+            tokens.add(element);
+          }
+
+          return true;
+        }
+      });
+
+      AST.parse(tokens);
+    }
+
+    /*
     PsiElement elem = psifile.findElementAt(offset);
     if (elem != null) {
       ASTNode node = elem.getNode();
@@ -373,6 +448,7 @@ public class Eddy implements CaretListener, DocumentListener {
 
     } else
       logger.debug("PSI element not available.");
+    */
 
     showHint(line);
 
@@ -386,6 +462,14 @@ public class Eddy implements CaretListener, DocumentListener {
     ListPopup popup = JBPopupFactory.getInstance().createActionGroupPopup(null, actions, context, JBPopupFactory.ActionSelectionAid.NUMBERING, false, null, 4);
     popup.showInBestPositionFor(context);
     */
+  }
+
+  @Override
+  public void caretPositionChanged(CaretEvent e) {
+    if (!enabled())
+      return;
+
+    processLineAt(e.getNewPosition().line, e.getNewPosition().column);
   }
 
   @Override
