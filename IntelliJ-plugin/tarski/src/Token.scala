@@ -1,8 +1,9 @@
-import com.intellij.psi.{PsiIdentifier, PsiWhiteSpace, PsiElement}
-
 sealed abstract class Token
 
 case class WhiteSpace() extends Token
+
+case class EOLComment(content: String) extends Token
+case class CComment(content: String) extends Token
 
 // Identifiers
 case class Ident(id: String) extends Token
@@ -60,8 +61,10 @@ case class VolatileTok() extends Token
 case class WhileTok() extends Token
 
 // Literals: 3.10
-case class IntLitTok(v: Long) extends Token
-case class FloatLitTok(v: Double) extends Token
+case class IntLitTok(v: Int) extends Token
+case class LongLitTok(v: Long) extends Token
+case class FloatLitTok(v: Float) extends Token
+case class DoubleLitTok(v: Double) extends Token
 case class BooleanLitTok(v: Boolean) extends Token
 case class CharLitTok(v: Char) extends Token
 case class StringLitTok(v: String) extends Token

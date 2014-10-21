@@ -1,21 +1,6 @@
-import com.intellij.psi.impl.source.tree.TreeElement
-import com.intellij.psi._
-import scala.collection.JavaConversions._
-
 object AST {
 
-  def psiToToken(elem: TreeElement): Token = elem.getElementType match {
-    case JavaTokenType.ABSTRACT_KEYWORD => AbstractTok()
-    case TokenType.WHITE_SPACE => WhiteSpace()
-    case JavaTokenType.IDENTIFIER => Ident(elem.getText)
-    ...
-    case _ => {
-      println(elem.getElementType)
-      null
-    }
-  }
-
-  def parse(tokens: java.util.List[TreeElement]) = println("scala: " + tokens.toList.map(psiToToken))
+  def parse(tokens: java.util.List[Token]) = println("scala: " + tokens)
 
   type Name = String
 
