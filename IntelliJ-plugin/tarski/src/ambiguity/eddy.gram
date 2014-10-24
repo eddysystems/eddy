@@ -1,0 +1,193 @@
+start Stmt
+token Token
+
+// Modifiers
+Mod Mod
+  AtTok IdentTok                 { Annotation($2.id) }
+  PublicTok                      { Public() }
+  ProtectedTok                   { Protected() }
+  PrivateTok                     { Private() }
+  AbstractTok                    { Abstract() }
+  StaticTok                      { Static() }
+  FinalTok                       { Final() }
+  StrictfpTok                    { Strictfp() }
+  TransientTok                   { Transient() }
+  VolatileTok                    { Volatile() }
+  SynchronizedTok                { Synchronized() }
+
+// Option
+Option[a] Option[a]
+  ""                             { None }
+  a                              { Some($1) }
+
+// Lists
+Commas[a] List[a]
+  a                              { List($1) }
+  a CommaTok Commas[a]           { $1 :: $3 }
+Juxts[a] List[a]
+  a                              { List($1) }
+  a Juxts[a]                     { $1 :: $2 }
+Ands[a] List[a]
+  a                              { List($1) }
+  a AndTok Ands[a]               { $1 :: $3 }
+List[a] List[a]
+  ""                             { Nil }
+  List1[a]                       { $1 }
+List1[a] List[a]
+  Commas[a]                      { $1 }
+  Juxts[a]                       { $1 }
+
+// Dims
+IdentDims NameDims
+  IdentTok                       { ($1.id,0) }
+  IdentDims LBrackTok RBrackTok  { ($1._1,$1._2+1) }
+
+// Types
+Type Type
+  IdentTok                       { NameType($1.id) }
+  Mod Type                       { ModType($1,$2) }
+  Type LBrackTok RBrackTok       { ArrayType($1) }
+  Type TypeArgs                  { ApplyType($1,$2) }
+  Type DotTok IdentTok           { FieldType($1,$3.id) }
+  QuestionTok WildcardBounds     { WildType($2) }
+TypeArgs List[Type]
+  LtTok List[Type] GtTok         { $2 }
+WildcardBounds Option[(Bound,Type)]
+  ""                             { None }
+  ExtendsTok Type                { Some((Extends(),$2)) }
+  ColonTok Type                  { Some((Extends(),$2)) }
+  SuperTok Type                  { Some((Super(),$2)) }
+
+// Type parameters
+//TypeParam
+//  Mod IdentTok Option[TypeBounds]
+//TypeBounds
+//  ExtendsTok TypeBoundArgs
+//  ColonTok TypeBoundArgs
+//TypeBoundArgs
+//  List1[Type]
+//  Ands[Type]
+
+// Classes
+// TODO: ClassDecl
+
+// Blocks
+Block List[Stmt]
+  LCurlyTok Stmts RCurlyTok      { $2 }
+Stmts List[Stmt]
+  ""                             { Nil }
+  Stmt Stmts                     { $1 :: $2 }
+
+// Statement
+Stmt Stmt
+  SemiTok                        { EmptyStmt() }
+  StmtHelper Option[SemiTok]     { $1 }
+StmtHelper Stmt
+  Mod Type List1[VarDecl]        { VarStmt($1,$2,$3) }
+  // LabelStmt
+  // IfThen / IfThenElse
+  // While
+  // For
+  Block                          { BlockStmt($1) }
+  Exp                            { ExpStmt($1) }
+  AssertTok Exp                  { AssertStmt($2,None) }
+  AssertTok Exp ColonTok Exp     { AssertStmt($2,Some($4)) }
+  // Switch
+  // Do
+  BreakTok Option[IdentTok]      { BreakStmt($2) }
+  ContinueTok Option[IdentTok]   { ContinueStmt($2) }
+  ReturnTok Option[Exp]          { ReturnStmt($2) }
+  ThrowTok Exp                   { ThrowStmt($2) }
+  SynchronizedTok Exp  Block     { SyncStmt($2,$3) }
+  SynchronizedTok LParenTok Exp RParenTok Block  { SyncStmt($2,$3) }
+  // Try
+VarDecl (NameDims,Option[Exp])
+  IdentTok                       { ($1,None) }
+  IdentDims EqTok Exp            { ($1,Some($3) }
+
+// Expressions
+Exp Exp
+  IdentTok                                     { NameExp($1.id) }
+  Lit                                          { LitExp($1) }
+  LParenTok Exp RParenTok                      { ParenExp($2) }
+
+  Exp DotTok Option[TypeArgs] IdentTok         { FieldExp($1,$3,$4) }
+  Exp LBrackTok List[Exp] RBrackTok            { IndexExp($1,$3) }
+  Exp ColonColonTok Option[TypeArgs] IdentTok  { MethodRefExp($1,$3,$4) }
+  Exp ColonColonTok Option[TypeArgs] NewTok    { NewExp($1,$2) }
+  Exp TypeArgs                                 { TyApplyExp($1,$2) }
+
+  Exp LParenTok List[Exp] RParenTok            { ApplyExp($1,$3) }
+  Exp Juxts[Exp]                               { ApplyExp($1,$2) } // TODO: Remember juxtaposition
+
+  NewTok Option[TypeArgs] Exp                  { NewExp($2,$3) }
+
+  QuestionTok WildcardBounds                   { WildExp($2) }
+
+  Exp PostOp                                   { UnaryExp($2,$1) }
+  PreOp Exp                                    { UnaryExp($1,$2) }
+  LParenTok Type RParenTok Exp                 { CastExp($2,$4) }
+  Exp BinaryOp Exp                             { BinaryExp($1,$2,$3) }
+  Exp QuestionTok Exp ColonTok Exp             { CondExp($1,$3,$5) }
+
+  Exp AssignOp Exp                             { AssignExp($1,$2,$3) }
+  // TODO LambdaExp
+  // TODO new Exp ClassBody
+
+Lit Lit
+  IntLitTok     { IntLit($1.v) }
+  LongLitTok    { LongLit($1.v) }
+  FloatLitTok   { FloatLit($1.v) }
+  DoubleLitTok  { DoubleLit($1.v) }
+  BoolLitTok    { BoolLit($1.v) }
+  CharLitTok    { CharLit($1.v) }
+  StringLitTok  { StringLit($1.v) }
+  NullLitTok    { NullLit() }
+
+PostOp UnaryOp
+  PlusPlusTok    { PostIncOp() }
+  MinusMinusTok  { PostDecOp() }
+
+PreOp UnaryOp
+  PlusPlusTok    { PreIncOp() }
+  MinusMinusTok  { PreDecOp() }
+  PlusTok        { PosOp() }
+  MinusTok       { NegOp() }
+  CompTok        { CompOp() }
+  NotTok         { NotOp() }
+
+BinaryOp BinaryOp
+  MulTok              { MulOp() }
+  DivTok              { DivOp() }
+  ModTok              { ModOp() }
+  PlusTok             { AddOp() }
+  MinusTok            { SubOp() }
+  LShiftTok           { LShiftOp() }
+  RShiftTok           { RShiftOp() }
+  UnsignedRShiftTok   { UnsignedRShiftOp() }
+  LtTok               { LtOp() }
+  GtTok               { GtOp() }
+  LeTok               { LeOp() }
+  GeTok               { GeOp() }
+  InstanceofTok       { InstanceofOp() }
+  EqEqTok             { EqOp() }
+  NeTok               { NeOp() }
+  AndTok              { AndOp() }
+  XorTok              { XorOp() }
+  OrTok               { OrOp() }
+  AndAndTok           { AndAndOp() }
+  OrOrTok             { OrOrOp() }
+
+AssignOp Option[BinaryOp]
+  EqTok                { None }
+  MulEqTok             { Some(MulOp()) }
+  DivEqTok             { Some(DivOp()) }
+  ModEqTok             { Some(ModOp()) }
+  PlusEqTok            { Some(AddOp()) }
+  MinusEqTok           { Some(SubOp()) }
+  LShiftEqTok          { Some(LShiftOp()) }
+  RShiftEqTok          { Some(RShiftOp()) }
+  UnsignedRShiftEqTok  { Some(UnsignedRShiftOp()) }
+  AndEqTok             { Some(AndOp()) }
+  XorEqTok             { Some(XorOp()) }
+  OrEqTok              { Some(OrOp()) }

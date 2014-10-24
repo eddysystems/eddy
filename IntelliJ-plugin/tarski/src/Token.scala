@@ -4,13 +4,11 @@ object Tokens {
 
   sealed abstract class Token
 
-  case class WhiteSpace() extends Token
+  case class Ident(name: String) extends Token
 
+  case class WhiteSpace() extends Token
   case class EOLComment(content: String) extends Token
   case class CComment(content: String) extends Token
-
-  // Identifiers
-  case class Ident(id: String) extends Token
 
   // Keywords: 3.9
   case class AbstractTok() extends Token
@@ -69,7 +67,7 @@ object Tokens {
   case class LongLitTok(v: Long) extends Token
   case class FloatLitTok(v: Float) extends Token
   case class DoubleLitTok(v: Double) extends Token
-  case class BooleanLitTok(v: Boolean) extends Token
+  case class BoolLitTok(v: Boolean) extends Token
   case class CharLitTok(v: Char) extends Token
   case class StringLitTok(v: String) extends Token
   case class NullLitTok() extends Token
