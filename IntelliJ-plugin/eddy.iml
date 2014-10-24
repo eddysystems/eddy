@@ -9,6 +9,7 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="tarski" />
+    <orderEntry type="library" name="scala-library" level="project" />
   </component>
 </module>
 

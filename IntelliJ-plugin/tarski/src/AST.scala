@@ -1,11 +1,18 @@
+package tarski
+
+import Tokens.Token
+import Environment.JavaEnvironment
+
 object AST {
 
-  def parse(tokens: java.util.List[Token]) = println("scala: " + tokens)
+  def parse(tokens: java.util.List[Token], env: JavaEnvironment) = println("scala: " + tokens)
 
   type Name = String
 
-  sealed abstract class Mod
-  case class Annotation(name: String) extends Mod
+  sealed abstract class Node
+
+  sealed abstract class Mod extends Node
+  case class Annotation(name: Name) extends Mod
   case class Public() extends Mod
   case class Protected() extends Mod
   case class Private() extends Mod
@@ -16,17 +23,16 @@ object AST {
   case class Volatile() extends Mod
   case class Synchronized() extends Mod
 
-  sealed abstract class Bound
+  sealed abstract class Bound extends Node
   case class Extends() extends Bound
   case class Super() extends Bound
 
-  sealed abstract class ListKind
-  case class CommaKind() extends ListKind
-  case class JuxtKind() extends ListKind
-  case class AndKind() extends ListKind
-  type KList[+A] = (List[A],ListKind)
+  sealed abstract class KList[+A](l: List[A]) extends Node { val list: List[A] = l }
+  case class CommaList[+A <: Node](override val list: List[A]) extends KList[A](list)
+  case class JuxtList[+A <: Node](override val list: List[A]) extends KList[A](list)
+  case class AndList[+A <: Node](override val list: List[A]) extends KList[A](list)
 
-  sealed abstract class Type
+  sealed abstract class Type extends Node
   case class NameType(name: Name) extends Type
   case class ModType(mod: Mod, t: Type) extends Type
   case class ArrayType(t: Type) extends Type
@@ -38,9 +44,9 @@ object AST {
 
   type Block = List[Stmt]
 
-  sealed abstract class Stmt
+  sealed abstract class Stmt extends Node
   case class EmptyStmt() extends Stmt
-  case class VarStmt(mod: Mod, t: Type, v: KList[(NameDims,Option[Exp])])
+  case class VarStmt(mod: Mod, t: Type, v: KList[((NameDims,Option[Exp]))]) extends Stmt
   case class BlockStmt(b: Block) extends Stmt
   case class ExpStmt(e: Exp) extends Stmt
   case class AssertStmt(cond: Exp, msg: Option[Exp]) extends Stmt
@@ -50,7 +56,7 @@ object AST {
   case class ThrowStmt(e: Exp) extends Stmt
   case class SyncStmt(e: Exp, b: Block) extends Stmt
 
-  sealed abstract class Exp
+  sealed abstract class Exp extends Node
   case class NameExp(name: Name) extends Exp
   case class LitExp(l: Lit) extends Exp
   case class ParenExp(e: Exp) extends Exp
@@ -68,14 +74,14 @@ object AST {
   case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
   case class AssignExp(left: Exp, op: Option[AssignOp], right: Exp) extends Exp
 
-  sealed abstract class Lit
+  sealed abstract class Lit extends Node
   case class IntLit(v: Long) extends Lit
   case class FloatLit(v: Double) extends Lit
   case class BooleanLit(v: Boolean) extends Lit
   case class CharLit(v: Char) extends Lit
   case class StringLit(v: String) extends Lit
 
-  sealed abstract class UnaryOp
+  sealed abstract class UnaryOp extends Node
   sealed abstract class ImpOp extends UnaryOp
   case class PreDec() extends ImpOp
   case class PreInc() extends ImpOp
@@ -86,7 +92,7 @@ object AST {
   case class ComplementOp() extends UnaryOp
   case class NotOp() extends UnaryOp
 
-  sealed abstract class BinaryOp
+  sealed abstract class BinaryOp extends Node
   sealed abstract class AssignOp extends BinaryOp
   case class MulOp() extends AssignOp
   case class DivOp() extends AssignOp
@@ -109,4 +115,50 @@ object AST {
   case class AndAndOp() extends BinaryOp
   case class OrOrOp() extends BinaryOp
 
+  def children(n: Node): List[Node] = n match {
+
+    case _: Mod => List()
+    case _: Bound => List()
+    case _: UnaryOp => List()
+    case _: BinaryOp => List()
+    case _: Lit => List()
+
+    // Type
+    case NameType(_) => List()
+    case ModType(m, t) => List(m, t)
+    case ArrayType(t) => List(t)
+    case ApplyType(t, l) => List(t) ++ l.list
+    case FieldType(t,f) => List(t)
+    case WildType(b) => if (b.isEmpty) Nil else List(b.get._1, b.get._2)
+
+    // Statements
+    case EmptyStmt() => List()
+    case VarStmt(m, t, v) => List(m, t) ++ v.list.flatMap( _._2.toList )
+    case BlockStmt(b) => b
+    case ExpStmt(e) => List(e)
+    case AssertStmt(cond, msg) => cond :: msg.toList
+    case BreakStmt(_) => List()
+    case ContinueStmt(_) => List()
+    case ReturnStmt(e) => e.toList
+    case ThrowStmt(e) => List(e)
+    case SyncStmt(e, b) => e :: b
+
+    // Expressions
+    case NameExp(_) => List()
+    case LitExp(_) => List()
+    case ParenExp(e) => List(e)
+    case FieldExp(e,t,f) => e :: t.toList.flatMap( _.list )
+    case IndexExp(e, i) => i :: i.list
+    case MethodRefExp(e, t, f) => e :: t.toList.flatMap( _.list )
+    case NewRefExp(e, t) => e :: t.toList.flatMap( _.list )
+    case TypeApplyExp(e, t) => e :: t.list
+    case ApplyExp(e, a) => e :: a.list
+    case NewExp(t, e) => t.toList.flatMap( _.list) :+ e
+    case WildExp(b) => if (b.isEmpty) Nil else List(b.get._1, b.get._2)
+    case UnaryExp(op, e) => List(op,e)
+    case BinaryExp(e1, op, e2) => List(e1, op, e2)
+    case CastExp(t, e) => List(t, e)
+    case CondExp(c, t, f) => List(c,t,f)
+    case AssignExp(left, op, right) => (left :: op.toList) :+ right
+  }
 }
