@@ -356,9 +356,9 @@ public class Eddy implements CaretListener, DocumentListener {
     if (type == JavaTokenType.STRING_LITERAL)
       return new StringLitTok((String) ((PsiLiteral) elem).getValue());
     if (type == JavaTokenType.TRUE_KEYWORD)
-      return new BooleanLitTok(true);
+      return new BoolLitTok(true);
     if (type == JavaTokenType.FALSE_KEYWORD)
-      return new BooleanLitTok(false);
+      return new BoolLitTok(false);
     if (type == JavaTokenType.NULL_KEYWORD)
       return new NullLitTok();
 
