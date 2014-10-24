@@ -63,17 +63,20 @@ object AST {
   case class NewExp(t: Option[KList[Type]], e: Exp) extends Exp
   case class WildExp(b: Option[(Bound,Type)]) extends Exp
   case class UnaryExp(op: UnaryOp, e: Exp) extends Exp
-  case class BinaryExp(e1: Exp, op: BinaryOp, e2: Exp) extends Exp
+  case class BinaryExp(e0: Exp, op: BinaryOp, e1: Exp) extends Exp
   case class CastExp(t: Type, e: Exp) extends Exp
   case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
   case class AssignExp(left: Exp, op: Option[AssignOp], right: Exp) extends Exp
 
   sealed abstract class Lit
-  case class IntLit(v: Long) extends Lit
-  case class FloatLit(v: Double) extends Lit
-  case class BooleanLit(v: Boolean) extends Lit
+  case class IntLit(v: Int) extends Lit
+  case class LongLit(v: Long) extends Lit
+  case class FloatLit(v: Float) extends Lit
+  case class DoubleLit(v: Double) extends Lit
+  case class BoolLit(v: Boolean) extends Lit
   case class CharLit(v: Char) extends Lit
   case class StringLit(v: String) extends Lit
+  case class NullLit() extends Lit
 
   sealed abstract class UnaryOp
   sealed abstract class ImpOp extends UnaryOp
@@ -83,7 +86,7 @@ object AST {
   case class PostInc() extends ImpOp
   case class PosOp() extends UnaryOp
   case class NegOp() extends UnaryOp
-  case class ComplementOp() extends UnaryOp
+  case class CompOp() extends UnaryOp
   case class NotOp() extends UnaryOp
 
   sealed abstract class BinaryOp
