@@ -12,14 +12,11 @@ object main extends App {
     Grammar.check(Gc)
     val G = Grammar.binarize(Gc)
     Grammar.check(G)
-    val parse = Parse.parseGen("parse"+G.start,G).mkString("\n")
+    val parse = Parse.parseGen(G).mkString("\n")+"\n"
     print(parse)
   }
-  println("pwd = "+new File(".").getCanonicalPath)
   args match {
     case Array(path) => gen(path)
-    case _ =>
-      gen("tarski/src/ambiguity/eddy.gram")
-      //throw new RuntimeException("one argument expected")
+    case _ => throw new RuntimeException("one argument expected")
   }
 }

@@ -4,11 +4,11 @@ object Tokens {
 
   sealed abstract class Token
 
-  case class Ident(name: String) extends Token
+  case class IdentTok(name: String) extends Token
 
-  case class WhiteSpace() extends Token
-  case class EOLComment(content: String) extends Token
-  case class CComment(content: String) extends Token
+  case class WhiteSpaceTok() extends Token
+  case class EOLCommentTok(content: String) extends Token
+  case class CCommentTok(content: String) extends Token
 
   // Keywords: 3.9
   case class AbstractTok() extends Token

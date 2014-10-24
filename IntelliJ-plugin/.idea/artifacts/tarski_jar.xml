@@ -1,0 +1,12 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="tarski:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/tarski_jar</output-path>
+    <root id="archive" name="tarski.jar">
+      <element id="module-output" name="tarski" />
+      <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-actors-2.11.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-swing_2.11-1.0.1.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-library.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-reflect.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
