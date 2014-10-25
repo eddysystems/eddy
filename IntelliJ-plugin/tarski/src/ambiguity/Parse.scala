@@ -72,15 +72,18 @@ object Parse {
       })
     }
     def P(s: Symbol): String = s"P_$s"
+    def kind(s: Symbol) = if (G.isToken(s)) "t" else if (G.nullable(s)) "n" else "s"
+    val debug = true
     var f =
-      function("parse", List(("input",s"Seq[${G.token}]")), s"List[${G.types(G.start)}]",
+      function("parse", List(("input",s"List[${G.token}]")), s"List[${G.types(G.start)}]",
             "type R = (Int,Int)"
         ::  "import scala.collection.mutable"
+        ::  "val debug = false"
         ::  ""
         ::  "// Functions for matching tokens"
         ::  "val array = input.toArray"
-        ::  "def tok(r: R) = if (r._2-r._1==1) Some(array(r._1)) else None"
-        ::  toks.toList.map {t => s"def P_$t(r: R) = tok(r) match { case Some(t: $t) => List(t); case _ => Nil }"}
+        ::  "def tok(i: Int) = array(i)"
+        ::  toks.toList.map {t => s"def P_$t(i: Int) = array(i) match { case t: $t => List(t); case _ => Nil }"}
         ::: ""
         ::  "// Allocate one sparse array per nonterminal"
         ::  nons.toList.map(n => s"val P_$n = mutable.Map[R,List[${G.types(n)}]]()")
@@ -96,16 +99,30 @@ object Parse {
                 }}.mkString(",") + ")"
             )
         ::: "// Parse nonnull productions"
-        ::  block("for (lo <- n to 0 by -1; hi <- lo to n)",
-                 "def two[A,B,C](pa: R => List[A], pb: R => List[B])(f: (A,B) => C): List[C] ="
-              :: "  (for (m <- lo to hi; a <- pa((lo,m)); b <- pb((m,hi))) yield f(a,b)).toList"
-              :: (for (non <- nons)
-                   yield s"P_$non((lo,hi)) = " + (G.prods(non).flatMap {case (p,a) => p match {
-                     case Nil => None
-                     case List(s) => Some(s"P_$s(lo,hi).map(x => ${act(a,List("x"))})")
-                     case List(s0,s1) => Some(s"two(P_$s0,P_$s1)((x,y) => ${act(a,List("x","y"))})")
-                     case _ => throw new RuntimeException("nonbinarized grammar")
-                   }} mkString(" ::: "))))
+        ::  block("for (lo <- n to 0 by -1; hi <- lo+1 to n)",
+                  "if (debug) println(\"\\nparsing: \"+array.slice(lo,hi).mkString(\" \"))"
+              ::  "def d[A](non: String, p: mutable.Map[R,List[A]]) = if (debug && !p((lo,hi)).isEmpty) println(s\"  $non = \"+p((lo,hi)).mkString(\" \"))"
+              ::  "def t[A,C](p: Int => List[A])(f: A => C) = if (lo+1==hi) p(lo).map(f) else Nil"
+              ::  "def n[A,C](p: R   => List[A])(f: A => C) = p(lo,hi).map(f)"
+              ::  "def s[A,C](p: R   => List[A])(f: A => C) = if (lo<hi) p(lo,hi).map(f) else Nil"
+              ::  "def tt[A,B,C](pa: Int => List[A], pb: Int => List[B])(f: (A,B) => C) = if (lo+2==hi) for (a <- pa(lo); b <- pb(lo+1)) yield f(a,b) else Nil"
+              ::  "def tn[A,B,C](pa: Int => List[A], pb: R   => List[B])(f: (A,B) => C) = if (lo<hi) for (a <- pa(lo); b <- pb((lo+1,hi))) yield f(a,b) else Nil"
+              ::  "def ts[A,B,C](pa: Int => List[A], pb: R   => List[B])(f: (A,B) => C) = if (lo+1<hi) for (a <- pa(lo); b <- pb((lo+1,hi))) yield f(a,b) else Nil"
+              ::  "def nt[A,B,C](pa: R   => List[A], pb: Int => List[B])(f: (A,B) => C) = if (lo<hi) for (b <- pb(hi-1); a <- pa((lo,hi-1))) yield f(a,b) else Nil"
+              ::  "def st[A,B,C](pa: R   => List[A], pb: Int => List[B])(f: (A,B) => C) = if (lo+1<hi) for (b <- pb(hi-1); a <- pa((lo,hi-1))) yield f(a,b) else Nil"
+              ::  "def nn[A,B,C](pa: R   => List[A], pb: R   => List[B])(f: (A,B) => C) = (for (m <- lo to hi; a <- pa((lo,m)); b <- pb((m,hi))) yield f(a,b)).toList"
+              ::  "def sn[A,B,C](pa: R   => List[A], pb: R   => List[B])(f: (A,B) => C) = (for (m <- lo+1 to hi; a <- pa((lo,m)); b <- pb((m,hi))) yield f(a,b)).toList"
+              ::  "def ns[A,B,C](pa: R   => List[A], pb: R   => List[B])(f: (A,B) => C) = (for (m <- lo to hi-1; a <- pa((lo,m)); b <- pb((m,hi))) yield f(a,b)).toList"
+              ::  "def ss[A,B,C](pa: R   => List[A], pb: R   => List[B])(f: (A,B) => C) = (for (m <- lo+1 to hi-1; a <- pa((lo,m)); b <- pb((m,hi))) yield f(a,b)).toList"
+              ::  nons.map(non => {
+                    val p = s"P_$non((lo,hi)) = " + (G.prods(non).flatMap {case (p,a) => p match {
+                        case Nil => None
+                        case List(s) => Some(s"${kind(s)}(P_$s)(x => ${act(a,List("x"))})")
+                        case List(s0,s1) => Some(s"${kind(s0)}${kind(s1)}(P_$s0,P_$s1)((x,y) => ${act(a,List("x","y"))})")
+                        case _ => throw new RuntimeException("nonbinarized grammar")
+                      }} mkString(" ::: "))
+                    val d = s"""d("$non",P_$non)"""
+                    s"$p; $d"}))
         ::: ""
         ::  "// All done!"
         ::  s"P_${G.start}((0,n))"

@@ -1,11 +1,13 @@
 DIR = tarski/src/ambiguity
+GRAM = tarski/src/ambiguity/eddy.gram
+PARSE = tarski/src/ParseEddy.scala
 AMBIGUITY = out/artifacts/tarski_jar/tarski.jar
 
-all: $(DIR)/ParseEddy.scala
+all: $(PARSE)
 
-$(DIR)/ParseEddy.scala: $(AMBIGUITY) $(DIR)/eddy.gram
-	java -jar $(AMBIGUITY) $(DIR)/eddy.gram > $(DIR)/ParseEddy.scala
+$(PARSE): $(AMBIGUITY) $(GRAM)
+	java -jar $(AMBIGUITY) $(GRAM) > $(PARSE)
 
 .PHONY: clean
 clean:
-	rm -f $(DIR)/ParseEddy.scala
+	rm -f $(PARSE)

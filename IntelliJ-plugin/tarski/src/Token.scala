@@ -127,4 +127,11 @@ object Tokens {
   case class LShiftEqTok() extends Token
   case class RShiftEqTok() extends Token
   case class UnsignedRShiftEqTok() extends Token
+
+  def isSpace(t: Token) = t match {
+    case WhiteSpaceTok()  => true
+    case EOLCommentTok(_) => true
+    case CCommentTok(_)   => true
+    case _                => false
+  }
 }

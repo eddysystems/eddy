@@ -191,7 +191,7 @@ object Grammar {
         cycles(Nil,n)
       throw new RuntimeException(s"unfound cycle: nons ${nons.length}, sorted ${sorted.length}")
     }
-    sorted
+    sorted.reverse
   }
 
   def read(file: String): Grammar = {
