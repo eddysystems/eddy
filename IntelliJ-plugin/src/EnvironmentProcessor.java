@@ -7,11 +7,9 @@ import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-
-import tarski.Environment;
+import tarski.Environment.*;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -28,11 +26,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private final List<PsiClass> classes = new SmartList<PsiClass>();
   private final List<PsiVariable> variables = new SmartList<PsiVariable>();
   private final List<PsiMethod> methods = new SmartList<PsiMethod>();
-  private final List<PsiEnumConstant> enums = new SmartList<PsiEnumConstant>();
-  private final List<PsiElement> elements = new SmartList<PsiElement>();
-
-  // the expanded symbol dictionary
-  private List<EnvironmentInfo> environment = null;
 
   private final PsiElement place;
 
@@ -47,116 +40,179 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiScopesUtil.treeWalkUp(this, place, null);
   }
 
+  private TypeItem addTypeToEnvMap(JavaEnvironment environment, Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
+    if (!types.containsKey(t)) {
+      // TODO: get modifiers
+
+      // remove the array part
+      PsiType inner = t.getDeepComponentType();
+
+      TypeItem env_inner = null;
+
+      // classes are not types in IntelliJ's version of the world, so we have to look this class up in envitems
+      if (inner instanceof PsiClassType) {
+        PsiClass tcls = ((PsiClassType) inner).resolve();
+        if (tcls == null) {
+          return new ErrorTypeItem();
+        } else {
+          if (!envitems.containsKey(tcls)) {
+            if (tcls.isInterface())
+              envitems.put(tcls, new InterfaceItemImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
+            else if (tcls.isEnum())
+              envitems.put(tcls, new EnumItemImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
+            else
+              envitems.put(tcls, new ClassItemImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
+          }
+          env_inner = (TypeItem)envitems.get(tcls);
+        }
+      } else {
+        assert inner instanceof PsiPrimitiveType;
+        
+        if (inner == PsiType.BOOLEAN)
+          env_inner = BooleanItem$.MODULE$;
+        else if (inner == PsiType.INT)
+          env_inner = IntItem$.MODULE$;
+        else if (inner == PsiType.CHAR)
+          env_inner = CharItem$.MODULE$;
+        else if (inner == PsiType.FLOAT)
+          env_inner = FloatItem$.MODULE$;
+        else if (inner == PsiType.DOUBLE)
+          env_inner = DoubleItem$.MODULE$;
+        else if (inner == PsiType.LONG)
+          env_inner = LongItem$.MODULE$;
+        else if (inner == PsiType.SHORT)
+          env_inner = ShortItem$.MODULE$;
+        else if (inner == PsiType.VOID)
+          env_inner = VoidItem$.MODULE$;
+        else {
+          logger.error("Unknown primitive type: " + inner.getCanonicalText());
+          return new ErrorTypeItem();
+        }
+      }
+      assert env_inner != null;
+
+      if (t instanceof PsiArrayType) {
+        int dims = t.getArrayDimensions();
+        if (env_inner instanceof InterfaceItem) {
+          types.put(t, new ArrayTypeItem<InterfaceItem>((InterfaceItem)env_inner, dims));
+        } else if (env_inner instanceof EnumItem) {
+          types.put(t, new ArrayTypeItem<EnumItem>((EnumItem)env_inner, dims));
+        } else if (env_inner instanceof ClassItem) {
+          types.put(t, new ArrayTypeItem<ClassItem>((ClassItem) env_inner, dims));
+        } else if (env_inner instanceof ErrorTypeItem) {
+          return new ErrorTypeItem();
+        } else {
+          // this is a primitive type, but which one?
+          if (env_inner.name().equals("boolean"))
+            types.put(t, new ArrayTypeItem<BooleanItem$>((BooleanItem$)env_inner, dims));
+          else if (env_inner.name().equals("int"))
+            types.put(t, new ArrayTypeItem<IntItem$>((IntItem$)env_inner, dims));
+          else if (env_inner.name().equals("char"))
+            types.put(t, new ArrayTypeItem<CharItem$>((CharItem$)env_inner, dims));
+          else if (env_inner.name().equals("float"))
+            types.put(t, new ArrayTypeItem<FloatItem$>((FloatItem$)env_inner, dims));
+          else if (env_inner.name().equals("double"))
+            types.put(t, new ArrayTypeItem<DoubleItem$>((DoubleItem$)env_inner, dims));
+          else if (env_inner.name().equals("long"))
+            types.put(t, new ArrayTypeItem<LongItem$>((LongItem$)env_inner, dims));
+          else if (env_inner.name().equals("short"))
+            types.put(t, new ArrayTypeItem<ShortItem$>((ShortItem$)env_inner, dims));
+          else if (env_inner.name().equals("void"))
+            types.put(t, new ArrayTypeItem<VoidItem$>((VoidItem$)env_inner, dims));
+          else {
+            logger.error("Unknown primitive type: " + env_inner.qualifiedName());
+            return new ErrorTypeItem();
+          }
+        }
+        assert types.get(t) instanceof TypeItem;
+        return (TypeItem) types.get(t);
+      } else {
+        // inner is our original type
+        return env_inner;
+      }
+    } else {
+      assert types.get(t) instanceof TypeItem;
+      return (TypeItem) types.get(t);
+    }
+  }
+
   /**
    * Make the IntelliJ-independent class that is used by the tarksi engine to look up possible names
    */
-  public Environment.JavaEnvironment getJavaEnvironment() {
-    Environment.JavaEnvironment environment = new Environment.JavaEnvironment();
+  public JavaEnvironment getJavaEnvironment() {
+    JavaEnvironment environment = new JavaEnvironment();
 
-    Map<PsiElement, Environment.NamedItem> envitems = new HashMap<PsiElement, Environment.NamedItem>();
-
-    // register basic types
-    // TODO
+    Map<PsiElement, NamedItem> envitems = new HashMap<PsiElement, NamedItem>();
+    Map<PsiType, NamedItem> types = new HashMap<PsiType, NamedItem>();
 
     // first, register packages (we may need those as containing elements in classes)
     for (PsiPackage pkg : packages) {
-      envitems.put(pkg, new Environment.PackageItemImpl(pkg.getName(), qualifiedName(pkg), relativeName(pkg)));
+      envitems.put(pkg, new PackageItemImpl(pkg.getName(), qualifiedName(pkg), relativeName(pkg)));
+
+      // TODO: register everything that is below this package (some of which may already be in the env map)
     }
 
     // then, register classes (we need those as containing elements in the other things)
     // classes may be contained in classes, so partial-order the list first
     for (PsiClass cls : classes) {
-      envitems.put(cls, new Environment.ClassItemImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
+      // TODO: get type parameters etc
+      envitems.put(cls, new ClassItemImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
+
+      // TODO: register everything that is below this class (some of which may already be in the env map)
     }
 
-    /*
+    // register methods (also register types used in this method)
+    for (PsiMethod method : methods) {
+      // get argument types
+      List<TypeItem> params = new SmartList<TypeItem>();
+      for (PsiParameter p : method.getParameterList().getParameters()) {
+        params.add(addTypeToEnvMap(environment, envitems, types, p.getType()));
+      }
 
-    // then, register everything else (enums, methods, variables)
+      if (method.isConstructor()) {
+        // TODO: varargs
+        // TODO: get type parameters
+        // TODO: what to do with parameters depending on type parameters and bounded types and such?
+        // get class
+        PsiClass cls = method.getContainingClass();
+        assert cls != null;
+        if (!envitems.containsKey(cls)) {
+          envitems.put(cls, new ClassItemImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
+        }
+        assert envitems.get(cls) instanceof ClassItem;
+        envitems.put(method, new ConstructorItem((ClassItem)envitems.get(cls), scala.collection.JavaConversions.asScalaBuffer(params).toList()));
+      } else {
+        // TODO: varargs
+        // TODO: get type parameters
+        // TODO: what to do with parameters depending on type parameters and bounded types and such?
+        TypeItem rtype = addTypeToEnvMap(environment, envitems, types, method.getReturnType());
+        envitems.put(method, new MethodItemImpl(method.getName(), qualifiedName(method), relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList()));
+      }
+    }
+
+    // then, register objects which have types (enum constants, variables, parameters, fields), and their types
     for (PsiVariable var : variables) {
       if (var instanceof PsiParameter) {
-        PsiType tvar = typeOf(var);
-        if (!envitems.containsKey(tvar))
-          envitems.put(tvar, new Environment.TypeItemImpl(tvar.getCanonicalText()))
-        envitems.put(var, new Environment.ParameterItemImpl(var.getName(), (Environment.TypeItem) envitems.get(var.getTypeElement())));
+        envitems.put(var, new ParameterItemImpl(var.getName(), addTypeToEnvMap(environment, envitems, types, var.getType())));
       } else if (var instanceof PsiEnumConstant)
-        envitems.put(var, new Environment.EnumConstantItemImpl(var.getName(), envitems.get(var.getTypeElement()), qualifiedName(var), relativeName(var)));
+        envitems.put(var, new EnumConstantItem(var.getName(), (EnumItem)addTypeToEnvMap(environment, envitems, types, var.getType())));
       else if (var instanceof PsiLocalVariable)
-        envitems.put(var, new Environment.LocalVariableItemImpl(var.getName()));
-      else if (var instanceof PsiField)
-        envitems.put(var, new Environment.FieldItemImpl(var.getName(), qualifiedName(var), relativeName(var)));
-
+        envitems.put(var, new LocalVariableItemImpl(var.getName(), addTypeToEnvMap(environment, envitems, types, var.getType())));
+      else if (var instanceof PsiField) {
+        assert envitems.containsKey(((PsiField) var).getContainingClass());
+        envitems.put(var, new FieldItemImpl(var.getName(), addTypeToEnvMap(environment, envitems, types, var.getType()), (ClassItem) envitems.get(((PsiField) var).getContainingClass()), qualifiedName(var), relativeName(var)));
+      }
     }
 
     // add items we found
-    for (Environment.NamedItem thing : envitems.values()) {
+    for (NamedItem typeItem : types.values()) {
+      environment.addObject(typeItem);
+    }
+    for (NamedItem thing : envitems.values()) {
       environment.addObject(thing);
     }
-    */
+
     return environment;
-  }
-
-  /**
-   * Expand the environment by enumerating all things that require qualification by something that's in scope. For
-   * instance, If a class A is in scope, but place is not somewhere in A or a subclass of A, then a field x of A is
-   * not in the environment. Calling expand fills a list of names, each associated with a list of ways to get to
-   * qualify that name such that it is in scope. For instance, calling expand will result in an entry x: [A] to denote
-   * that writing A.x would be legal.
-   */
-  class EnvironmentInfo {
-    public PsiElement element;
-
-    // a list of all paths to get to this element (there may be more than one)
-    // each path starts with a symbol that's in scope. Concatenating the path with '.' and appending the element should
-    // yield a name that correctly qualifies the element from the current place.
-    // For shadowed elements, the path is just large enough to overcome the shadowing
-    public List<PsiElement[]> paths = new SmartList<PsiElement[]>();
-
-    EnvironmentInfo(PsiElement element) {
-      this.element = element;
-    }
-
-    float score(String query) {
-      // TODO: take into account how well the name fits the query and how deep the paths are + other heuristics
-      return 0;
-    }
-  }
-
-  public void expand() {
-    // all elements in the environment are added with a zero length path
-    environment = new SmartList<EnvironmentInfo>();
-
-    HashSet<String> shadowed = new HashSet<String>();
-
-    for (final PsiElement elem : getElements()) {
-      // add all non-shadowed items into the environment
-      String ident = name(elem);
-
-      // for example, an anonymous class -- we can't do much with that, ignore it
-      if (ident == null)
-        continue;
-
-      if (shadowed.contains(ident)) {
-        // check whether we can unshadow this by using either this. or super. or some part of the fully qualified name
-        // TODO
-      }
-
-      // TODO
-    }
-
-    List<PsiElement> queue = new SmartList<PsiElement>();
-    queue.addAll(this.getElements());
-
-    while (!queue.isEmpty()) {
-      int idx = queue.size()-1;
-      PsiElement element = queue.get(idx);
-      queue.remove(idx);
-
-      // find all sub-names of this name
-      // TODO...
-    }
-
-    // fill environment
-    // TODO
   }
 
   /**
@@ -174,6 +230,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private String qualifiedName(PsiElement elem) {
     if (elem instanceof PsiQualifiedNamedElement)
       return ((PsiQualifiedNamedElement) elem).getQualifiedName();
+    else if (elem instanceof PsiMethod)
+      return ((PsiMethod) elem).getContainingClass().getQualifiedName() + '.' + ((PsiMethod) elem).getName();
     else if (elem instanceof PsiEnumConstant)
       return ((PsiEnumConstant) elem).getContainingClass().getQualifiedName() + '.' + ((PsiEnumConstant) elem).getName();
     else if (elem instanceof PsiField)
@@ -253,30 +311,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return !isInaccessible(clazz, clazz.getContainingClass());
   }
 
-  public List<PsiClass> getClasses() {
-    return classes;
-  }
-
-  public List<PsiVariable> getVariables() {
-    return variables;
-  }
-
-  public List<PsiEnumConstant> getEnums() {
-    return enums;
-  }
-
-  public List<PsiMethod> getMethods() {
-    return methods;
-  }
-
-  public List<PsiPackage> getPackages() {
-    return packages;
-  }
-
-  public List<PsiElement> getElements() {
-    return elements;
-  }
-
   @Override
   public boolean shouldProcess(DeclarationKind kind) {
     return kind == DeclarationKind.CLASS ||
@@ -307,19 +341,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     if (element instanceof PsiClass) {
-      elements.add(element);
       classes.add((PsiClass)element);
-    } else if (element instanceof PsiEnumConstant) {
-      elements.add((PsiNameIdentifierOwner) element);
-      enums.add((PsiEnumConstant)element);
     } else if (element instanceof PsiVariable) {
-      elements.add((PsiNameIdentifierOwner) element);
       variables.add((PsiVariable)element);
     } else if (element instanceof PsiMethod) {
-      elements.add((PsiNameIdentifierOwner) element);
       methods.add((PsiMethod)element);
     } else if (element instanceof PsiPackage) {
-      elements.add((PsiNameIdentifierOwner) element);
       packages.add((PsiPackage)element);
     }
     return true;
