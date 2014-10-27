@@ -2,6 +2,7 @@ package tarski
 
 import AST._
 import Environment._
+import Items._
 
 /**
  * Created by martin on 21.10.14.
