@@ -53,7 +53,7 @@ object Semantics {
     }
   }
 
-  // for an expression which has a type, its associated type item
+  // for an expression which has a type, its associated type item (null if there's no useful type)
   def typeOf(node: Node, meaning: Denotation): TypeItem = {
     def typeOfLeaf(item: EnvItem): TypeItem = {
       if (item.isInstanceOf[ValueItem]) item.asInstanceOf[ValueItem].ourType else null
@@ -66,6 +66,17 @@ object Semantics {
       case ParenExp(e) => typeOf(e, meaning)
       case FieldExp(_, _, f) => typeOfLeaf(meaning(node))
       case TypeApplyExp(e, _) => typeOf(e, meaning)
+      case LitExp(i) => typeOf(i, meaning)
+
+      case IntLit(_) => IntItem
+      case LongLit(_) => LongItem
+      case FloatLit(_) => FloatItem
+      case DoubleLit(_) => DoubleItem
+      case BoolLit(_) => BooleanItem
+      case CharLit(_) => CharItem
+      case StringLit(_) => stringItem
+      case NullLit() => NullTypeItem
+
       // TODO
       case _ => null
     }

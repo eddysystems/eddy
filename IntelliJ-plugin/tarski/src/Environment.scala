@@ -54,6 +54,8 @@ object Environment {
   object ShortItem extends BasicTypeItem("short")
   object VoidItem extends BasicTypeItem("void")
 
+  object NullTypeItem extends BasicTypeItem("nulltype")
+
   sealed abstract class ClassItem(name: Name) extends TypeItem(name)
   sealed abstract class EnumItem(name: Name) extends ClassItem(name)
   sealed abstract class InterfaceItem(name: Name) extends ClassItem(name)
@@ -122,6 +124,7 @@ object Environment {
     // used on plugin side to fill in data
     def addObjects(xs: List[NamedItem]): JavaEnvironment = {
       // TODO: this is quadratic time due to order, but order for now is important
+      // TODO: filter identical things (like java.lang.String)
       JavaEnvironment(things ++ xs)
     }
 
@@ -177,5 +180,7 @@ object Environment {
   }
 
   // Environment with Java's basic types
-  val baseEnvironment = JavaEnvironment(List(BooleanItem, IntItem, FloatItem, LongItem, DoubleItem, CharItem))
+  // add String, which really should always be there
+  val stringItem = new ClassItemImpl("String", "java.lang.String", "String")
+  val baseEnvironment = JavaEnvironment(List(BooleanItem, IntItem, FloatItem, LongItem, DoubleItem, CharItem, stringItem))
 }
