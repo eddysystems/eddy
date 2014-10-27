@@ -9,6 +9,7 @@ import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 
 import tarski.Environment.*;
+import tarski.Items.*;
 import tarski.Tarski;
 
 import java.util.HashMap;

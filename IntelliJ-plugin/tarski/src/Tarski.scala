@@ -1,7 +1,8 @@
 package tarski
 
-import tarski.Environment._
-import tarski.Tokens.{Token,isSpace}
+import Environment._
+import Tokens.{Token,isSpace}
+import Items._
 import ambiguity.ParseEddy
 import Semantics.denotationScores
 
