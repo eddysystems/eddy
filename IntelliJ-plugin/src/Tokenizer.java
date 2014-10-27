@@ -1,12 +1,10 @@
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.psi.JavaTokenType;
 import com.intellij.psi.PsiComment;
-import com.intellij.psi.PsiLiteral;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
-
 import tarski.Tokens.*;
 
 /**
@@ -26,17 +24,17 @@ public class Tokenizer {
       return new CCommentTok(((PsiComment)elem).getText());
 
     if (type == JavaTokenType.INTEGER_LITERAL)
-      return new IntLitTok((Integer) ((PsiLiteral) elem).getValue());
+      return new IntLitTok(elem.getText());
     if (type == JavaTokenType.LONG_LITERAL)
-      return new LongLitTok((Long) ((PsiLiteral) elem).getValue());
+      return new LongLitTok(elem.getText());
     if (type == JavaTokenType.FLOAT_LITERAL)
-      return new FloatLitTok((Float) ((PsiLiteral) elem).getValue());
+      return new FloatLitTok(elem.getText());
     if (type == JavaTokenType.DOUBLE_LITERAL)
-      return new DoubleLitTok((Double) ((PsiLiteral) elem).getValue());
+      return new DoubleLitTok(elem.getText());
     if (type == JavaTokenType.CHARACTER_LITERAL)
-      return new CharLitTok((Character) ((PsiLiteral) elem).getValue());
+      return new CharLitTok(elem.getText());
     if (type == JavaTokenType.STRING_LITERAL)
-      return new StringLitTok((String) ((PsiLiteral) elem).getValue());
+      return new StringLitTok(elem.getText());
     if (type == JavaTokenType.TRUE_KEYWORD)
       return new BoolLitTok(true);
     if (type == JavaTokenType.FALSE_KEYWORD)

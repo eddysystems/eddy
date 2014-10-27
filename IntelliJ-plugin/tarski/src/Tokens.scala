@@ -63,12 +63,12 @@ object Tokens {
   case class WhileTok() extends Token
 
   // Literals: 3.10
-  case class IntLitTok(v: Int) extends Token
-  case class LongLitTok(v: Long) extends Token
-  case class FloatLitTok(v: Float) extends Token
-  case class DoubleLitTok(v: Double) extends Token
+  case class IntLitTok(v: String) extends Token
+  case class LongLitTok(v: String) extends Token
+  case class FloatLitTok(v: String) extends Token
+  case class DoubleLitTok(v: String) extends Token
   case class BoolLitTok(v: Boolean) extends Token
-  case class CharLitTok(v: Char) extends Token
+  case class CharLitTok(v: String) extends Token
   case class StringLitTok(v: String) extends Token
   case class NullLitTok() extends Token
 

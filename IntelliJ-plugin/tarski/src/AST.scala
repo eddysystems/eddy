@@ -77,12 +77,12 @@ object AST {
   case class AssignExp(left: Exp, op: Option[AssignOp], right: Exp) extends Exp
 
   sealed abstract class Lit extends Node
-  case class IntLit(v: Int) extends Lit
-  case class LongLit(v: Long) extends Lit
-  case class FloatLit(v: Float) extends Lit
-  case class DoubleLit(v: Double) extends Lit
+  case class IntLit(v: String) extends Lit
+  case class LongLit(v: String) extends Lit
+  case class FloatLit(v: String) extends Lit
+  case class DoubleLit(v: String) extends Lit
   case class BoolLit(v: Boolean) extends Lit
-  case class CharLit(v: Char) extends Lit
+  case class CharLit(v: String) extends Lit
   case class StringLit(v: String) extends Lit
   case class NullLit() extends Lit
 

@@ -1,7 +1,7 @@
 package tarski
 
 import Semantics.Score
-import AST.Name
+import tarski.AST.{UnaryOp, BinaryOp, Name}
 
 import scala.collection.mutable
 
@@ -19,6 +19,10 @@ object Environment {
     def relativeName: Name
 
     override def toString: String = qualifiedName
+  }
+
+  sealed trait ContainedItem {
+    def container: NamedItem
   }
 
   sealed abstract class Modifier
@@ -108,8 +112,17 @@ object Environment {
 
   class MethodItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name, retVal: TypeItem, paramTypes: List[TypeItem]) extends MethodItem(name, retVal, paramTypes)
 
-  class ParameterItemImpl(name: Name, ourType: TypeItem) extends ParameterItem(name, ourType) { def qualifiedName = null; def relativeName = null }
-  class LocalVariableItemImpl(name: Name, ourType: TypeItem) extends LocalVariableItem(name, ourType)  { def qualifiedName = null; def relativeName = null }
+  // items that have no qualified names
+  sealed trait LocalItem {
+    def name: String
+
+    def qualifiedName = null
+    def relativeName = null
+    override def toString = "local:" + name
+  }
+
+  class ParameterItemImpl(name: Name, ourType: TypeItem) extends ParameterItem(name, ourType) with LocalItem
+  class LocalVariableItemImpl(name: Name, ourType: TypeItem) extends LocalVariableItem(name, ourType) with LocalItem
   class FieldItemImpl(name: Name, ourType: TypeItem, cls: ClassItem, val qualifiedName: Name, val relativeName: Name) extends FieldItem(name, ourType, cls)
 
 
@@ -123,14 +136,8 @@ object Environment {
 
     // used on plugin side to fill in data
     def addObject(thing: NamedItem): Unit = {
-      println("environment object " + thing)
+      //println("environment object " + thing)
       things += thing
-    }
-
-    // is this object assignable (not final) in our current context?
-    def isAssignable(thing: EnvItem): Boolean = {
-      // TODO
-      true
     }
 
     // whether from can be implicitly converted to to
@@ -145,6 +152,21 @@ object Environment {
       from == to
     }
 
+    def operatorLegal(op: BinaryOp, t0: TypeItem, t1: TypeItem): Boolean = {
+      // TODO
+      t0 == t1
+    }
+
+    def operatorLegal(op: UnaryOp, t: TypeItem): Boolean = {
+      // TODO
+      true
+    }
+
+    def expressionType(op: BinaryOp, t0: TypeItem, t1: TypeItem): TypeItem = {
+      // TODO
+      t0
+    }
+
     // get an object
     def getObjectByName[A <: NamedItem](name: String): A = things.find( x => x.isInstanceOf[A] && x.name == name ).orNull.asInstanceOf[A]
 
@@ -152,7 +174,7 @@ object Environment {
 
     // what could this name be?
     def getScores(name: String): List[(Score, EnvItem)] = {
-      things.toList.filter( _.name == name ).map( (new Score(1.0f), _) )
+      things.toList.filter( _.name == name ).map( x => (new Score(1.0f), x) )
     }
 
     // what could this name be, assuming it is a type?
@@ -160,23 +182,16 @@ object Environment {
       things.toList.filter( x => x.isInstanceOf[TypeItem] && x.name == name ).map((new Score(1.0f), _))
     }
 
+    // what could this be, assuming it is a type field of the given type?
+    def getTypeFieldScores(t: TypeItem, name: String): List[(Score, EnvItem)] = {
+      // TODO: this should take into account containers
+      things.toList.filter( x => x.isInstanceOf[TypeItem] && x.name == name ).map((new Score(1.0f), _))
+    }
+
     // what could this name be, assuming it is an annotation
     def getAnnotationScores(name: String): List[(Score, EnvItem)] = {
       things.toList.filter(x => x.isInstanceOf[AnnotationItem] && x.name == name).map((new Score(1.0f), _))
     }
-
-    // give us a list of fields for this type
-    def getFieldScores(t: TypeItem, name: String): List[(Score, EnvItem)] = {
-      things.toList.filter(x => x.isInstanceOf[FieldItem] && x.name == name && x.asInstanceOf[FieldItem].cls == t ).map((new Score(1.0f), _))
-    }
-
-      // give a list of fields for this package
-    def getFieldScores(t: PackageItem, name: String): List[(Score, EnvItem)] = {
-      things.toList.filter(x => x.isInstanceOf[FieldItem] && x.name == name && x.asInstanceOf[FieldItem].cls == t ).map((new Score(1.0f), _))
-    }
-
-    // give us a list of type fields for this type
-    def getFieldTypeScores(t: TypeItem, name: String): List[(Score, EnvItem)] = { Nil }
   }
 
 }

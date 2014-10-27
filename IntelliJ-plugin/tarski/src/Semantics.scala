@@ -14,6 +14,8 @@ object Semantics {
    */
   class Score(val s: Float) extends Ordered[Score] {
     override def compare(s2: Score) = s.compare(s2.s)
+
+    override def toString() = s.toString
   }
 
   object ZeroScore extends Score(0)
@@ -43,7 +45,11 @@ object Semantics {
       case ParenExp(e) => typeItem(e, meaning)
       case FieldExp(_, _, f) => typeItemLeaf(meaning(node))
       case TypeApplyExp(e, _) => typeItem(e, meaning)
-      case _ => null
+
+      case _ => {
+        assert(!node.isInstanceOf[Type])
+        null
+      }
     }
   }
 
@@ -66,21 +72,15 @@ object Semantics {
   }
 
   // given the denotation, is this node a type?
-  def isType(node: Node, meaning: Denotation): Boolean = typeItem(node,meaning) != null
+  def isType(node: Node, meaning: Denotation): Boolean = node.isInstanceOf[Type]
 
   // given the denotation. does this node have a type?
   def hasType(node: Node, meaning: Denotation): Boolean = typeOf(node,meaning) != null
 
-  def operatorLegal(op: BinaryOp, e0: Exp, e1: Exp, meaning: Denotation): Boolean = {
-    // op has to be applicable to e0 and e1, and if op is assignment, e0 has to be assignable
+  // is this an lvalue
+  def isVariable(node: Node, meaning: Denotation): Boolean = {
     // TODO
-    false
-  }
-
-  def operatorLegal(op: UnaryOp, e: Exp, meaning: Denotation): Boolean = {
-    // op has to be applicable to e, if it is inc or dec, e has to be assignable
-    // TODO
-    false
+    true
   }
 
   // get scores different things in the environment an AST node could be
@@ -142,7 +142,8 @@ object Semantics {
     val NullDenotation = List((Nil.toMap[Node,EnvItem],ZeroScore))
 
     val scores = node match {
-      case _: Stmt => throw new RuntimeException("statements not handled yet")
+        // TODO: control flow statements are a bit more involved
+      case _: Stmt => combineDenotationScores(children(node).map(denotationScores(_, env)))
 
       // AST nodes without name lookup just are what they are
       case _: BinaryOp => NullDenotation
@@ -171,7 +172,9 @@ object Semantics {
           (tden, tscore) <- denotationScores(t, env)
         } yield {
           if (isType(t, tden)) {
-            combineDenotationAndScores(node, tden, tscore, env.getFieldTypeScores(typeOf(t, tden), field))
+            combineDenotationAndScores(node, tden, tscore, env.getTypeFieldScores(typeItem(t, tden), field))
+          } else if (hasType(t, tden)) {
+            combineDenotationAndScores(node, tden, tscore, env.getTypeFieldScores(typeOf(t, tden), field))
           } else {
             Nil
           }
@@ -207,15 +210,17 @@ object Semantics {
         for {
           (eden, escore) <- denotationScores(e, env)
         } yield {
-          if (!eden(e).isInstanceOf[CallableItem] || eden(e).asInstanceOf[CallableItem].paramTypes.size != args.list.size) {
+          if (!eden(e).isInstanceOf[CallableItem] ||
+              eden(e).asInstanceOf[CallableItem].paramTypes.size != args.list.size ||
+              !args.list.forall( isType(_,eden) ) ) {
             Nil
           } else {
             // check all elements of the list for denotations which match (convertible to the types required by e)
             // combine all these denotations
             val dens: List[DenotationScores] = for {
-              (arg, atype) <- args.list zip eden(e).asInstanceOf[CallableItem].paramTypes
+              (arg, ptype) <- args.list zip eden(e).asInstanceOf[CallableItem].paramTypes
             } yield {
-              denotationScores(arg,env).filter( ds => env.convertibleTo(typeOf(arg,ds._1), atype) )
+              denotationScores(arg,env).filter( ds => env.convertibleTo(typeOf(arg,ds._1), ptype) )
             }
 
             combineDenotationScores(dens)
@@ -232,31 +237,31 @@ object Semantics {
           den => den(b.get._2).isInstanceOf[ClassItem] || den(b.get._2).isInstanceOf[InterfaceItem])
 
       case UnaryExp(op, e) => // could be UnaryExpItem
-        combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => operatorLegal(op,e,den) )
+        combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => env.operatorLegal(op,typeOf(e,den)))
 
       case BinaryExp(e0, op, e1) => combine3Denotations(denotationScores(e0,env), // could be BinaryExpItem
                                                         denotationScores(op,env),
                                                         denotationScores(e1,env),
                                                         // it's not a binary exp if it's an assign exp
-                                                        den => !op.isInstanceOf[AssignOp] && operatorLegal(op, e0, e1, den))
+                                                        den => !op.isInstanceOf[AssignOp]
+                                                          && env.operatorLegal(op, typeOf(e0, den), typeOf(e1, den)))
 
       case CastExp(t, e) =>
-        combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => env.castableTo(typeOf(e,den), typeOf(t,den)) )
+        combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => env.castableTo(typeOf(e,den), typeItem(t,den)) )
 
       case CondExp(cond, t, f) =>
         combine3Denotations(denotationScores(cond,env), denotationScores(t,env), denotationScores(f,env),
                             den => env.convertibleTo(typeOf(cond,den), BooleanItem) ) // TODO: are there restrictions on the types of t and f?
 
-      case AssignExp(left, op, right) =>
-        if (op.isEmpty)
-          combine2Denotations(denotationScores(left,env),
-                              denotationScores(right,env),
-                              den => operatorLegal(new EqOp(), left, right, den))
-        else
-          combine3Denotations(denotationScores(left,env),
-                              denotationScores(op.get,env),
-                              denotationScores(right,env),
-                              den => operatorLegal(op.get, left, right, den))
+      case AssignExp(left, None, right) =>
+          combine2Denotations(denotationScores(left, env),
+                              denotationScores(right, env),
+                              den => isVariable(left, den) && env.convertibleTo(typeOf(right, den), typeOf(left, den)))
+      case AssignExp(left, Some(op), right) =>
+          combine3Denotations(denotationScores(left, env),
+                              denotationScores(op, env),
+                              denotationScores(right, env),
+                              den => isVariable(left, den) && env.convertibleTo(env.expressionType(op, typeOf(left,den), typeOf(right,den)), typeOf(left, den)))
 
     }
 

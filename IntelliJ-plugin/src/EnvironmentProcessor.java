@@ -7,6 +7,7 @@ import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
+
 import tarski.Environment.*;
 
 import java.util.HashMap;
@@ -40,7 +41,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiScopesUtil.treeWalkUp(this, place, null);
   }
 
-  private TypeItem addTypeToEnvMap(JavaEnvironment environment, Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
+  private TypeItem addTypeToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
     if (!types.containsKey(t)) {
       // TODO: get modifiers
 
@@ -49,7 +50,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       TypeItem env_inner = null;
 
-      // classes are not types in IntelliJ's version of the world, so we have to look this class up in envitems
+      // classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
       if (inner instanceof PsiClassType) {
         PsiClass tcls = ((PsiClassType) inner).resolve();
         if (tcls == null) {
@@ -166,7 +167,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // get argument types
       List<TypeItem> params = new SmartList<TypeItem>();
       for (PsiParameter p : method.getParameterList().getParameters()) {
-        params.add(addTypeToEnvMap(environment, envitems, types, p.getType()));
+        params.add(addTypeToEnvMap(envitems, types, p.getType()));
       }
 
       if (method.isConstructor()) {
@@ -185,7 +186,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         // TODO: varargs
         // TODO: get type parameters
         // TODO: what to do with parameters depending on type parameters and bounded types and such?
-        TypeItem rtype = addTypeToEnvMap(environment, envitems, types, method.getReturnType());
+        TypeItem rtype = addTypeToEnvMap(envitems, types, method.getReturnType());
         envitems.put(method, new MethodItemImpl(method.getName(), qualifiedName(method), relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList()));
       }
     }
@@ -193,14 +194,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // then, register objects which have types (enum constants, variables, parameters, fields), and their types
     for (PsiVariable var : variables) {
       if (var instanceof PsiParameter) {
-        envitems.put(var, new ParameterItemImpl(var.getName(), addTypeToEnvMap(environment, envitems, types, var.getType())));
+        envitems.put(var, new ParameterItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
       } else if (var instanceof PsiEnumConstant)
-        envitems.put(var, new EnumConstantItem(var.getName(), (EnumItem)addTypeToEnvMap(environment, envitems, types, var.getType())));
+        envitems.put(var, new EnumConstantItem(var.getName(), (EnumItem)addTypeToEnvMap(envitems, types, var.getType())));
       else if (var instanceof PsiLocalVariable)
-        envitems.put(var, new LocalVariableItemImpl(var.getName(), addTypeToEnvMap(environment, envitems, types, var.getType())));
+        envitems.put(var, new LocalVariableItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
       else if (var instanceof PsiField) {
         assert envitems.containsKey(((PsiField) var).getContainingClass());
-        envitems.put(var, new FieldItemImpl(var.getName(), addTypeToEnvMap(environment, envitems, types, var.getType()), (ClassItem) envitems.get(((PsiField) var).getContainingClass()), qualifiedName(var), relativeName(var)));
+        envitems.put(var, new FieldItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType()), (ClassItem) envitems.get(((PsiField) var).getContainingClass()), qualifiedName(var), relativeName(var)));
       }
     }
 

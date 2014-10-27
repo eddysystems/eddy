@@ -25,9 +25,7 @@ import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
-import ambiguity.ParseEddy;
 import tarski.Tokens.Token;
-import tarski.AST;
 import tarski.Tarski;
 
 import javax.swing.*;
@@ -161,7 +159,7 @@ public class Eddy implements CaretListener, DocumentListener {
       });
 
       EnvironmentProcessor env = new EnvironmentProcessor(elem, true);
-      Tarski.fix(tokens,env.getJavaEnvironment());
+      Tarski.fix(tokens, env.getJavaEnvironment());
     }
 
     /*
