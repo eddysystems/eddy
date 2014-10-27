@@ -18,12 +18,12 @@ public class Tokenizer {
   public static Token psiToTok(TreeElement elem) {
     IElementType type = elem.getElementType();
     if (type == JavaTokenType.IDENTIFIER)
-      return new Ident(elem.getText());
+      return new IdentTok(elem.getText());
 
     if (type == JavaTokenType.C_STYLE_COMMENT)
-      return new EOLComment(((PsiComment)elem).getText());
+      return new EOLCommentTok(((PsiComment)elem).getText());
     if (type == JavaTokenType.END_OF_LINE_COMMENT)
-      return new CComment(((PsiComment)elem).getText());
+      return new CCommentTok(((PsiComment)elem).getText());
 
     if (type == JavaTokenType.INTEGER_LITERAL)
       return new IntLitTok((Integer) ((PsiLiteral) elem).getValue());
@@ -250,7 +250,7 @@ public class Tokenizer {
       return new ArrowTok();
 
     if (type == TokenType.WHITE_SPACE)
-      return new WhiteSpace();
+      return new WhiteSpaceTok();
 
     logger.warn("unknown token type: " + elem.getElementType() + " in element " + elem);
     return null;

@@ -142,10 +142,13 @@ object Semantics {
     val NullDenotation = List((Nil.toMap[Node,EnvItem],ZeroScore))
 
     val scores = node match {
+      case _: Stmt => throw new RuntimeException("statements not handled yet")
+
       // AST nodes without name lookup just are what they are
       case _: BinaryOp => NullDenotation
       case _: UnaryOp => NullDenotation
       case _: Lit => NullDenotation
+      case Abstract() => NullDenotation
       case Public() => NullDenotation
       case Protected() => NullDenotation
       case Private() => NullDenotation
@@ -156,10 +159,6 @@ object Semantics {
       case Volatile() => NullDenotation
       case Synchronized() => NullDenotation
       case _: Bound => NullDenotation
-
-      // the list types don't expand their denotations (that would be crazy). Whichever node owns the list does that.
-      // that means that this could only be called from the top level, in which case it is not a legal parse
-      case _: KList[_] => List[(Denotation, Score)]()
 
       // Annotations
       case Annotation(name) => nodeDenotationScores(node, env.getAnnotationScores(name))

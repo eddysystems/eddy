@@ -4,11 +4,11 @@ object Tokens {
 
   sealed abstract class Token
 
-  case class Ident(name: String) extends Token
+  case class IdentTok(name: String) extends Token
 
-  case class WhiteSpace() extends Token
-  case class EOLComment(content: String) extends Token
-  case class CComment(content: String) extends Token
+  case class WhiteSpaceTok() extends Token
+  case class EOLCommentTok(content: String) extends Token
+  case class CCommentTok(content: String) extends Token
 
   // Keywords: 3.9
   case class AbstractTok() extends Token
@@ -127,4 +127,11 @@ object Tokens {
   case class LShiftEqTok() extends Token
   case class RShiftEqTok() extends Token
   case class UnsignedRShiftEqTok() extends Token
+
+  def isSpace(t: Token) = t match {
+    case WhiteSpaceTok()  => true
+    case EOLCommentTok(_) => true
+    case CCommentTok(_)   => true
+    case _                => false
+  }
 }

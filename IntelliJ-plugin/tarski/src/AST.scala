@@ -13,6 +13,7 @@ object AST {
 
   sealed abstract class Mod extends Node
   case class Annotation(name: Name) extends Mod
+  case class Abstract() extends Mod
   case class Public() extends Mod
   case class Protected() extends Mod
   case class Private() extends Mod
@@ -27,10 +28,11 @@ object AST {
   case class Extends() extends Bound
   case class Super() extends Bound
 
-  sealed abstract class KList[+A](l: List[A]) extends Node { val list: List[A] = l }
-  case class CommaList[+A <: Node](override val list: List[A]) extends KList[A](list)
-  case class JuxtList[+A <: Node](override val list: List[A]) extends KList[A](list)
-  case class AndList[+A <: Node](override val list: List[A]) extends KList[A](list)
+  sealed abstract class KList[+A](l: List[A]) { val list: List[A] = l }
+  case class EmptyList() extends KList(Nil)
+  case class CommaList[+A](override val list: List[A]) extends KList[A](list)
+  case class JuxtList[+A](override val list: List[A]) extends KList[A](list)
+  case class AndList[+A](override val list: List[A]) extends KList[A](list)
 
   sealed abstract class Type extends Node
   case class NameType(name: Name) extends Type
@@ -86,10 +88,10 @@ object AST {
 
   sealed abstract class UnaryOp extends Node
   sealed abstract class ImpOp extends UnaryOp
-  case class PreDec() extends ImpOp
-  case class PreInc() extends ImpOp
-  case class PostDec() extends ImpOp
-  case class PostInc() extends ImpOp
+  case class PreDecOp() extends ImpOp
+  case class PreIncOp() extends ImpOp
+  case class PostDecOp() extends ImpOp
+  case class PostIncOp() extends ImpOp
   case class PosOp() extends UnaryOp
   case class NegOp() extends UnaryOp
   case class CompOp() extends UnaryOp
@@ -119,14 +121,11 @@ object AST {
   case class OrOrOp() extends BinaryOp
 
   def children(n: Node): List[Node] = n match {
-
     case _: Mod => List()
     case _: Bound => List()
     case _: UnaryOp => List()
     case _: BinaryOp => List()
     case _: Lit => List()
-
-    case _: KList[_] => throw new Exception() // this should never happen unless the top level is just a list, which isn't valid.
 
     // Type
     case NameType(_) => List()
@@ -153,7 +152,7 @@ object AST {
     case LitExp(_) => List()
     case ParenExp(e) => List(e)
     case FieldExp(e,t,f) => e :: t.toList.flatMap( _.list )
-    case IndexExp(e, i) => i :: i.list
+    case IndexExp(e, i) => e :: i.list
     case MethodRefExp(e, t, f) => e :: t.toList.flatMap( _.list )
     case NewRefExp(e, t) => e :: t.toList.flatMap( _.list )
     case TypeApplyExp(e, t) => e :: t.list

@@ -9,12 +9,24 @@ object Grammar {
   type Type = String
   type Prod = (List[Symbol],Action)
 
-  case class Grammar(start: Symbol, token: Type, types: Map[Symbol,Type], prods: Map[Symbol,List[Prod]]) {
+  case class Grammar(name: String,
+                     preamble: List[String],
+                     start: Symbol,
+                     token: Type,
+                     types: Map[Symbol,Type],
+                     prods: Map[Symbol,List[Prod]]) {
     val nullable: Set[Symbol] = {
       val f = fixpoint(false, (f: Symbol => Boolean, s: Symbol) =>
         prods.contains(s) && prods(s).exists(_._1.forall(f)))
       prods.keySet.filter(f)
     }
+
+    def isToken(s: Symbol) = !types.contains(s)
+    def ty(s: Symbol): Type = if (isToken(s)) s else types(s)
+
+    def modify(types: Map[Symbol,Type],
+               prods: Map[Symbol,List[Prod]]) =
+      Grammar(name,preamble,start,token,types,prods)
   }
 
   def check(G: Grammar, generic: Boolean = false) = {
@@ -25,6 +37,11 @@ object Grammar {
     val prodOnly = G.prods.keySet -- G.types.keySet
     if (prodOnly.size > 0)
       throw new RuntimeException(s"nonterminals $prodOnly have productions but not types")
+
+    // Hack: types must not contain TypeArgs
+    for ((s,t) <- G.types)
+      if (t.contains("TypeArgs"))
+        throw new RuntimeException(s"type $s: $t looks bad")
 
     // Hack: nonterminals must not end in Tok
     def isTok(s: Symbol) = s.endsWith("Tok") && s.forall(_.isLetterOrDigit)
@@ -46,8 +63,14 @@ object Grammar {
     val empty = Symbol("")
     for ((s,ps) <- G.prods) {
       sym(s,"grammar")
-      for ((p,a) <- ps)
+      for ((p,a) <- ps) {
         p foreach {sym(_,s"bad production $s -> $p")}
+        def count(c: Char) = a.count(c==)
+        if (   count('(') != count(')')
+            || count('[') != count(']')
+            || count('{') != count('}'))
+          throw new RuntimeException(s"production $s -> $p { $a } has mismatched something")
+      }
     }
 
     // Check cycles
@@ -73,10 +96,10 @@ object Grammar {
         var n = s"${g}_$t"
         if (!types.contains(n)) {
           val v = generics(g)
-          def sub(u: Symbol) = s"\\b$v\\b".r.replaceAllIn(u,t)
+          def sub(u: Symbol, rep: String) = s"\\b$v\\b".r.replaceAllIn(u,rep)
           var ss = s"$g[$v]"
-          types(n) = sub(G.types(ss))
-          prods(n) = G.prods(ss).map {case (p,a) => (p.map(u => close(sub(u))),a)}
+          types(n) = sub(G.types(ss),G.ty(t))
+          prods(n) = G.prods(ss).map {case (p,a) => (p.map(u => close(sub(u,t))),a)}
         }
         n
       case _ if !G.types.contains(s) || types.contains(s) =>
@@ -87,7 +110,7 @@ object Grammar {
         s
     }
     close(G.start)
-    Grammar(G.start,G.token,types.toMap,prods.toMap)
+    G.modify(types.toMap,prods.toMap)
   }
 
   def binarize(G: Grammar): Grammar = {
@@ -98,21 +121,21 @@ object Grammar {
         (List((n,t)),List((n,(p,a))))
       else {
         val (p0, p1) = p splitAt k/2
-        def sub(p: List[Symbol]): (Symbol,(List[(Symbol,Type)],List[(Symbol,Prod)])) = p match {
-          case List(x) => (x,(Nil,Nil))
+        def sub(p: List[Symbol]): (Symbol,Int=>String,(List[(Symbol,Type)],List[(Symbol,Prod)])) = p match {
+          case List(x) => (x,(i=>""),(Nil,Nil))
           case _ =>
             var n = sym(p)
-            var t = "(" + p.map(G.types get _ getOrElse G.token).mkString(",") + ")"
+            var t = "(" + p.map(G.ty).mkString(",") + ")"
             var i = p.length
             var a = "(" + (1 to i).map("$"+_).mkString(",") + ")"
-            (n,split(n,t,p,a))
+            (n,(j=>s"._$j"),split(n,t,p,a))
         }
+        val (n0,f0,(t0,r0)) = sub(p0)
+        val (n1,f1,(t1,r1)) = sub(p1)
         def convert(m: scala.util.matching.Regex.Match): String = {
           val i = m.group(1).toInt
-          if (i < k/2) "\\$1._"+(i+1) else "\\$2._"+(i+1-k/2)
+          if (i-1 < k/2) "\\$1"+f0(i) else "\\$2"+f1(i-k/2)
         }
-        val (n0,(t0,r0)) = sub(p0)
-        val (n1,(t1,r1)) = sub(p1)
         val r = (n,(List(n0,n1),"""\$(\d+)""".r.replaceAllIn(a,convert(_))))
         ((n,t)::t0:::t1,r::r0:::r1)
       }
@@ -120,7 +143,7 @@ object Grammar {
     val info = for ((n,ps) <- G.prods.toList; (p,a) <- ps) yield split(n,G.types(n),p,a)
     val types = info.map(_._1).flatten.toMap
     val prods = toMapList(info.map(_._2).flatten)
-    Grammar(G.start,G.token,types,prods)
+    G.modify(types,prods)
   }
 
   // Sort nonterminals: s0 before s1 if s1 =>* s0
@@ -168,13 +191,15 @@ object Grammar {
         cycles(Nil,n)
       throw new RuntimeException(s"unfound cycle: nons ${nons.length}, sorted ${sorted.length}")
     }
-    sorted
+    sorted.reverse
   }
 
   def read(file: String): Grammar = {
-    var start : Option[Symbol] = None
-    var token : Option[Type] = None
-    var scope : Option[Symbol] = None
+    var name: Option[Symbol] = None
+    var preamble: List[String] = Nil
+    var start: Option[Symbol] = None
+    var token: Option[Type] = None
+    var scope: Option[Symbol] = None
     val types = mutable.Map[Symbol,Type]()
     val prods = mutable.Map[Symbol,List[(List[Symbol],Action)]]()
 
@@ -212,6 +237,8 @@ object Grammar {
             case s :: (ty@(_::_)) =>
               val t = ty.mkString(" ")
               s match {
+                case "name" => name = Some(t)
+                case "preamble" => preamble = t :: preamble
                 case "start" => start = Some(t)
                 case "token" => token = Some(t)
                 case _ =>
@@ -240,9 +267,11 @@ object Grammar {
     }
 
     // Nearly done!
-    val start_ = unpack(start,"at least one nonterminal required")
-    val token_ = unpack(token,"token type required")
-    val rules_ = prods.toMap mapValues {_.reverse}
-    Grammar(start_,token_,types.toMap,rules_)
+    Grammar(unpack(name,"missing name"),
+            preamble.reverse,
+            unpack(start,"at least one nonterminal required"),
+            unpack(token,"token type required"),
+            types.toMap,
+            prods.toMap mapValues {_.reverse})
   }
 }
