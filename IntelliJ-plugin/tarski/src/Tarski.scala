@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Environment.JavaEnvironment
+import tarski.Environment._
 import tarski.Tokens.{Token,isSpace}
 import ambiguity.ParseEddy
 import Semantics.denotationScores
@@ -8,6 +8,11 @@ import Semantics.denotationScores
 import scala.collection.JavaConverters._
 
 object Tarski {
+  def environment(types: java.util.Collection[NamedItem], values: java.util.Collection[NamedItem]): JavaEnvironment = {
+    baseEnvironment.addObjects(types.asScala.toList++values.asScala.toList)
+  }
+
+
   def fix(tokens: java.util.List[Token], env: JavaEnvironment): Unit = {
     val toks = tokens.asScala.toList.filterNot(isSpace)
     for ( root <- ParseEddy.parse(toks) ) {

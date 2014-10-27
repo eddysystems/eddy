@@ -9,6 +9,7 @@ import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 
 import tarski.Environment.*;
+import tarski.Tarski;
 
 import java.util.HashMap;
 import java.util.List;
@@ -95,31 +96,31 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (t instanceof PsiArrayType) {
         int dims = t.getArrayDimensions();
         if (env_inner instanceof InterfaceItem) {
-          types.put(t, new ArrayTypeItem<InterfaceItem>((InterfaceItem)env_inner, dims));
+          types.put(t, new ArrayTypeItem((InterfaceItem)env_inner, dims));
         } else if (env_inner instanceof EnumItem) {
-          types.put(t, new ArrayTypeItem<EnumItem>((EnumItem)env_inner, dims));
+          types.put(t, new ArrayTypeItem((EnumItem)env_inner, dims));
         } else if (env_inner instanceof ClassItem) {
-          types.put(t, new ArrayTypeItem<ClassItem>((ClassItem) env_inner, dims));
+          types.put(t, new ArrayTypeItem((ClassItem) env_inner, dims));
         } else if (env_inner instanceof ErrorTypeItem) {
           return new ErrorTypeItem();
         } else {
           // this is a primitive type, but which one?
           if (env_inner.name().equals("boolean"))
-            types.put(t, new ArrayTypeItem<BooleanItem$>((BooleanItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((BooleanItem$)env_inner, dims));
           else if (env_inner.name().equals("int"))
-            types.put(t, new ArrayTypeItem<IntItem$>((IntItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((IntItem$)env_inner, dims));
           else if (env_inner.name().equals("char"))
-            types.put(t, new ArrayTypeItem<CharItem$>((CharItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((CharItem$)env_inner, dims));
           else if (env_inner.name().equals("float"))
-            types.put(t, new ArrayTypeItem<FloatItem$>((FloatItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((FloatItem$)env_inner, dims));
           else if (env_inner.name().equals("double"))
-            types.put(t, new ArrayTypeItem<DoubleItem$>((DoubleItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((DoubleItem$)env_inner, dims));
           else if (env_inner.name().equals("long"))
-            types.put(t, new ArrayTypeItem<LongItem$>((LongItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((LongItem$)env_inner, dims));
           else if (env_inner.name().equals("short"))
-            types.put(t, new ArrayTypeItem<ShortItem$>((ShortItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((ShortItem$)env_inner, dims));
           else if (env_inner.name().equals("void"))
-            types.put(t, new ArrayTypeItem<VoidItem$>((VoidItem$)env_inner, dims));
+            types.put(t, new ArrayTypeItem((VoidItem$)env_inner, dims));
           else {
             logger.error("Unknown primitive type: " + env_inner.qualifiedName());
             return new ErrorTypeItem();
@@ -141,8 +142,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
    * Make the IntelliJ-independent class that is used by the tarksi engine to look up possible names
    */
   public JavaEnvironment getJavaEnvironment() {
-    JavaEnvironment environment = new JavaEnvironment();
-
     Map<PsiElement, NamedItem> envitems = new HashMap<PsiElement, NamedItem>();
     Map<PsiType, NamedItem> types = new HashMap<PsiType, NamedItem>();
 
@@ -205,15 +204,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    // add items we found
-    for (NamedItem typeItem : types.values()) {
-      environment.addObject(typeItem);
-    }
-    for (NamedItem thing : envitems.values()) {
-      environment.addObject(thing);
-    }
-
-    return environment;
+    return Tarski.environment(types.values(),envitems.values());
   }
 
   /**

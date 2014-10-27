@@ -56,7 +56,7 @@ object Semantics {
   // for an expression which has a type, its associated type item
   def typeOf(node: Node, meaning: Denotation): TypeItem = {
     def typeOfLeaf(item: EnvItem): TypeItem = {
-      if (item.isInstanceOf[HasTypeItem]) item.asInstanceOf[HasTypeItem].ourType else null
+      if (item.isInstanceOf[ValueItem]) item.asInstanceOf[ValueItem].ourType else null
     }
 
     node match {
