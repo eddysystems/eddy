@@ -12,7 +12,6 @@ object Tarski {
     baseEnvironment.addObjects(types.asScala.toList++values.asScala.toList)
   }
 
-
   def fix(tokens: java.util.List[Token], env: JavaEnvironment): Unit = {
     val toks = tokens.asScala.toList.filterNot(isSpace)
     for ( root <- ParseEddy.parse(toks) ) {

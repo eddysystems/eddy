@@ -152,9 +152,6 @@ object Environment {
       t0
     }
 
-    // get an object
-    def getObjectByName[A <: NamedItem](name: String): A = things.find( x => x.isInstanceOf[A] && x.name == name ).orNull.asInstanceOf[A]
-
     // Fuzzy Query interface
 
     // what could this name be?
