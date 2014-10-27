@@ -116,7 +116,6 @@ object Environment {
   class LocalVariableItemImpl(name: Name, ourType: TypeItem) extends LocalVariableItem(name, ourType) with LocalItem
   class FieldItemImpl(name: Name, ourType: TypeItem, cls: ClassItem, val qualifiedName: Name, val relativeName: Name) extends FieldItem(name, ourType, cls)
 
-
   /**
    * Contains the environment used for name resolution
    */

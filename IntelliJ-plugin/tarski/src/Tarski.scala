@@ -14,11 +14,12 @@ object Tarski {
 
   def fix(tokens: java.util.List[Token], env: JavaEnvironment): Unit = {
     val toks = tokens.asScala.toList.filterNot(isSpace)
+    println("line " + toks)
     for ( root <- ParseEddy.parse(toks) ) {
-      println("ast: " + root)
-      println("meanings: ")
+      println("  ast: " + root)
+      println("  meanings: ")
       for ( den <- denotationScores(root, env) ) {
-        println("  " + den._2 + ": " + den._1)
+        println("    " + den._2 + ": " + den._1)
       }
     }
   }
