@@ -43,6 +43,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiScopesUtil.treeWalkUp(this, place, null);
   }
 
+  private Type makeArray(Type t, int dims) {
+    assert dims >= 1;
+    while (dims-- != 0)
+      t = new ArrayType(t);
+    return t;
+  }
+
   private Type addTypeToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
     if (!types.containsKey(t)) {
       // TODO: get modifiers
@@ -60,11 +67,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         } else {
           if (!envitems.containsKey(tcls)) {
             if (tcls.isInterface())
-              envitems.put(tcls, new InterfaceItemImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
+              envitems.put(tcls, new InterfaceTypeImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
             else if (tcls.isEnum())
-              envitems.put(tcls, new EnumItemImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
+              envitems.put(tcls, new EnumTypeImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
             else
-              envitems.put(tcls, new ClassItemImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
+              envitems.put(tcls, new ClassTypeImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
           }
           env_inner = (Type)envitems.get(tcls);
         }
@@ -97,31 +104,31 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (t instanceof PsiArrayType) {
         int dims = t.getArrayDimensions();
         if (env_inner instanceof InterfaceType) {
-          types.put(t, new ArrayType((InterfaceType)env_inner, dims));
+          types.put(t, makeArray((InterfaceType) env_inner, dims));
         } else if (env_inner instanceof EnumType) {
-          types.put(t, new ArrayType((EnumType)env_inner, dims));
+          types.put(t, makeArray((EnumType) env_inner, dims));
         } else if (env_inner instanceof ClassType) {
-          types.put(t, new ArrayType((ClassType) env_inner, dims));
+          types.put(t, makeArray((ClassType) env_inner, dims));
         } else if (env_inner instanceof ErrorType) {
           return new ErrorType();
         } else {
           // this is a primitive type, but which one?
           if (env_inner.name().equals("boolean"))
-            types.put(t, new ArrayType((BooleanType$)env_inner, dims));
+            types.put(t, makeArray((BooleanType$) env_inner, dims));
           else if (env_inner.name().equals("int"))
-            types.put(t, new ArrayType((IntType$)env_inner, dims));
+            types.put(t, makeArray((IntType$) env_inner, dims));
           else if (env_inner.name().equals("char"))
-            types.put(t, new ArrayType((CharType$)env_inner, dims));
+            types.put(t, makeArray((CharType$) env_inner, dims));
           else if (env_inner.name().equals("float"))
-            types.put(t, new ArrayType((FloatType$)env_inner, dims));
+            types.put(t, makeArray((FloatType$) env_inner, dims));
           else if (env_inner.name().equals("double"))
-            types.put(t, new ArrayType((DoubleType$)env_inner, dims));
+            types.put(t, makeArray((DoubleType$) env_inner, dims));
           else if (env_inner.name().equals("long"))
-            types.put(t, new ArrayType((LongType$)env_inner, dims));
+            types.put(t, makeArray((LongType$) env_inner, dims));
           else if (env_inner.name().equals("short"))
-            types.put(t, new ArrayType((ShortType$)env_inner, dims));
+            types.put(t, makeArray((ShortType$) env_inner, dims));
           else if (env_inner.name().equals("void"))
-            types.put(t, new ArrayType((VoidType$)env_inner, dims));
+            types.put(t, makeArray((VoidType$) env_inner, dims));
           else {
             logger.error("Unknown primitive type: " + env_inner.qualifiedName());
             return new ErrorType();
@@ -157,7 +164,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // classes may be contained in classes, so partial-order the list first
     for (PsiClass cls : classes) {
       // TODO: get type parameters etc
-      envitems.put(cls, new ClassItemImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
+      envitems.put(cls, new ClassTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
 
       // TODO: register everything that is below this class (some of which may already be in the env map)
     }
@@ -178,7 +185,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         PsiClass cls = method.getContainingClass();
         assert cls != null;
         if (!envitems.containsKey(cls)) {
-          envitems.put(cls, new ClassItemImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
+          envitems.put(cls, new ClassTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
         }
         assert envitems.get(cls) instanceof ClassType;
         envitems.put(method, new ConstructorItem((ClassType)envitems.get(cls), scala.collection.JavaConversions.asScalaBuffer(params).toList()));
