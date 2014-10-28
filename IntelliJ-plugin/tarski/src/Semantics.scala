@@ -123,10 +123,10 @@ object Semantics {
           (x, y) => for (a <- x.view; b <- y) yield a :+ b
     }
 
+    def merge2Denotations(d0: (Denotation,Score), d1: (Denotation,Score)): (Denotation,Score) = (d0._1 ++ d1._1, combine(List(d0._2, d1._2)))
+
     // merge several denotations and combine their scores
-    def mergeDenotations(ds: Seq[(Denotation,Score)]): (Denotation,Score) = ds.reduce {
-      (ds1, ds2) => (ds1._1 ++ ds2._1, combine(List(ds1._2, ds2._2)))
-    }
+    def mergeDenotations(ds: Seq[(Denotation,Score)]): (Denotation,Score) = ds.reduce( (ds1, ds2) => merge2Denotations(ds1,ds2) )
 
     def combineDenotationScores(ds: List[DenotationScores]): DenotationScores =
       cartesianProduct(ds).map( dens => mergeDenotations(dens) ).toList
@@ -137,10 +137,9 @@ object Semantics {
 
     def combine2Denotations(d0: DenotationScores, d1: DenotationScores, cond: Denotation => Boolean = _ => true): DenotationScores = {
       for {
-        (den0, score0) <- d0
-        (den1, score1) <- d1
-        den: Denotation = den0 ++ den1
-        score: Score = combine(List(score0, score1))
+        ds0 <- d0
+        ds1 <- d1
+        (den,score) = merge2Denotations(ds0,ds1)
       } yield {
         // check if e1 and e2 can be combined using op
         if (cond(den)) {
@@ -255,7 +254,10 @@ object Semantics {
               denotationScores(arg,env).filter( ds => convertibleTo(typeOf(arg,ds._1), ptype) )
             }
 
-            combineDenotationScores(dens)
+            if (dens.isEmpty)
+              List((eden,escore))
+            else
+              combineDenotationScores(dens).map( merge2Denotations(_,(eden,escore)) )
           }
         }
       }.flatten.toList
