@@ -7,9 +7,6 @@ import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import tarski.Tokens.*;
 
-/**
- * Created by martin on 23.10.14.
- */
 public class Tokenizer {
   private final static @NotNull Logger logger = Logger.getInstance("Tokenizer");
 

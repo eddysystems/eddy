@@ -91,12 +91,16 @@ object Types {
   def binaryLegal(op: BinaryOp, t0: Type, t1: Type) = binaryType(op,t0,t1).isDefined
 
   // Is lo a subtype of hi?
-  def isSubtype(lo: Type, hi: Type): Boolean =
-    throw new RuntimeException("Not implemented")
+  def isSubtype(lo: Type, hi: Type): Boolean = lo == hi || {
+    throw new RuntimeException("Not implemented: subtype " + lo + " < " + hi)
+  }
 
   // Whether from can be implicitly converted to to
-  def convertibleTo(from: Type, to: Type): Boolean = {
-    throw new RuntimeException("Not implemented")
+  def convertibleTo(from: Type, to: Type): Boolean = from == to || {
+    if (from == null || to == null)
+      false
+    else
+      throw new RuntimeException("Not implemented: convertibleTo " + from + " -> " + to)
   }
 
   // Whether from can be explicitly cast to to

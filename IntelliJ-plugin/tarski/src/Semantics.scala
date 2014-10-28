@@ -34,6 +34,23 @@ object Semantics {
     case _ => ZeroScore
   }
 
+  // for an expression that is callable, its associated callable item, otherwise, null
+  def callableItem(node: Node, meaning: Denotation): Callable = {
+    def callableItemLeaf(item: EnvItem): Callable = {
+      if (item.isInstanceOf[Callable]) item.asInstanceOf[Callable] else null
+    }
+
+    node match {
+      case NameExp(_) => callableItemLeaf(meaning(node))
+      case FieldExp(_,_,_) => callableItemLeaf(meaning(node))
+      case ParenExp(e) => callableItem(e, meaning)
+
+      case _ => null
+    }
+  }
+
+  def isCallable(node: Node, meaning: Denotation): Boolean = callableItem(node, meaning) != null
+
   // for an expression with meaning as a type, its associated type item, otherwise, null
   def typeItem(node: Node, meaning: Denotation): Type = {
     def typeItemLeaf(item: EnvItem): Type = {
@@ -79,6 +96,9 @@ object Semantics {
       case StringLit(_) => StringType
       case NullLit() => NullType
 
+      case BinaryExp(e0,op,e1) => binaryType(op, typeOf(e0, meaning), typeOf(e1, meaning)).orNull
+      case UnaryExp(op,e) => unaryType(op, typeOf(e, meaning)).orNull
+
       // TODO
       case _ => null
     }
@@ -88,7 +108,7 @@ object Semantics {
   def isType(node: Node, meaning: Denotation): Boolean = node.isInstanceOf[AST.Type]
 
   // given the denotation. does this node have a type?
-  def hasType(node: Node, meaning: Denotation): Boolean = typeOf(node,meaning) != null
+  def isValue(node: Node, meaning: Denotation): Boolean = typeOf(node,meaning) != null
 
   // is this an lvalue
   def isVariable(node: Node, meaning: Denotation): Boolean = {
@@ -139,7 +159,6 @@ object Semantics {
         den: Denotation = den0 ++ den1 ++ den2
         score: Score = combine(List(score0, score1, score2))
       } yield {
-        // check if e1 and e2 can be combined using op
         if (cond(den)) {
           List((den, score))
         } else {
@@ -186,7 +205,7 @@ object Semantics {
         } yield {
           if (isType(t, tden)) {
             combineDenotationAndScores(node, tden, tscore, env.typeFieldScores(typeItem(t, tden), field))
-          } else if (hasType(t, tden)) {
+          } else if (isValue(t, tden)) {
             combineDenotationAndScores(node, tden, tscore, env.typeFieldScores(typeOf(t, tden), field))
           } else {
             Nil
@@ -223,9 +242,9 @@ object Semantics {
         for {
           (eden, escore) <- denotationScores(e, env)
         } yield {
-          if (!eden(e).isInstanceOf[Callable] ||
-              eden(e).asInstanceOf[Callable].paramTypes.size != args.list.size ||
-              !args.list.forall( isType(_,eden) ) ) {
+          if (!isCallable(e,eden) ||
+              callableItem(e, eden).paramTypes.size != args.list.size ||
+              !args.list.forall( isValue(_,eden) ) ) {
             Nil
           } else {
             // check all elements of the list for denotations which match (convertible to the types required by e)
@@ -256,8 +275,7 @@ object Semantics {
                                                         denotationScores(op,env),
                                                         denotationScores(e1,env),
                                                         // it's not a binary exp if it's an assign exp
-                                                        den => !op.isInstanceOf[AssignOp]
-                                                          && binaryLegal(op, typeOf(e0, den), typeOf(e1, den)))
+                                                        den => binaryLegal(op, typeOf(e0, den), typeOf(e1, den)))
 
       case CastExp(t, e) =>
         combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => castableTo(typeOf(e,den), typeItem(t,den)) )
@@ -281,6 +299,8 @@ object Semantics {
                             })
 
     }
+
+    println("      scores for " + node + ": " + scores)
 
     // add the AST node bias
     biasDenotationScores(scores, ASTscore(node,env))

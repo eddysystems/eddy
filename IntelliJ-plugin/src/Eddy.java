@@ -24,12 +24,16 @@ import com.intellij.ui.LightweightHint;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
-
-import tarski.Tokens.Token;
+import tarski.AST.Node;
+import tarski.AST.Stmt;
+import tarski.Items.EnvItem;
+import tarski.Semantics.Score;
 import tarski.Tarski;
+import tarski.Tokens.Token;
 
 import javax.swing.*;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by martin on 15.10.14.
@@ -76,8 +80,8 @@ public class Eddy implements CaretListener, DocumentListener {
    * Shows a hint under the cursor with what eddy understood
    * @param line what eddy understood the current line meant
    */
-  protected void showHint(String line) {
-    JComponent hintcomponent = HintUtil.createInformationLabel("eddy says: " + line);
+  protected void showHint(String text) {
+    JComponent hintcomponent = HintUtil.createInformationLabel(text);
     LightweightHint hint = new LightweightHint(hintcomponent);
     HintManagerImpl hm = ((HintManagerImpl) HintManager.getInstance());
     hm.showEditorHint(hint, editor, HintManager.UNDER, HintManager.HIDE_BY_ANY_KEY | HintManager.HIDE_BY_TEXT_CHANGE | HintManager.HIDE_BY_SCROLLING, 0, false);
@@ -159,7 +163,20 @@ public class Eddy implements CaretListener, DocumentListener {
       });
 
       EnvironmentProcessor env = new EnvironmentProcessor(elem, true);
-      Tarski.fix(tokens, env.getJavaEnvironment());
+      List<scala.Tuple2<Stmt, List<scala.Tuple2<Map<Node, EnvItem>, Score> > > > results = Tarski.fix(tokens, env.getJavaEnvironment());
+
+      String text = "";
+
+      for (scala.Tuple2<Stmt, List<scala.Tuple2<Map<Node, EnvItem>, Score> > > interpretation : results) {
+        if (!interpretation._2().isEmpty()) {
+          text += "  Interpretation: " + interpretation._1();
+          for (scala.Tuple2<Map<Node, EnvItem>, Score> meaning : interpretation._2()) {
+            text += " " + meaning._2() + ": " + meaning._1();
+          }
+        }
+      }
+
+      showHint(text);
     }
 
     /*
@@ -214,8 +231,6 @@ public class Eddy implements CaretListener, DocumentListener {
     } else
       logger.debug("PSI element not available.");
     */
-
-    showHint(line);
 
     /*
     // this shows a popup, but it's way too intrusive. We need something like the hint, but have the options inside the
