@@ -43,6 +43,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiScopesUtil.treeWalkUp(this, place, null);
   }
 
+  private Type makeArray(Type t, int dims) {
+    assert dims >= 1;
+    while (dims-- != 0)
+      t = new ArrayType(t);
+    return t;
+  }
+
   private Type addTypeToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
     if (!types.containsKey(t)) {
       // TODO: get modifiers
@@ -97,31 +104,31 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (t instanceof PsiArrayType) {
         int dims = t.getArrayDimensions();
         if (env_inner instanceof InterfaceType) {
-          types.put(t, new ArrayType((InterfaceType)env_inner, dims));
+          types.put(t, makeArray((InterfaceType)env_inner, dims));
         } else if (env_inner instanceof EnumType) {
-          types.put(t, new ArrayType((EnumType)env_inner, dims));
+          types.put(t, makeArray((EnumType)env_inner, dims));
         } else if (env_inner instanceof ClassType) {
-          types.put(t, new ArrayType((ClassType) env_inner, dims));
+          types.put(t, makeArray((ClassType)env_inner, dims));
         } else if (env_inner instanceof ErrorType) {
           return new ErrorType();
         } else {
           // this is a primitive type, but which one?
           if (env_inner.name().equals("boolean"))
-            types.put(t, new ArrayType((BooleanType$)env_inner, dims));
+            types.put(t, makeArray((BooleanType$)env_inner, dims));
           else if (env_inner.name().equals("int"))
-            types.put(t, new ArrayType((IntType$)env_inner, dims));
+            types.put(t, makeArray((IntType$)env_inner, dims));
           else if (env_inner.name().equals("char"))
-            types.put(t, new ArrayType((CharType$)env_inner, dims));
+            types.put(t, makeArray((CharType$)env_inner, dims));
           else if (env_inner.name().equals("float"))
-            types.put(t, new ArrayType((FloatType$)env_inner, dims));
+            types.put(t, makeArray((FloatType$)env_inner, dims));
           else if (env_inner.name().equals("double"))
-            types.put(t, new ArrayType((DoubleType$)env_inner, dims));
+            types.put(t, makeArray((DoubleType$)env_inner, dims));
           else if (env_inner.name().equals("long"))
-            types.put(t, new ArrayType((LongType$)env_inner, dims));
+            types.put(t, makeArray((LongType$)env_inner, dims));
           else if (env_inner.name().equals("short"))
-            types.put(t, new ArrayType((ShortType$)env_inner, dims));
+            types.put(t, makeArray((ShortType$)env_inner, dims));
           else if (env_inner.name().equals("void"))
-            types.put(t, new ArrayType((VoidType$)env_inner, dims));
+            types.put(t, makeArray((VoidType$)env_inner, dims));
           else {
             logger.error("Unknown primitive type: " + env_inner.qualifiedName());
             return new ErrorType();

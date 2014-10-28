@@ -214,7 +214,7 @@ object Semantics {
       }.flatten.toList
 
       case ModType(mod, t) => combine2Denotations(denotationScores(mod, env), denotationScores(t, env)) // could be ModifiedTypeItem
-      case ArrayType(t) => denotationScores(t, env) // could be ArrayTypeItem
+      case AST.ArrayType(t) => denotationScores(t, env) // could be ArrayTypeItem
 
       case ApplyType(t, a) => // could be GenericTypeItem
         throw new Exception()
@@ -252,7 +252,8 @@ object Semantics {
             val dens: List[DenotationScores] = for {
               (arg, ptype) <- args.list zip eden(e).asInstanceOf[Callable].paramTypes
             } yield {
-              denotationScores(arg,env).filter( ds => convertibleTo(typeOf(arg,ds._1), ptype) )
+              // TODO: Try strict before loose in order to handle overloads
+              denotationScores(arg,env).filter( ds => looseInvokeContext(typeOf(arg,ds._1), ptype) )
             }
 
             combineDenotationScores(dens)
@@ -278,16 +279,16 @@ object Semantics {
                                                         den => binaryLegal(op, typeOf(e0, den), typeOf(e1, den)))
 
       case CastExp(t, e) =>
-        combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => castableTo(typeOf(e,den), typeItem(t,den)) )
+        combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => castsTo(typeOf(e,den), typeItem(t,den)) )
 
       case CondExp(cond, t, f) =>
         combine3Denotations(denotationScores(cond,env), denotationScores(t,env), denotationScores(f,env),
-                            den => convertibleTo(typeOf(cond,den), BooleanType) ) // TODO: are there restrictions on the types of t and f?
+                            den => isToBoolean(typeOf(cond,den)) ) // TODO: are there restrictions on the types of t and f?
 
       case AssignExp(left, None, right) =>
         combine2Denotations(denotationScores(left, env),
                             denotationScores(right, env),
-                            den => isVariable(left, den) && convertibleTo(typeOf(right, den), typeOf(left, den)))
+                            den => isVariable(left, den) && assignsTo(typeOf(right, den), typeOf(left, den)))
       case AssignExp(left, Some(op), right) =>
         combine3Denotations(denotationScores(left, env),
                             denotationScores(op, env),
@@ -295,7 +296,7 @@ object Semantics {
                             den => {
                               val lt = typeOf(left,den)
                               val rt = typeOf(right,den)
-                              isVariable(left,den) && binaryType(op,lt,rt).forall(convertibleTo(_,lt))
+                              isVariable(left,den) && binaryType(op,lt,rt).forall(assignsTo(_,lt))
                             })
 
     }

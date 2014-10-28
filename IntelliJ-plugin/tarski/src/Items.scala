@@ -34,14 +34,17 @@ object Items {
   sealed abstract class PackageItem(name: Name) extends NamedItem(name)
   sealed abstract class AnnotationItem(name: Name) extends NamedItem(name)
 
-  // Basic types: primitive, null, or void
-  sealed abstract class BasicType(name: Name) extends Type(name) {
+  // Void is not properly a type in Java-land, but it is for us
+  case object VoidType extends Type("void") {
+    def qualifiedName = "void"
+    def relativeName = "void"
+  }
+
+  // Primitive types (they'll also be in the environment, but they're nice to have around)
+  sealed abstract class PrimType(name: Name) extends Type(name) {
     def qualifiedName = name
     def relativeName = name
   }
-  
-  // Primitive types (they'll also be in the environment, but they're nice to have around)
-  sealed abstract class PrimType(name: Name) extends BasicType(name)
   case object BooleanType extends PrimType("boolean")
   case object ByteType    extends PrimType("byte")
   case object ShortType   extends PrimType("short")
@@ -51,22 +54,22 @@ object Items {
   case object DoubleType  extends PrimType("double")
   case object CharType    extends PrimType("char")
 
-  // Reference types
-  sealed trait RefType
+  sealed abstract class RefType(name: Name) extends Type(name)
+  sealed abstract class ClassType(name: Name) extends RefType(name)
+  sealed abstract class EnumType(name: Name) extends ClassType(name)
+  sealed abstract class InterfaceType(name: Name) extends ClassType(name)
 
-  // void and null aren't primitive
-  case object VoidType extends BasicType("void")
-  case object NullType extends BasicType("nulltype") with RefType
-
-  sealed abstract class ClassType(name: Name) extends Type(name) with RefType
-  sealed abstract class EnumType(name: Name) extends ClassType(name) with RefType
-  sealed abstract class InterfaceType(name: Name) extends ClassType(name) with RefType
+  // null is special
+  case object NullType extends RefType("nulltype") {
+    def qualifiedName = "nulltype"
+    def relativeName = "nulltype"
+  }
 
   // String and Object are important enough to name
   val ObjectType = new ClassItemImpl("Object", "java.lang.Object", "Object")
   val StringType = new ClassItemImpl("String", "java.lang.String", "String")
 
-  class ArrayType(val inner: Type, val dims: Int) extends Type(inner.name + "[]") with RefType {
+  case class ArrayType(val inner: Type) extends RefType(inner.name + "[]") {
     override def qualifiedName = inner.qualifiedName + "[]"
     override def relativeName = inner.relativeName + "[]"
   }

@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.AST.{Type => _, _}
+import tarski.AST.{Type => _, ArrayType => _, _}
 import tarski.Items._
 
 // Properties of types according to the Java spec, without extra intelligence
@@ -31,7 +31,9 @@ object Types {
     case _                               => IntType
   }
 
-  // Unbox to a primitive type if possible
+  // Box from or unbox to a primitive type
+  def box(t: PrimType): RefType =
+    throw new RuntimeException("Not implemented")
   def unbox(t: Type): Option[PrimType] = t match {
     case p: PrimType => Some(p)
     case c: ClassType => c.qualifiedName match {
@@ -51,6 +53,8 @@ object Types {
   def toNumeric(t: Type): Option[PrimType] = unbox(t).filter(isNumeric)
   def toIntegral(t: Type): Option[PrimType] = unbox(t).filter(isIntegral)
   def toBoolean(t: Type): Option[PrimType] = unbox(t).filter(isBoolean)
+  def isToNumeric(t: Type): Boolean = toNumeric(t).isDefined
+  def isToBoolean(t: Type): Boolean = toBoolean(t).isDefined
 
   // Is a type a reference type?
   def isRef(t: Type): Boolean = t.isInstanceOf[RefType]
@@ -69,11 +73,11 @@ object Types {
     case LtOp()|GtOp()|LeOp()|GeOp() => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield BooleanType
     case InstanceofOp() => throw new RuntimeException("instanceof is special since the RHS is a type")
     case EqOp()|NeOp() => ((t0,t1) match {
-        case (BooleanType,_) if toBoolean(t1).isDefined => true
-        case (_,BooleanType) if toBoolean(t0).isDefined => true
-        case (_:PrimType,_) if toNumeric(t1).isDefined => true
-        case (_,_:PrimType) if toNumeric(t0).isDefined => true
-        case _ => castableTo(t0,t1) || castableTo(t1,t0)
+        case (BooleanType,_) if isToBoolean(t1) => true
+        case (_,BooleanType) if isToBoolean(t0) => true
+        case (_:PrimType,_) if isToNumeric(t1) => true
+        case (_,_:PrimType) if isToNumeric(t0) => true
+        case _ => castsTo(t0,t1) || castsTo(t1,t0)
       }) match {
         case true => Some(BooleanType)
         case false => None
@@ -91,20 +95,108 @@ object Types {
   def binaryLegal(op: BinaryOp, t0: Type, t1: Type) = binaryType(op,t0,t1).isDefined
 
   // Is lo a subtype of hi?
-  def isSubtype(lo: Type, hi: Type): Boolean = lo == hi || {
-    throw new RuntimeException("Not implemented: subtype " + lo + " < " + hi)
+  def isSubtype(lo: Type, hi: Type): Boolean = lo==hi || isProperSubtype(lo,hi)
+  def isProperSubtype(lo: Type, hi: Type): Boolean = (lo,hi) match {
+    case _ if lo==hi => true
+    case (NullType,_: RefType) => true
+    case _ => throw new RuntimeException("Not implemented: isProperSubtype " + lo + " <: " + hi)
   }
 
-  // Whether from can be implicitly converted to to
-  def convertibleTo(from: Type, to: Type): Boolean = from == to || {
-    if (from == null || to == null)
-      false
-    else
-      throw new RuntimeException("Not implemented: convertibleTo " + from + " -> " + to)
+  // Properties of reference types
+  def isFinal(t: ClassType): Boolean =
+    throw new RuntimeException("Not implemented")
+  def isParameterized(t: RefType): Boolean = {
+    // TODO
+    false
+  }
+
+  // Widening, narrowing, and widening-and-narrowing primitive conversions: 5.1.2, 5.1.3, 5.1.4
+  def widensPrimTo(from: PrimType, to: PrimType): Boolean = (from,to) match {
+    case (ByteType,ShortType|IntType|LongType|FloatType|DoubleType)
+       | (ShortType|CharType,IntType|LongType|FloatType|DoubleType)
+       | (IntType,                   LongType|FloatType|DoubleType)
+       | (LongType,                           FloatType|DoubleType)
+       | (FloatType,                                    DoubleType) => true
+    case _ => false
+  }
+  def narrowsPrimTo(from: PrimType, to: PrimType): Boolean = (from,to) match {
+    case (ShortType, ByteType|CharType)
+       | (CharType,  ByteType|ShortType)
+       | (IntType,   ByteType|ShortType|CharType)
+       | (LongType,  ByteType|ShortType|CharType|IntType)
+       | (FloatType, ByteType|ShortType|CharType|IntType|LongType)
+       | (DoubleType,ByteType|ShortType|CharType|IntType|LongType|FloatType) => true
+    case _ => false
+  }
+  def widensNarrowsPrimTo(from: PrimType, to: PrimType): Boolean = (from,to) match {
+    case (ByteType,CharType) => true
+    case _ => false
+  }
+
+  // Widening and narrowing reference conversions: 5.1.5, 5.1.6
+  def widensRefTo(from: RefType, to: RefType): Boolean = isProperSubtype(from,to)
+  def narrowsRefTo(from: RefType, to: RefType): Boolean = isProperSubtype(to,from) || (!isSubtype(from,to) && ((from,to) match {
+    case (f: ClassType,t: InterfaceType) if !isFinal(f) && !isParameterized(t) => true
+    case (f: InterfaceType,t: ClassType) if !isFinal(t) => true
+    case (f: InterfaceType,t: InterfaceType) => true
+    // TODO: From Cloneable and java.io.Serializable to any T[]
+    case (ArrayType(f: RefType),ArrayType(t: RefType)) => narrowsRefTo(f,t)
+    case _ => false
+  }))
+
+  // Boxing and unboxing conversions: 5.1.7, 5.1.8
+  def boxesTo(from: Type, to: RefType): Boolean = from match {
+    case f: PrimType => box(f)==to
+    case NullType => to==NullType
+    case _ => false
+  }
+  def unboxesTo(from: Type, to: PrimType): Boolean = from==box(to)
+
+  // Generic-related conversions: 5.1.9, 5.1.10
+  def uncheckedConvertsTo(from: Type, to: Type): Boolean = {
+    // TODO
+    false
+  }
+  def captureConvertsTo(from: Type, to: Type): Boolean = {
+    // TODO
+    false
+  }
+
+  // Assignment contexts: 5.2
+  // TODO: Handle unchecked conversions
+  // TODO: Handle constant expression narrowing conversions
+  def assignsTo(from: Type, to: Type): Boolean = (from,to) match {
+    case _ if from==to => true
+    case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
+    case (f: RefType, t: RefType) => widensRefTo(f,t)
+    case (f: PrimType, t: RefType) => widensRefTo(box(f),t)
+    case (f: RefType, t: PrimType) => unbox(f) match {
+      case Some(fp) => widensPrimTo(fp,t)
+      case None => false
+    }
+  }
+
+  // Invocation contexts: 5.3
+  // TODO: Handle unchecked conversions
+  def strictInvokeContext(from: Type, to: Type): Boolean = (from,to) match {
+    case _ if from==to => true
+    case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
+    case (f: RefType, t: RefType) => widensRefTo(f,t)
+    case _ => false
+  }
+  def looseInvokeContext(from: Type, to: Type): Boolean = (from,to) match {
+    case _ if from==to => true
+    case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
+    case (f: RefType, t: RefType) => widensRefTo(f,t)
+    case (f: PrimType, t: RefType) => widensRefTo(box(f),t)
+    case (f: RefType, t: PrimType) => unbox(f) match {
+      case Some(fp) => widensPrimTo(fp,t)
+      case None => false
+    }
   }
 
   // Whether from can be explicitly cast to to
-  def castableTo(from: Type, to: Type): Boolean = from==to || ((from,to) match {
+  def castsTo(from: Type, to: Type): Boolean = from==to || ((from,to) match {
     case (_:ErrorType,_)|(_,_:ErrorType) => false
     case (VoidType,_) => false
     case (_,VoidType) => true
