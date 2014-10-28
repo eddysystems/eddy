@@ -1,6 +1,7 @@
 package tarski
 
-import AST._
+import AST.{Type => _, _}
+import Types._
 import Environment._
 import Items._
 
@@ -34,9 +35,9 @@ object Semantics {
   }
 
   // for an expression with meaning as a type, its associated type item, otherwise, null
-  def typeItem(node: Node, meaning: Denotation): TypeItem = {
-    def typeItemLeaf(item: EnvItem): TypeItem = {
-      if (item.isInstanceOf[TypeItem]) item.asInstanceOf[TypeItem] else null
+  def typeItem(node: Node, meaning: Denotation): Type = {
+    def typeItemLeaf(item: EnvItem): Type = {
+      if (item.isInstanceOf[Type]) item.asInstanceOf[Type] else null
     }
 
     node match {
@@ -48,16 +49,16 @@ object Semantics {
       case TypeApplyExp(e, _) => typeItem(e, meaning)
 
       case _ => {
-        assert(!node.isInstanceOf[Type])
+        assert(!node.isInstanceOf[AST.Type])
         null
       }
     }
   }
 
   // for an expression which has a type, its associated type item (null if there's no useful type)
-  def typeOf(node: Node, meaning: Denotation): TypeItem = {
-    def typeOfLeaf(item: EnvItem): TypeItem = {
-      if (item.isInstanceOf[ValueItem]) item.asInstanceOf[ValueItem].ourType else null
+  def typeOf(node: Node, meaning: Denotation): Type = {
+    def typeOfLeaf(item: EnvItem): Type = {
+      if (item.isInstanceOf[Value]) item.asInstanceOf[Value].ourType else null
     }
 
     node match {
@@ -69,14 +70,14 @@ object Semantics {
       case TypeApplyExp(e, _) => typeOf(e, meaning)
       case LitExp(i) => typeOf(i, meaning)
 
-      case IntLit(_) => IntItem
-      case LongLit(_) => LongItem
-      case FloatLit(_) => FloatItem
-      case DoubleLit(_) => DoubleItem
-      case BoolLit(_) => BooleanItem
-      case CharLit(_) => CharItem
-      case StringLit(_) => stringItem
-      case NullLit() => NullTypeItem
+      case IntLit(_) => IntType
+      case LongLit(_) => LongType
+      case FloatLit(_) => FloatType
+      case DoubleLit(_) => DoubleType
+      case BoolLit(_) => BooleanType
+      case CharLit(_) => CharType
+      case StringLit(_) => StringType
+      case NullLit() => NullType
 
       // TODO
       case _ => null
@@ -84,7 +85,7 @@ object Semantics {
   }
 
   // given the denotation, is this node a type?
-  def isType(node: Node, meaning: Denotation): Boolean = node.isInstanceOf[Type]
+  def isType(node: Node, meaning: Denotation): Boolean = node.isInstanceOf[AST.Type]
 
   // given the denotation. does this node have a type?
   def hasType(node: Node, meaning: Denotation): Boolean = typeOf(node,meaning) != null
@@ -174,19 +175,19 @@ object Semantics {
       case _: Bound => NullDenotation
 
       // Annotations
-      case Annotation(name) => nodeDenotationScores(node, env.getAnnotationScores(name))
+      case Annotation(name) => nodeDenotationScores(node, env.annotationScores(name))
 
       // Types
-      case NameType(name) => nodeDenotationScores(node, env.getTypeScores(name))
+      case NameType(name) => nodeDenotationScores(node, env.typeScores(name))
 
       case FieldType(t, field) => {
         for {
           (tden, tscore) <- denotationScores(t, env)
         } yield {
           if (isType(t, tden)) {
-            combineDenotationAndScores(node, tden, tscore, env.getTypeFieldScores(typeItem(t, tden), field))
+            combineDenotationAndScores(node, tden, tscore, env.typeFieldScores(typeItem(t, tden), field))
           } else if (hasType(t, tden)) {
-            combineDenotationAndScores(node, tden, tscore, env.getTypeFieldScores(typeOf(t, tden), field))
+            combineDenotationAndScores(node, tden, tscore, env.typeFieldScores(typeOf(t, tden), field))
           } else {
             Nil
           }
@@ -194,19 +195,19 @@ object Semantics {
       }.flatten.toList
 
       case ModType(mod, t) => combine2Denotations(denotationScores(mod, env), denotationScores(t, env)) // could be ModifiedTypeItem
-      case ArrayType(t: Type) => denotationScores(t, env) // could be ArrayTypeItem
+      case ArrayType(t) => denotationScores(t, env) // could be ArrayTypeItem
 
-      case ApplyType(t: Type, a: KList[Type]) => // could be GenericTypeItem
+      case ApplyType(t, a) => // could be GenericTypeItem
         throw new Exception()
 
-      case WildType(b: Option[(Bound, Type)]) => // could be BoundedTypeItem
+      case WildType(b) => // could be BoundedTypeItem
         if (b.isEmpty) NullDenotation
         else combine2Denotations(denotationScores(b.get._1, env),
           denotationScores(b.get._2, env),
-          den => den(b.get._2).isInstanceOf[ClassItem] || den(b.get._2).isInstanceOf[InterfaceItem])
+          den => den(b.get._2).isInstanceOf[ClassType] || den(b.get._2).isInstanceOf[InterfaceType])
 
       // Expressions
-      case NameExp(name) => nodeDenotationScores(node, env.getScores(name))
+      case NameExp(name) => nodeDenotationScores(node, env.scores(name))
 
       case LitExp(l) => denotationScores(l, env)
       case ParenExp(e) => denotationScores(e, env)
@@ -222,17 +223,17 @@ object Semantics {
         for {
           (eden, escore) <- denotationScores(e, env)
         } yield {
-          if (!eden(e).isInstanceOf[CallableItem] ||
-              eden(e).asInstanceOf[CallableItem].paramTypes.size != args.list.size ||
+          if (!eden(e).isInstanceOf[Callable] ||
+              eden(e).asInstanceOf[Callable].paramTypes.size != args.list.size ||
               !args.list.forall( isType(_,eden) ) ) {
             Nil
           } else {
             // check all elements of the list for denotations which match (convertible to the types required by e)
             // combine all these denotations
             val dens: List[DenotationScores] = for {
-              (arg, ptype) <- args.list zip eden(e).asInstanceOf[CallableItem].paramTypes
+              (arg, ptype) <- args.list zip eden(e).asInstanceOf[Callable].paramTypes
             } yield {
-              denotationScores(arg,env).filter( ds => env.convertibleTo(typeOf(arg,ds._1), ptype) )
+              denotationScores(arg,env).filter( ds => convertibleTo(typeOf(arg,ds._1), ptype) )
             }
 
             combineDenotationScores(dens)
@@ -242,38 +243,42 @@ object Semantics {
 
       case NewExp(t, e) => throw new Exception()
 
-      case WildExp(b: Option[(Bound,Type)]) =>
+      case WildExp(b) =>
         if (b.isEmpty) NullDenotation
         else combine2Denotations(denotationScores(b.get._1, env),
           denotationScores(b.get._2, env),
-          den => den(b.get._2).isInstanceOf[ClassItem] || den(b.get._2).isInstanceOf[InterfaceItem])
+          den => den(b.get._2).isInstanceOf[ClassType] || den(b.get._2).isInstanceOf[InterfaceType])
 
       case UnaryExp(op, e) => // could be UnaryExpItem
-        combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => env.operatorLegal(op,typeOf(e,den)))
+        combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => unaryLegal(op,typeOf(e,den)))
 
       case BinaryExp(e0, op, e1) => combine3Denotations(denotationScores(e0,env), // could be BinaryExpItem
                                                         denotationScores(op,env),
                                                         denotationScores(e1,env),
                                                         // it's not a binary exp if it's an assign exp
                                                         den => !op.isInstanceOf[AssignOp]
-                                                          && env.operatorLegal(op, typeOf(e0, den), typeOf(e1, den)))
+                                                          && binaryLegal(op, typeOf(e0, den), typeOf(e1, den)))
 
       case CastExp(t, e) =>
-        combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => env.castableTo(typeOf(e,den), typeItem(t,den)) )
+        combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => castableTo(typeOf(e,den), typeItem(t,den)) )
 
       case CondExp(cond, t, f) =>
         combine3Denotations(denotationScores(cond,env), denotationScores(t,env), denotationScores(f,env),
-                            den => env.convertibleTo(typeOf(cond,den), BooleanItem) ) // TODO: are there restrictions on the types of t and f?
+                            den => convertibleTo(typeOf(cond,den), BooleanType) ) // TODO: are there restrictions on the types of t and f?
 
       case AssignExp(left, None, right) =>
-          combine2Denotations(denotationScores(left, env),
-                              denotationScores(right, env),
-                              den => isVariable(left, den) && env.convertibleTo(typeOf(right, den), typeOf(left, den)))
+        combine2Denotations(denotationScores(left, env),
+                            denotationScores(right, env),
+                            den => isVariable(left, den) && convertibleTo(typeOf(right, den), typeOf(left, den)))
       case AssignExp(left, Some(op), right) =>
-          combine3Denotations(denotationScores(left, env),
-                              denotationScores(op, env),
-                              denotationScores(right, env),
-                              den => isVariable(left, den) && env.convertibleTo(env.expressionType(op, typeOf(left,den), typeOf(right,den)), typeOf(left, den)))
+        combine3Denotations(denotationScores(left, env),
+                            denotationScores(op, env),
+                            denotationScores(right, env),
+                            den => {
+                              val lt = typeOf(left,den)
+                              val rt = typeOf(right,den)
+                              isVariable(left,den) && binaryType(op,lt,rt).forall(convertibleTo(_,lt))
+                            })
 
     }
 
