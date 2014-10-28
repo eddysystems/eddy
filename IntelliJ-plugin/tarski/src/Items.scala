@@ -22,70 +22,80 @@ object Items {
   }
 
   // EnvItems that are a type-like thing
-  sealed abstract class TypeItem(name: Name) extends NamedItem(name)
+  sealed abstract class Type(name: Name) extends NamedItem(name)
 
   // NamedItems that have a type
-  sealed abstract class ValueItem(name: Name, val ourType: TypeItem) extends NamedItem(name)
+  sealed abstract class Value(name: Name, val ourType: Type) extends NamedItem(name)
 
   // a method or constructor
-  sealed abstract class CallableItem(name: Name, val paramTypes: List[TypeItem]) extends NamedItem(name)
+  sealed abstract class Callable(name: Name, val paramTypes: List[Type]) extends NamedItem(name)
 
   // stuff
   sealed abstract class PackageItem(name: Name) extends NamedItem(name)
   sealed abstract class AnnotationItem(name: Name) extends NamedItem(name)
 
-  // types
-  sealed abstract class BasicTypeItem(name: Name) extends TypeItem(name) {
+  // Basic types: primitive, null, or void
+  sealed abstract class BasicType(name: Name) extends Type(name) {
     def qualifiedName = name
     def relativeName = name
   }
+  
+  // Primitive types (they'll also be in the environment, but they're nice to have around)
+  sealed abstract class PrimType(name: Name) extends BasicType(name)
+  case object BooleanType extends PrimType("boolean")
+  case object ByteType    extends PrimType("byte")
+  case object ShortType   extends PrimType("short")
+  case object IntType     extends PrimType("int")
+  case object LongType    extends PrimType("long")
+  case object FloatType   extends PrimType("float")
+  case object DoubleType  extends PrimType("double")
+  case object CharType    extends PrimType("char")
 
-  // Java basic types (they'll also be in the environment, but they're nice to have around)
-  object BooleanItem extends BasicTypeItem("boolean")
-  object IntItem extends BasicTypeItem("int")
-  object FloatItem extends BasicTypeItem("float")
-  object LongItem extends BasicTypeItem("long")
-  object DoubleItem extends BasicTypeItem("double")
-  object CharItem extends BasicTypeItem("char")
-  object ShortItem extends BasicTypeItem("short")
-  object VoidItem extends BasicTypeItem("void")
+  // Reference types
+  sealed trait RefType
 
-  object NullTypeItem extends BasicTypeItem("nulltype")
+  // void and null aren't primitive
+  case object VoidType extends BasicType("void")
+  case object NullType extends BasicType("nulltype") with RefType
 
-  sealed abstract class ClassItem(name: Name) extends TypeItem(name)
-  sealed abstract class EnumItem(name: Name) extends ClassItem(name)
-  sealed abstract class InterfaceItem(name: Name) extends ClassItem(name)
+  sealed abstract class ClassType(name: Name) extends Type(name) with RefType
+  sealed abstract class EnumType(name: Name) extends ClassType(name) with RefType
+  sealed abstract class InterfaceType(name: Name) extends ClassType(name) with RefType
 
-  class ArrayTypeItem(val inner: TypeItem, val dims: Int) extends TypeItem(inner.name + "[]") {
+  // String and Object are important enough to name
+  val ObjectType = new ClassItemImpl("Object", "java.lang.Object", "Object")
+  val StringType = new ClassItemImpl("String", "java.lang.String", "String")
+
+  class ArrayType(val inner: Type, val dims: Int) extends Type(inner.name + "[]") with RefType {
     override def qualifiedName = inner.qualifiedName + "[]"
     override def relativeName = inner.relativeName + "[]"
   }
 
   // values
-  sealed abstract class FieldItem(name: Name, ourType: TypeItem, val cls: ClassItem) extends ValueItem(name, ourType)
-  sealed abstract class ParameterItem(name: Name, ourType: TypeItem) extends ValueItem(name, ourType)
-  sealed abstract class LocalVariableItem(name: Name, ourType: TypeItem) extends ValueItem(name, ourType)
-  sealed class EnumConstantItem(name: Name, val ourType: EnumItem) extends NamedItem(name) {
+  sealed abstract class FieldItem(name: Name, ourType: Type, val cls: ClassType) extends Value(name, ourType)
+  sealed abstract class ParameterItem(name: Name, ourType: Type) extends Value(name, ourType)
+  sealed abstract class LocalVariableItem(name: Name, ourType: Type) extends Value(name, ourType)
+  sealed class EnumConstantItem(name: Name, val ourType: EnumType) extends NamedItem(name) {
     def qualifiedName = ourType.qualifiedName + '.' + name
     def relativeName = ourType.relativeName + '.' + name
   }
 
   // callables
-  sealed abstract class MethodItem(name: Name, val retVal: TypeItem, paramTypes: List[TypeItem]) extends CallableItem(name, paramTypes)
-  sealed class ConstructorItem(val cls: ClassItem, paramTypes: List[TypeItem]) extends CallableItem(cls.name, paramTypes) {
+  sealed abstract class MethodItem(name: Name, val retVal: Type, paramTypes: List[Type]) extends Callable(name, paramTypes)
+  sealed class ConstructorItem(val cls: ClassType, paramTypes: List[Type]) extends Callable(cls.name, paramTypes) {
     def qualifiedName = cls.qualifiedName + "." + name
     def relativeName = cls.qualifiedName + "." + name // TODO: Not correct if we're in the same match
    }
 
   // things that are created by us
   // TODO: probably need all we have above here
-  sealed abstract class NewVariableItem(name: Name, t: TypeItem) extends NamedItem(name)
-  sealed abstract class NewTypeItem(name: Name) extends TypeItem(name)
+  sealed abstract class NewVariableItem(name: Name, t: Type) extends NamedItem(name)
+  sealed abstract class NewTypeItem(name: Name) extends Type(name)
   sealed abstract class NewMethodItem(name: Name) extends NamedItem(name)
 
   // when we cannot assign anything useful to this node
   sealed class ErrorItem() extends EnvItem
-  sealed class ErrorTypeItem() extends TypeItem("bad type") with NoLookupItem {
+  sealed class ErrorType() extends Type("bad type") with NoLookupItem {
     def qualifiedName = "bad type"
     def relativeName = "bad type"
   }
@@ -93,11 +103,11 @@ object Items {
   // These class implementations are created from the plugin side. They implement the matching interface defined in NamedItem
   class PackageItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends PackageItem(name)
 
-  class ClassItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends ClassItem(name)
-  class InterfaceItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends InterfaceItem(name)
-  class EnumItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends EnumItem(name)
+  class ClassItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends ClassType(name)
+  class InterfaceItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends InterfaceType(name)
+  class EnumItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends EnumType(name)
 
-  class MethodItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name, retVal: TypeItem, paramTypes: List[TypeItem]) extends MethodItem(name, retVal, paramTypes)
+  class MethodItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name, retVal: Type, paramTypes: List[Type]) extends MethodItem(name, retVal, paramTypes)
 
   // items that have no qualified names
   sealed trait LocalItem {
@@ -108,7 +118,7 @@ object Items {
     override def toString = "local:" + name
   }
 
-  class ParameterItemImpl(name: Name, ourType: TypeItem) extends ParameterItem(name, ourType) with LocalItem
-  class LocalVariableItemImpl(name: Name, ourType: TypeItem) extends LocalVariableItem(name, ourType) with LocalItem
-  class FieldItemImpl(name: Name, ourType: TypeItem, cls: ClassItem, val qualifiedName: Name, val relativeName: Name) extends FieldItem(name, ourType, cls)
+  class ParameterItemImpl(name: Name, ourType: Type) extends ParameterItem(name, ourType) with LocalItem
+  class LocalVariableItemImpl(name: Name, ourType: Type) extends LocalVariableItem(name, ourType) with LocalItem
+  class FieldItemImpl(name: Name, ourType: Type, cls: ClassType, val qualifiedName: Name, val relativeName: Name) extends FieldItem(name, ourType, cls)
 }
