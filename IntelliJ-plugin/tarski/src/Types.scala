@@ -32,21 +32,27 @@ object Types {
   }
 
   // Box from or unbox to a primitive type
-  def box(t: PrimType): RefType =
-    throw new RuntimeException("Not implemented")
+  def box(t: PrimType): RefType = t match {
+    case BooleanType => BooleanRefType
+    case ByteType => ByteRefType
+    case ShortType => ShortRefType
+    case IntType => IntRefType
+    case LongType => LongRefType
+    case FloatType => FloatRefType
+    case DoubleType => DoubleRefType
+    case CharType => CharRefType
+  }
   def unbox(t: Type): Option[PrimType] = t match {
-    case p: PrimType => Some(p)
-    case c: ClassType => c.qualifiedName match {
-      case "java.lang.Boolean"   => Some(BooleanType)
-      case "java.lang.Byte"      => Some(ByteType)
-      case "java.lang.Short"     => Some(ShortType)
-      case "java.lang.Integer"   => Some(IntType)
-      case "java.lang.Long"      => Some(LongType)
-      case "java.lang.Float"     => Some(FloatType)
-      case "java.lang.Double"    => Some(DoubleType)
-      case "java.lang.Character" => Some(CharType)
-    }
-    case _ => None
+    case p: PrimType    => Some(p)
+    case BooleanRefType => Some(BooleanType)
+    case ByteRefType    => Some(ByteType)
+    case ShortRefType   => Some(ShortType)
+    case IntRefType     => Some(IntType)
+    case LongRefType    => Some(LongType)
+    case FloatRefType   => Some(FloatType)
+    case DoubleRefType  => Some(DoubleType)
+    case CharRefType    => Some(CharType)
+    case _              => None
   }
 
   // Unbox if necessary to get different classes of primitive types

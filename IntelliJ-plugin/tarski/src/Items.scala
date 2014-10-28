@@ -65,9 +65,18 @@ object Items {
     def relativeName = "nulltype"
   }
 
-  // String and Object are important enough to name
-  val ObjectType = new ClassItemImpl("Object", "java.lang.Object", "Object")
-  val StringType = new ClassItemImpl("String", "java.lang.String", "String")
+  // Common references types are important enough to name
+  private def commonRef(name: String) = new ClassTypeImpl(name,"java.lang."+name,name)
+  val ObjectType     = commonRef("Object")
+  val StringType     = commonRef("String")
+  val BooleanRefType = commonRef("Boolean")
+  val ByteRefType    = commonRef("Byte")
+  val ShortRefType   = commonRef("Short")
+  val IntRefType     = commonRef("Integer")
+  val LongRefType    = commonRef("Long")
+  val FloatRefType   = commonRef("Float")
+  val DoubleRefType  = commonRef("Double")
+  val CharRefType    = commonRef("Character")
 
   case class ArrayType(val inner: Type) extends RefType(inner.name + "[]") {
     override def qualifiedName = inner.qualifiedName + "[]"
@@ -106,9 +115,9 @@ object Items {
   // These class implementations are created from the plugin side. They implement the matching interface defined in NamedItem
   class PackageItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends PackageItem(name)
 
-  class ClassItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends ClassType(name)
-  class InterfaceItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends InterfaceType(name)
-  class EnumItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends EnumType(name)
+  class ClassTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends ClassType(name)
+  class InterfaceTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends InterfaceType(name)
+  class EnumTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends EnumType(name)
 
   class MethodItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name, retVal: Type, paramTypes: List[Type]) extends MethodItem(name, retVal, paramTypes)
 
