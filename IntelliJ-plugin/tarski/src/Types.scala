@@ -100,12 +100,23 @@ object Types {
   def unaryLegal(op: UnaryOp, t: Type) = unaryType(op,t).isDefined
   def binaryLegal(op: BinaryOp, t0: Type, t1: Type) = binaryType(op,t0,t1).isDefined
 
+  // does this class implement the given interface?
+  def implements(cls: ClassType, intf: InterfaceType): Boolean =
+    (    cls.implements.contains(intf)
+      || cls.implements.exists( isProperSubtype(_, intf) )
+      || (cls.base != null && implements(cls.base, intf)) )
+
   // Is lo a subtype of hi?
   def isSubtype(lo: Type, hi: Type): Boolean = lo==hi || isProperSubtype(lo,hi)
   def isProperSubtype(lo: Type, hi: Type): Boolean = (lo,hi) match {
-    case _ if lo==hi => true
-    case (NullType,_: RefType) => true
-    case _ => throw new RuntimeException("Not implemented: isProperSubtype " + lo + " <: " + hi)
+    case _ if lo==hi => false // not proper
+    case (NullType,_: RefType) => true // null can be anything
+    case (_: RefType, ObjectType) => true // every ref is Object, even interfaces!
+
+    // lo is a proper subtype of hi if its superclass is a subtype of hi, or it implements (a subinterface of) hi
+    case (loi:InterfaceType,hi:InterfaceType) => if (loi.base == null) false else isSubtype(loi.base, hi)
+    case (loc:ClassType,_:ClassType) => if (loc.base == null) false else isSubtype(loc.base, hi)
+    case (loc:ClassType,hi:InterfaceType) => implements(loc,hi)
   }
 
   // Properties of reference types

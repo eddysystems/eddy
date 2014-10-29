@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import scala.collection.JavaConversions;
+
 /**
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
  */
@@ -50,6 +52,39 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return t;
   }
 
+  private RefType addClassToEnvMap(Map<PsiElement, NamedItem> envitems, PsiClass cls) {
+    RefType type = null;
+
+    if (cls == null)
+      return null;
+
+    if (!envitems.containsKey(cls)) {
+      if (cls.isInterface()) {
+        PsiClass superc = cls.getSuperClass();
+        InterfaceType superi = null;
+        if (superc == null || !superc.isInterface()) {
+          assert superc == null || superc.getQualifiedName().equals("java.lang.Object");
+        } else {
+          superi = (InterfaceType)addClassToEnvMap(envitems, superc);
+        }
+        type = new InterfaceTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls), superi);
+      } else if (cls.isEnum()) {
+        type = new EnumTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls));
+      } else {
+        ClassType supercls = (ClassType) addClassToEnvMap(envitems, cls.getSuperClass());
+        List<InterfaceType> implemented = new SmartList<InterfaceType>();
+        for (PsiClass intf : cls.getInterfaces()) {
+          implemented.add((InterfaceType)addClassToEnvMap(envitems, intf));
+        }
+        type = new ClassTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls), supercls, JavaConversions.asScalaBuffer(implemented).toList());
+      }
+      envitems.put(cls, type);
+      return type;
+    } else {
+      return (RefType)envitems.get(cls);
+    }
+  }
+
   private Type addTypeToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
     if (!types.containsKey(t)) {
       // TODO: get modifiers
@@ -65,15 +100,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (tcls == null) {
           return new ErrorType();
         } else {
-          if (!envitems.containsKey(tcls)) {
-            if (tcls.isInterface())
-              envitems.put(tcls, new InterfaceTypeImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
-            else if (tcls.isEnum())
-              envitems.put(tcls, new EnumTypeImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
-            else
-              envitems.put(tcls, new ClassTypeImpl(tcls.getName(), qualifiedName(tcls), relativeName(tcls)));
-          }
-          env_inner = (Type)envitems.get(tcls);
+          env_inner = addClassToEnvMap(envitems, tcls);
         }
       } else {
         assert inner instanceof PsiPrimitiveType;
@@ -164,7 +191,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // classes may be contained in classes, so partial-order the list first
     for (PsiClass cls : classes) {
       // TODO: get type parameters etc
-      envitems.put(cls, new ClassTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
+      addClassToEnvMap(envitems, cls);
 
       // TODO: register everything that is below this class (some of which may already be in the env map)
     }
@@ -185,7 +212,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         PsiClass cls = method.getContainingClass();
         assert cls != null;
         if (!envitems.containsKey(cls)) {
-          envitems.put(cls, new ClassTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls)));
+          addClassToEnvMap(envitems, cls);
         }
         assert envitems.get(cls) instanceof ClassType;
         envitems.put(method, new ConstructorItem((ClassType)envitems.get(cls), scala.collection.JavaConversions.asScalaBuffer(params).toList()));

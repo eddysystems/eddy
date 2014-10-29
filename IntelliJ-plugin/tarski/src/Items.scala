@@ -1,5 +1,6 @@
 package tarski
 
+import sun.jvm.hotspot.jdi.InterfaceTypeImpl
 import tarski.AST._
 
 object Items {
@@ -55,9 +56,9 @@ object Items {
   case object CharType    extends PrimType("char")
 
   sealed abstract class RefType(name: Name) extends Type(name)
-  sealed abstract class ClassType(name: Name) extends RefType(name)
-  sealed abstract class EnumType(name: Name) extends ClassType(name)
-  sealed abstract class InterfaceType(name: Name) extends ClassType(name)
+  sealed abstract class InterfaceType(name: Name, val base: InterfaceType = null) extends RefType(name)
+  sealed abstract class ClassType(name: Name, val base: ClassType, val implements: List[InterfaceType] = Nil) extends RefType(name)
+  sealed abstract class EnumType(name: Name) extends ClassType(name, EnumBaseType)
 
   // null is special
   case object NullType extends RefType("nulltype") {
@@ -66,19 +67,41 @@ object Items {
   }
 
   // Common references types are important enough to name
-  private def commonRef(name: String) = new ClassTypeImpl(name,"java.lang."+name,name)
-  val ObjectType     = commonRef("Object")
-  val StringType     = commonRef("String")
-  val BooleanRefType = commonRef("Boolean")
-  val ByteRefType    = commonRef("Byte")
-  val ShortRefType   = commonRef("Short")
-  val IntRefType     = commonRef("Integer")
-  val LongRefType    = commonRef("Long")
-  val FloatRefType   = commonRef("Float")
-  val DoubleRefType  = commonRef("Double")
-  val CharRefType    = commonRef("Character")
+  private def commonRef(name: String, base: ClassType, implements: List[InterfaceType]) = new ClassTypeImpl(name,"java.lang."+name,name,base,implements)
 
-  case class ArrayType(val inner: Type) extends RefType(inner.name + "[]") {
+  val ObjectType = commonRef("Object", null, List())
+
+  // we need some basic interfaces
+  // TODO: this is ugly, the relative names must change (maybe make that a function?)
+  val Serializable = new InterfaceTypeImpl("Serializable", "java.io.Serializable", "java.io.Serializable", null)
+  val CharSequence = new InterfaceTypeImpl("CharSequence", "java.lang.CharSequence", "CharSequence", null)
+  // TODO: without proper generics support, this is what Comparable<T> looks like for now
+  private def comparableRef(name: String) = new InterfaceTypeImpl("Comparable<"+name+">", "java.lang.Comparable" + name + ">", "Comparable<"+name+">", null)
+  val ComparableEnum = comparableRef("Enum")
+  val ComparableString = comparableRef("String")
+  val ComparableBoolean = comparableRef("Boolean")
+  val ComparableCharacter = comparableRef("Character")
+  val ComparableByte = comparableRef("Byte")
+  val ComparableShort = comparableRef("Short")
+  val ComparableInteger = comparableRef("Integer")
+  val ComparableLong = comparableRef("Long")
+  val ComparableFloat = comparableRef("Float")
+  val ComparableDouble = comparableRef("Double")
+  
+  val NumberType = new ClassTypeImpl("Number", "java.lang.Number", "Number", ObjectType, List(Serializable))
+
+  val EnumBaseType   = commonRef("Enum", ObjectType, List(Serializable, ComparableEnum))
+  val StringType     = commonRef("String", ObjectType, List(Serializable, CharSequence, ComparableString))
+  val BooleanRefType = commonRef("Boolean", ObjectType, List(Serializable, ComparableBoolean))
+  val CharRefType    = commonRef("Character", ObjectType, List(Serializable, ComparableCharacter))
+  val ByteRefType    = commonRef("Byte", NumberType, List(ComparableByte))
+  val ShortRefType   = commonRef("Short", NumberType, List(ComparableShort))
+  val IntRefType     = commonRef("Integer", NumberType, List(ComparableInteger))
+  val LongRefType    = commonRef("Long", NumberType, List(ComparableLong))
+  val FloatRefType   = commonRef("Float", NumberType, List(ComparableFloat))
+  val DoubleRefType  = commonRef("Double", NumberType, List(ComparableDouble))
+
+  case class ArrayType(inner: Type) extends RefType(inner.name + "[]") {
     override def qualifiedName = inner.qualifiedName + "[]"
     override def relativeName = inner.relativeName + "[]"
   }
@@ -115,8 +138,8 @@ object Items {
   // These class implementations are created from the plugin side. They implement the matching interface defined in NamedItem
   class PackageItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends PackageItem(name)
 
-  class ClassTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends ClassType(name)
-  class InterfaceTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends InterfaceType(name)
+  class ClassTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name, base: ClassType, implements: List[InterfaceType]) extends ClassType(name, base, implements)
+  class InterfaceTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name, base: InterfaceType) extends InterfaceType(name, base)
   class EnumTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends EnumType(name)
 
   class MethodItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name, retVal: Type, paramTypes: List[Type]) extends MethodItem(name, retVal, paramTypes)
