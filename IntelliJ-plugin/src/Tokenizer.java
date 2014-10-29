@@ -1,4 +1,6 @@
+import com.intellij.lang.java.lexer.JavaLexer;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.JavaTokenType;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.TokenType;
@@ -7,31 +9,52 @@ import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import tarski.Tokens.*;
 
+import java.util.ArrayList;
+
 public class Tokenizer {
   private final static @NotNull Logger logger = Logger.getInstance("Tokenizer");
 
   public static Token psiToTok(TreeElement elem) {
-    IElementType type = elem.getElementType();
+    return token(elem.getElementType(),elem.getText());
+  }
+
+  public static Token[] tokenize(final String input) {
+    JavaLexer lexer = new JavaLexer(LanguageLevel.HIGHEST);
+    lexer.start(input);
+    ArrayList<Token> tokens = new ArrayList<Token>();
+    for (;;) {
+      lexer.advance();
+      IElementType type = lexer.getTokenType();
+      if (type == null)
+        break;
+      int lo = lexer.getTokenStart();
+      int hi = lexer.getTokenEnd();
+      tokens.add(token(type,input.substring(lo,hi)));
+    }
+    return tokens.toArray(new Token[0]);
+  }
+
+  public static Token token(final IElementType type, final String text) {
     if (type == JavaTokenType.IDENTIFIER)
-      return new IdentTok(elem.getText());
+      return new IdentTok(text);
 
     if (type == JavaTokenType.C_STYLE_COMMENT)
-      return new EOLCommentTok(((PsiComment)elem).getText());
+      return new EOLCommentTok(text);
     if (type == JavaTokenType.END_OF_LINE_COMMENT)
-      return new CCommentTok(((PsiComment)elem).getText());
+      return new CCommentTok(text);
 
     if (type == JavaTokenType.INTEGER_LITERAL)
-      return new IntLitTok(elem.getText());
+      return new IntLitTok(text);
     if (type == JavaTokenType.LONG_LITERAL)
-      return new LongLitTok(elem.getText());
+      return new LongLitTok(text);
     if (type == JavaTokenType.FLOAT_LITERAL)
-      return new FloatLitTok(elem.getText());
+      return new FloatLitTok(text);
     if (type == JavaTokenType.DOUBLE_LITERAL)
-      return new DoubleLitTok(elem.getText());
+      return new DoubleLitTok(text);
     if (type == JavaTokenType.CHARACTER_LITERAL)
-      return new CharLitTok(elem.getText());
+      return new CharLitTok(text);
     if (type == JavaTokenType.STRING_LITERAL)
-      return new StringLitTok(elem.getText());
+      return new StringLitTok(text);
     if (type == JavaTokenType.TRUE_KEYWORD)
       return new BoolLitTok(true);
     if (type == JavaTokenType.FALSE_KEYWORD)
@@ -247,7 +270,6 @@ public class Tokenizer {
     if (type == TokenType.WHITE_SPACE)
       return new WhiteSpaceTok();
 
-    logger.warn("unknown token type: " + elem.getElementType() + " in element " + elem);
-    return null;
+    throw new RuntimeException("unknown token: type " + type + ", text " + text);
   }
 }
