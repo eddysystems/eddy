@@ -24,10 +24,7 @@ class Tests {
     val s: String = "blah"
 
     val vals = (b,i,d,s)
-    val ops = (new AddOp(), new MulOp(), new RShiftOp(), new LtOp(), new EqOp(), new AndOp(), new AndAndOp())
-
-
-
+    val ops = (AddOp(),MulOp(),RShiftOp(),LtOp(),EqOp(),AndOp(),AndAndOp())
 
     assert((i + i).getClass.getName == binaryType(new AddOp(), IntType, IntType).get.qualifiedName)
     assert((d + i).getClass.getName == binaryType(new AddOp(), DoubleType, IntType).get.qualifiedName)
