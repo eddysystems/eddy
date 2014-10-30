@@ -1,5 +1,7 @@
 package tarski
 
+import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
+
 import Semantics.Score
 import tarski.AST.{UnaryOp, BinaryOp}
 import tarski.Items._
@@ -9,7 +11,7 @@ object Environment {
   /**
    * Contains the environment used for name resolution
    */
-  case class JavaEnvironment(things: List[NamedItem]) {
+  case class JavaEnvironment(things: List[NamedItem]) extends scala.Serializable {
     // used on plugin side to fill in data
     def addObjects(xs: List[NamedItem]): JavaEnvironment = {
       // TODO: this is quadratic time due to order, but order for now is important
@@ -39,6 +41,23 @@ object Environment {
     def annotationScores(name: String): List[(Score, EnvItem)] = {
       things.toList.filter(x => x.isInstanceOf[AnnotationItem] && x.name == name).map((new Score(1.0f), _))
     }
+  }
+
+  def envToFile(env: JavaEnvironment, name: String): Unit = {
+    val os = new FileOutputStream(name)
+    val oos = new ObjectOutputStream(os)
+    oos.writeObject(env)
+    oos.close()
+    os.close()
+  }
+
+  def envFromFile(name: String): JavaEnvironment = {
+    val is = new FileInputStream(name)
+    val ois = new ObjectInputStream(is)
+    val env = ois.readObject().asInstanceOf[JavaEnvironment]
+    ois.close()
+    is.close()
+    env
   }
 
   // Environment with Java's basic types

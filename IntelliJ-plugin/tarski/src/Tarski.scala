@@ -1,13 +1,13 @@
 package tarski
 
-import java.util
+import java.io.{ObjectInputStream, FileInputStream}
 
 import Environment._
 import Tokens.{Token,isSpace}
 import Items._
 import ambiguity.ParseEddy
 import com.intellij.util.SmartList
-import tarski.Semantics.{DenotationScores, Score, Denotation, denotationScores}
+import tarski.Semantics.{Score, denotationScores}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer

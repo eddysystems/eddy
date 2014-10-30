@@ -91,8 +91,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       // remove the array part
       PsiType inner = t.getDeepComponentType();
-
-      Type env_inner = null;
+      Type env_inner;
 
       // classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
       if (inner instanceof PsiClassType) {
@@ -136,8 +135,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           types.put(t, makeArray((EnumType) env_inner, dims));
         } else if (env_inner instanceof ClassType) {
           types.put(t, makeArray((ClassType) env_inner, dims));
-        } else if (env_inner instanceof ErrorType) {
-          return new ErrorType();
         } else {
           // this is a primitive type, but which one?
           if (env_inner.name().equals("boolean"))
