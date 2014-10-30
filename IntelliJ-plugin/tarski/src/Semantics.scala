@@ -173,8 +173,10 @@ object Semantics {
     val NullDenotation = List((Nil.toMap[Node,EnvItem],ZeroScore))
 
     val scores = node match {
-        // TODO: control flow statements are a bit more involved
-      case _: Stmt => combineDenotationScores(children(node).map(denotationScores(_, env)))
+      case EmptyStmt() => NullDenotation
+      case ExpStmt(e) => denotationScores(e,env)
+      case BlockStmt(b) => combineDenotationScores(b.map(denotationScores(_, env)))
+      case _: Stmt => throw new RuntimeException("Not implemented")
 
       // AST nodes without name lookup just are what they are
       case _: BinaryOp => NullDenotation
