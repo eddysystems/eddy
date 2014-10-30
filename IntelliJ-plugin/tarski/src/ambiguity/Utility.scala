@@ -17,6 +17,11 @@ object Utility {
       case x => x
     }
 
+  def escape(raw: String): String = {
+    import scala.reflect.runtime.universe._
+    Literal(Constant(raw)).toString
+  }
+
   // Memoize the fixpoint of a recursive function
   def fixpoint[A,B](base: B, f: (A => B, A) => B): A => B = {
     val done = smutable.Map[A,B]()

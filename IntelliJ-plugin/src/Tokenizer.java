@@ -2,7 +2,6 @@ import com.intellij.lang.java.lexer.JavaLexer;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.JavaTokenType;
-import com.intellij.psi.PsiComment;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.tree.IElementType;
@@ -268,7 +267,7 @@ public class Tokenizer {
       return new ArrowTok();
 
     if (type == TokenType.WHITE_SPACE)
-      return new WhiteSpaceTok();
+      return new WhitespaceTok(text);
 
     throw new RuntimeException("unknown token: type " + type + ", text " + text);
   }
