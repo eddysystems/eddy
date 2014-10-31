@@ -1,5 +1,6 @@
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.source.PsiClassImpl;
 import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
 import com.intellij.psi.scope.JavaScopeProcessorEvent;
@@ -71,7 +72,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       } else if (cls.isEnum()) {
         type = new EnumTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls));
       } else {
-        ClassType supercls = (ClassType) addClassToEnvMap(envitems, cls.getSuperClass());
+        RefType supercls = addClassToEnvMap(envitems, cls.getSuperClass());
         List<InterfaceType> implemented = new SmartList<InterfaceType>();
         for (PsiClass intf : cls.getInterfaces()) {
           implemented.add((InterfaceType)addClassToEnvMap(envitems, intf));
@@ -83,6 +84,41 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     } else {
       return (RefType)envitems.get(cls);
     }
+  }
+
+  private Callable addMethodToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiMethod method) {
+    // get argument types
+    List<Type> params = new SmartList<Type>();
+    for (PsiParameter p : method.getParameterList().getParameters()) {
+      params.add(addTypeToEnvMap(envitems, types, p.getType()));
+    }
+
+    // get class
+    PsiClass cls = method.getContainingClass();
+    assert cls != null;
+    if (!envitems.containsKey(cls)) {
+      addClassToEnvMap(envitems, cls);
+    }
+    RefType clsitem = (RefType)envitems.get(cls);
+
+    Callable mitem;
+
+    if (method.isConstructor()) {
+      assert clsitem instanceof ClassType;
+      // TODO: varargs
+      // TODO: get type parameters
+      // TODO: what to do with parameters depending on type parameters and bounded types and such?
+      mitem = new ConstructorItem((ClassType)clsitem, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+    } else {
+      // TODO: varargs
+      // TODO: get type parameters
+      // TODO: what to do with parameters depending on type parameters and bounded types and such?
+      Type rtype = addTypeToEnvMap(envitems, types, method.getReturnType());
+      mitem = new MethodItemImpl(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+    }
+
+    envitems.put(method, mitem);
+    return mitem;
   }
 
   private Type addTypeToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
@@ -98,6 +134,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         PsiClass tcls = ((PsiClassType) inner).resolve();
         if (tcls == null) {
           return new ErrorType();
+        } else if (tcls instanceof PsiTypeParameter) {
+          // TODO: this should resolve to an existing type parameter (stored in the method's or class's type parameters array)
+          return new TypeParameterType(tcls.getName());
         } else {
           env_inner = addClassToEnvMap(envitems, tcls);
         }
@@ -108,6 +147,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           env_inner = BooleanType$.MODULE$;
         else if (inner == PsiType.INT)
           env_inner = IntType$.MODULE$;
+        else if (inner == PsiType.BYTE)
+          env_inner = ByteType$.MODULE$;
         else if (inner == PsiType.CHAR)
           env_inner = CharType$.MODULE$;
         else if (inner == PsiType.FLOAT)
@@ -141,6 +182,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
             types.put(t, makeArray((BooleanType$) env_inner, dims));
           else if (env_inner.name().equals("int"))
             types.put(t, makeArray((IntType$) env_inner, dims));
+          else if (env_inner.name().equals("byte"))
+            types.put(t, makeArray((ByteType$) env_inner, dims));
           else if (env_inner.name().equals("char"))
             types.put(t, makeArray((CharType$) env_inner, dims));
           else if (env_inner.name().equals("float"))
@@ -191,35 +234,27 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       addClassToEnvMap(envitems, cls);
 
       // TODO: register everything that is below this class (some of which may already be in the env map)
+      for (PsiField f : cls.getFields()) {
+        if (!envitems.containsKey(f))
+          envitems.put(f, new FieldItemImpl(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f)));
+      }
+      for (PsiMethod m : cls.getMethods()) {
+        if (!envitems.containsKey(m))
+          addMethodToEnvMap(envitems, types, m);
+      }
+      for (PsiMethod m : cls.getConstructors()) {
+        if (!envitems.containsKey(m))
+          addMethodToEnvMap(envitems, types, m);
+      }
+      for (PsiClass c : cls.getInnerClasses()) {
+        if (!envitems.containsKey(c))
+          addClassToEnvMap(envitems, c);
+      }
     }
 
     // register methods (also register types used in this method)
     for (PsiMethod method : methods) {
-      // get argument types
-      List<Type> params = new SmartList<Type>();
-      for (PsiParameter p : method.getParameterList().getParameters()) {
-        params.add(addTypeToEnvMap(envitems, types, p.getType()));
-      }
-
-      if (method.isConstructor()) {
-        // TODO: varargs
-        // TODO: get type parameters
-        // TODO: what to do with parameters depending on type parameters and bounded types and such?
-        // get class
-        PsiClass cls = method.getContainingClass();
-        assert cls != null;
-        if (!envitems.containsKey(cls)) {
-          addClassToEnvMap(envitems, cls);
-        }
-        assert envitems.get(cls) instanceof ClassType;
-        envitems.put(method, new ConstructorItem((ClassType)envitems.get(cls), scala.collection.JavaConversions.asScalaBuffer(params).toList()));
-      } else {
-        // TODO: varargs
-        // TODO: get type parameters
-        // TODO: what to do with parameters depending on type parameters and bounded types and such?
-        Type rtype = addTypeToEnvMap(envitems, types, method.getReturnType());
-        envitems.put(method, new MethodItemImpl(method.getName(), qualifiedName(method), relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList()));
-      }
+      addMethodToEnvMap(envitems, types, method);
     }
 
     // then, register objects which have types (enum constants, variables, parameters, fields), and their types
@@ -232,7 +267,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         envitems.put(var, new LocalVariableItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
       else if (var instanceof PsiField) {
         assert envitems.containsKey(((PsiField) var).getContainingClass());
-        envitems.put(var, new FieldItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType()), (ClassType) envitems.get(((PsiField) var).getContainingClass()), qualifiedName(var), relativeName(var)));
+        envitems.put(var, new FieldItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType()), (ClassType) envitems.get(((PsiField) var).getContainingClass()), relativeName(var)));
       }
     }
 

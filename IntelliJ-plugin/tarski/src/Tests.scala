@@ -1,15 +1,20 @@
 package tarski
 
 import scala.language.implicitConversions
+import com.intellij.util.SmartList
 import org.testng.annotations.{BeforeClass, Test}
 import org.testng.AssertJUnit._
 import tarski.AST._
-import Types.binaryType
-import tarski.Items.{DoubleType, IntType}
+
+import tarski.Tarski.fix
+import tarski.Environment.JavaEnvironment
+import tarski.Items.{IntType, LocalVariableItemImpl}
 import tarski.Lexer._
 import tarski.Tokens._
 import tarski.Pretty._
 import ambiguity.Utility._
+
+import scala.collection.JavaConverters._
 
 class Tests {
 
@@ -22,17 +27,16 @@ class Tests {
   }
 
   @Test
-  def expressionTypes(): Unit = {
-    val b: Boolean = false
-    val i: Int = 4
-    val d: Double = 1.0
-    val s: String = "blah"
+  def simpleExpression(): Unit = {
+    val env = JavaEnvironment(List(new LocalVariableItemImpl("x", IntType)))
+    println("environment: " + env)
 
-    val vals = (b,i,d,s)
-    val ops = (AddOp(),MulOp(),RShiftOp(),LtOp(),EqOp(),AndOp(),AndAndOp())
+    val tokens = new SmartList[Token](IdentTok("x"), WhitespaceTok(" "), EqTok(), WhitespaceTok(" "), IntLitTok("1"))
 
-    assert((i + i).getClass.getName == binaryType(new AddOp(), IntType, IntType).get.qualifiedName)
-    assert((d + i).getClass.getName == binaryType(new AddOp(), DoubleType, IntType).get.qualifiedName)
+    val result = fix(tokens, env)
+    val ast = ExpStmt(AssignExp(NameExp("x"), None, LitExp(IntLit("1"))))
+
+    assert( result.asScala.toList.exists( p => p._1 == ast ))
   }
 
   @Test

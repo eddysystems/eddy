@@ -104,7 +104,7 @@ object Types {
   def implements(cls: ClassType, intf: InterfaceType): Boolean =
     (    cls.implements.contains(intf)
       || cls.implements.exists( isProperSubtype(_, intf) )
-      || (cls.base != null && implements(cls.base, intf)) )
+      || (cls.base != null && cls.base.isInstanceOf[ClassType] && implements(cls.base.asInstanceOf[ClassType], intf)) )
 
   // Is lo a subtype of hi?
   def isSubtype(lo: Type, hi: Type): Boolean = lo==hi || isProperSubtype(lo,hi)
@@ -183,6 +183,8 @@ object Types {
   // TODO: Handle unchecked conversions
   // TODO: Handle constant expression narrowing conversions
   def assignsTo(from: Type, to: Type): Boolean = (from,to) match {
+    case (null,_) => false
+    case (_,null) => false
     case _ if from==to => true
     case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
     case (f: RefType, t: RefType) => widensRefTo(f,t)

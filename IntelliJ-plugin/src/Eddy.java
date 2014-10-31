@@ -78,13 +78,18 @@ public class Eddy implements CaretListener, DocumentListener {
 
   /**
    * Shows a hint under the cursor with what eddy understood
-   * @param line what eddy understood the current line meant
+   * @param text what eddy understood the current line meant
    */
   protected void showHint(String text) {
-    JComponent hintcomponent = HintUtil.createInformationLabel(text);
+    //JComponent hintcomponent = HintUtil.createInformationLabel(text);
+    JComponent hintcomponent = HintUtil.createQuestionLabel(text);
     LightweightHint hint = new LightweightHint(hintcomponent);
     HintManagerImpl hm = ((HintManagerImpl) HintManager.getInstance());
-    hm.showEditorHint(hint, editor, HintManager.UNDER, HintManager.HIDE_BY_ANY_KEY | HintManager.HIDE_BY_TEXT_CHANGE | HintManager.HIDE_BY_SCROLLING, 0, false);
+    try {
+      hm.showEditorHint(hint, editor, HintManager.UNDER, HintManager.HIDE_BY_ANY_KEY | HintManager.HIDE_BY_TEXT_CHANGE | HintManager.HIDE_BY_SCROLLING, 0, false);
+    } catch (NullPointerException e) {
+      logger.error(e);
+    }
   }
 
   /**
@@ -169,14 +174,15 @@ public class Eddy implements CaretListener, DocumentListener {
 
       for (scala.Tuple2<Stmt, List<scala.Tuple2<Map<Node, EnvItem>, Score> > > interpretation : results) {
         if (!interpretation._2().isEmpty()) {
-          text += "  Interpretation: " + interpretation._1();
+          text += "  Interpretation: " + interpretation._1() + "<br/>";
           for (scala.Tuple2<Map<Node, EnvItem>, Score> meaning : interpretation._2()) {
-            text += " " + meaning._2() + ": " + meaning._1();
+            text += " " + meaning._2() + ": " + meaning._1() + "<br/>";
           }
         }
       }
 
-      showHint(text);
+      logger.debug("eddy says:" + text);
+      showHint("<html><body>" + text + "</body></html>");
     }
 
     /*
