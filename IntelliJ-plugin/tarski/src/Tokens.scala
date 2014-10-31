@@ -257,4 +257,7 @@ object Tokens {
     case RShiftEqTok() => ">>="
     case UnsignedRShiftEqTok() => ">>>="
   }
+
+  def show(ts: List[Token]): String =
+    ts map show mkString " "
 }

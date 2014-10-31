@@ -72,11 +72,11 @@ object Semantics {
       case AST.StringLit(v) => List((new Denotations.StringLit(unescapeJava(v.slice(1,v.size-1)),v), ZeroScore))
       case AST.NullLit() => List((new Denotations.NullLit, ZeroScore))
 
-      case _: AST.Mod => throw new RuntimeException("Trying to compute denotation for modifier: " + node)
-      case _: Bound => throw new RuntimeException("Trying to compute denotation for bound: " + node)
-
       // Annotations
       case Annotation(name) => throw new NotImplementedError("Trying to compute denotation for annotation: " + node)
+
+      case _: AST.Mod => throw new RuntimeException("Trying to compute denotation for modifier: " + node)
+      case _: Bound => throw new RuntimeException("Trying to compute denotation for bound: " + node)
 
       // Types
       case NameType(name) => env.typeScores(name).collect( {
@@ -216,7 +216,7 @@ object Semantics {
       case UnaryExp(op, e) => // could be UnaryExpItem
         combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => unaryLegal(op,typeOf(e,den)))
 
-      case BinaryExp(e0, op, e1) => combine3Denotations(denotationScores(e0,env), // could be BinaryExpItem
+      case BinaryExp(op, e0, e1) => combine3Denotations(denotationScores(e0,env), // could be BinaryExpItem
                                                         denotationScores(op,env),
                                                         denotationScores(e1,env),
                                                         // it's not a binary exp if it's an assign exp

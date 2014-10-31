@@ -217,6 +217,7 @@ object Types {
   // Whether from can be explicitly cast to to
   def castsTo(from: Type, to: Type): Boolean = from==to || ((from,to) match {
     case (_:ErrorType,_)|(_,_:ErrorType) => false
+    case (_:TypeParameterType,_)|(_,_:TypeParameterType) => false // TODO: Handle type parameters correctly
     case (VoidType,_) => false
     case (_,VoidType) => true
     case (f:PrimType,t:PrimType) => (f==BooleanType)==(t==BooleanType)
