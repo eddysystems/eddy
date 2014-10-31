@@ -56,8 +56,8 @@ class Tests {
   def pretty(): Unit = {
     implicit def i(i: Int): Exp = LitExp(IntLit(i.toString))
     def check(s: String, e: Exp) = assertEquals(s,show(tokens(e)))
-    def add(x: Exp, y: Exp) = BinaryExp(x,AddOp(),y)
-    def mul(x: Exp, y: Exp) = BinaryExp(x,MulOp(),y)
+    def add(x: Exp, y: Exp) = BinaryExp(AddOp(),x,y)
+    def mul(x: Exp, y: Exp) = BinaryExp(MulOp(),x,y)
 
     assertEquals(AddFix,fixity(AddOp()))
     assertEquals(AddFix,fixity(add(1,2)))

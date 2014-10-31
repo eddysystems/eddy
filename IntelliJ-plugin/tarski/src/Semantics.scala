@@ -96,7 +96,7 @@ object Semantics {
       case StringLit(_) => StringType
       case NullLit() => NullType
 
-      case BinaryExp(e0,op,e1) => binaryType(op, typeOf(e0, meaning), typeOf(e1, meaning)).orNull
+      case BinaryExp(op,e0,e1) => binaryType(op, typeOf(e0, meaning), typeOf(e1, meaning)).orNull
       case UnaryExp(op,e) => unaryType(op, typeOf(e, meaning)).orNull
 
       // TODO
@@ -276,7 +276,7 @@ object Semantics {
       case UnaryExp(op, e) => // could be UnaryExpItem
         combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => unaryLegal(op,typeOf(e,den)))
 
-      case BinaryExp(e0, op, e1) => combine3Denotations(denotationScores(e0,env), // could be BinaryExpItem
+      case BinaryExp(op, e0, e1) => combine3Denotations(denotationScores(e0,env), // could be BinaryExpItem
                                                         denotationScores(op,env),
                                                         denotationScores(e1,env),
                                                         // it's not a binary exp if it's an assign exp

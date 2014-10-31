@@ -72,7 +72,7 @@ object AST {
   case class NewExp(t: Option[KList[Type]], e: Exp) extends Exp
   case class WildExp(b: Option[(Bound,Type)]) extends Exp
   case class UnaryExp(op: UnaryOp, e: Exp) extends Exp
-  case class BinaryExp(e0: Exp, op: BinaryOp, e1: Exp) extends Exp
+  case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp
   case class CastExp(t: Type, e: Exp) extends Exp
   case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
   case class AssignExp(left: Exp, op: Option[AssignOp], right: Exp) extends Exp

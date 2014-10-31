@@ -103,7 +103,7 @@ object Pretty {
       case NewExp(_,_) => NewFix
       case WildExp(Some(_)) => WildFix
       case UnaryExp(op,_) => fixity(op)
-      case BinaryExp(_,op,_) => fixity(op)
+      case BinaryExp(op,_,_) => fixity(op)
       case CastExp(_,_) => PrefixFix
       case CondExp(_,_,_) => CondFix
       case AssignExp(_,_,_) => AssignFix
@@ -123,7 +123,7 @@ object Pretty {
       case WildExp(Some((b,t))) => QuestionTok() :: token(b) :: right(WildFix,t)
       case UnaryExp(op,e) if prefix(op) => tokens(op) ::: right(PrefixFix,e)
       case UnaryExp(op,e)               => left(PostfixFix,e) ::: tokens(op)
-      case BinaryExp(x,op,y) => { val s = fixity(op); left(s,x) ::: token(op) :: right(s,y) }
+      case BinaryExp(op,x,y) => { val s = fixity(op); left(s,x) ::: token(op) :: right(s,y) }
       case CastExp(t,e) => parens(t) ::: right(PrefixFix,e)
       case CondExp(c,t,f) => left(CondFix,c) ::: QuestionTok() :: tokens(t) ::: ColonTok() :: right(CondFix,f)
       case AssignExp(x,op,y) => left(AssignFix,x) ::: token(op) :: right(AssignFix,y)
