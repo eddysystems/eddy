@@ -3,14 +3,10 @@ package tarski
 import org.apache.commons.lang.StringEscapeUtils.{escapeJava,unescapeJava}
 
 import AST.{Type => _, _}
-import Types._
 import Environment._
 import Items._
 import tarski.Denotations._
 
-/**
- * Created by martin on 21.10.14.
- */
 object Semantics {
 
   /**
@@ -134,8 +130,7 @@ object Semantics {
           val den = fitem match {
             case t: Items.Type => new TypeDen(t)
             case f: Items.FieldItem =>
-              if (bden.isInstanceOf[ExprDen]) { // bden has a type, but we don't know what it is
-                assert(isValue(bden))
+              if (isValue(bden)) { // bden has a type, but we don't know what it is
                 new FieldExprDen(bden.asInstanceOf[ExprDen], new FieldDen(f))
               } else { // bden is a type, so we don't need it, t carries all information
                 assert(isType(bden))

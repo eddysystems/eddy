@@ -164,6 +164,7 @@ object Items {
   class EnumTypeImpl(name: Name, val containing: NamedItem, val relativeName: Name) extends EnumType(name) with scala.Serializable
 
   class MethodItemImpl(name: Name, override val containing: RefType, val relativeName: Name, retVal: Type, paramTypes: List[Type]) extends MethodItem(name, retVal, paramTypes) with ClassMember with scala.Serializable
+  class StaticMethodItemImpl(name: Name, override val containing: RefType, val relativeName: Name, retVal: Type, paramTypes: List[Type]) extends StaticMethodItem(name, retVal, paramTypes) with ClassMember with scala.Serializable
 
   // items that have no qualified names
   sealed trait LocalItem {
@@ -177,4 +178,5 @@ object Items {
   class ParameterItemImpl(name: Name, ourType: Type) extends ParameterItem(name, ourType) with LocalItem with scala.Serializable
   class LocalVariableItemImpl(name: Name, ourType: Type) extends LocalVariableItem(name, ourType) with LocalItem with scala.Serializable
   class FieldItemImpl(name: Name, ourType: Type, val containing: ClassType, val relativeName: Name) extends FieldItem(name, ourType) with ClassMember with scala.Serializable
+  class StaticFieldItemImpl(name: Name, ourType: Type, val containing: ClassType, val relativeName: Name) extends StaticFieldItem(name, ourType) with ClassMember with scala.Serializable
 }
