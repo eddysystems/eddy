@@ -65,7 +65,7 @@ object Grammar {
       sym(s,"grammar")
       for ((p,a) <- ps) {
         p foreach {sym(_,s"bad production $s -> $p")}
-        def count(c: Char) = a.count(c==)
+        def count(c: Char) = a.count(c==_)
         if (   count('(') != count(')')
             || count('[') != count(']')
             || count('{') != count('}'))

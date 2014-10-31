@@ -2,14 +2,17 @@ package tarski
 
 import com.intellij.util.SmartList
 import org.testng.annotations.{BeforeClass, Test}
+import org.testng.AssertJUnit._
 import tarski.AST._
+
 import tarski.Tarski.fix
-import tarski.Environment.{JavaEnvironment, envFromFile}
+import tarski.Environment.JavaEnvironment
 import tarski.Items.{IntType, LocalVariableItemImpl}
+import tarski.Lexer._
 import tarski.Tokens._
+import ambiguity.Utility._
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 
 class Tests {
 
@@ -26,11 +29,28 @@ class Tests {
     val env = JavaEnvironment(List(new LocalVariableItemImpl("x", IntType)))
     println("environment: " + env)
 
-    val tokens = new SmartList[Token](WhiteSpaceTok(), IdentTok("x"), WhiteSpaceTok(), EqTok(), WhiteSpaceTok(), IntLitTok("1"))
+    val tokens = new SmartList[Token](IdentTok("x"), WhitespaceTok(" "), EqTok(), WhitespaceTok(" "), IntLitTok("1"))
 
     val result = fix(tokens, env)
     val ast = ExpStmt(AssignExp(NameExp("x"), None, LitExp(IntLit("1"))))
 
     assert( result.asScala.toList.exists( p => p._1 == ast ))
+  }
+
+  @Test
+  def lexer(): Unit = {
+    // Utilities
+    def spaced(ts: List[Token]): List[Token] = ts match {
+      case Nil|List(_) => ts
+      case x :: xs => x :: WhitespaceTok(" ") :: spaced(xs)
+    }
+    def check(name: String, cons: String => Token, options: String) =
+      assertEquals(spaced(splitWhitespace(options) map cons),lex(options))
+
+    assertEquals(spaced(List(AbstractTok(),FinalTok(),DoTok())),lex("abstract final do"))
+    check("ints",IntLitTok,"0 1 17l 0x81 07_43 0b1010_110")
+    check("floats",FloatLitTok,"5.3 .4e-8 0x4.aP1_7")
+    check("chars",CharLitTok,"""'x' '\t' '\n' '\0133'""")
+    check("strings",StringLitTok,""""xyz" "\n\b\r\t" "\0\1\2"""")
   }
 }
