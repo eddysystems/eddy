@@ -1,9 +1,12 @@
 package tarski
 
+import org.apache.commons.lang.StringEscapeUtils.{escapeJava,unescapeJava}
+
 import AST.{Type => _, _}
 import Types._
 import Environment._
 import Items._
+import tarski.Denotations._
 
 /**
  * Created by martin on 21.10.14.
@@ -17,7 +20,7 @@ object Semantics {
   class Score(val s: Float) extends Ordered[Score] {
     override def compare(s2: Score) = s.compare(s2.s)
 
-    override def toString() = s.toString
+    override def toString = s.toString
   }
 
   object ZeroScore extends Score(0)
@@ -26,94 +29,12 @@ object Semantics {
     s.reduce( (x,y) => new Score(x.s + y.s) )
   }
 
-  type Denotation = Map[Node,EnvItem]
+  type Denotation = Den
   type DenotationScores = List[(Denotation,Score)]
 
   // get a score for a AST tree node type (given an instance), given the environment
   def ASTscore(node: Node, env: JavaEnvironment): Score = node match {
     case _ => ZeroScore
-  }
-
-  // for an expression that is callable, its associated callable item, otherwise, null
-  def callableItem(node: Node, meaning: Denotation): Callable = {
-    def callableItemLeaf(item: EnvItem): Callable = {
-      if (item.isInstanceOf[Callable]) item.asInstanceOf[Callable] else null
-    }
-
-    node match {
-      case NameExp(_) => callableItemLeaf(meaning(node))
-      case FieldExp(_,_,_) => callableItemLeaf(meaning(node))
-      case ParenExp(e) => callableItem(e, meaning)
-
-      case _ => null
-    }
-  }
-
-  def isCallable(node: Node, meaning: Denotation): Boolean = callableItem(node, meaning) != null
-
-  // for an expression with meaning as a type, its associated type item, otherwise, null
-  def typeItem(node: Node, meaning: Denotation): Type = {
-    def typeItemLeaf(item: EnvItem): Type = {
-      if (item.isInstanceOf[Type]) item.asInstanceOf[Type] else null
-    }
-
-    node match {
-      case NameType(_) => typeItemLeaf(meaning(node))
-      case FieldType(_,_) => typeItemLeaf(meaning(node))
-      case NameExp(_) => typeItemLeaf(meaning(node))
-      case ParenExp(e) => typeItem(e, meaning)
-      case FieldExp(_, _, f) => typeItemLeaf(meaning(node))
-      case TypeApplyExp(e, _) => typeItem(e, meaning)
-
-      case _ => {
-        assert(!node.isInstanceOf[AST.Type])
-        null
-      }
-    }
-  }
-
-  // for an expression which has a type, its associated type item (null if there's no useful type)
-  def typeOf(node: Node, meaning: Denotation): Type = {
-    def typeOfLeaf(item: EnvItem): Type = {
-      if (item.isInstanceOf[Value]) item.asInstanceOf[Value].ourType else null
-    }
-
-    node match {
-      case NameType(_) => typeOfLeaf(meaning(node))
-      case FieldType(_,_) => typeOfLeaf(meaning(node))
-      case NameExp(_) => typeOfLeaf(meaning(node))
-      case ParenExp(e) => typeOf(e, meaning)
-      case FieldExp(_, _, f) => typeOfLeaf(meaning(node))
-      case TypeApplyExp(e, _) => typeOf(e, meaning)
-      case LitExp(i) => typeOf(i, meaning)
-
-      case IntLit(_) => IntType
-      case LongLit(_) => LongType
-      case FloatLit(_) => FloatType
-      case DoubleLit(_) => DoubleType
-      case BoolLit(_) => BooleanType
-      case CharLit(_) => CharType
-      case StringLit(_) => StringType
-      case NullLit() => NullType
-
-      case BinaryExp(e0,op,e1) => binaryType(op, typeOf(e0, meaning), typeOf(e1, meaning)).orNull
-      case UnaryExp(op,e) => unaryType(op, typeOf(e, meaning)).orNull
-
-      // TODO
-      case _ => null
-    }
-  }
-
-  // given the denotation, is this node a type?
-  def isType(node: Node, meaning: Denotation): Boolean = node.isInstanceOf[AST.Type]
-
-  // given the denotation. does this node have a type?
-  def isValue(node: Node, meaning: Denotation): Boolean = typeOf(node,meaning) != null
-
-  // is this an lvalue
-  def isVariable(node: Node, meaning: Denotation): Boolean = {
-    // TODO
-    true
   }
 
   // get scores different things in the environment an AST node could be
@@ -123,129 +44,156 @@ object Semantics {
           (x, y) => for (a <- x.view; b <- y) yield a :+ b
     }
 
-    def merge2Denotations(d0: (Denotation,Score), d1: (Denotation,Score)): (Denotation,Score) = (d0._1 ++ d1._1, combine(List(d0._2, d1._2)))
+    def cartesianProductIf[A](xs: Traversable[Traversable[A]], cond: A => Boolean): Seq[Seq[A]] = xs.foldLeft(Seq(Seq.empty[A])) {
+          (x, y) => for (a <- x.view; b <- y if cond(b) ) yield a :+ b
+    }
 
-    // merge several denotations and combine their scores
-    def mergeDenotations(ds: Seq[(Denotation,Score)]): (Denotation,Score) = ds.reduce( (ds1, ds2) => merge2Denotations(ds1,ds2) )
+    val scores: DenotationScores = node match {
+      case EmptyStmt() => List((EmptyStmtDen(),ZeroScore))
+      case ExpStmt(e) => denotationScores(e,env).collect( {
+        case (x: ExprDen,y) => (new ExprStmtDen(x),y)
+      })
+      case BlockStmt(b) => cartesianProductIf( b.map(denotationScores(_, env)), (x: (Den,Score)) => x._1.isInstanceOf[StmtDen] ).map( stmts =>
+        (new BlockStmtDen(stmts.map(_._1.asInstanceOf[StmtDen]).toList), combine(stmts.map(_._2).toList))
+      ).toList
 
-    def combineDenotationScores(ds: List[DenotationScores]): DenotationScores =
-      cartesianProduct(ds).map( dens => mergeDenotations(dens) ).toList
-
-    def nodeDenotationScores(node: Node, scores: List[(Score,EnvItem)]): DenotationScores = scores.map( x => (Map((node, x._2)), x._1) )
-    def combineDenotationAndScores(node: Node, den: Denotation, score: Score, scores: List[(Score,EnvItem)]): DenotationScores =
-      scores.map( x => (den ++ Map((node, x._2)), combine(List(score, x._1))) )
-
-    def combine2Denotations(d0: DenotationScores, d1: DenotationScores, cond: Denotation => Boolean = _ => true): DenotationScores = {
-      for {
-        ds0 <- d0
-        ds1 <- d1
-        (den,score) = merge2Denotations(ds0,ds1)
-      } yield {
-        // check if e1 and e2 can be combined using op
-        if (cond(den)) {
-          List((den, score))
-        } else {
-          Nil
-        }
-      }
-    }.flatten.toList
-
-    def combine3Denotations(d0: DenotationScores, d1: DenotationScores, d2: DenotationScores, cond: Denotation => Boolean = _ => true): DenotationScores = {
-      for {
-        (den0, score0) <- d0
-        (den1, score1) <- d1
-        (den2, score2) <- d2
-        den: Denotation = den0 ++ den1 ++ den2
-        score: Score = combine(List(score0, score1, score2))
-      } yield {
-        if (cond(den)) {
-          List((den, score))
-        } else {
-          Nil
-        }
-      }
-    }.flatten.toList
-
-    def biasDenotationScores(s: DenotationScores, b: Score): DenotationScores =
-      s.map( x => (x._1,combine(List(x._2, ASTscore(node,env)))) )
-
-    // a denotation that assigns no meanings, and is indifferent about likelihood
-    val NullDenotation = List((Nil.toMap[Node,EnvItem],ZeroScore))
-
-    val scores = node match {
-      case EmptyStmt() => NullDenotation
-      case ExpStmt(e) => denotationScores(e,env)
-      case BlockStmt(b) => combineDenotationScores(b.map(denotationScores(_, env)))
-      case _: Stmt => throw new RuntimeException("Not implemented")
+      case _: Stmt => throw new NotImplementedError("Trying to compute denotation for statement: " + node)
 
       // AST nodes without name lookup just are what they are
-      case _: BinaryOp => NullDenotation
-      case _: UnaryOp => NullDenotation
-      case _: Lit => NullDenotation
-      case Abstract() => NullDenotation
-      case Public() => NullDenotation
-      case Protected() => NullDenotation
-      case Private() => NullDenotation
-      case Static() => NullDenotation
-      case Final() => NullDenotation
-      case Strictfp() => NullDenotation
-      case Transient() => NullDenotation
-      case Volatile() => NullDenotation
-      case Synchronized() => NullDenotation
-      case _: Bound => NullDenotation
+      case _: BinaryOp => throw new RuntimeException("Trying to compute denotation for binary operator node: " + node)
+      case _: UnaryOp => throw new RuntimeException("Trying to compute denotation for unary operator node: " + node)
+
+      case AST.IntLit(v) => List((new Denotations.IntLit(v.replaceAllLiterally("_","").toInt, v), ZeroScore))
+      case AST.LongLit(v) => List((new Denotations.LongLit(v.replaceAllLiterally("_","").toLong,v), ZeroScore))
+      case AST.FloatLit(v) => List((new Denotations.FloatLit(v.replaceAllLiterally("_","").toFloat,v), ZeroScore))
+      case AST.DoubleLit(v) => List((new Denotations.DoubleLit(v.replaceAllLiterally("_","").toDouble,v), ZeroScore))
+      case AST.BoolLit(v) => List((new Denotations.BooleanLit(v,v.toString), ZeroScore))
+      case AST.CharLit(v) => List((new Denotations.CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0), v), ZeroScore))
+      case AST.StringLit(v) => List((new Denotations.StringLit(unescapeJava(v.slice(1,v.size-1)),v), ZeroScore))
+      case AST.NullLit() => List((new Denotations.NullLit, ZeroScore))
+
+      case _: AST.Mod => throw new RuntimeException("Trying to compute denotation for modifier: " + node)
+      case _: Bound => throw new RuntimeException("Trying to compute denotation for bound: " + node)
 
       // Annotations
-      case Annotation(name) => nodeDenotationScores(node, env.annotationScores(name))
+      case Annotation(name) => throw new NotImplementedError("Trying to compute denotation for annotation: " + node)
 
       // Types
-      case NameType(name) => nodeDenotationScores(node, env.typeScores(name))
+      case NameType(name) => env.typeScores(name).collect( {
+        case (s: Score, item: Items.Type) => (new TypeDen(item),s)
+      })
 
-      case FieldType(t, field) => {
+      case FieldType(base, field) => {
         for {
-          (tden, tscore) <- denotationScores(t, env)
+          (bden,bscore) <- denotationScores(base,env)
+          tbase = Option(typeItem(bden)).getOrElse(typeOf(bden))
+          (fscore, fitem) <- env.typeFieldScores(tbase, field) if fitem.isInstanceOf[Member] &&
+                                                                  fitem.asInstanceOf[Member].containing == tbase
         } yield {
-          if (isType(t, tden)) {
-            combineDenotationAndScores(node, tden, tscore, env.typeFieldScores(typeItem(t, tden), field))
-          } else if (isValue(t, tden)) {
-            combineDenotationAndScores(node, tden, tscore, env.typeFieldScores(typeOf(t, tden), field))
-          } else {
-            Nil
-          }
+          List((new Denotations.TypeDen(fitem.asInstanceOf[Items.Type]), combine(List(bscore, fscore))))
         }
       }.flatten.toList
 
-      case ModType(mod, t) => combine2Denotations(denotationScores(mod, env), denotationScores(t, env)) // could be ModifiedTypeItem
-      case AST.ArrayType(t) => denotationScores(t, env) // could be ArrayTypeItem
+      case ModType(mod, t) => denotationScores(t,env).collect( {
+        case (den: TypeDen, s: Score) => (new ModTypeDen(mod, den), s)
+      })
 
-      case ApplyType(t, a) => // could be GenericTypeItem
-        throw new Exception()
+      case AST.ArrayType(t) => denotationScores(t, env).collect( {
+        case (den: TypeDen, s: Score) => (new ArrayTypeDen(den), s)
+      })
 
-      case WildType(b) => // could be BoundedTypeItem
-        if (b.isEmpty) NullDenotation
-        else combine2Denotations(denotationScores(b.get._1, env),
-          denotationScores(b.get._2, env),
-          den => den(b.get._2).isInstanceOf[ClassType] || den(b.get._2).isInstanceOf[InterfaceType])
+      case ApplyType(t, a) => throw new NotImplementedError("Generics not implemented (ApplyType): " + node)
+      case WildType(b) => throw new NotImplementedError("Type bounds not implemented (WildType): " + node)
 
       // Expressions
-      case NameExp(name) => nodeDenotationScores(node, env.scores(name))
 
-      case LitExp(l) => denotationScores(l, env)
-      case ParenExp(e) => denotationScores(e, env)
+      // this is never a type
+      case NameExp(name) => env.scores(name).collect( scala.Function.unlift( _ match {
+        case (s: Score, item: FieldItem) => Some((new Denotations.FieldDen(item),s))
+        case (s: Score, item: ParameterItem) => Some((new Denotations.ParameterDen(item),s))
+        case (s: Score, item: LocalVariableItem) => Some((new Denotations.LocalVariableDen(item),s))
+        case (s: Score, item: EnumConstantItem) => Some((new Denotations.EnumConstantDen(item),s))
+        case (s: Score, item: MethodItem) => Some((new Denotations.MethodDen(item),s))
+        case (s: Score, item: ConstructorItem) => Some((new Denotations.ConstructorDen(item),s))
+        case _ => None
+      } ) )
 
-      case FieldExp(e, t, f) => throw new Exception()
-      case IndexExp(e, i) => throw new Exception()
+      case LitExp(l) => denotationScores(l, env) // just forward, this node doesn't appear in the denotation tree
+      case ParenExp(e) => denotationScores(e, env).collect( {
+        case (den: ExprDen, s: Score) => (new ParenExprDen(den), s)
+      })
 
-      case MethodRefExp(e, t, f) => throw new Exception()
-      case NewRefExp(e, t) => throw new Exception()
-      case TypeApplyExp(e, t) => throw new Exception()
+      // base is either a type, or an expression, field is an inner type, a method, or a field
+      case FieldExp(base, tparams, field) => if (tparams.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + node) else {
+        for {
+          (bden,bscore) <- denotationScores(base,env)
+          tbase = Option(typeItem(bden)).getOrElse(typeOf(bden))
+          (fscore, fitem) <- env.fieldScores(tbase, field) if fitem.isInstanceOf[Member] &&
+                                                              fitem.asInstanceOf[Member].containing == tbase
+        } yield {
+          val den = fitem match {
+            case t: Items.Type => new TypeDen(t)
+            case f: Items.FieldItem =>
+              if (bden.isInstanceOf[ExprDen]) { // bden has a type, but we don't know what it is
+                assert(isValue(bden))
+                new FieldExprDen(bden.asInstanceOf[ExprDen], new FieldDen(f))
+              } else { // bden is a type, so we don't need it, t carries all information
+                assert(isType(bden))
+                new FieldDen(f)
+              }
+            case f: Items.MethodItem =>
+              if (bden.isInstanceOf[ExprDen]) { // bden has a type, but we don't know what it is
+                assert(isValue(bden))
+                new ObjMethodExprDen(bden.asInstanceOf[ExprDen], new MethodDen(f))
+              } else { // bden is a type, so we don't need it, t carries all information
+                assert(isType(bden))
+                new MethodDen(f)
+              }
 
+            case f: Items.EnumConstantItem => throw new NotImplementedError("WIP FieldExp: " + node)
+
+            case f: Items.PackageItem => throw new NotImplementedError("FieldExp: packages not implemented: " + node)
+
+            case f: Items.ConstructorItem => null // can't qualify constructors
+            case f: Items.LocalItem => null // can't qualify locals, parameters
+
+            case _ => null
+          }
+
+          if (den != null)
+            List((den,combine(List(bscore, fscore))))
+          else
+            Nil
+        }
+      }.flatten.toList
+
+      case IndexExp(e, i) => throw new NotImplementedError("Index semantics not implemented: " + node)
+
+      case MethodRefExp(e, t, f) => throw new NotImplementedError("MethodRefs not implemented: " + node)
+      case NewRefExp(e, t) => throw new NotImplementedError("NewRef not implemented: " + node)
+      case TypeApplyExp(e, t) => throw new NotImplementedError("Generics not implemented (TypeApplyExp): " + node)
+      case NewExp(t, e) => throw new NotImplementedError("new expression not implemented: " + node)
+      case WildExp(b) => throw new NotImplementedError("wildcard expressions not implemented: " + node)
+
+        /*
       case ApplyExp(e, args) => {
+        val adens = args.list.map(denotationScores(_, env))
         for {
           (eden, escore) <- denotationScores(e, env)
+          called = callable(eden)
+          if called != null && called.paramTypes.size == args.list.size
         } yield {
-          if (!isCallable(e,eden) ||
-              callableItem(e, eden).paramTypes.size != args.list.size ||
-              !args.list.forall( isValue(_,eden) ) ) {
+          // filter the denotations for each argument
+          val filtered_adens = (adens zip called.paramTypes).map( x => x._1.filter( z => looseInvokeContext(typeOf(z._1),x._2) ) )
+
+          // combine into new trees
+          val product = cartesianProduct(filtered_adens)
+
+          if (eden.isInstanceOf[MethodDen])
+            product.map( args => (new MethodCallDen(eden, stmts.map(_.asInstanceOf[StmtDen]).toList), combine()) )
+          else
+
+          if (!args.list.forall( isValue(_,eden) ) ) {
             Nil
           } else {
             // check all elements of the list for denotations which match (convertible to the types required by e)
@@ -264,14 +212,6 @@ object Semantics {
           }
         }
       }.flatten.toList
-
-      case NewExp(t, e) => throw new Exception()
-
-      case WildExp(b) =>
-        if (b.isEmpty) NullDenotation
-        else combine2Denotations(denotationScores(b.get._1, env),
-          denotationScores(b.get._2, env),
-          den => den(b.get._2).isInstanceOf[ClassType] || den(b.get._2).isInstanceOf[InterfaceType])
 
       case UnaryExp(op, e) => // could be UnaryExpItem
         combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => unaryLegal(op,typeOf(e,den)))
@@ -302,12 +242,14 @@ object Semantics {
                               val rt = typeOf(right,den)
                               isVariable(left,den) && binaryType(op,lt,rt).forall(assignsTo(_,lt))
                             })
+        */
 
+      case _ => throw new NotImplementedError("Trying to compute denotation for node: " + node);
     }
 
     println("      scores for " + node + ": " + scores)
 
     // add the AST node bias
-    biasDenotationScores(scores, ASTscore(node,env))
+    scores.map( x => (x._1, combine(List(x._2, ASTscore(node,env)))) )
   }
 }

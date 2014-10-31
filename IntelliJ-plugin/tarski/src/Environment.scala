@@ -31,7 +31,11 @@ object Environment {
       things.toList.filter( x => x.isInstanceOf[Type] && x.name == name ).map((new Score(1.0f), _))
     }
 
-    // what could this be, assuming it is a type field of the given type?
+    def fieldScores(t: Type, name: String): List[(Score, EnvItem)] = {
+      things.toList.filter( x => x.name == name ).map((new Score(1.0f), _))
+    }
+
+    // what could this be, assuming it is a type field of the given type? (only returns types)
     def typeFieldScores(t: Type, name: String): List[(Score, EnvItem)] = {
       // TODO: this should take into account containers
       things.toList.filter( x => x.isInstanceOf[Type] && x.name == name ).map((new Score(1.0f), _))

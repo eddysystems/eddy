@@ -1,6 +1,7 @@
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassImpl;
+import com.intellij.psi.impl.source.tree.java.PsiPackageStatementImpl;
 import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
 import com.intellij.psi.scope.JavaScopeProcessorEvent;
@@ -53,6 +54,37 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return t;
   }
 
+  private PsiElement containing(PsiElement cls) {
+    PsiElement parent = cls.getParent();
+    if (parent instanceof PsiJavaFile) {
+      PsiPackageStatement stmt = ((PsiJavaFile) parent).getPackageStatement();
+      if (stmt == null)
+        return null;
+      else
+        return stmt.getPackageReference().resolve();
+    }
+    if (parent instanceof PsiClass) {
+      return parent;
+    }
+
+    return null;
+  }
+
+  private NamedItem addContainerToEnvMap(Map<PsiElement, NamedItem> envitems, PsiElement elem) {
+    if (elem instanceof PsiClass)
+      return addClassToEnvMap(envitems, (PsiClass)elem);
+    else if (elem instanceof PsiPackage) {
+      PsiPackage pkg = (PsiPackage)elem;
+      if (!envitems.containsKey(pkg)) {
+        PackageItem pitem = new PackageItemImpl(pkg.getName(), qualifiedName(pkg), relativeName(pkg));
+        envitems.put(pkg, pitem);
+        return pitem;
+      } else
+        return envitems.get(pkg);
+    }
+    return null;
+  }
+
   private RefType addClassToEnvMap(Map<PsiElement, NamedItem> envitems, PsiClass cls) {
     RefType type = null;
 
@@ -68,16 +100,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         } else {
           superi = (InterfaceType)addClassToEnvMap(envitems, superc);
         }
-        type = new InterfaceTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls), superi);
+        type = new InterfaceTypeImpl(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), superi);
       } else if (cls.isEnum()) {
-        type = new EnumTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls));
+        type = new EnumTypeImpl(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls));
       } else {
         RefType supercls = addClassToEnvMap(envitems, cls.getSuperClass());
         List<InterfaceType> implemented = new SmartList<InterfaceType>();
         for (PsiClass intf : cls.getInterfaces()) {
           implemented.add((InterfaceType)addClassToEnvMap(envitems, intf));
         }
-        type = new ClassTypeImpl(cls.getName(), qualifiedName(cls), relativeName(cls), supercls, JavaConversions.asScalaBuffer(implemented).toList());
+        type = new ClassTypeImpl(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), supercls, JavaConversions.asScalaBuffer(implemented).toList());
       }
       envitems.put(cls, type);
       return type;
@@ -222,7 +254,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     // first, register packages (we may need those as containing elements in classes)
     for (PsiPackage pkg : packages) {
-      envitems.put(pkg, new PackageItemImpl(pkg.getName(), qualifiedName(pkg), relativeName(pkg)));
+      addContainerToEnvMap(envitems, pkg);
 
       // TODO: register everything that is below this package (some of which may already be in the env map)
     }
