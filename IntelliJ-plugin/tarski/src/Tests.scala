@@ -1,5 +1,6 @@
 package tarski
 
+import scala.language.implicitConversions
 import org.testng.annotations.{BeforeClass, Test}
 import org.testng.AssertJUnit._
 import tarski.AST._
@@ -7,6 +8,7 @@ import Types.binaryType
 import tarski.Items.{DoubleType, IntType}
 import tarski.Lexer._
 import tarski.Tokens._
+import tarski.Pretty._
 import ambiguity.Utility._
 
 class Tests {
@@ -48,5 +50,22 @@ class Tests {
     check("floats",FloatLitTok,"5.3 .4e-8 0x4.aP1_7")
     check("chars",CharLitTok,"""'x' '\t' '\n' '\0133'""")
     check("strings",StringLitTok,""""xyz" "\n\b\r\t" "\0\1\2"""")
+  }
+
+  @Test
+  def pretty(): Unit = {
+    implicit def i(i: Int): Exp = LitExp(IntLit(i.toString))
+    def check(s: String, e: Exp) = assertEquals(s,show(tokens(e)))
+    def add(x: Exp, y: Exp) = BinaryExp(x,AddOp(),y)
+    def mul(x: Exp, y: Exp) = BinaryExp(x,MulOp(),y)
+
+    assertEquals(AddFix,fixity(AddOp()))
+    assertEquals(AddFix,fixity(add(1,2)))
+    check("1 + 2 + 3",     add(add(1,2),3))
+    check("1 + ( 2 + 3 )", add(1,add(2,3)))
+    check("1 + 2 * 3",     add(1,mul(2,3)))
+    check("1 * 2 + 3",     add(mul(1,2),3))
+    check("1 * ( 2 + 3 )", mul(1,add(2,3)))
+    check("( 1 + 2 ) * 3", mul(add(1,2),3))
   }
 }

@@ -2,6 +2,7 @@ package tarski
 
 import Tokens.Token
 import Environment.JavaEnvironment
+import tarski.Pretty.Fixity
 
 object AST {
 
