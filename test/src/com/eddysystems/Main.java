@@ -1,9 +1,14 @@
 package com.eddysystems;
 
+
 import java.util.Base64;
 
 
 public class Main {
+
+    interface Xi {
+        public String q();
+    }
 
     public class X {
         public int x() {

@@ -61,8 +61,16 @@ object Items {
 
   sealed abstract class RefType(name: Name) extends Type(name) with scala.Serializable
   sealed abstract class InterfaceType(name: Name, val base: InterfaceType = null) extends RefType(name) with scala.Serializable
-  sealed abstract class ClassType(name: Name, val base: ClassType, val implements: List[InterfaceType] = Nil) extends RefType(name) with scala.Serializable
+  sealed abstract class ClassType(name: Name, val base: RefType, val implements: List[InterfaceType] = Nil) extends RefType(name) with scala.Serializable
   sealed abstract class EnumType(name: Name) extends ClassType(name, EnumBaseType) with scala.Serializable
+
+  trait ClassMember {
+    def name: String
+    def cls: RefType
+
+    def qualifiedName: String = cls.qualifiedName + '.' + name
+  }
+
 
   // null is special
   case object NullType extends RefType("nulltype") with scala.Serializable {
@@ -111,18 +119,17 @@ object Items {
   }
 
   // values
-  sealed abstract class FieldItem(name: Name, ourType: Type, val cls: ClassType) extends Value(name, ourType) with scala.Serializable
+  sealed abstract class FieldItem(name: Name, ourType: Type) extends Value(name, ourType) with scala.Serializable
   sealed abstract class ParameterItem(name: Name, ourType: Type) extends Value(name, ourType) with scala.Serializable
   sealed abstract class LocalVariableItem(name: Name, ourType: Type) extends Value(name, ourType) with scala.Serializable
-  sealed class EnumConstantItem(name: Name, val ourType: EnumType) extends NamedItem(name) with scala.Serializable {
-    def qualifiedName = ourType.qualifiedName + '.' + name
-    def relativeName = ourType.relativeName + '.' + name
+  sealed class EnumConstantItem(name: Name, override val ourType: EnumType) extends Value(name, ourType) with ClassMember with scala.Serializable {
+    def cls = ourType
+    def relativeName = ourType.relativeName + '.' + name // TODO: not correct if we're in the same match
   }
 
   // callables
   sealed abstract class MethodItem(name: Name, val retVal: Type, paramTypes: List[Type]) extends Callable(name, paramTypes) with scala.Serializable
-  sealed class ConstructorItem(val cls: ClassType, paramTypes: List[Type]) extends Callable(cls.name, paramTypes) with scala.Serializable {
-    def qualifiedName = cls.qualifiedName + "." + name
+  sealed class ConstructorItem(val cls: ClassType, paramTypes: List[Type]) extends Callable(cls.name, paramTypes) with ClassMember with scala.Serializable {
     def relativeName = cls.qualifiedName + "." + name // TODO: Not correct if we're in the same match
    }
 
@@ -138,26 +145,30 @@ object Items {
     def qualifiedName = "bad type"
     def relativeName = "bad type"
   }
+  sealed class TypeParameterType(name: String) extends Type(name) with NoLookupItem with scala.Serializable {
+    def qualifiedName = null
+    def relativeName = null
+  }
 
   // These class implementations are created from the plugin side. They implement the matching interface defined in NamedItem
   class PackageItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends PackageItem(name) with scala.Serializable
 
-  class ClassTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name, base: ClassType, implements: List[InterfaceType]) extends ClassType(name, base, implements) with scala.Serializable
+  class ClassTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name, base: RefType, implements: List[InterfaceType]) extends ClassType(name, base, implements) with scala.Serializable
   class InterfaceTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name, base: InterfaceType) extends InterfaceType(name, base) with scala.Serializable
   class EnumTypeImpl(name: Name, val qualifiedName: Name, val relativeName: Name) extends EnumType(name) with scala.Serializable
 
-  class MethodItemImpl(name: Name, val qualifiedName: Name, val relativeName: Name, retVal: Type, paramTypes: List[Type]) extends MethodItem(name, retVal, paramTypes) with scala.Serializable
+  class MethodItemImpl(name: Name, val cls: RefType, val relativeName: Name, retVal: Type, paramTypes: List[Type]) extends MethodItem(name, retVal, paramTypes) with ClassMember with scala.Serializable
 
   // items that have no qualified names
   sealed trait LocalItem {
     def name: String
 
     def qualifiedName = null
-    def relativeName = null
+    def relativeName = name // we may still be shadowed, but local items are only part of the environment if they are visible
     override def toString = "local:" + name
   }
 
   class ParameterItemImpl(name: Name, ourType: Type) extends ParameterItem(name, ourType) with LocalItem with scala.Serializable
   class LocalVariableItemImpl(name: Name, ourType: Type) extends LocalVariableItem(name, ourType) with LocalItem with scala.Serializable
-  class FieldItemImpl(name: Name, ourType: Type, cls: ClassType, val qualifiedName: Name, val relativeName: Name) extends FieldItem(name, ourType, cls) with scala.Serializable
+  class FieldItemImpl(name: Name, ourType: Type, val cls: ClassType, val relativeName: Name) extends FieldItem(name, ourType) with ClassMember with scala.Serializable
 }
