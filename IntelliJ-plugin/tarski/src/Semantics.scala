@@ -2,22 +2,19 @@ package tarski
 
 import org.apache.commons.lang.StringEscapeUtils.{escapeJava,unescapeJava}
 
-import AST.{Type => _, _}
+import AST.{Type => _, ArrayType => _, _}
 import Types._
 import Environment._
 import Items._
 import tarski.Denotations._
 
-/**
- * Created by martin on 21.10.14.
- */
 object Semantics {
 
   /**
    * A score.
    * Really just a Float, but with some functions to encapsulate the averaging and such that happens
    */
-  class Score(val s: Float) extends Ordered[Score] {
+  case class Score(s: Float) extends Ordered[Score] {
     override def compare(s2: Score) = s.compare(s2.s)
 
     override def toString = s.toString
@@ -51,7 +48,7 @@ object Semantics {
     val scores: DenotationScores = node match {
       case EmptyStmt() => List((EmptyStmtDen(),ZeroScore))
       case ExpStmt(e) => denotationScores(e,env).collect( {
-        case (x: ExprDen,y) => (new ExprStmtDen(x),y)
+        case (x: ExpDen,y) => (new ExprStmtDen(x),y)
       })
       case BlockStmt(b) => cartesianProductIf( b.map(denotationScores(_, env)), (x: (Den,Score)) => x._1.isInstanceOf[StmtDen] ).map( stmts =>
         (new BlockStmtDen(stmts.map(_._1.asInstanceOf[StmtDen]).toList), combine(stmts.map(_._2).toList))
@@ -86,20 +83,27 @@ object Semantics {
       case FieldType(base, field) => {
         for {
           (bden,bscore) <- denotationScores(base,env)
-          tbase = Option(typeItem(bden)).getOrElse(typeOf(bden))
-          (fscore, fitem) <- env.typeFieldScores(tbase, field) if fitem.isInstanceOf[Member] &&
-                                                                  fitem.asInstanceOf[Member].containing == tbase
+          tbase <- bden match {
+            case t: TypeDen => List(t.item)
+            case e: ExpDen => List(typeOf(e)) // Allow expressions to be used as if they were their types
+            case _ => Nil
+          }
+          (fscore, fitem) <- env.typeFieldScores(tbase, field) if (fitem match { case m: Member => m.containing == tbase
+                                                                                 case _ => false })
         } yield {
-          List((new Denotations.TypeDen(fitem.asInstanceOf[Items.Type]), combine(List(bscore, fscore))))
+          List((new Denotations.TypeDen(fitem), combine(List(bscore, fscore))))
         }
       }.flatten.toList
 
-      case ModType(mod, t) => denotationScores(t,env).collect( {
-        case (den: TypeDen, s: Score) => (new ModTypeDen(mod, den), s)
+      case ModType(mod, t) => denotationScores(t,env).flatMap({
+        case (TypeDen(t), s: Score) => mod match {
+          case Annotation(_) => throw new NotImplementedError("Types with annotations")
+          case _ => Nil
+        }
       })
 
       case AST.ArrayType(t) => denotationScores(t, env).collect( {
-        case (den: TypeDen, s: Score) => (new ArrayTypeDen(den), s)
+        case (TypeDen(t), s) => (TypeDen(ArrayType(t)), s)
       })
 
       case ApplyType(t, a) => throw new NotImplementedError("Generics not implemented (ApplyType): " + node)
@@ -108,62 +112,48 @@ object Semantics {
       // Expressions
 
       // this is never a type
-      case NameExp(name) => env.scores(name).collect( scala.Function.unlift( _ match {
-        case (s: Score, item: FieldItem) => Some((new Denotations.FieldDen(item),s))
-        case (s: Score, item: ParameterItem) => Some((new Denotations.ParameterDen(item),s))
-        case (s: Score, item: LocalVariableItem) => Some((new Denotations.LocalVariableDen(item),s))
-        case (s: Score, item: EnumConstantItem) => Some((new Denotations.EnumConstantDen(item),s))
-        case (s: Score, item: MethodItem) => Some((new Denotations.MethodDen(item),s))
-        case (s: Score, item: ConstructorItem) => Some((new Denotations.ConstructorDen(item),s))
-        case _ => None
-      } ) )
+      case NameExp(name) => env.scores(name).collect({
+        case (s, i: FieldItem) => (Denotations.LocalFieldExpDen(i),s)
+        case (s, i: ParameterItem) => (Denotations.ParameterExpDen(i),s)
+        case (s, i: LocalVariableItem) => (Denotations.LocalVariableExpDen(i),s)
+        case (s, i: EnumConstantItem) => (Denotations.EnumConstantExpDen(i),s)
+        case (s, i: MethodItem) => (Denotations.MethodDen(i),s)
+        case (s, i: ConstructorItem) => (Denotations.ForwardDen(i),s)
+      })
 
       case LitExp(l) => denotationScores(l, env) // just forward, this node doesn't appear in the denotation tree
       case ParenExp(e) => denotationScores(e, env).collect( {
-        case (den: ExprDen, s: Score) => (new ParenExprDen(den), s)
+        case (den: ExpDen, s: Score) => (new ParenExpDen(den), s)
       })
 
       // base is either a type, or an expression, field is an inner type, a method, or a field
       case FieldExp(base, tparams, field) => if (tparams.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + node) else {
         for {
           (bden,bscore) <- denotationScores(base,env)
-          tbase = Option(typeItem(bden)).getOrElse(typeOf(bden))
-          (fscore, fitem) <- env.fieldScores(tbase, field) if fitem.isInstanceOf[Member] &&
-                                                              fitem.asInstanceOf[Member].containing == tbase
-        } yield {
-          val den = fitem match {
-            case t: Items.Type => new TypeDen(t)
-            case f: Items.FieldItem =>
-              if (bden.isInstanceOf[ExprDen]) { // bden has a type, but we don't know what it is
-                assert(isValue(bden))
-                new FieldExprDen(bden.asInstanceOf[ExprDen], new FieldDen(f))
-              } else { // bden is a type, so we don't need it, t carries all information
-                assert(isType(bden))
-                new FieldDen(f)
-              }
-            case f: Items.MethodItem =>
-              if (bden.isInstanceOf[ExprDen]) { // bden has a type, but we don't know what it is
-                assert(isValue(bden))
-                new ObjMethodExprDen(bden.asInstanceOf[ExprDen], new MethodDen(f))
-              } else { // bden is a type, so we don't need it, t carries all information
-                assert(isType(bden))
-                new MethodDen(f)
-              }
-
-            case f: Items.EnumConstantItem => throw new NotImplementedError("WIP FieldExp: " + node)
-
-            case f: Items.PackageItem => throw new NotImplementedError("FieldExp: packages not implemented: " + node)
-
-            case f: Items.ConstructorItem => null // can't qualify constructors
-            case f: Items.LocalItem => null // can't qualify locals, parameters
-
-            case _ => null
+          tbase <- bden match {
+            case t: TypeDen => List(t.item)
+            case e: ExpDen => List(typeOf(e))
+            case _ => Nil
           }
+          (fscore, fitem) <- env.fieldScores(tbase, field) if (fitem match { case m: Member => m.containing == tbase // TODO: Subtypes are not handled here
+                                                                             case _ => false })
+        } yield {
+          ((bden,fitem) match {
+            case (_, f: Items.Type) => Some(TypeDen(f))
+            case (_, f: Items.EnumConstantItem) => Some(EnumConstantExpDen(f))
+            case (_, f: Items.StaticFieldItem) => Some(StaticFieldExpDen(f))
+            case (e: ExpDen, f: Items.FieldItem) => Some(FieldExpDen(e,f))
+            case (_, f: Items.StaticMethodItem) => Some(StaticMethodDen(f))
+            case (e: ExpDen, f: Items.MethodItem) => Some(MethodDen(e,f))
 
-          if (den != null)
-            List((den,combine(List(bscore, fscore))))
-          else
-            Nil
+            case (_, f: Items.PackageItem) => throw new NotImplementedError("FieldExp: packages not implemented: " + node)
+            case (_, f: Items.ConstructorItem) => throw new NotImplementedError("FieldExp: ConstructorItem")
+            case (_, f: Items.LocalItem) => None // can't qualify locals, parameters, TODO: return something with a low score
+            case _ => None
+          }) match {
+            case None => Nil
+            case Some(d) => List((d,combine(List(bscore, fscore))))
+          }
         }
       }.flatten.toList
 

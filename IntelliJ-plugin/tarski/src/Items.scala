@@ -126,6 +126,7 @@ object Items {
 
   // values
   sealed abstract class FieldItem(name: Name, ourType: Type) extends Value(name, ourType) with scala.Serializable
+  sealed abstract class StaticFieldItem(name: Name, ourType: Type) extends Value(name, ourType) with scala.Serializable
   sealed abstract class ParameterItem(name: Name, ourType: Type) extends Value(name, ourType) with scala.Serializable
   sealed abstract class LocalVariableItem(name: Name, ourType: Type) extends Value(name, ourType) with scala.Serializable
   sealed class EnumConstantItem(name: Name, override val ourType: EnumType) extends Value(name, ourType) with ClassMember with scala.Serializable {
@@ -135,6 +136,7 @@ object Items {
 
   // callables
   sealed abstract class MethodItem(name: Name, val retVal: Type, paramTypes: List[Type]) extends Callable(name, paramTypes) with scala.Serializable
+  sealed abstract class StaticMethodItem(name: Name, val retVal: Type, paramTypes: List[Type]) extends Callable(name, paramTypes) with scala.Serializable
   sealed class ConstructorItem(val containing: ClassType, paramTypes: List[Type]) extends Callable(containing.name, paramTypes) with ClassMember with scala.Serializable {
     def relativeName = containing.relativeName + "." + name // TODO: Not correct if we're in the same match
    }
