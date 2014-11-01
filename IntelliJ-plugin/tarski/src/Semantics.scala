@@ -38,11 +38,11 @@ object Semantics {
   def denotationScores(node: Node, env: JavaEnvironment): DenotationScores = {
 
     def cartesianProduct[A](xs: Traversable[Traversable[A]]): Seq[Seq[A]] = xs.foldLeft(Seq(Seq.empty[A])) {
-          (x, y) => for (a <- x.view; b <- y) yield a :+ b
+      (x, y) => for (a <- x.view; b <- y) yield a :+ b
     }
 
     def cartesianProductIf[A](xs: Traversable[Traversable[A]], cond: A => Boolean): Seq[Seq[A]] = xs.foldLeft(Seq(Seq.empty[A])) {
-          (x, y) => for (a <- x.view; b <- y if cond(b) ) yield a :+ b
+      (x, y) => for (a <- x.view; b <- y if cond(b) ) yield a :+ b
     }
 
     val scores: DenotationScores = node match {

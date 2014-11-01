@@ -146,7 +146,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // TODO: get type parameters
       // TODO: what to do with parameters depending on type parameters and bounded types and such?
       Type rtype = addTypeToEnvMap(envitems, types, method.getReturnType());
-      mitem = new MethodItemImpl(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+
+      if (method.hasModifierProperty(PsiModifier.STATIC))
+        mitem = new StaticMethodItemImpl(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+      else
+        mitem = new MethodItemImpl(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     }
 
     envitems.put(method, mitem);
@@ -245,6 +249,20 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
   }
 
+  private Value addFieldToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiField f) {
+    if (envitems.containsKey(f))
+      return (Value)envitems.get(f);
+
+    Value v;
+    if (f.hasModifierProperty(PsiModifier.STATIC))
+      v = new StaticFieldItemImpl(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
+    else
+      v = new FieldItemImpl(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
+
+    envitems.put(f, v);
+    return v;
+  }
+
   /**
    * Make the IntelliJ-independent class that is used by the tarksi engine to look up possible names
    */
@@ -267,8 +285,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       // TODO: register everything that is below this class (some of which may already be in the env map)
       for (PsiField f : cls.getFields()) {
-        if (!envitems.containsKey(f))
-          envitems.put(f, new FieldItemImpl(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f)));
+        addFieldToEnvMap(envitems, types, f);
       }
       for (PsiMethod m : cls.getMethods()) {
         if (!envitems.containsKey(m))
@@ -298,8 +315,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       else if (var instanceof PsiLocalVariable)
         envitems.put(var, new LocalVariableItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
       else if (var instanceof PsiField) {
-        assert envitems.containsKey(((PsiField) var).getContainingClass());
-        envitems.put(var, new FieldItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType()), (ClassType) envitems.get(((PsiField) var).getContainingClass()), relativeName(var)));
+        addFieldToEnvMap(envitems, types, (PsiField)var);
       }
     }
 
