@@ -21,12 +21,15 @@ object Denotations {
   case class TypeDen(item: Type) extends Den
 
   // Callables
-  sealed abstract class Callable extends Den
-  case class MethodDen(obj: ExpDen, f: Items.MethodItem) extends Callable
-  case class LocalMethodDen(f: Items.MethodItem) extends Callable
-  case class StaticMethodDen(f: Items.StaticMethodItem) extends Callable
-  case class NewDen(cons: Items.ConstructorItem) extends Callable
-  case class ForwardDen(cons: Items.ConstructorItem) extends Callable
+  sealed abstract class Callable extends Den {
+    val f: Items.Callable
+    def paramTypes: List[Type] = f.paramTypes
+  }
+  case class MethodDen(obj: ExpDen, override val f: Items.MethodItem) extends Callable
+  case class LocalMethodDen(override val f: Items.MethodItem) extends Callable
+  case class StaticMethodDen(override val f: Items.StaticMethodItem) extends Callable
+  case class NewDen(override val f: Items.ConstructorItem) extends Callable
+  case class ForwardDen(override val f: Items.ConstructorItem) extends Callable
 
   // Statements
   sealed abstract class StmtDen extends Den
@@ -63,6 +66,7 @@ object Denotations {
   case class LocalFieldExpDen(field: Items.FieldItem) extends ExpDen
   case class StaticFieldExpDen(field: Items.StaticFieldItem) extends ExpDen
   case class IndexExpDen(e: ExpDen, i: ExpDen) extends ExpDen
+  case class CondExpDen(c: ExpDen, t: ExpDen, f: ExpDen, r: Type) extends ExpDen
 
   def typeOf(d: ExpDen): Type = d match {
     // Literals
@@ -99,5 +103,6 @@ object Denotations {
       case ArrayType(t) => t
       case _ => throw new RuntimeException("type error")
     }
+    case CondExpDen(_,_,_,r) => r
   }
 }

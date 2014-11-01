@@ -205,7 +205,7 @@ object Pretty {
     case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
     case CastExp(t,e) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
     case CondExp(c,t,f) => fix(CondFix, s => left(s,c) ::: QuestionTok() :: tokens(t) ::: ColonTok() :: right(s,f))
-    case AssignExp(x,op,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
+    case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
   }
 
   // Literals

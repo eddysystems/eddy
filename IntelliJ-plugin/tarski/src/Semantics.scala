@@ -24,44 +24,35 @@ object Semantics {
 
   // Literals
   def denote(x: Lit): Scored[LitDen] = {
-    def f[A,B](v: String, c: String => A)(t: (A,String) => B) = single(t(c(v.replaceAllLiterally("_","")),v))
-    x match {
+    def f[A,B](v: String, c: String => A)(t: (A,String) => B) = t(c(v.replaceAllLiterally("_","")),v)
+    single(x match {
       case AST.IntLit(v) =>    f(v,_.toInt)(Denotations.IntLit)
       case AST.LongLit(v) =>   f(v,_.toLong)(Denotations.LongLit)
       case AST.FloatLit(v) =>  f(v,_.toFloat)(Denotations.FloatLit)
       case AST.DoubleLit(v) => f(v,_.toDouble)(Denotations.DoubleLit)
-      case AST.BoolLit(b) =>   single(Denotations.BooleanLit(b))
-      case AST.CharLit(v) =>   single(Denotations.CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v))
-      case AST.StringLit(v) => single(Denotations.StringLit(unescapeJava(v.slice(1,v.size-1)),v))
-      case AST.NullLit() =>    single(Denotations.NullLit())
-    }
+      case AST.BoolLit(b) =>   Denotations.BooleanLit(b)
+      case AST.CharLit(v) =>   Denotations.CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v)
+      case AST.StringLit(v) => Denotations.StringLit(unescapeJava(v.slice(1,v.size-1)),v)
+      case AST.NullLit() =>    Denotations.NullLit()
+    })
   }
 
   // Types
-  def denote(t: AST.Type)(implicit env: JavaEnvironment): Scored[Den] = t match {
-    case NameType(n) => typeScores(n) map TypeDen
-    case FieldType(x,f) =>
-      for (d <- denote(x);
-           t <- d match {
-             case t: TypeDen => single(t.item)
-             case e: ExpDen => single(typeOf(e)) // Allow expressions to be used as if they were their types
-             case _ => fail
-           };
-           fi <- typeFieldScores(t,f))
-        yield Denotations.TypeDen(fi)
-    case ModType(m,t) => denote(t) flatMap {
-      case TypeDen(t) => m match {
-        case Annotation(_) => throw new NotImplementedError("Types with annotations")
-        case _ => fail
-      }
-      case _ => fail
-    }
-    case AST.ArrayType(t) => denote(t) collect {
-      case TypeDen(t) => TypeDen(ArrayType(t))
-    }
-    case ApplyType(_,_) => throw new NotImplementedError("Generics not implemented (ApplyType): " + t)
-    case WildType(_) => throw new NotImplementedError("Type bounds not implemented (WildType): " + t)
+  // TODO: The grammar currently rules out stuff like (1+2).A matching as a type.  Maybe we want this?
+  def denote(n: AST.Type)(implicit env: JavaEnvironment): Scored[Type] = n match {
+    case NameType(n) => typeScores(n)
+    case FieldType(x,f) => for (t <- denote(x); fi <- typeFieldScores(t,f)) yield fi
+    case ModType(Annotation(_),t) => throw new NotImplementedError("Types with annotations")
+    case ModType(_,_) => fail
+    case AST.ArrayType(t) => denote(t) map ArrayType
+    case ApplyType(_,_) => throw new NotImplementedError("Generics not implemented (ApplyType): " + n)
+    case WildType(_) => throw new NotImplementedError("Type bounds not implemented (WildType): " + n)
   }
+  def denoteType(n: Exp)(implicit env: JavaEnvironment): Scored[Type] =
+    denote(n) collect {
+      case t: TypeDen => t.item
+      case e: ExpDen => typeOf(e) // Allow expressions to be used as types
+    }
 
   // Expressions
   def denote(e: Exp)(implicit env: JavaEnvironment): Scored[Den] = e match {
@@ -105,77 +96,59 @@ object Semantics {
     case NewExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
     case WildExp(b) => throw new NotImplementedError("wildcard expressions not implemented: " + e)
 
-      /*
-    case ApplyExp(e, args) => {
-      val adens = args.list.map(denotationScores(_, env))
-      for {
-        (eden, escore) <- denotationScores(e, env)
-        called = callable(eden)
-        if called != null && called.paramTypes.size == args.list.size
-      } yield {
-        // filter the denotations for each argument
-        val filtered_adens = (adens zip called.paramTypes).map( x => x._1.filter( z => looseInvokeContext(typeOf(z._1),x._2) ) )
+    case ApplyExp(f,xsn) => {
+      val xsl = xsn.list map denoteExp
+      val n = xsl.size
+      for (f <- denoteCallable(f);
+           if f.paramTypes.size == n;
+           // Filter the denotations for each argument
+           filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs.filter(x => looseInvokeContext(typeOf(x),p))};
+           // Expand into full Cartesian product (exponential time)
+           xl <- product(filtered))
+        yield ApplyExpDen(f,xl)
+    }
 
-        // combine into new trees
-        val product = cartesianProduct(filtered_adens)
+    case UnaryExp(op,x) =>
+      for (x <- denoteExp(x);
+           if unaryLegal(op,typeOf(x)))
+        yield UnaryExpDen(op,x)
 
-        if (eden.isInstanceOf[MethodDen])
-          product.map( args => (new MethodCallDen(eden, stmts.map(_.asInstanceOf[StmtDen]).toList), combine()) )
-        else
+    case BinaryExp(op,x,y) =>
+      for (x <- denoteExp(x);
+           y <- denoteExp(y);
+           if binaryLegal(op,typeOf(x),typeOf(y)))
+        yield BinaryExpDen(op,x,y)
 
-        if (!args.list.forall( isValue(_,eden) ) ) {
-          Nil
-        } else {
-          // check all elements of the list for denotations which match (convertible to the types required by e)
-          // combine all these denotations
-          val dens: List[DenotationScores] = for {
-            (arg, ptype) <- args.list zip eden(e).asInstanceOf[Callable].paramTypes
-          } yield {
-            // TODO: Try strict before loose in order to handle overloads
-            denotationScores(arg,env).filter( ds => looseInvokeContext(typeOf(arg,ds._1), ptype) )
-          }
+    case CastExp(t,x) =>
+      for (t <- denote(t);
+           x <- denoteExp(x);
+           if castsTo(typeOf(x),t))
+        yield CastExpDen(t,x)
 
-          if (dens.isEmpty)
-            List((eden,escore))
-          else
-            combineDenotationScores(dens).map( merge2Denotations(_,(eden,escore)) )
-        }
-      }
-    }.flatten.toList
+    case CondExp(c,t,f) =>
+      for (c <- denoteExp(c);
+           if isToBoolean(typeOf(c));
+           t <- denoteExp(t);
+           f <- denoteExp(f);
+           r <- option(condType(typeOf(t),typeOf(f))))
+        yield CondExpDen(c,t,f,r)
 
-    case UnaryExp(op, e) => // could be UnaryExpItem
-      combine2Denotations(denotationScores(e,env), denotationScores(op,env), den => unaryLegal(op,typeOf(e,den)))
+    case AssignExp(op,x,y) =>
+      for (x <- denoteExp(x);
+           if isVariable(x);
+           xt = typeOf(x);
+           y <- denoteExp(y);
+           yt = typeOf(y);
+           t <- option(assignOpType(op,xt,yt)))
+        yield AssignExpDen(op,x,y)
 
-    case BinaryExp(op, e0, e1) => combine3Denotations(denotationScores(e0,env), // could be BinaryExpItem
-                                                      denotationScores(op,env),
-                                                      denotationScores(e1,env),
-                                                      // it's not a binary exp if it's an assign exp
-                                                      den => binaryLegal(op, typeOf(e0, den), typeOf(e1, den)))
-
-    case CastExp(t, e) =>
-      combine2Denotations(denotationScores(t,env), denotationScores(e,env), den => castsTo(typeOf(e,den), typeItem(t,den)) )
-
-    case CondExp(cond, t, f) =>
-      combine3Denotations(denotationScores(cond,env), denotationScores(t,env), denotationScores(f,env),
-                          den => isToBoolean(typeOf(cond,den)) ) // TODO: are there restrictions on the types of t and f?
-
-    case AssignExp(left, None, right) =>
-      combine2Denotations(denotationScores(left, env),
-                          denotationScores(right, env),
-                          den => isVariable(left, den) && assignsTo(typeOf(right, den), typeOf(left, den)))
-    case AssignExp(left, Some(op), right) =>
-      combine3Denotations(denotationScores(left, env),
-                          denotationScores(op, env),
-                          denotationScores(right, env),
-                          den => {
-                            val lt = typeOf(left,den)
-                            val rt = typeOf(right,den)
-                            isVariable(left,den) && binaryType(op,lt,rt).forall(assignsTo(_,lt))
-                          })
-      */
-
-    case _ => throw new NotImplementedError("Trying to compute denotation for node: " + e);
+    case _ => throw new NotImplementedError("Trying to compute denotation for node: " + e)
   }
+  def denoteExp(n: Exp)(implicit env: JavaEnvironment): Scored[ExpDen] =
+    denote(n) collect {case e: ExpDen => e}
+  def isVariable(e: ExpDen): Boolean = throw new NotImplementedError("isVariable")
+  def denoteCallable(n: Exp)(implicit env: JavaEnvironment): Scored[Denotations.Callable] =
+    throw new NotImplementedError("denoteCallable")
 
   // Statements
   def denote(s: Stmt)(implicit env: JavaEnvironment): Scored[StmtDen] = s match {

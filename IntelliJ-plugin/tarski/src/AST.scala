@@ -75,7 +75,7 @@ object AST {
   case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp
   case class CastExp(t: Type, e: Exp) extends Exp
   case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
-  case class AssignExp(left: Exp, op: Option[AssignOp], right: Exp) extends Exp
+  case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
 
   sealed abstract class Lit extends Node
   case class IntLit(v: String) extends Lit

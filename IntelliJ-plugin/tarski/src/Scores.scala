@@ -23,6 +23,10 @@ object Scores {
     def filter(f: A => Boolean): Scored[A] = Scored(
       c filter {case (_,a) => f(a)})
 
+    // TODO: Make an optimized version of withFilter.
+    // This one exists purely to silence warnings.
+    def withFilter(f: A => Boolean) = filter(f)
+
     def flatMap[B](f: A => Scored[B]): Scored[B] = Scored(
       for ((sa,a) <- c; (sb,b) <- f(a).c) yield (sa+sb,b))
 
@@ -42,10 +46,17 @@ object Scores {
   val fail = new Scored(Nil)
   def single[A](x: A): Scored[A] = Scored(List((ZeroScore,x)))
   def simple[A](xs: List[A]): Scored[A] = Scored(xs.map((OneScore,_)))
+  def option[A](x: Option[A]): Scored[A] = x match {
+    case Some(s) => single(s)
+    case None => fail
+  }
 
-  def partialProduct[A,B](xs: List[Scored[A]])(f: PartialFunction[A,B]): Scored[List[B]] = xs match {
+  def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
     case Nil => single(Nil)
     case Scored(Nil) :: _ => fail
-    case sa :: sas => sa collect f product partialProduct(sas)(f) map {case (b,bs) => b::bs}
+    case sx :: sxs => sx product product(sxs) map {case (x,xs) => x::xs}
   }
+
+  def partialProduct[A,B](xs: List[Scored[A]])(f: PartialFunction[A,B]): Scored[List[B]] =
+    product(xs.map(_.collect(f)))
 }

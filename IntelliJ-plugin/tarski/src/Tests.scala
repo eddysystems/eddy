@@ -34,7 +34,7 @@ class Tests {
     val tokens = new SmartList[Token](IdentTok("x"), WhitespaceTok(" "), EqTok(), WhitespaceTok(" "), IntLitTok("1"))
 
     val result = fix(tokens, env)
-    val ast = ExpStmt(AssignExp(NameExp("x"), None, LitExp(IntLit("1"))))
+    val ast = ExpStmt(AssignExp(None,NameExp("x"),LitExp(IntLit("1"))))
 
     assert( result.asScala.toList.exists( p => p._1 == ast ))
   }
