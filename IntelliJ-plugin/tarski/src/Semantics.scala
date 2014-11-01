@@ -89,7 +89,23 @@ object Semantics {
              case _ => fail
            })
         yield r
-    case IndexExp(x,i) => throw new NotImplementedError("Index semantics not implemented: " + e)
+
+    case IndexExp(x,is) => {
+      def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
+        case Items.ArrayType(t) => hasDims(t,d-1)
+        case _ => false
+      })
+      val n = is.list.size
+      val ints = product(is.list.map(i => denoteExp(i).filter(e => typeOf(e) match {
+        case p: PrimType => promote(p) == IntType
+        case _ => false
+      })))
+      for (x <- denoteExp(x);
+           if hasDims(typeOf(x),n);
+           is <- ints)
+        yield is.foldLeft(x)(IndexExpDen)
+    }
+
     case MethodRefExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
     case NewRefExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
     case TypeApplyExp(x,ts) => throw new NotImplementedError("Generics not implemented (TypeApplyExp): " + e)
