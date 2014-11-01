@@ -44,12 +44,14 @@ object Scores {
     def map[B](f: A => B): Scored[B] = Scored(
       c collect {case (s,a) if p(a) => (s,f(a))})
 
+    def filter(q: A => Boolean) = FilteredScored[A](c,x => p(x) && q(x))
+
     def flatMap[B](f: A => Scored[B]): Scored[B] = Scored(
       for ((sa,a) <- c; if p(a); (sb,b) <- f(a).c) yield (sa+sb,b))
   }
 
   // Score constructors
-  val fail = new Scored(Nil)
+  val fail = Scored(Nil)
   def single[A](x: A): Scored[A] = Scored(List((ZeroScore,x)))
   def simple[A](xs: List[A]): Scored[A] = Scored(xs.map((OneScore,_)))
   def option[A](x: Option[A]): Scored[A] = x match {
