@@ -135,7 +135,7 @@ Exp Exp
   Exp BinaryOp Exp                             { BinaryExp($2,$1,$3) }
   Exp QuestionTok Exp ColonTok Exp             { CondExp($1,$3,$5) }
 
-  Exp AssignOp Exp                             { AssignExp($1,$2,$3) }
+  Exp AssignOp Exp                             { AssignExp($2,$1,$3) }
   // TODO LambdaExp
   // TODO new Exp ClassBody
 
