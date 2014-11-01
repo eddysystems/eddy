@@ -10,9 +10,7 @@ object AST {
 
   type Name = String
 
-  sealed abstract class Node
-
-  sealed abstract class Mod extends Node
+  sealed abstract class Mod
   case class Annotation(name: Name) extends Mod
   case class Abstract() extends Mod
   case class Public() extends Mod
@@ -25,7 +23,7 @@ object AST {
   case class Volatile() extends Mod
   case class Synchronized() extends Mod
 
-  sealed abstract class Bound extends Node
+  sealed abstract class Bound
   case class Extends() extends Bound
   case class Super() extends Bound
 
@@ -35,7 +33,7 @@ object AST {
   case class JuxtList[+A](override val list: List[A]) extends KList[A](list)
   case class AndList[+A](override val list: List[A]) extends KList[A](list)
 
-  sealed abstract class Type extends Node
+  sealed abstract class Type
   case class NameType(name: Name) extends Type
   case class ModType(mod: Mod, t: Type) extends Type
   case class ArrayType(t: Type) extends Type
@@ -47,7 +45,7 @@ object AST {
 
   type Block = List[Stmt]
 
-  sealed abstract class Stmt extends Node
+  sealed abstract class Stmt
   case class EmptyStmt() extends Stmt
   case class VarStmt(mod: Mod, t: Type, v: KList[((NameDims,Option[Exp]))]) extends Stmt
   case class BlockStmt(b: Block) extends Stmt
@@ -59,7 +57,7 @@ object AST {
   case class ThrowStmt(e: Exp) extends Stmt
   case class SyncStmt(e: Exp, b: Block) extends Stmt
 
-  sealed abstract class Exp extends Node
+  sealed abstract class Exp
   case class NameExp(name: Name) extends Exp
   case class LitExp(l: Lit) extends Exp
   case class ParenExp(e: Exp) extends Exp
@@ -77,7 +75,7 @@ object AST {
   case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
   case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
 
-  sealed abstract class Lit extends Node
+  sealed abstract class Lit
   case class IntLit(v: String) extends Lit
   case class LongLit(v: String) extends Lit
   case class FloatLit(v: String) extends Lit
@@ -87,7 +85,7 @@ object AST {
   case class StringLit(v: String) extends Lit
   case class NullLit() extends Lit
 
-  sealed abstract class UnaryOp extends Node
+  sealed abstract class UnaryOp
   sealed abstract class ImpOp extends UnaryOp
   case class PreDecOp() extends ImpOp
   case class PreIncOp() extends ImpOp
@@ -98,7 +96,7 @@ object AST {
   case class CompOp() extends UnaryOp
   case class NotOp() extends UnaryOp
 
-  sealed abstract class BinaryOp extends Node
+  sealed abstract class BinaryOp
   sealed abstract class AssignOp extends BinaryOp
   case class MulOp() extends AssignOp
   case class DivOp() extends AssignOp

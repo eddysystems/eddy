@@ -24,7 +24,6 @@ import com.intellij.ui.LightweightHint;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
-import tarski.AST.Node;
 import tarski.AST.Stmt;
 import tarski.Items.EnvItem;
 import tarski.Scores.Score;
