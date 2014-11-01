@@ -42,7 +42,7 @@ object Denotations {
   case class ShortLit(s: Short, text: String) extends LitDen
   case class IntLit(i: Int, text: String) extends LitDen
   case class LongLit(l: Long, text: String) extends LitDen
-  case class BooleanLit(b: Boolean, text: String) extends LitDen
+  case class BooleanLit(b: Boolean) extends LitDen { def text = b.toString }
   case class StringLit(s: String, text: String) extends LitDen
   case class FloatLit(f: Float, text: String) extends LitDen
   case class DoubleLit(d: Double, text: String) extends LitDen
@@ -70,7 +70,7 @@ object Denotations {
     case ShortLit(_,_) => Items.ShortType
     case IntLit(_,_) => Items.IntType
     case LongLit(_,_) => Items.LongType
-    case BooleanLit(_,_) => Items.BooleanType
+    case BooleanLit(_) => Items.BooleanType
     case StringLit(_,_) => Items.StringType
     case FloatLit(_,_) => Items.FloatType
     case DoubleLit(_,_) => Items.DoubleType

@@ -27,8 +27,8 @@ import org.jetbrains.annotations.NotNull;
 import tarski.AST.Node;
 import tarski.AST.Stmt;
 import tarski.Items.EnvItem;
-import tarski.Semantics.Score;
-import tarski.Denotations.Den;
+import tarski.Scores.Score;
+import tarski.Denotations.StmtDen;
 import tarski.Tarski;
 import tarski.Tokens.Token;
 
@@ -169,14 +169,14 @@ public class Eddy implements CaretListener, DocumentListener {
       });
 
       EnvironmentProcessor env = new EnvironmentProcessor(elem, true);
-      List<scala.Tuple2<Stmt, List<scala.Tuple2<Den, Score> > > > results = Tarski.fix(tokens, env.getJavaEnvironment());
+      List<scala.Tuple2<Stmt, List<scala.Tuple2<Score,StmtDen> > > > results = Tarski.fix(tokens, env.getJavaEnvironment());
 
       String text = "";
 
-      for (scala.Tuple2<Stmt, List<scala.Tuple2<Den, Score> > > interpretation : results) {
+      for (scala.Tuple2<Stmt, List<scala.Tuple2<Score,StmtDen> > > interpretation : results) {
         if (!interpretation._2().isEmpty()) {
           text += "  Interpretation: " + interpretation._1() + "<br/>";
-          for (scala.Tuple2<Den, Score> meaning : interpretation._2()) {
+          for (scala.Tuple2<Score,StmtDen> meaning : interpretation._2()) {
             text += " " + meaning._2() + ": " + meaning._1() + "<br/>";
           }
         }

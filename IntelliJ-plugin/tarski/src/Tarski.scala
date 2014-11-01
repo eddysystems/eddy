@@ -7,7 +7,9 @@ import Tokens.{Token,isSpace}
 import Items._
 import ambiguity.ParseEddy
 import java.util.ArrayList
-import tarski.Semantics.{Denotation, Score, denotationScores}
+import tarski.Scores._
+import tarski.Denotations._
+import tarski.Semantics._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -17,18 +19,17 @@ object Tarski {
     baseEnvironment.addObjects(types.asScala.toList++values.asScala.toList)
   }
 
-  def fix(tokens: java.util.List[Token], env: JavaEnvironment): java.util.List[(AST.Stmt, java.util.List[(Denotation,Score)])] = {
-    val results: java.util.List[(AST.Stmt, java.util.List[(Denotation,Score)])] = new java.util.ArrayList[(AST.Stmt, java.util.List[(Denotation,Score)])]()
+  def fix(tokens: java.util.List[Token], env: JavaEnvironment): java.util.List[(AST.Stmt, java.util.List[(Score,StmtDen)])] = {
+    val results: java.util.List[(AST.Stmt, java.util.List[(Score,StmtDen)])] = new java.util.ArrayList[(AST.Stmt,java.util.List[(Score,StmtDen)])]()
     val toks = tokens.asScala.toList.filterNot(isSpace)
     println("line " + toks)
-    for ( root <- ParseEddy.parse(toks) ) {
+    for (root <- ParseEddy.parse(toks)) {
       println("  ast: " + root)
       println("  meanings: ")
-      val ds = denotationScores(root, env)
-      results.add((root, ListBuffer(ds.map( x => (x._1, x._2) ):_*).asJava))
-      for ( den <- ds ) {
-        println("    " + den._2 + ": " + den._1)
-      }
+      val ds = denote(root)(env)
+      results.add((root,ds.c.asJava))
+      for ((s,d) <- ds.c)
+        println(s"    $s: $d")
     }
     results
   }

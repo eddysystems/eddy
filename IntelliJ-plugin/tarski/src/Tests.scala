@@ -63,8 +63,6 @@ class Tests {
     def add(x: Exp, y: Exp) = BinaryExp(AddOp(),x,y)
     def mul(x: Exp, y: Exp) = BinaryExp(MulOp(),x,y)
 
-    assertEquals(AddFix,fixity(AddOp()))
-    assertEquals(AddFix,fixity(add(1,2)))
     check("1 + 2 + 3",     add(add(1,2),3))
     check("1 + ( 2 + 3 )", add(1,add(2,3)))
     check("1 + 2 * 3",     add(1,mul(2,3)))

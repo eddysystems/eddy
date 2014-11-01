@@ -254,6 +254,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       return (Value)envitems.get(f);
 
     Value v;
+    PsiClass cls = f.getContainingClass();
     if (f.hasModifierProperty(PsiModifier.STATIC))
       v = new StaticFieldItemImpl(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
     else

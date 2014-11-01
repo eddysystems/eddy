@@ -2,14 +2,13 @@ package tarski
 
 import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
 
-import Semantics.Score
+import Scores._
 import tarski.AST.{UnaryOp, BinaryOp}
 import tarski.Items._
 
 object Environment {
-
   /**
-   * Contains the environment used for name resolution
+   * The environment used for name resolution
    */
   case class JavaEnvironment(things: List[NamedItem]) extends scala.Serializable {
     // used on plugin side to fill in data
@@ -18,34 +17,35 @@ object Environment {
       // TODO: filter identical things (like java.lang.String)
       JavaEnvironment(things ++ xs)
     }
-
-    // Fuzzy Query interface
-
-    // what could this name be?
-    def scores(name: String): List[(Score, EnvItem)] = {
-      things.toList.filter( _.name == name ).map( x => (Score(1.0f), x) )
-    }
-
-    // what could this name be, assuming it is a type?
-    def typeScores(name: String): List[(Score, EnvItem)] = {
-      things.toList.filter( x => x.isInstanceOf[Type] && x.name == name ).map((Score(1.0f), _))
-    }
-
-    def fieldScores(t: Type, name: String): List[(Score, EnvItem)] = {
-      things.toList.filter( x => x.name == name ).map((Score(1.0f), _))
-    }
-
-    // what could this be, assuming it is a type field of the given type? (only returns types)
-    def typeFieldScores(t: Type, name: String): List[(Score, Type)] = {
-      // TODO: this should take into account containers
-      things.toList.collect({ case t: Type if t.name == name => (Score(1.0f),t)})
-    }
-
-    // what could this name be, assuming it is an annotation
-    def annotationScores(name: String): List[(Score, EnvItem)] = {
-      things.toList.filter(x => x.isInstanceOf[AnnotationItem] && x.name == name).map((Score(1.0f), _))
-    }
   }
+
+  // Fuzzy Query interface
+
+  // What could this name be?
+  def scores(name: String)(implicit env: JavaEnvironment): Scored[EnvItem] =
+    simple(env.things.filter(_.name == name))
+
+  // What could this name be, assuming it is a type?
+  def typeScores(name: String)(implicit env: JavaEnvironment): Scored[Type] =
+    simple(env.things.collect({case x: Type if x.name==name => x}))
+
+  // Does a member belong to a type?
+  def memberIn(f: EnvItem, t: Type): Boolean = f match {
+    case m: Member => m.containing == t // TODO: Subtypes are not handled here
+    case _ => false
+  }
+
+  // What could this name be, assuming it is a field of the given type?
+  def fieldScores(t: Type, name: String)(implicit env: JavaEnvironment): Scored[EnvItem] =
+    simple(env.things.filter(f => f.name == name && memberIn(f,t)))
+
+  // What could this be, assuming it is a type field of the given type?
+  def typeFieldScores(t: Type, name: String)(implicit env: JavaEnvironment): Scored[Type] =
+    simple(env.things.collect({case f: Type if f.name==name && memberIn(f,t) => f}))
+
+  // what could this name be, assuming it is an annotation
+  def annotationScores(name: String)(implicit env: JavaEnvironment): Scored[AnnotationItem] =
+    simple(env.things.collect({case a: AnnotationItem if a.name==name => a}))
 
   def envToFile(env: JavaEnvironment, name: String): Unit = {
     val os = new FileOutputStream(name)
