@@ -23,9 +23,7 @@ object Scores {
     def filter(f: A => Boolean): Scored[A] = Scored(
       c filter {case (_,a) => f(a)})
 
-    // TODO: Make an optimized version of withFilter.
-    // This one exists purely to silence warnings.
-    def withFilter(f: A => Boolean) = filter(f)
+    def withFilter[B >: A](p: B => Boolean) = FilteredScored[B](c,p)
 
     def flatMap[B](f: A => Scored[B]): Scored[B] = Scored(
       for ((sa,a) <- c; (sb,b) <- f(a).c) yield (sa+sb,b))
@@ -40,6 +38,14 @@ object Scores {
 
     def collect[B](f: PartialFunction[A,B]): Scored[B] = Scored(
       for ((s,a) <- c; b <- f.lift(a).toList) yield (s,b))
+  }
+
+  case class FilteredScored[A](c: List[(Score,A)], p: A => Boolean) {
+    def map[B](f: A => B): Scored[B] = Scored(
+      c collect {case (s,a) if p(a) => (s,f(a))})
+
+    def flatMap[B](f: A => Scored[B]): Scored[B] = Scored(
+      for ((sa,a) <- c; if p(a); (sb,b) <- f(a).c) yield (sa+sb,b))
   }
 
   // Score constructors
