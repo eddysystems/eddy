@@ -4,12 +4,7 @@ import tarski.AST.{AssignOp, BinaryOp, UnaryOp}
 import tarski.Items.{ArrayType, VoidType, Type}
 import tarski.Types._
 
-/**
- * Created by martin on 30.10.14.
- */
 object Denotations {
-
-  val whiteSpace = ' '
 
   sealed abstract class Den
 
@@ -40,17 +35,17 @@ object Denotations {
   // It's all expressions from here
   sealed abstract class ExpDen extends Den
 
-  sealed abstract class LitDen extends ExpDen { def text: String }
+  sealed abstract class LitDen extends ExpDen
   case class ByteLit(b: Byte, text: String) extends LitDen
   case class ShortLit(s: Short, text: String) extends LitDen
   case class IntLit(i: Int, text: String) extends LitDen
   case class LongLit(l: Long, text: String) extends LitDen
-  case class BooleanLit(b: Boolean) extends LitDen { def text = b.toString }
+  case class BooleanLit(b: Boolean) extends LitDen
   case class StringLit(s: String, text: String) extends LitDen
   case class FloatLit(f: Float, text: String) extends LitDen
   case class DoubleLit(d: Double, text: String) extends LitDen
   case class CharLit(c: Char, text: String) extends LitDen
-  case class NullLit() extends LitDen { val text = "null" }
+  case class NullLit() extends LitDen
 
   // Expressions
   case class ParameterExpDen(item: Items.ParameterItem) extends ExpDen
