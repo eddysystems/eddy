@@ -129,11 +129,13 @@ object Semantics {
            if unaryLegal(op,typeOf(x)))
         yield UnaryExpDen(op,x)
 
-    case BinaryExp(op,x,y) =>
+    case BinaryExp(op,x,y) => {
+      val dy = denoteExp(y);
       for (x <- denoteExp(x);
-           y <- denoteExp(y);
+           y <- dy;
            if binaryLegal(op,typeOf(x),typeOf(y)))
         yield BinaryExpDen(op,x,y)
+    }
 
     case CastExp(t,x) =>
       for (t <- denote(t);
