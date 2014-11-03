@@ -20,7 +20,7 @@ object Tarski {
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[StmtDen])] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
-    (r map {case (env,ss) => ss.asJava}).c.asJava
+    (r map {case (e,ss) => ss.asJava}).c.asJava
   }
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[StmtDen])] = {
@@ -32,7 +32,7 @@ object Tarski {
       println("  ast: " + root)
       println("  meanings: ")
       val ds = denoteStmts(root)(env)
-      for ((s,d) <- ds.c)
+      for ((s,(e,d)) <- ds.c)
         println(s"    $s: $d")
       results ++= ds
     }

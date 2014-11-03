@@ -198,7 +198,7 @@ object Semantics {
           for {y <- denoteExp(y)(env);
                t = typeOf(y);
                (env,x) <- env.newVariable(x,t)}
-            yield (env,VarStmtDen(t,List((x,Some(y)))))
+            yield (env,VarStmtDen(t,List((x,Some(ExpInitDen(y))))))
         case _ => fail
       }
       exps.map((env,_)) ++ stmts

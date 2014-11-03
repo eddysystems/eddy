@@ -95,11 +95,6 @@ object Types {
     }
     case AndAndOp()|OrOrOp() => for (b <- toBoolean(t0); _ <- toBoolean(t1)) yield b
   }
-  // Is t0 op= t1 valid?
-  def assignOpType(op: Option[AssignOp], t0: Type, t1: Type): Option[Type] = op match {
-    case Some(op) => binaryType(op,t0,t1) filter (assignsTo(_,t0))
-    case None => if (assignsTo(t1,t0)) Some(t0) else None
-  }
 
   // TODO: Probably eliminate
   def unaryLegal(op: UnaryOp, t: Type) = unaryType(op,t).isDefined
@@ -244,5 +239,11 @@ object Types {
   // Combine left and right sides of a conditional expression
   def condType(t0: Type, t1: Type): Option[Type] = (t0,t1) match {
     case _ => throw new NotImplementedError("conditional typing")
+  }
+
+  // Is t0 op= t1 valid?
+  def assignOpType(op: Option[AssignOp], t0: Type, t1: Type): Option[Type] = op match {
+    case Some(op) => binaryType(op,t0,t1) filter (castsTo(_,t0))
+    case None => if (assignsTo(t1,t0)) Some(t0) else None
   }
 }

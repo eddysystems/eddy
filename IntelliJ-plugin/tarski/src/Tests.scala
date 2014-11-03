@@ -1,14 +1,16 @@
 package tarski
 
+import tarski.AST.MulOp
 import tarski.Denotations._
 
+import org.apache.commons.lang.StringEscapeUtils.escapeJava
 import scala.language.implicitConversions
 import org.testng.annotations.{BeforeClass, Test}
 import org.testng.AssertJUnit._
 
 import tarski.Tarski.fix
 import tarski.Environment.{Env,baseEnvironment}
-import tarski.Items.{LocalVariableItem, IntType, LocalVariableItemImpl}
+import tarski.Items._
 import tarski.Lexer._
 import tarski.Tokens._
 import tarski.Pretty._
@@ -27,6 +29,7 @@ class Tests {
   // Useful implicit conversions
   implicit def toExp(i: Int): AST.Exp = AST.LitExp(AST.IntLit(i.toString))
   implicit def toDen(i: Int): ExpDen = IntLit(i,i.toString)
+  implicit def toDen(c: Char): ExpDen = CharLit(c, "'" + escapeJava(c.toString) + "'")
   implicit def toDen(x: LocalVariableItem): ExpDen = LocalVariableExpDen(x)
 
   def testDenotation(input: String, best: Env => List[StmtDen])(implicit env: Env) = {
@@ -44,7 +47,23 @@ class Tests {
   @Test
   def variableStmt(): Unit = {
     implicit val env = baseEnvironment
-    testDenotation("x = 1", env => List(VarStmtDen(IntType, List((env.exactLocal("x"), Some(toDen(1)))))))
+    testDenotation("x = 1", env => List(VarStmtDen(IntType, List((env.exactLocal("x"), Some(ExpInitDen(toDen(1))))))))
+  }
+
+  @Test
+  def arrayVariableStmt(): Unit = {
+    implicit val env = baseEnvironment
+    testDenotation("x = (1,2,3,4)", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
+  }
+
+  @Test
+  def arrayLiteral(): Unit = {
+    val main = new ClassTypeImpl("Main", LocalPkg, "Main", ObjectType, Nil)
+    val f = new MethodItemImpl("f", main, "f", VoidType, List(ArrayType(IntType)))
+    implicit val env = Env(List(main,f))
+    testDenotation("f({1,2,3,4})", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
   }
 
   @Test
@@ -52,9 +71,23 @@ class Tests {
     implicit val env = baseEnvironment
     testDenotation("x = 1; x = 2", env => {
       val x = env.exactLocal("x")
-      List(VarStmtDen(IntType, List((x,Some(toDen(1))))),
+      List(VarStmtDen(IntType, List((x,Some(ExpInitDen(toDen(1)))))),
            ExprStmtDen(AssignExpDen(None,x,2)))
     })
+  }
+
+  @Test
+  def indexExp(): Unit = {
+    val x = new LocalVariableItemImpl("x", ArrayType(CharType))
+    implicit val env = Env(List(x))
+    testDenotation("""x[4] = '\n'""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(LocalVariableExpDen(x), 4), '\n'))))
+  }
+
+  @Test
+  def indexOpExp(): Unit = {
+    val x = new LocalVariableItemImpl("x", ArrayType(CharType))
+    implicit val env = Env(List(x))
+    testDenotation("""x[4] *= '\n'""", env => List(ExprStmtDen(AssignExpDen(Some(MulOp()), IndexExpDen(LocalVariableExpDen(x), 4), '\n'))))
   }
 
   @Test

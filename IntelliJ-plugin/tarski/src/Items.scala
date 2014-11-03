@@ -64,7 +64,7 @@ object Items {
     def name: String
     def containing: NamedItem
 
-    def qualifiedName: String = containing.qualifiedName + '.' + name
+    def qualifiedName: String = if (containing.qualifiedName.isEmpty) name else containing.qualifiedName + '.' + name
   }
 
   trait ClassMember extends Member {
@@ -82,6 +82,7 @@ object Items {
 
   val JavaLangPkg = new PackageItemImpl("java.lang", "java.lang", "java.lang")
   val JavaIoPkg = new PackageItemImpl("java.io", "java.io", "java.io")
+  val LocalPkg = new PackageItemImpl("", "", "")
 
   // Common references types are important enough to name
   private def commonRef(name: String, base: ClassType, implements: List[InterfaceType]) = new ClassTypeImpl(name,JavaLangPkg,name,base,implements)

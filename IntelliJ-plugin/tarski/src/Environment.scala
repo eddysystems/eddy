@@ -3,7 +3,6 @@ package tarski
 import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
 
 import Scores._
-import tarski.AST.{UnaryOp, BinaryOp}
 import tarski.Items._
 
 object Environment {
@@ -81,7 +80,11 @@ object Environment {
     env
   }
 
-  // Environment with Java's basic types
-  // add String, which really should always be there
-  val baseEnvironment = Env(List(BooleanType, IntType, FloatType, LongType, DoubleType, CharType, StringType))
+  val baseEnvironment = Env(List(BooleanType, IntType, FloatType, LongType, DoubleType, CharType,
+    JavaLangPkg, JavaIoPkg, LocalPkg,
+    ObjectType, Serializable, CharSequence,
+    ComparableEnum, ComparableString, ComparableBoolean, ComparableCharacter, ComparableByte, ComparableShort, ComparableInteger, ComparableLong, ComparableFloat, ComparableDouble,
+    NumberType, EnumBaseType, StringType,
+    BooleanRefType, CharRefType, ByteRefType, ShortRefType, IntRefType, LongRefType, FloatRefType, DoubleRefType
+  ))
 }

@@ -43,9 +43,6 @@ public class Tests {
   }
 
   public static void test() {
-    int x = 0;
-    int y = 4;
-    (x) = 5;
   }
 
   /*
