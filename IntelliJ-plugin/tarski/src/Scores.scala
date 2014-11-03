@@ -83,4 +83,12 @@ object Scores {
 
   def partialProduct[A,B](xs: List[Scored[A]])(f: PartialFunction[A,B]): Scored[List[B]] =
     product(xs.map(_.collect(f)))
+
+  def productFoldLeft[A,E](e: E)(fs: List[E => Scored[(E,A)]]): Scored[(E,List[A])] = fs match {
+    case Nil => single((e,Nil))
+    case f :: fs =>
+      for ((ex,x) <- f(e);
+           (exs,xs) <- productFoldLeft(ex)(fs))
+        yield (exs,x::xs)
+  }
 }
