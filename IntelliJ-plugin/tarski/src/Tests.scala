@@ -39,7 +39,7 @@ class Tests {
 
   @Test
   def assignExp(): Unit = {
-    val x = new LocalVariableItemImpl("x", IntType)
+    val x = LocalVariableItem("x", IntType)
     implicit val env = new Env(List(x))
     testDenotation("x = 1", env => List(ExprStmtDen(AssignExpDen(None,x,1))))
   }
@@ -59,8 +59,8 @@ class Tests {
 
   @Test
   def arrayLiteral(): Unit = {
-    val main = new ClassTypeImpl("Main", LocalPkg, "Main", ObjectType, Nil)
-    val f = new MethodItemImpl("f", main, "f", VoidType, List(ArrayType(IntType)))
+    val main = ClassType("Main", LocalPkg, "Main", ObjectType, Nil)
+    val f = MethodItem("f", main, "f", VoidType, List(ArrayType(IntType)))
     implicit val env = Env(List(main,f))
     testDenotation("f({1,2,3,4})", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
       Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
@@ -78,14 +78,14 @@ class Tests {
 
   @Test
   def indexExp(): Unit = {
-    val x = new LocalVariableItemImpl("x", ArrayType(CharType))
+    val x = LocalVariableItem("x", ArrayType(CharType))
     implicit val env = Env(List(x))
     testDenotation("""x[4] = '\n'""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(LocalVariableExpDen(x), 4), '\n'))))
   }
 
   @Test
   def indexOpExp(): Unit = {
-    val x = new LocalVariableItemImpl("x", ArrayType(CharType))
+    val x = LocalVariableItem("x", ArrayType(CharType))
     implicit val env = Env(List(x))
     testDenotation("""x[4] *= '\n'""", env => List(ExprStmtDen(AssignExpDen(Some(MulOp()), IndexExpDen(LocalVariableExpDen(x), 4), '\n'))))
   }

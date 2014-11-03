@@ -21,8 +21,8 @@ object Environment {
       if (this.things.exists(_.relativeName == name))
         fail
       else {
-        val newv = new LocalVariableItemImpl(name, t)
-        single((addObjects(List(newv)),newv))
+        val x = LocalVariableItem(name, t)
+        single((addObjects(List(x)),x))
       }
 
     // fragile, only use for tests
