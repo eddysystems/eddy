@@ -49,6 +49,8 @@ object Scores {
 
     def collect[B](f: PartialFunction[A,B]): Scored[B] = Scored(
       for ((s,a) <- c; b <- f.lift(a).toList) yield (s,b))
+
+    def ++[B >: A](s: Scored[B]): Scored[B] = Scored(c++s.c)
   }
 
   case class FilteredScored[A](c: List[(Score,A)], p: A => Boolean) {
