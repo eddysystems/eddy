@@ -17,6 +17,9 @@ object Scores {
     s.reduce((x,y) => Score(x.s + y.s))
 
   case class Scored[+A](c: List[(Score,A)]) extends AnyVal {
+    // If there are any options, pick the best one
+    def best: Option[A] = c.sortBy(-_._1.s).headOption map (_._2)
+
     def map[B](f: A => B): Scored[B] = Scored(
       c map {case (s,a) => (s,f(a))})
 
@@ -34,6 +37,14 @@ object Scores {
         val bs = f.c
         if (bs.isEmpty) Nil
         else for ((sa,a) <- c; (sb,b) <- bs) yield (sa+sb,(a,b))
+      })
+
+    def productWith[B,C](f: => Scored[B])(g: (A,B) => C) = Scored(
+      if (c.isEmpty) Nil
+      else {
+        val bs = f.c
+        if (bs.isEmpty) Nil
+        else for ((sa,a) <- c; (sb,b) <- bs) yield (sa+sb,g(a,b))
       })
 
     def collect[B](f: PartialFunction[A,B]): Scored[B] = Scored(
@@ -62,7 +73,7 @@ object Scores {
   def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
     case Nil => single(Nil)
     case Scored(Nil) :: _ => fail
-    case sx :: sxs => sx product product(sxs) map {case (x,xs) => x::xs}
+    case sx :: sxs => sx.productWith(product(sxs))(_::_)
   }
 
   def partialProduct[A,B](xs: List[Scored[A]])(f: PartialFunction[A,B]): Scored[List[B]] =
