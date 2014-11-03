@@ -42,7 +42,16 @@ public class Tests {
     return t.getClass().getCanonicalName();
   }
 
-  public static void test() {
+  public static float x(double d) {
+    return (float)d;
+  }
+
+  public interface Mappable<R,E> {
+
+  }
+
+  public static void map() {
+
   }
 
   /*
