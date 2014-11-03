@@ -4,7 +4,7 @@ import tarski.Tokens._
 import tarski.AST._
 
 object ParseEddy {
-  def parse(input: List[Token]): List[Stmt] = {
+  def parse(input: List[Token]): List[List[Stmt]] = {
     type R = (Int,Int)
     import scala.collection.mutable
     val debug = false
@@ -93,6 +93,7 @@ object ParseEddy {
     val P_CommaTok__Commas_Type = mutable.Map[R,List[(CommaTok,List[Type])]]()
     val P_Exp__LParenTok = mutable.Map[R,List[(Exp,LParenTok)]]()
     val P_Stmts__RCurlyTok = mutable.Map[R,List[(List[Stmt],RCurlyTok)]]()
+    val P_SemiTok__Stmts = mutable.Map[R,List[(SemiTok,List[Stmt])]]()
     val P_Type__List1_VarDecl = mutable.Map[R,List[(Type,KList[(NameDims,Option[Exp])])]]()
     val P_Exp__ColonTok__Exp = mutable.Map[R,List[(Exp,ColonTok,Exp)]]()
     val P_List_Type__GtTok = mutable.Map[R,List[(KList[Type],GtTok)]]()
@@ -108,7 +109,6 @@ object ParseEddy {
     val P_BinaryOp = mutable.Map[R,List[BinaryOp]]()
     val P_TypeArgs = mutable.Map[R,List[KList[Type]]]()
     val P_Option_TypeArgs = mutable.Map[R,List[Option[KList[Type]]]]()
-    val P_Option_SemiTok = mutable.Map[R,List[Option[SemiTok]]]()
     val P_BinaryOp__Exp = mutable.Map[R,List[(BinaryOp,Exp)]]()
     val P_AssertTok__Exp = mutable.Map[R,List[(AssertTok,Exp)]]()
     val P_CommaTok__Commas_VarDecl = mutable.Map[R,List[(CommaTok,List[(NameDims,Option[Exp])])]]()
@@ -136,7 +136,6 @@ object ParseEddy {
     val P_Exp__RParenTok = mutable.Map[R,List[(Exp,RParenTok)]]()
     val P_Block = mutable.Map[R,List[List[Stmt]]]()
     val P_StmtHelper = mutable.Map[R,List[Stmt]]()
-    val P_Stmt = mutable.Map[R,List[Stmt]]()
     val P_Stmts = mutable.Map[R,List[List[Stmt]]]()
     val P_EqTok__Exp = mutable.Map[R,List[(EqTok,Exp)]]()
     val P_Exp__ColonColonTok = mutable.Map[R,List[(Exp,ColonColonTok)]]()
@@ -160,6 +159,7 @@ object ParseEddy {
       P_CommaTok__Commas_Type((lo,lo)) = List()
       P_Exp__LParenTok((lo,lo)) = List()
       P_Stmts__RCurlyTok((lo,lo)) = List()
+      P_SemiTok__Stmts((lo,lo)) = List()
       P_Type__List1_VarDecl((lo,lo)) = List()
       P_Exp__ColonTok__Exp((lo,lo)) = List()
       P_List_Type__GtTok((lo,lo)) = List()
@@ -175,7 +175,6 @@ object ParseEddy {
       P_BinaryOp((lo,lo)) = List()
       P_TypeArgs((lo,lo)) = List()
       P_Option_TypeArgs((lo,lo)) = List(None)
-      P_Option_SemiTok((lo,lo)) = List(None)
       P_BinaryOp__Exp((lo,lo)) = List()
       P_AssertTok__Exp((lo,lo)) = List()
       P_CommaTok__Commas_VarDecl((lo,lo)) = List()
@@ -203,7 +202,6 @@ object ParseEddy {
       P_Exp__RParenTok((lo,lo)) = List()
       P_Block((lo,lo)) = List()
       P_StmtHelper((lo,lo)) = List()
-      P_Stmt((lo,lo)) = List()
       P_Stmts((lo,lo)) = List(Nil)
       P_EqTok__Exp((lo,lo)) = List()
       P_Exp__ColonColonTok((lo,lo)) = List()
@@ -239,6 +237,7 @@ object ParseEddy {
       P_CommaTok__Commas_Type((lo,hi)) = ts(P_CommaTok,P_Commas_Type)((x,y) => (x,y)); d("CommaTok__Commas_Type",P_CommaTok__Commas_Type)
       P_Exp__LParenTok((lo,hi)) = st(P_Exp,P_LParenTok)((x,y) => (x,y)); d("Exp__LParenTok",P_Exp__LParenTok)
       P_Stmts__RCurlyTok((lo,hi)) = nt(P_Stmts,P_RCurlyTok)((x,y) => (x,y)); d("Stmts__RCurlyTok",P_Stmts__RCurlyTok)
+      P_SemiTok__Stmts((lo,hi)) = tn(P_SemiTok,P_Stmts)((x,y) => (x,y)); d("SemiTok__Stmts",P_SemiTok__Stmts)
       P_Type__List1_VarDecl((lo,hi)) = ss(P_Type,P_List1_VarDecl)((x,y) => (x,y)); d("Type__List1_VarDecl",P_Type__List1_VarDecl)
       P_Exp__ColonTok__Exp((lo,hi)) = ss(P_Exp,P_ColonTok__Exp)((x,y) => (x,y._1,y._2)); d("Exp__ColonTok__Exp",P_Exp__ColonTok__Exp)
       P_List_Type__GtTok((lo,hi)) = nt(P_List_Type,P_GtTok)((x,y) => (x,y)); d("List_Type__GtTok",P_List_Type__GtTok)
@@ -254,7 +253,6 @@ object ParseEddy {
       P_BinaryOp((lo,hi)) = t(P_MulTok)(x => MulOp()) ::: t(P_DivTok)(x => DivOp()) ::: t(P_ModTok)(x => ModOp()) ::: t(P_PlusTok)(x => AddOp()) ::: t(P_MinusTok)(x => SubOp()) ::: t(P_LShiftTok)(x => LShiftOp()) ::: t(P_RShiftTok)(x => RShiftOp()) ::: t(P_UnsignedRShiftTok)(x => UnsignedRShiftOp()) ::: t(P_LtTok)(x => LtOp()) ::: t(P_GtTok)(x => GtOp()) ::: t(P_LeTok)(x => LeOp()) ::: t(P_GeTok)(x => GeOp()) ::: t(P_InstanceofTok)(x => InstanceofOp()) ::: t(P_EqEqTok)(x => EqOp()) ::: t(P_NeTok)(x => NeOp()) ::: t(P_AndTok)(x => AndOp()) ::: t(P_XorTok)(x => XorOp()) ::: t(P_OrTok)(x => OrOp()) ::: t(P_AndAndTok)(x => AndAndOp()) ::: t(P_OrOrTok)(x => OrOrOp()); d("BinaryOp",P_BinaryOp)
       P_TypeArgs((lo,hi)) = ts(P_LtTok,P_List_Type__GtTok)((x,y) => y._1); d("TypeArgs",P_TypeArgs)
       P_Option_TypeArgs((lo,hi)) = s(P_TypeArgs)(x => Some(x)); d("Option_TypeArgs",P_Option_TypeArgs)
-      P_Option_SemiTok((lo,hi)) = t(P_SemiTok)(x => Some(x)); d("Option_SemiTok",P_Option_SemiTok)
       P_BinaryOp__Exp((lo,hi)) = ss(P_BinaryOp,P_Exp)((x,y) => (x,y)); d("BinaryOp__Exp",P_BinaryOp__Exp)
       P_AssertTok__Exp((lo,hi)) = ts(P_AssertTok,P_Exp)((x,y) => (x,y)); d("AssertTok__Exp",P_AssertTok__Exp)
       P_CommaTok__Commas_VarDecl((lo,hi)) = ts(P_CommaTok,P_Commas_VarDecl)((x,y) => (x,y)); d("CommaTok__Commas_VarDecl",P_CommaTok__Commas_VarDecl)
@@ -282,8 +280,7 @@ object ParseEddy {
       P_Exp__RParenTok((lo,hi)) = st(P_Exp,P_RParenTok)((x,y) => (x,y)); d("Exp__RParenTok",P_Exp__RParenTok)
       P_Block((lo,hi)) = ts(P_LCurlyTok,P_Stmts__RCurlyTok)((x,y) => y._1); d("Block",P_Block)
       P_StmtHelper((lo,hi)) = ss(P_Mod,P_Type__List1_VarDecl)((x,y) => VarStmt(x,y._1,y._2)) ::: s(P_Block)(x => BlockStmt(x)) ::: s(P_Exp)(x => ExpStmt(x)) ::: ts(P_AssertTok,P_Exp)((x,y) => AssertStmt(y,None)) ::: ss(P_AssertTok__Exp,P_ColonTok__Exp)((x,y) => AssertStmt(x._2,Some(y._2))) ::: tn(P_BreakTok,P_Option_IdentTok)((x,y) => BreakStmt(y.map(_.name))) ::: tn(P_ContinueTok,P_Option_IdentTok)((x,y) => ContinueStmt(y.map(_.name))) ::: tn(P_ReturnTok,P_Option_Exp)((x,y) => ReturnStmt(y)) ::: ts(P_ThrowTok,P_Exp)((x,y) => ThrowStmt(y)) ::: ts(P_SynchronizedTok,P_Exp__Block)((x,y) => SyncStmt(y._1,y._2)) ::: ss(P_SynchronizedTok__LParenTok,P_Exp__RParenTok__Block)((x,y) => SyncStmt(y._1,y._3)); d("StmtHelper",P_StmtHelper)
-      P_Stmt((lo,hi)) = t(P_SemiTok)(x => EmptyStmt()) ::: sn(P_StmtHelper,P_Option_SemiTok)((x,y) => x); d("Stmt",P_Stmt)
-      P_Stmts((lo,hi)) = sn(P_Stmt,P_Stmts)((x,y) => x :: y); d("Stmts",P_Stmts)
+      P_Stmts((lo,hi)) = s(P_StmtHelper)(x => List(x)) ::: ss(P_StmtHelper,P_SemiTok__Stmts)((x,y) => x :: y._2); d("Stmts",P_Stmts)
       P_EqTok__Exp((lo,hi)) = ts(P_EqTok,P_Exp)((x,y) => (x,y)); d("EqTok__Exp",P_EqTok__Exp)
       P_Exp__ColonColonTok((lo,hi)) = st(P_Exp,P_ColonColonTok)((x,y) => (x,y)) ::: st(P_Exp,P_ColonColonTok)((x,y) => (x,y)); d("Exp__ColonColonTok",P_Exp__ColonColonTok)
       P_DotTok__IdentTok((lo,hi)) = tt(P_DotTok,P_IdentTok)((x,y) => (x,y)); d("DotTok__IdentTok",P_DotTok__IdentTok)
@@ -301,6 +298,6 @@ object ParseEddy {
     }
     
     // All done!
-    P_Stmt((0,n))
+    P_Stmts((0,n))
   }
 }

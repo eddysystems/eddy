@@ -1,6 +1,6 @@
 package tarski
 
-import org.apache.commons.lang.StringEscapeUtils.{escapeJava,unescapeJava}
+import org.apache.commons.lang.StringEscapeUtils.unescapeJava
 
 import AST.{Type => _, ArrayType => _, _}
 import Types._
@@ -8,6 +8,7 @@ import Environment._
 import Items._
 import tarski.Denotations._
 import Scores._
+import ambiguity.Utility.notImplemented
 
 object Semantics {
   /*
@@ -39,7 +40,7 @@ object Semantics {
 
   // Types
   // TODO: The grammar currently rules out stuff like (1+2).A matching as a type.  Maybe we want this?
-  def denote(n: AST.Type)(implicit env: JavaEnvironment): Scored[Type] = n match {
+  def denote(n: AST.Type)(implicit env: Env): Scored[Type] = n match {
     case NameType(n) => typeScores(n)
     case FieldType(x,f) => for (t <- denote(x); fi <- typeFieldScores(t,f)) yield fi
     case ModType(Annotation(_),t) => throw new NotImplementedError("Types with annotations")
@@ -48,14 +49,14 @@ object Semantics {
     case ApplyType(_,_) => throw new NotImplementedError("Generics not implemented (ApplyType): " + n)
     case WildType(_) => throw new NotImplementedError("Type bounds not implemented (WildType): " + n)
   }
-  def denoteType(n: Exp)(implicit env: JavaEnvironment): Scored[Type] =
+  def denoteType(n: Exp)(implicit env: Env): Scored[Type] =
     denote(n) collect {
       case t: TypeDen => t.item
       case e: ExpDen => typeOf(e) // Allow expressions to be used as types
     }
 
   // Expressions
-  def denote(e: Exp)(implicit env: JavaEnvironment): Scored[Den] = e match {
+  def denote(e: Exp)(implicit env: Env): Scored[Den] = e match {
     case NameExp(n) => scores(n) collect {
       case i: FieldItem => Denotations.LocalFieldExpDen(i)
       case i: ParameterItem => Denotations.ParameterExpDen(i)
@@ -65,7 +66,7 @@ object Semantics {
       case i: ConstructorItem => Denotations.ForwardDen(i)
     }
     case LitExp(x) => denote(x)
-    case ParenExp(e) => denote(e) // Java doesn't allow parentheses around types, but we do
+    case ParenExp(x) => denote(x) // Java doesn't allow parentheses around types, but we do
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else
@@ -162,17 +163,56 @@ object Semantics {
 
     case _ => throw new NotImplementedError("Trying to compute denotation for node: " + e)
   }
-  def denoteExp(n: Exp)(implicit env: JavaEnvironment): Scored[ExpDen] =
+  def denoteExp(n: Exp)(implicit env: Env): Scored[ExpDen] =
     denote(n) collect {case e: ExpDen => e}
-  def isVariable(e: ExpDen): Boolean = throw new NotImplementedError("isVariable")
-  def denoteCallable(n: Exp)(implicit env: JavaEnvironment): Scored[Denotations.Callable] =
+  def isVariable(e: ExpDen): Boolean = e match {
+    // in java, we can only assign to actual variables, never to values returned by functions or expressions.
+    // TODO: implement final, private, protected
+    case _: LitDen => false
+    case ParameterExpDen(i) => true // TODO: check for final
+    case LocalVariableExpDen(i) => true // TODO: check for final
+    case EnumConstantExpDen(_) => false
+    case CastExpDen(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
+    case UnaryExpDen(_,_) => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
+    case BinaryExpDen(_,_,_) => false
+    case AssignExpDen(_,_,_) => false
+    case ParenExpDen(x) => isVariable(x)
+    case ApplyExpDen(_,_) => false
+    case FieldExpDen(obj, field) => true // TODO: check for final, private, protected
+    case LocalFieldExpDen(field) => true // TODO: check for final
+    case StaticFieldExpDen(field) => true // TODO: check for final, private, protected
+    case IndexExpDen(a, i) => isVariable(a)
+    case CondExpDen(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
+  }
+  def denoteCallable(n: Exp)(implicit env: Env): Scored[Denotations.Callable] =
     throw new NotImplementedError("denoteCallable")
 
   // Statements
-  def denote(s: Stmt)(implicit env: JavaEnvironment): Scored[StmtDen] = s match {
-    case EmptyStmt() => single(EmptyStmtDen())
-    case ExpStmt(e) => denote(e) collect {case e: ExpDen => ExprStmtDen(e)}
-    case BlockStmt(b) => partialProduct(b.map(denote)){case s: StmtDen => s} map BlockStmtDen
-    case _ => throw new NotImplementedError("Trying to compute denotation for statement: " + s)
+  def denoteStmt(s: Stmt)(env: Env): Scored[(Env,StmtDen)] = s match {
+    case EmptyStmt() => single((env,EmptyStmtDen()))
+    case VarStmt(mod,t,v) => notImplemented
+    case ExpStmt(e) => {
+      val exps = denoteExp(e)(env) map ExprStmtDen
+      val stmts = e match {
+        case AssignExp(None,NameExp(x),y) =>
+          for {y <- denoteExp(y)(env);
+               t = typeOf(y);
+               (env,x) <- env.newVariable(x,t)}
+            yield (env,VarStmtDen(t,List((x,Some(y)))))
+        case _ => fail
+      }
+      exps.map((env,_)) ++ stmts
+    }
+    case BlockStmt(b) => denoteStmts(b)(env) map {case (e,ss) => (e,BlockStmtDen(ss))}
+    case AssertStmt(cond: Exp, msg: Option[Exp]) => notImplemented
+    case BreakStmt(label: Option[Name]) => notImplemented
+    case ContinueStmt(label: Option[Name]) => notImplemented
+    case ReturnStmt(e: Option[Exp]) => notImplemented
+    case ThrowStmt(e: Exp) => notImplemented
+    case SyncStmt(e: Exp, b: Block) => notImplemented
   }
+
+  def denoteStmts(s: List[Stmt])(env: Env): Scored[(Env,List[StmtDen])] =
+    productFoldLeft(env)(s map denoteStmt)
+
 }

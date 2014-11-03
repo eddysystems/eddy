@@ -1,5 +1,5 @@
 name ParseEddy
-start Stmt
+start Stmts
 token Token
 
 preamble package ambiguity
@@ -81,7 +81,8 @@ Block List[Stmt]
   LCurlyTok Stmts RCurlyTok      { $2 }
 Stmts List[Stmt]
   ""                             { Nil }
-  Stmt Stmts                     { $1 :: $2 }
+  StmtHelper                     { List($1) }
+  StmtHelper SemiTok Stmts       { $1 :: $3 }
 
 // Statement
 Stmt Stmt

@@ -6,30 +6,35 @@ import Environment._
 import Tokens.{Token,isSpace}
 import Items._
 import ambiguity.ParseEddy
-import java.util.ArrayList
 import tarski.Scores._
 import tarski.Denotations._
 import tarski.Semantics._
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
 
 object Tarski {
-  def environment(types: java.util.Collection[NamedItem], values: java.util.Collection[NamedItem]): JavaEnvironment = {
+  def environment(types: java.util.Collection[NamedItem], values: java.util.Collection[NamedItem]): Env = {
     baseEnvironment.addObjects(types.asScala.toList++values.asScala.toList)
   }
 
-  def fix(tokens: java.util.List[Token], env: JavaEnvironment): java.util.List[(AST.Stmt, java.util.List[(Score,StmtDen)])] = {
-    val results: java.util.List[(AST.Stmt, java.util.List[(Score,StmtDen)])] = new java.util.ArrayList[(AST.Stmt,java.util.List[(Score,StmtDen)])]()
-    val toks = tokens.asScala.toList.filterNot(isSpace)
-    println("line " + toks)
-    for (root <- ParseEddy.parse(toks)) {
+  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[StmtDen])] = {
+    val toks = tokens.asScala.toList
+    val r = fix(toks)(env)
+    (r map {case (env,ss) => ss.asJava}).c.asJava
+  }
+
+  def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[StmtDen])] = {
+    var results: Scored[(Env,List[StmtDen])] = fail
+    println("parsing " + tokens)
+    val asts = ParseEddy.parse(tokens.filterNot(isSpace))
+    println("  " + asts)
+    for (root <- asts) {
       println("  ast: " + root)
       println("  meanings: ")
-      val ds = denote(root)(env)
-      results.add((root,ds.c.asJava))
+      val ds = denoteStmts(root)(env)
       for ((s,d) <- ds.c)
         println(s"    $s: $d")
+      results ++= ds
     }
     results
   }

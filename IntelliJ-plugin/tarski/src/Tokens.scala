@@ -214,7 +214,7 @@ object Tokens {
     case DotTok() => "."
     case EllipsisTok() => "..."
     case AtTok() => "@"
-    case ColonColonTok() => ";"
+    case ColonColonTok() => "::"
     // Operators
     case EqTok() => "="
     case GtTok() => ">"

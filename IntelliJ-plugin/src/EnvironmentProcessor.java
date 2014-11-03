@@ -1,7 +1,5 @@
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.psi.*;
-import com.intellij.psi.impl.source.PsiClassImpl;
-import com.intellij.psi.impl.source.tree.java.PsiPackageStatementImpl;
 import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
 import com.intellij.psi.scope.JavaScopeProcessorEvent;
@@ -267,7 +265,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   /**
    * Make the IntelliJ-independent class that is used by the tarksi engine to look up possible names
    */
-  public JavaEnvironment getJavaEnvironment() {
+  public Env getJavaEnvironment() {
     Map<PsiElement, NamedItem> envitems = new HashMap<PsiElement, NamedItem>();
     Map<PsiType, NamedItem> types = new HashMap<PsiType, NamedItem>();
 
@@ -316,7 +314,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       else if (var instanceof PsiLocalVariable)
         envitems.put(var, new LocalVariableItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
       else if (var instanceof PsiField) {
-        addFieldToEnvMap(envitems, types, (PsiField)var);
+        addFieldToEnvMap(envitems, types, (PsiField) var);
       }
     }
 

@@ -1,7 +1,7 @@
 package tarski
 
-import sun.jvm.hotspot.jdi.InterfaceTypeImpl
 import tarski.AST._
+import ambiguity.Utility.notImplemented
 
 object Items {
   // represents a language item (these are given to us by someone who knows about the surrounding code)
@@ -16,7 +16,7 @@ object Items {
     def this() = { this("") }
 
     // used for name matching
-    def qualifiedName: Name
+    def qualifiedName: Name // TODO: need to be Option[String] for objects without them
     def relativeName: Name
 
     override def toString: String = qualifiedName
@@ -141,12 +141,6 @@ object Items {
     def relativeName = containing.relativeName + "." + name // TODO: Not correct if we're in the same match
    }
 
-  // things that are created by us
-  // TODO: probably need all we have above here
-  sealed abstract class NewVariableItem(name: Name, t: Type) extends NamedItem(name) with scala.Serializable
-  sealed abstract class NewTypeItem(name: Name) extends Type(name) with scala.Serializable
-  sealed abstract class NewMethodItem(name: Name) extends NamedItem(name) with scala.Serializable
-
   // when we cannot assign anything useful to this node
   sealed class ErrorItem() extends EnvItem with scala.Serializable
   sealed class ErrorType() extends Type("bad type") with NoLookupItem with scala.Serializable {
@@ -154,8 +148,8 @@ object Items {
     def relativeName = "bad type"
   }
   sealed class TypeParameterType(name: String) extends Type(name) with NoLookupItem with scala.Serializable {
-    def qualifiedName = null
-    def relativeName = null
+    def qualifiedName = "notImplemented"
+    def relativeName = "notImplemented"
   }
 
   // These class implementations are created from the plugin side. They implement the matching interface defined in NamedItem

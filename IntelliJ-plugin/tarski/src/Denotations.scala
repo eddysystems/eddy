@@ -29,6 +29,7 @@ object Denotations {
   // Statements
   sealed abstract class StmtDen extends Den
   case class EmptyStmtDen() extends StmtDen
+  case class VarStmtDen(t: Type, vs: List[(Items.LocalVariableItem, Option[ExpDen])]) extends StmtDen
   case class ExprStmtDen(e: ExpDen) extends StmtDen
   case class BlockStmtDen(b: List[StmtDen]) extends StmtDen
 

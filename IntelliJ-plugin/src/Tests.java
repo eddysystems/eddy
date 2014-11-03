@@ -42,6 +42,12 @@ public class Tests {
     return t.getClass().getCanonicalName();
   }
 
+  public static void test() {
+    int x = 0;
+    int y = 4;
+    (x) = 5;
+  }
+
   /*
   @Test
   public void expressionTypes() {

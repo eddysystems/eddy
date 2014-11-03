@@ -1,20 +1,18 @@
 package tarski
 
+import tarski.Denotations._
+
 import scala.language.implicitConversions
-import com.intellij.util.SmartList
 import org.testng.annotations.{BeforeClass, Test}
 import org.testng.AssertJUnit._
-import tarski.AST._
 
 import tarski.Tarski.fix
-import tarski.Environment.JavaEnvironment
-import tarski.Items.{IntType, LocalVariableItemImpl}
+import tarski.Environment.{Env,baseEnvironment}
+import tarski.Items.{LocalVariableItem, IntType, LocalVariableItemImpl}
 import tarski.Lexer._
 import tarski.Tokens._
 import tarski.Pretty._
 import ambiguity.Utility._
-
-import scala.collection.JavaConverters._
 
 class Tests {
 
@@ -26,17 +24,37 @@ class Tests {
     // TODO
   }
 
+  // Useful implicit conversions
+  implicit def toExp(i: Int): AST.Exp = AST.LitExp(AST.IntLit(i.toString))
+  implicit def toDen(i: Int): ExpDen = IntLit(i,i.toString)
+  implicit def toDen(x: LocalVariableItem): ExpDen = LocalVariableExpDen(x)
+
+  def testDenotation(input: String, best: Env => List[StmtDen])(implicit env: Env) = {
+    val (env2,stmt) = fix(lex(input).filterNot(isSpace)).best.get
+    assertEquals(stmt, best(env2))
+  }
+
   @Test
-  def simpleExpression(): Unit = {
-    val env = JavaEnvironment(List(new LocalVariableItemImpl("x", IntType)))
-    println("environment: " + env)
+  def assignExp(): Unit = {
+    val x = new LocalVariableItemImpl("x", IntType)
+    implicit val env = new Env(List(x))
+    testDenotation("x = 1", env => List(ExprStmtDen(AssignExpDen(None,x,1))))
+  }
 
-    val tokens = new SmartList[Token](IdentTok("x"), WhitespaceTok(" "), EqTok(), WhitespaceTok(" "), IntLitTok("1"))
+  @Test
+  def variableStmt(): Unit = {
+    implicit val env = baseEnvironment
+    testDenotation("x = 1", env => List(VarStmtDen(IntType, List((env.exactLocal("x"), Some(toDen(1)))))))
+  }
 
-    val result = fix(tokens, env)
-    val ast = ExpStmt(AssignExp(None,NameExp("x"),LitExp(IntLit("1"))))
-
-    assert( result.asScala.toList.exists( p => p._1 == ast ))
+  @Test
+  def makeAndSet(): Unit = {
+    implicit val env = baseEnvironment
+    testDenotation("x = 1; x = 2", env => {
+      val x = env.exactLocal("x")
+      List(VarStmtDen(IntType, List((x,Some(toDen(1))))),
+           ExprStmtDen(AssignExpDen(None,x,2)))
+    })
   }
 
   @Test
@@ -58,10 +76,9 @@ class Tests {
 
   @Test
   def pretty(): Unit = {
-    implicit def i(i: Int): Exp = LitExp(IntLit(i.toString))
-    def check(s: String, e: Exp) = assertEquals(s,show(tokens(e)))
-    def add(x: Exp, y: Exp) = BinaryExp(AddOp(),x,y)
-    def mul(x: Exp, y: Exp) = BinaryExp(MulOp(),x,y)
+    def check(s: String, e: AST.Exp) = assertEquals(s,show(tokens(e)))
+    def add(x: AST.Exp, y: AST.Exp) = AST.BinaryExp(AST.AddOp(),x,y)
+    def mul(x: AST.Exp, y: AST.Exp) = AST.BinaryExp(AST.MulOp(),x,y)
 
     check("1 + 2 + 3",     add(add(1,2),3))
     check("1 + ( 2 + 3 )", add(1,add(2,3)))

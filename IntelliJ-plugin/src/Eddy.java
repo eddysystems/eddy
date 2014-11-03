@@ -168,16 +168,14 @@ public class Eddy implements CaretListener, DocumentListener {
       });
 
       EnvironmentProcessor env = new EnvironmentProcessor(elem, true);
-      List<scala.Tuple2<Stmt, List<scala.Tuple2<Score,StmtDen> > > > results = Tarski.fix(tokens, env.getJavaEnvironment());
+      List<scala.Tuple2<Score,List<StmtDen>>> results = Tarski.fixJava(tokens, env.getJavaEnvironment());
 
       String text = "";
 
-      for (scala.Tuple2<Stmt, List<scala.Tuple2<Score,StmtDen> > > interpretation : results) {
-        if (!interpretation._2().isEmpty()) {
-          text += "  Interpretation: " + interpretation._1() + "<br/>";
-          for (scala.Tuple2<Score,StmtDen> meaning : interpretation._2()) {
-            text += " " + meaning._2() + ": " + meaning._1() + "<br/>";
-          }
+      for (scala.Tuple2<Score,List<StmtDen>> interpretation : results) {
+        text += "  Interpretation with score " + interpretation._1() + "<br/>";
+        for (StmtDen meaning : interpretation._2()) {
+          text += "    " + meaning + "<br/>";
         }
       }
 

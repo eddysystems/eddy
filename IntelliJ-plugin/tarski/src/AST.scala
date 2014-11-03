@@ -1,12 +1,11 @@
 package tarski
 
 import Tokens.Token
-import Environment.JavaEnvironment
-import tarski.Pretty.Fixity
+import Environment.Env
 
 object AST {
 
-  def parse(tokens: java.util.List[Token], env: JavaEnvironment) = println("scala: " + tokens)
+  def parse(tokens: java.util.List[Token], env: Env) = println("scala: " + tokens)
 
   type Name = String
 
