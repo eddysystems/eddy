@@ -74,7 +74,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
       if (!envitems.containsKey(pkg)) {
-        PackageItem pitem = new PackageItemImpl(pkg.getName(), qualifiedName(pkg), relativeName(pkg));
+        PackageItem pitem = new PackageItem(pkg.getName(), qualifiedName(pkg), relativeName(pkg));
         envitems.put(pkg, pitem);
         return pitem;
       } else
@@ -98,16 +98,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         } else {
           superi = (InterfaceType)addClassToEnvMap(envitems, superc);
         }
-        type = new InterfaceTypeImpl(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), superi);
+        type = new InterfaceType(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), superi);
       } else if (cls.isEnum()) {
-        type = new EnumTypeImpl(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls));
+        type = new EnumType(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls));
       } else {
         RefType supercls = addClassToEnvMap(envitems, cls.getSuperClass());
         List<InterfaceType> implemented = new SmartList<InterfaceType>();
         for (PsiClass intf : cls.getInterfaces()) {
           implemented.add((InterfaceType)addClassToEnvMap(envitems, intf));
         }
-        type = new ClassTypeImpl(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), supercls, JavaConversions.asScalaBuffer(implemented).toList());
+        type = new ClassType(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), supercls, JavaConversions.asScalaBuffer(implemented).toList());
       }
       envitems.put(cls, type);
       return type;
@@ -146,9 +146,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       Type rtype = addTypeToEnvMap(envitems, types, method.getReturnType());
 
       if (method.hasModifierProperty(PsiModifier.STATIC))
-        mitem = new StaticMethodItemImpl(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new StaticMethodItem(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
       else
-        mitem = new MethodItemImpl(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new MethodItem(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     }
 
     envitems.put(method, mitem);
@@ -254,9 +254,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     Value v;
     PsiClass cls = f.getContainingClass();
     if (f.hasModifierProperty(PsiModifier.STATIC))
-      v = new StaticFieldItemImpl(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
+      v = new StaticFieldItem(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
     else
-      v = new FieldItemImpl(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
+      v = new FieldItem(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
 
     envitems.put(f, v);
     return v;
@@ -308,11 +308,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // then, register objects which have types (enum constants, variables, parameters, fields), and their types
     for (PsiVariable var : variables) {
       if (var instanceof PsiParameter) {
-        envitems.put(var, new ParameterItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
+        envitems.put(var, new ParameterItem(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
       } else if (var instanceof PsiEnumConstant)
         envitems.put(var, new EnumConstantItem(var.getName(), (EnumType)addTypeToEnvMap(envitems, types, var.getType())));
       else if (var instanceof PsiLocalVariable)
-        envitems.put(var, new LocalVariableItemImpl(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
+        envitems.put(var, new LocalVariableItem(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
       else if (var instanceof PsiField) {
         addFieldToEnvMap(envitems, types, (PsiField) var);
       }
