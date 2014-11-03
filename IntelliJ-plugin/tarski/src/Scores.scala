@@ -18,7 +18,10 @@ object Scores {
 
   case class Scored[+A](c: List[(Score,A)]) extends AnyVal {
     // If there are any options, pick the best one
-    def best: Option[A] = c.sortBy(-_._1.s).headOption map (_._2)
+    def best: Option[A] = c match {
+      case Nil => None
+      case c => Some(c.maxBy(_._1.s)._2)
+    }
 
     def map[B](f: A => B): Scored[B] = Scored(
       c map {case (s,a) => (s,f(a))})
