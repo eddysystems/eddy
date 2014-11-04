@@ -45,16 +45,17 @@ object Items {
     def qualifiedName = name
     def relativeName = name
   }
-  case object BooleanType extends PrimType("boolean") with scala.Serializable
-  case object ByteType    extends PrimType("byte")
-  case object ShortType   extends PrimType("short")
-  case object IntType     extends PrimType("int")
-  case object LongType    extends PrimType("long")
-  case object FloatType   extends PrimType("float")
-  case object DoubleType  extends PrimType("double")
-  case object CharType    extends PrimType("char")
+  sealed abstract class NumType(name: Name) extends PrimType(name)
+  case object BooleanType extends PrimType("boolean")
+  case object ByteType    extends NumType("byte")
+  case object ShortType   extends NumType("short")
+  case object IntType     extends NumType("int")
+  case object LongType    extends NumType("long")
+  case object FloatType   extends NumType("float")
+  case object DoubleType  extends NumType("double")
+  case object CharType    extends NumType("char")
 
-  sealed abstract class RefType(name: Name) extends Type(name) with scala.Serializable { def base: RefType }
+  sealed abstract class RefType(name: Name) extends Type(name) with scala.Serializable
   case class ErrorType(override val name: Name) extends RefType(name) with scala.Serializable {
     def qualifiedName = name
     def relativeName = name
@@ -69,6 +70,10 @@ object Items {
   case class EnumType(override val name: Name, containing: NamedItem, override val relativeName: Name)
     extends ClassOrEnumType(name) with Member with scala.Serializable {
     def base = EnumBaseType
+  }
+  case class IntersectType(ts: Set[RefType]) extends RefType(s"IntersectType(${ts.map(_.toString).mkString(",")})") {
+    def qualifiedName = name // TODO: These make little sense
+    def relativeName = name
   }
 
   trait Member {
@@ -86,7 +91,6 @@ object Items {
 
   // null is special
   case object NullType extends RefType("nulltype") with scala.Serializable {
-    def base = null
     override def qualifiedName = "nulltype"
     def relativeName = "nulltype"
   }

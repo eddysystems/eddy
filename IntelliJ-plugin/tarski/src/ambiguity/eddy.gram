@@ -116,6 +116,7 @@ Exp Exp
   IdentTok                                     { NameExp($1.name) }
   Lit                                          { LitExp($1) }
   LParenTok Exp RParenTok                      { ParenExp($2) }
+  LCurlyTok List[Exp] RCurlyTok                { ArrayExp($2) }
 
   Exp DotTok Option[TypeArgs] IdentTok         { FieldExp($1,$3,$4.name) }
   Exp LBrackTok List[Exp] RBrackTok            { IndexExp($1,$3) }

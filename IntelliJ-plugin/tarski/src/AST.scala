@@ -73,6 +73,7 @@ object AST {
   case class CastExp(t: Type, e: Exp) extends Exp
   case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
   case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
+  case class ArrayExp(e: KList[Exp]) extends Exp
 
   sealed abstract class Lit
   case class IntLit(v: String) extends Lit

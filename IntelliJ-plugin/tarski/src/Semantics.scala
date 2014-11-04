@@ -176,13 +176,14 @@ object Semantics {
            if castsTo(typeOf(x),t))
         yield CastExpDen(t,x)
 
-    case CondExp(c,t,f) =>
+    case CondExp(c,x,y) =>
       for (c <- denoteExp(c);
            if isToBoolean(typeOf(c));
-           t <- denoteExp(t);
-           f <- denoteExp(f);
-           r <- option(condType(typeOf(t),typeOf(f))))
-        yield CondExpDen(c,t,f,r)
+           x <- denoteExp(x);
+           tx = typeOf(x);
+           y <- denoteExp(y);
+           ty = typeOf(y))
+        yield CondExpDen(c,x,y,condType(tx,ty))
 
     case AssignExp(op,x,y) =>
       for (x <- denoteExp(x);
@@ -193,8 +194,9 @@ object Semantics {
            t <- option(assignOpType(op,xt,yt)))
         yield AssignExpDen(op,x,y)
 
-    case _ => throw new NotImplementedError("Trying to compute denotation for node: " + e)
+    case ArrayExp(xs) => fail // TODO: Handle array literals generally
   }
+
   def denoteExp(n: Exp)(implicit env: Env): Scored[ExpDen] =
     denote(n) collect {case e: ExpDen => e}
 
@@ -218,8 +220,15 @@ object Semantics {
     case CondExpDen(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
   }
 
-  def denoteCallable(e: Exp)(implicit env: Env): Scored[Denotations.Callable] =
-    denote(e) collect { case e: Denotations.Callable => e }
+  def denoteCallable(n: Exp)(implicit env: Env): Scored[Denotations.Callable] =
+    denote(n) collect { case e: Denotations.Callable => e }
+
+  def denoteInit(n: Exp)(implicit env: Env): Scored[Denotations.InitDen] = n match {
+    case ArrayExp(xs) =>
+      for (is <- product(xs.list map denoteInit))
+        yield ArrayInitDen(is,condTypes(is map typeOf))
+    case n => denoteExp(n) map ExpInitDen
+  }
 
   // Statements
   def denoteStmt(s: Stmt)(env: Env): Scored[(Env,StmtDen)] = s match {
@@ -229,10 +238,10 @@ object Semantics {
       val exps = denoteExp(e)(env) map ExprStmtDen
       val stmts = e match {
         case AssignExp(None,NameExp(x),y) =>
-          for {y <- denoteExp(y)(env);
+          for {y <- denoteInit(y)(env);
                t = typeOf(y);
                (env,x) <- env.newVariable(x,t)}
-            yield (env,VarStmtDen(t,List((x,Some(ExpInitDen(y))))))
+            yield (env,VarStmtDen(t,List((x,Some(y)))))
         case _ => fail
       }
       exps.map((env,_)) ++ stmts

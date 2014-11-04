@@ -2,6 +2,8 @@ package tarski
 
 import tarski.AST.{Type => _, ArrayType => _, _}
 import tarski.Items._
+import tarski.Items.ArrayType
+import ambiguity.Utility._
 
 // Properties of types according to the Java spec, without extra intelligence
 object Types {
@@ -252,9 +254,65 @@ object Types {
     case (f:RefType,t:RefType) => isSubtype(f,t) || isSubtype(t,f)
   })
 
+  // All supertypes of a reference type
+  def supers(t: RefType): Set[RefType] = t match {
+    case NullType => throw new RuntimeException("nulltype has infinitely many supertypes")
+    case i: InterfaceType => supers(i.base) + i
+    case c: ClassType => supers(c.base) ++ (c.implements map supers).flatten + c
+    case e: EnumType => Set(e,e.base)
+    case a: ArrayType => Set(a,a.base) // TODO: Cloneable, Serializable
+    case e: ErrorType => Set(e,e.base)
+    case IntersectType(ts) => ts.toSet.flatMap(supers)
+  }
+
+  // Least upper bounds: 4.10.4
+  // TODO: Handle generics
+  def lub(x: RefType, y: RefType): RefType = (x,y) match {
+    case (x,NullType) => x
+    case (NullType,y) => y
+    case (x,y) =>
+      val ss = supers(x) & supers(y)
+      val mec = ss.filter(t => ss.forall(s => s==t || !isSubtype(s,t)))
+      mec.toList match {
+        case Nil => throw new RuntimeException("lub should never fail")
+        case List(t) => t
+        case _ => IntersectType(mec)
+      }
+  }
+
   // Combine left and right sides of a conditional expression
-  def condType(t0: Type, t1: Type): Option[Type] = (t0,t1) match {
-    case _ => throw new NotImplementedError("conditional typing")
+  // TODO: Handle poly expressions (admittedly, this doesn't even make sense with this signature)
+  def condType(x: Type, y: Type): Type = {
+    def pp(x: PrimType, y: PrimType): Type = (x,y) match {
+      case (BooleanType,BooleanType) => BooleanType
+      case (BooleanType,n:NumType) => lub(BooleanRefType,box(n))
+      case (n:NumType,BooleanType) => lub(BooleanRefType,box(n))
+      case (x:NumType,y:NumType) => promote(x,y)
+    }
+    def pr(x: PrimType, y: RefType): Type = (x,unbox(y)) match {
+      case (x,None) => lub(box(x),y)
+      case (BooleanType,Some(BooleanType)) => BooleanType
+      case (BooleanType,Some(y:NumType)) => lub(BooleanRefType,box(y))
+      case (x:NumType,Some(BooleanType)) => lub(BooleanRefType,box(x))
+      case (x:NumType,Some(y:NumType)) => promote(x,y)
+    }
+    (x,y) match {
+      case (_:ErrorType,_)|(_,_:ErrorType) => notImplemented
+      case (_:TypeParameterType,_)|(_,_:TypeParameterType) => notImplemented
+      case (VoidType,_)|(_,VoidType) => VoidType
+      case (x:PrimType,y:PrimType) => pp(x,y)
+      case (x:PrimType,y:RefType) => pr(x,y)
+      case (x:RefType,y:PrimType) => pr(y,x)
+      case (x:RefType,y:RefType) => lub(x,y)
+    }
+  }
+
+  // Combine a bunch of types into a single type (for array literal purposes)
+  // TODO: This function is a bit strange, since array literals do not exist in Java.
+  def condTypes(ts: List[Type]): Type = ts match {
+    case Nil => ObjectType // TODO: Doesn't handle zero size primitive type arrays
+    case List(x) => x
+    case x :: xs => condType(x,condTypes(xs))
   }
 
   // Is t0 op= t1 valid?

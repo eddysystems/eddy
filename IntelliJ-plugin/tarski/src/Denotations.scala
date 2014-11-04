@@ -32,7 +32,7 @@ object Denotations {
   // Variable initializers
   sealed abstract class InitDen extends Den
   case class ExpInitDen(e: ExpDen) extends InitDen
-  case class ArrayInitDen(i: List[InitDen]) extends InitDen
+  case class ArrayInitDen(i: List[InitDen], t: Type) extends InitDen // t is the inner type
 
   // It's all expressions from here
   sealed abstract class ExpDen extends Den
@@ -101,5 +101,10 @@ object Denotations {
       case _ => throw new RuntimeException("type error")
     }
     case CondExpDen(_,_,_,r) => r
+  }
+
+  def typeOf(i: InitDen): Type = i match {
+    case ExpInitDen(e) => typeOf(e)
+    case ArrayInitDen(_,t) => ArrayType(t)
   }
 }

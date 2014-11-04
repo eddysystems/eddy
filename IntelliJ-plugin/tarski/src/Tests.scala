@@ -53,29 +53,36 @@ class Tests {
   @Test
   def arrayVariableStmt1(): Unit = {
     implicit val env = baseEnvironment
+    testDenotation("x = {1,2,3,4}", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
+  }
+
+  @Test
+  def arrayParenVariableStmt(): Unit = {
+    implicit val env = baseEnvironment
     testDenotation("x = (1,2,3,4)", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
   }
 
   @Test
   def arrayVariableStmt2(): Unit = {
     implicit val env = baseEnvironment
     testDenotation("x = 1,2,3,4", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
   }
 
   @Test
   def arrayVariableStmt3(): Unit = {
     implicit val env = baseEnvironment
     testDenotation("x = {1,2,3,4}", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
   }
 
   @Test
   def arrayVariableStmt4(): Unit = {
     implicit val env = baseEnvironment
     testDenotation("x = [1,2,3,4]", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
   }
 
   @Test
@@ -84,7 +91,7 @@ class Tests {
     val f = MethodItem("f", main, "f", VoidType, List(ArrayType(IntType)))
     implicit val env = Env(List(main,f))
     testDenotation("f({1,2,3,4})", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) } )))))))
+      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
   }
 
   @Test
