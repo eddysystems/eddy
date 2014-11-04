@@ -14,7 +14,7 @@ object Grammar {
                      start: Symbol,
                      token: Type,
                      types: Map[Symbol,Type],
-                     prods: Map[Symbol,List[Prod]]) {
+                     prods: Map[Symbol,Set[Prod]]) {
     val nullable: Set[Symbol] = {
       val f = fixpoint(false, (f: Symbol => Boolean, s: Symbol) =>
         prods.contains(s) && prods(s).exists(_._1.forall(f)))
@@ -25,7 +25,7 @@ object Grammar {
     def ty(s: Symbol): Type = if (isToken(s)) s else types(s)
 
     def modify(types: Map[Symbol,Type],
-               prods: Map[Symbol,List[Prod]]) =
+               prods: Map[Symbol,Set[Prod]]) =
       Grammar(name,preamble,start,token,types,prods)
   }
 
@@ -90,7 +90,7 @@ object Grammar {
 
     // Close the start
     val types = mutable.Map[Symbol,Type]()
-    val prods = mutable.Map[Symbol,List[Prod]]()
+    val prods = mutable.Map[Symbol,Set[Prod]]()
     def close(s: Symbol): Symbol = s match {
       case pat(g,t) =>
         var n = s"${g}_$t"
@@ -142,7 +142,7 @@ object Grammar {
     }
     val info = for ((n,ps) <- G.prods.toList; (p,a) <- ps) yield split(n,G.types(n),p,a)
     val types = info.map(_._1).flatten.toMap
-    val prods = toMapList(info.map(_._2).flatten)
+    val prods = toMapSet(info.map(_._2).flatten)
     G.modify(types,prods)
   }
 
@@ -201,7 +201,7 @@ object Grammar {
     var token: Option[Type] = None
     var scope: Option[Symbol] = None
     val types = mutable.Map[Symbol,Type]()
-    val prods = mutable.Map[Symbol,List[(List[Symbol],Action)]]()
+    val prods = mutable.Map[Symbol,Set[Prod]]()
 
     // Split "prod { action }" into prod,action
     def splitProd(words: List[String]): Prod = words.reverse match {
@@ -256,7 +256,7 @@ object Grammar {
                 case List("\"\"") => Nil
                 case w => w
               }
-              prods(s) = (prod,action) :: (prods get s getOrElse Nil)
+              prods(s) = (prods get s getOrElse Set()) + ((prod,action))
           }
       }
     }
@@ -272,6 +272,6 @@ object Grammar {
             unpack(start,"at least one nonterminal required"),
             unpack(token,"token type required"),
             types.toMap,
-            prods.toMap mapValues {_.reverse})
+            prods.toMap)
   }
 }

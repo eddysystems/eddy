@@ -27,7 +27,8 @@ object AST {
   case class Super() extends Bound
 
   sealed abstract class KList[+A](l: List[A]) { val list: List[A] = l }
-  case class EmptyList() extends KList(Nil)
+  case object EmptyList extends KList(Nil)
+  case class SingleList[+A](val x: A) extends KList[A](List(x))
   case class CommaList[+A](override val list: List[A]) extends KList[A](list)
   case class JuxtList[+A](override val list: List[A]) extends KList[A](list)
   case class AndList[+A](override val list: List[A]) extends KList[A](list)
@@ -61,11 +62,10 @@ object AST {
   case class LitExp(l: Lit) extends Exp
   case class ParenExp(e: Exp) extends Exp
   case class FieldExp(e: Exp, t: Option[KList[Type]], f: Name) extends Exp
-  case class IndexExp(e: Exp, i: KList[Exp]) extends Exp
   case class MethodRefExp(e: Exp, t: Option[KList[Type]], f: Name) extends Exp
   case class NewRefExp(e: Exp, t: Option[KList[Type]]) extends Exp
   case class TypeApplyExp(e: Exp, t: KList[Type]) extends Exp
-  case class ApplyExp(e: Exp, args: KList[Exp]) extends Exp
+  case class ApplyExp(e: Exp, xs: KList[Exp], a: Around) extends Exp
   case class NewExp(t: Option[KList[Type]], e: Exp) extends Exp
   case class WildExp(b: Option[(Bound,Type)]) extends Exp
   case class UnaryExp(op: UnaryOp, e: Exp) extends Exp
@@ -73,7 +73,13 @@ object AST {
   case class CastExp(t: Type, e: Exp) extends Exp
   case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
   case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
-  case class ArrayExp(e: KList[Exp]) extends Exp
+  case class ArrayExp(e: KList[Exp], a: Around) extends Exp
+
+  sealed abstract class Around
+  case object NoAround extends Around
+  case object ParenAround extends Around
+  case object BrackAround extends Around
+  case object CurlyAround extends Around
 
   sealed abstract class Lit
   case class IntLit(v: String) extends Lit

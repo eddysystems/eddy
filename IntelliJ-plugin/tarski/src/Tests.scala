@@ -108,7 +108,7 @@ class Tests {
   }
 
   @Test
-  def nestedIndexExp1(): Unit = {
+  def nestedIndexExp(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
     implicit val env = Env(List(x))
     testDenotation("""x[4,5] = x[2][5]""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 4), 5), IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 2), 5)))))

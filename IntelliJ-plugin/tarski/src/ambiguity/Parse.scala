@@ -101,7 +101,10 @@ object Parse {
         ::: "// Parse nonnull productions"
         ::  block("for (lo <- n to 0 by -1; hi <- lo+1 to n)",
                   "if (debug) println(\"\\nparsing: \"+array.slice(lo,hi).mkString(\" \"))"
-              ::  "def d[A](non: String, p: mutable.Map[R,List[A]]) = if (debug && !p((lo,hi)).isEmpty) println(s\"  $non = \"+p((lo,hi)).mkString(\" \"))"
+              ::  "def d[A](non: String, p: mutable.Map[R,List[A]]) = if (debug) {"
+              ::  "  val c = p((lo,hi)); val n = c.size"
+              ::  "  if (n>0) println(s\"  $non $n = \"+c.mkString(\" \"))"
+              ::  "}"
               ::  "def t[A,C](p: Int => List[A])(f: A => C) = if (lo+1==hi) p(lo).map(f) else Nil"
               ::  "def n[A,C](p: R   => List[A])(f: A => C) = p(lo,hi).map(f)"
               ::  "def s[A,C](p: R   => List[A])(f: A => C) = if (lo<hi) p(lo,hi).map(f) else Nil"

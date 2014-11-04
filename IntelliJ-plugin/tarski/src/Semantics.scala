@@ -123,38 +123,43 @@ object Semantics {
            })
         yield r
 
-    case IndexExp(x,is) => {
-      def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
-        case Items.ArrayType(t) => hasDims(t,d-1)
-        case _ => false
-      })
-      val n = is.list.size
-      val ints = product(is.list.map(i => denoteExp(i).filter(e => typeOf(e) match {
-        case p: PrimType => promote(p) == IntType
-        case _ => false
-      })))
-      for (x <- denoteExp(x);
-           if hasDims(typeOf(x),n);
-           is <- ints)
-        yield is.foldLeft(x)(IndexExpDen)
-    }
-
     case MethodRefExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
     case NewRefExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
     case TypeApplyExp(x,ts) => throw new NotImplementedError("Generics not implemented (TypeApplyExp): " + e)
     case NewExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
     case WildExp(b) => throw new NotImplementedError("wildcard expressions not implemented: " + e)
 
-    case ApplyExp(f,xsn) => {
+    case ApplyExp(f,xsn,_) => {
       val xsl = xsn.list map denoteExp
       val n = xsl.size
-      for (f <- denoteCallable(f);
-           if f.paramTypes.size == n;
-           // Filter the denotations for each argument
-           filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs.filter(x => looseInvokeContext(typeOf(x),p))};
-           // Expand into full Cartesian product (exponential time)
-           xl <- product(filtered))
-        yield ApplyExpDen(f,xl)
+      def call(f: Denotations.Callable): Scored[ExpDen] =
+        if (f.paramTypes.size != n) fail
+        else {
+          val filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs.filter(x => looseInvokeContext(typeOf(x),p))}
+          for (xl <- product(filtered)) yield ApplyExpDen(f,xl)
+        }
+      def index(f: ExpDen, ft: ArrayType): Scored[ExpDen] = {
+        def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
+          case Items.ArrayType(t) => hasDims(t,d-1)
+          case _ => false
+        })
+        if (!hasDims(ft,n)) fail
+        else {
+          val filtered = xsl map (xs => xs.filter(x => unbox(typeOf(x)) match {
+            case Some(p: PrimType) => promote(p) == IntType
+            case _ => false
+          }))
+          for (xl <- product(filtered)) yield xl.foldLeft(f)(IndexExpDen)
+        }
+      }
+      denote(f) flatMap {
+        case a: ExpDen => typeOf(a) match {
+          case t: ArrayType => index(a,t)
+          case _ => fail
+        }
+        case c: Denotations.Callable => call(c)
+        case _ => fail
+      }
     }
 
     case UnaryExp(op,x) =>
@@ -194,7 +199,7 @@ object Semantics {
            t <- option(assignOpType(op,xt,yt)))
         yield AssignExpDen(op,x,y)
 
-    case ArrayExp(xs) => fail // TODO: Handle array literals generally
+    case ArrayExp(xs,a) => fail // TODO: Handle array literals generally
   }
 
   def denoteExp(n: Exp)(implicit env: Env): Scored[ExpDen] =
@@ -220,11 +225,8 @@ object Semantics {
     case CondExpDen(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
   }
 
-  def denoteCallable(n: Exp)(implicit env: Env): Scored[Denotations.Callable] =
-    denote(n) collect { case e: Denotations.Callable => e }
-
   def denoteInit(n: Exp)(implicit env: Env): Scored[Denotations.InitDen] = n match {
-    case ArrayExp(xs) =>
+    case ArrayExp(xs,_) =>
       for (is <- product(xs.list map denoteInit))
         yield ArrayInitDen(is,condTypes(is map typeOf))
     case n => denoteExp(n) map ExpInitDen

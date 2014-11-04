@@ -74,7 +74,7 @@ object Pretty {
   val PrefixFix    = N // 15.15.  Includes casts.  The worries about (p)+q shouldn't apply for pretty printing purposes.
   val PostfixFix   = N // 15.14
   val WildFix      = N // ? extends T (? alone is HighestFix)
-  val JuxtListFix  = N // Juxtaposition lists
+  val JuxtFix      = N // Juxtaposition lists
   val NewFix       = N // new x
   val ApplyFix     = L // x[y], x(y)
   val FieldFix     = L // x.y
@@ -110,9 +110,10 @@ object Pretty {
   }
   implicit def prettyList[A](k: KList[A])(implicit p: Pretty[A]): (Fixity,Tokens) = {
     val (s,sep) = k match {
-      case EmptyList() => (LowestExpFix,Nil)
+      case EmptyList => (LowestExpFix,Nil)
+      case SingleList(x) => pretty(x)
       case CommaList(_) => (CommaListFix,List(CommaTok()))
-      case JuxtList(_) => (JuxtListFix,Nil)
+      case JuxtList(_) => (JuxtFix,Nil)
       case AndList(_) => (AndListFix,List(AndTok()))
     }
     (s,separate(k.list.map(non(s,_)),sep))
@@ -196,9 +197,7 @@ object Pretty {
     case FieldExp(e,t,f) => fix(FieldFix, left(_,e) ::: DotTok() :: tokens(t) ::: tokens(f))
     case MethodRefExp(e,t,f) => fix(FieldFix, left(_,e) ::: ColonColonTok() :: tokens(t) ::: tokens(f))
     case NewRefExp(e,t) => fix(FieldFix, left(_,e) ::: ColonColonTok() :: tokens(t) ::: List(NewTok()))
-    case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))
     case TypeApplyExp(e,t) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
-    case ApplyExp(e,a) => fix(ApplyFix, left(_,e) ::: parens(a)) // TODO: f x should stay f x, not turn to f(x)
     case NewExp(t,e) => fix(NewFix, tokens(t) ::: List(NewTok()) ::: right(_,e))
     case WildExp(None) => (HighestFix, List(QuestionTok()))
     case WildExp(Some((b,t))) => fix(WildFix, QuestionTok() :: token(b) :: right(_,t))
@@ -208,7 +207,19 @@ object Pretty {
     case CastExp(t,e) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
     case CondExp(c,t,f) => fix(CondFix, s => left(s,c) ::: QuestionTok() :: tokens(t) ::: ColonTok() :: right(s,f))
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
-    case ArrayExp(xs) => (HighestFix, LCurlyTok() :: tokens(xs) ::: List(RCurlyTok()))
+    case ArrayExp(xs,a) => around(xs,a)
+    case ApplyExp(e,xs,a) => {
+      val s = a match { case NoAround => JuxtFix; case _ => ApplyFix }
+      fix(s, left(_,e) ::: around(xs,a)._2)
+    }
+  }
+  def around[A](xs: KList[A], a: Around)(implicit p: Pretty[A]): (Fixity,Tokens) = (a,xs) match {
+    case (NoAround,EmptyList) => throw new RuntimeException("nothing around empty should never happen")
+    case (NoAround,SingleList(_)) => throw new RuntimeException("nothing around single should never happen")
+    case (NoAround,xs) => pretty(xs)
+    case (ParenAround,xs) => (HighestFix, LParenTok() :: tokens(xs) ::: List(RParenTok()))
+    case (BrackAround,xs) => (HighestFix, LBrackTok() :: tokens(xs) ::: List(RBrackTok()))
+    case (CurlyAround,xs) => (HighestFix, LCurlyTok() :: tokens(xs) ::: List(RCurlyTok()))
   }
 
   // AST statements

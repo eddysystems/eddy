@@ -5,7 +5,6 @@ import java.io.{ObjectInputStream, FileInputStream}
 import Environment._
 import Tokens.{Token,isSpace,show}
 import Items._
-import ambiguity.ParseEddy
 import tarski.Scores._
 import tarski.Denotations._
 import tarski.Semantics._
@@ -24,12 +23,26 @@ object Tarski {
   }
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[StmtDen])] = {
-    var results: Scored[(Env,List[StmtDen])] = fail
-    println("parsing " + tokens)
+    println("parsing " + show(tokens))
     val asts = ParseEddy.parse(tokens.filterNot(isSpace))
-    println("  " + asts)
-    for (root <- asts) {
+    if (asts.isEmpty)
+      println("  no asts")
+
+    // Check for duplicates
+    val uasts = asts.toSet
+    var bad = false
+    for (a <- uasts; n = asts.count(a==_); if n > 1) {
+      println(s"  $n copied ast: $a")
+      bad = true
+    }
+    if (bad)
+      throw new RuntimeException("duplicated ast")
+
+    // Determine meaning(s)
+    var results: Scored[(Env,List[StmtDen])] = fail
+    for (root <- uasts) {
       println("  ast: " + show(Pretty.tokens(root)))
+      //println("  ast: " + root)
       println("  meanings: ")
       val ds = denoteStmts(root)(env)
       for ((s,(e,d)) <- ds.c) {
