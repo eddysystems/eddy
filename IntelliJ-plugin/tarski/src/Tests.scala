@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.AST.MulOp
+import tarski.AST._
 import tarski.Denotations._
 
 import org.apache.commons.lang.StringEscapeUtils.escapeJava
@@ -27,7 +27,7 @@ class Tests {
   }
 
   // Useful implicit conversions
-  implicit def toExp(i: Int): AST.Exp = AST.LitExp(AST.IntLit(i.toString))
+  implicit def toExp(i: Int): AExp = IntALit(i.toString)
   implicit def toExpDen(i: Int): ExpDen = IntLit(i,i.toString)
   implicit def toExpDen(c: Char): ExpDen = CharLit(c, "'" + escapeJava(c.toString) + "'")
   implicit def toExpDen(x: LocalVariableItem): ExpDen = LocalVariableExpDen(x)
@@ -172,9 +172,9 @@ class Tests {
 
   @Test
   def pretty(): Unit = {
-    def check(s: String, e: AST.Exp) = assertEquals(s,show(tokens(e)))
-    def add(x: AST.Exp, y: AST.Exp) = AST.BinaryExp(AST.AddOp(),x,y)
-    def mul(x: AST.Exp, y: AST.Exp) = AST.BinaryExp(AST.MulOp(),x,y)
+    def check(s: String, e: AExp) = assertEquals(s,show(tokens(e)))
+    def add(x: AExp, y: AExp) = BinaryAExp(AddOp(),x,y)
+    def mul(x: AExp, y: AExp) = BinaryAExp(MulOp(),x,y)
 
     check("1 + 2 + 3",     add(add(1,2),3))
     check("1 + ( 2 + 3 )", add(1,add(2,3)))

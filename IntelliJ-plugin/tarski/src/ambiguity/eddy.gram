@@ -59,16 +59,16 @@ IdentDims NameDims
   IdentDims LBrackTok RBrackTok  { ($1._1,$1._2+1) }
 
 // Types
-Type Type
-  IdentTok                       { NameType($1.name) }
-  Mod Type                       { ModType($1,$2) }
-  Type LBrackTok RBrackTok       { ArrayType($1) }
-  Type TypeArgs                  { ApplyType($1,$2) }
-  Type DotTok IdentTok           { FieldType($1,$3.name) }
-  QuestionTok WildcardBounds     { WildType($2) }
-TypeArgs KList[Type]
+Type AType
+  IdentTok                       { NameAType($1.name) }
+  Mod Type                       { ModAType($1,$2) }
+  Type LBrackTok RBrackTok       { ArrayAType($1) }
+  Type TypeArgs                  { ApplyAType($1,$2) }
+  Type DotTok IdentTok           { FieldAType($1,$3.name) }
+  QuestionTok WildcardBounds     { WildAType($2) }
+TypeArgs KList[AType]
   LtTok List[Type] GtTok         { $2 }
-WildcardBounds Option[(Bound,Type)]
+WildcardBounds Option[(Bound,AType)]
   ""                             { None }
   ExtendsTok Type                { Some((Extends(),$2)) }
   ColonTok Type                  { Some((Extends(),$2)) }
@@ -88,36 +88,36 @@ WildcardBounds Option[(Bound,Type)]
 // TODO: ClassDecl
 
 // Blocks
-Block List[Stmt]
+Block List[AStmt]
   LCurlyTok Stmts RCurlyTok      { $2 }
-Stmts List[Stmt]
+Stmts List[AStmt]
   ""                             { Nil }
   StmtHelper                     { List($1) }
   StmtHelper SemiTok Stmts       { $1 :: $3 }
 
 // Statement
-Stmt Stmt
-  SemiTok                            { EmptyStmt() }
+Stmt AStmt
+  SemiTok                            { EmptyAStmt() }
   StmtHelper Option[SemiTok]         { $1 }
-StmtHelper Stmt
-  Juxts0[Mod] Type List1[VarDecl]    { VarStmt($1,$2,$3) }
+StmtHelper AStmt
+  Juxts0[Mod] Type List1[VarDecl]    { VarAStmt($1,$2,$3) }
   // LabelStmt
   // IfThen / IfThenElse
   // While
   // For
-  Block                              { BlockStmt($1) }
-  ExpAssign                          { ExpStmt($1) }
-  AssertTok ExpJuxt                  { AssertStmt($2,None) }
-  AssertTok ExpJuxt ColonTok ExpJuxt { AssertStmt($2,Some($4)) }
+  Block                              { BlockAStmt($1) }
+  ExpAssign                          { ExpAStmt($1) }
+  AssertTok ExpJuxt                  { AssertAStmt($2,None) }
+  AssertTok ExpJuxt ColonTok ExpJuxt { AssertAStmt($2,Some($4)) }
   // Switch
   // Do
-  BreakTok Option[IdentTok]          { BreakStmt($2.map(_.name)) }
-  ContinueTok Option[IdentTok]       { ContinueStmt($2.map(_.name)) }
-  ReturnTok Option[ExpJuxt]          { ReturnStmt($2) }
-  ThrowTok ExpJuxt                   { ThrowStmt($2) }
-  SynchronizedTok ExpJuxt Block      { SyncStmt($2,$3) } // Parens handled inside ExpJuxt
+  BreakTok Option[IdentTok]          { BreakAStmt($2.map(_.name)) }
+  ContinueTok Option[IdentTok]       { ContinueAStmt($2.map(_.name)) }
+  ReturnTok Option[ExpJuxt]          { ReturnAStmt($2) }
+  ThrowTok ExpJuxt                   { ThrowAStmt($2) }
+  SynchronizedTok ExpJuxt Block      { SyncAStmt($2,$3) } // Parens handled inside ExpJuxt
   // Try
-VarDecl (NameDims,Option[Exp])
+VarDecl (NameDims,Option[AExp])
   IdentDims                      { ($1,None) }
   IdentDims EqTok ExpCommas      { ($1,Some($3)) }
 
@@ -125,78 +125,78 @@ VarDecl (NameDims,Option[Exp])
 // Suffixes: NJ is no juxtaposition, NC is no commas, NA is no args
 // TODO LambdaExp
 // TODO new Exp ClassBody
-ExpAssign Exp
+ExpAssign AExp
   ExpCommas                                                 { $1 }
-  ExpJuxt AssignOp ExpAssign                                { AssignExp($2,$1,$3) }
-ExpAssignNC Exp
+  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2,$1,$3) }
+ExpAssignNC AExp
   ExpBinary                                                 { $1 }
-  ExpJuxt AssignOp ExpAssign                                { AssignExp($2,$1,$3) }
-ExpCommas Exp
+  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2,$1,$3) }
+ExpCommas AExp
   ExpBinary                                                 { $1 }
-  Commas2[ExpBinary]                                        { ArrayExp(CommaList($1),NoAround) }
-ExpBinary Exp
+  Commas2[ExpBinary]                                        { ArrayAExp(CommaList($1),NoAround) }
+ExpBinary AExp
   ExpUnary                                                  { $1 }
-  ExpBinary BinaryOp ExpBinary                              { BinaryExp($2,$1,$3) }
-  ExpBinary QuestionTok ExpAssign ColonTok ExpBinary        { CondExp($1,$3,$5) }
-ExpBinaryNJ Exp
+  ExpBinary BinaryOp ExpBinary                              { BinaryAExp($2,$1,$3) }
+  ExpBinary QuestionTok ExpAssign ColonTok ExpBinary        { CondAExp($1,$3,$5) }
+ExpBinaryNJ AExp
   ExpUnaryNJ                                                { $1 }
-  ExpBinary BinaryOp ExpBinary                              { BinaryExp($2,$1,$3) }
-  ExpBinary QuestionTok ExpAssign ColonTok ExpBinary        { CondExp($1,$3,$5) }
-ExpUnary Exp
+  ExpBinary BinaryOp ExpBinary                              { BinaryAExp($2,$1,$3) }
+  ExpBinary QuestionTok ExpAssign ColonTok ExpBinary        { CondAExp($1,$3,$5) }
+ExpUnary AExp
   ExpJuxt                                                   { $1 }
-  ExpUnary PostOp                                           { UnaryExp($2,$1) }
-  PreOp ExpUnary                                            { UnaryExp($1,$2) }
-  LParenTok Type RParenTok ExpUnary                         { CastExp($2,$4) }
-ExpUnaryNJ Exp
+  ExpUnary PostOp                                           { UnaryAExp($2,$1) }
+  PreOp ExpUnary                                            { UnaryAExp($1,$2) }
+  LParenTok Type RParenTok ExpUnary                         { CastAExp($2,$4) }
+ExpUnaryNJ AExp
   ExpNew                                                    { $1 }
-  ExpUnary PostOp                                           { UnaryExp($2,$1) }
-  PreOp ExpUnary                                            { UnaryExp($1,$2) }
-  LParenTok Type RParenTok ExpUnary                         { CastExp($2,$4) }
-ExpJuxt Exp
+  ExpUnary PostOp                                           { UnaryAExp($2,$1) }
+  PreOp ExpUnary                                            { UnaryAExp($1,$2) }
+  LParenTok Type RParenTok ExpUnary                         { CastAExp($2,$4) }
+ExpJuxt AExp
   ExpNew                                                    { $1 }
-  ExpNew Juxts1[ExpNewNA]                                   { ApplyExp($1,JuxtList($2),NoAround) }
-ExpNew Exp
+  ExpNew Juxts1[ExpNewNA]                                   { ApplyAExp($1,JuxtList($2),NoAround) }
+ExpNew AExp
   ExpHigh                                                   { $1 }
-  NewTok Option[TypeArgs] ExpJuxt                           { NewExp($2,$3) }
-  QuestionTok WildcardBounds                                { WildExp($2) }
-ExpNewNA Exp
+  NewTok Option[TypeArgs] ExpJuxt                           { NewAExp($2,$3) }
+  QuestionTok WildcardBounds                                { WildAExp($2) }
+ExpNewNA AExp
   ExpHighNA                                                 { $1 }
-  NewTok Option[TypeArgs] ExpJuxt                           { NewExp($2,$3) }
-  QuestionTok WildcardBounds                                { WildExp($2) }
-ExpHigh Exp
+  NewTok Option[TypeArgs] ExpJuxt                           { NewAExp($2,$3) }
+  QuestionTok WildcardBounds                                { WildAExp($2) }
+ExpHigh AExp
   ExpHighNA                                                 { $1 }
-  LParenTok ExpAssignNC RParenTok                           { ParenExp($2) }
-  LParenTok RParenTok                                       { ArrayExp(EmptyList,     ParenAround) }
-  LParenTok Commas2[ExpBinary] RParenTok                    { ArrayExp(CommaList($2), ParenAround) }
-  LParenTok Juxts2[ExpNew] RParenTok                        { ArrayExp(JuxtList($2),  ParenAround) }
-  LBrackTok RBrackTok                                       { ArrayExp(EmptyList,     BrackAround) }
-  LBrackTok ExpBinary RBrackTok                             { ArrayExp(SingleList($2),BrackAround) }
-  LBrackTok Commas2[ExpBinary] RBrackTok                    { ArrayExp(CommaList($2), BrackAround) }
-  LBrackTok Juxts2[ExpNew] RBrackTok                        { ArrayExp(JuxtList($2),  BrackAround) }
-  LCurlyTok RCurlyTok                                       { ArrayExp(EmptyList,     CurlyAround) }
-  LCurlyTok ExpBinary RCurlyTok                             { ArrayExp(SingleList($2),CurlyAround) }
-  LCurlyTok Commas2[ExpBinary] RCurlyTok                    { ArrayExp(CommaList($2), CurlyAround) }
-  LCurlyTok Juxts2[ExpNew] RCurlyTok                        { ArrayExp(JuxtList($2),  CurlyAround) }
-ExpHighNA Exp
-  IdentTok                                                  { NameExp($1.name) }
-  Lit                                                       { LitExp($1) }
-  ExpHigh DotTok Option[TypeArgs] IdentTok                  { FieldExp($1,$3,$4.name) }
-  ExpHigh LParenTok List[ExpAssignNC] RParenTok             { ApplyExp($1,$3,ParenAround) }
-  ExpHigh LBrackTok List[ExpAssignNC] RBrackTok             { ApplyExp($1,$3,BrackAround) }
-  ExpHigh LCurlyTok List[ExpAssignNC] RCurlyTok             { ApplyExp($1,$3,CurlyAround) }
-  ExpHigh ColonColonTok Option[TypeArgs] IdentTok           { MethodRefExp($1,$3,$4.name) }
-  ExpHigh ColonColonTok Option[TypeArgs] NewTok             { NewRefExp($1,$3) }
-  ExpHigh TypeArgs                                          { TypeApplyExp($1,$2) }
+  LParenTok ExpAssignNC RParenTok                           { ParenAExp($2) }
+  LParenTok RParenTok                                       { ArrayAExp(EmptyList,     ParenAround) }
+  LParenTok Commas2[ExpBinary] RParenTok                    { ArrayAExp(CommaList($2), ParenAround) }
+  LParenTok Juxts2[ExpNew] RParenTok                        { ArrayAExp(JuxtList($2),  ParenAround) }
+  LBrackTok RBrackTok                                       { ArrayAExp(EmptyList,     BrackAround) }
+  LBrackTok ExpBinary RBrackTok                             { ArrayAExp(SingleList($2),BrackAround) }
+  LBrackTok Commas2[ExpBinary] RBrackTok                    { ArrayAExp(CommaList($2), BrackAround) }
+  LBrackTok Juxts2[ExpNew] RBrackTok                        { ArrayAExp(JuxtList($2),  BrackAround) }
+  LCurlyTok RCurlyTok                                       { ArrayAExp(EmptyList,     CurlyAround) }
+  LCurlyTok ExpBinary RCurlyTok                             { ArrayAExp(SingleList($2),CurlyAround) }
+  LCurlyTok Commas2[ExpBinary] RCurlyTok                    { ArrayAExp(CommaList($2), CurlyAround) }
+  LCurlyTok Juxts2[ExpNew] RCurlyTok                        { ArrayAExp(JuxtList($2),  CurlyAround) }
+ExpHighNA AExp
+  IdentTok                                                  { NameAExp($1.name) }
+  Lit                                                       { $1 }
+  ExpHigh DotTok Option[TypeArgs] IdentTok                  { FieldAExp($1,$3,$4.name) }
+  ExpHigh LParenTok List[ExpAssignNC] RParenTok             { ApplyAExp($1,$3,ParenAround) }
+  ExpHigh LBrackTok List[ExpAssignNC] RBrackTok             { ApplyAExp($1,$3,BrackAround) }
+  ExpHigh LCurlyTok List[ExpAssignNC] RCurlyTok             { ApplyAExp($1,$3,CurlyAround) }
+  ExpHigh ColonColonTok Option[TypeArgs] IdentTok           { MethodRefAExp($1,$3,$4.name) }
+  ExpHigh ColonColonTok Option[TypeArgs] NewTok             { NewRefAExp($1,$3) }
+  ExpHigh TypeArgs                                          { TypeApplyAExp($1,$2) }
 
-Lit Lit
-  IntLitTok     { IntLit($1.v) }
-  LongLitTok    { LongLit($1.v) }
-  FloatLitTok   { FloatLit($1.v) }
-  DoubleLitTok  { DoubleLit($1.v) }
-  BoolLitTok    { BoolLit($1.v) }
-  CharLitTok    { CharLit($1.v) }
-  StringLitTok  { StringLit($1.v) }
-  NullLitTok    { NullLit() }
+Lit ALit
+  IntLitTok     { IntALit($1.v) }
+  LongLitTok    { LongALit($1.v) }
+  FloatLitTok   { FloatALit($1.v) }
+  DoubleLitTok  { DoubleALit($1.v) }
+  BoolLitTok    { BoolALit($1.v) }
+  CharLitTok    { CharALit($1.v) }
+  StringLitTok  { StringALit($1.v) }
+  NullLitTok    { NullALit() }
 
 PostOp UnaryOp
   PlusPlusTok    { PostIncOp() }

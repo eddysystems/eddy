@@ -33,63 +33,62 @@ object AST {
   case class JuxtList[+A](override val list: List[A]) extends KList[A](list)
   case class AndList[+A](override val list: List[A]) extends KList[A](list)
 
-  sealed abstract class Type
-  case class NameType(name: Name) extends Type
-  case class ModType(mod: Mod, t: Type) extends Type
-  case class ArrayType(t: Type) extends Type
-  case class ApplyType(t: Type, a: KList[Type]) extends Type
-  case class FieldType(t: Type, f: Name) extends Type
-  case class WildType(b: Option[(Bound,Type)]) extends Type
-
-  type NameDims = (Name,Int)
-
-  type Block = List[Stmt]
-
-  sealed abstract class Stmt
-  case class EmptyStmt() extends Stmt
-  case class VarStmt(mod: List[Mod], t: Type, v: KList[((NameDims,Option[Exp]))]) extends Stmt
-  case class BlockStmt(b: Block) extends Stmt
-  case class ExpStmt(e: Exp) extends Stmt
-  case class AssertStmt(cond: Exp, msg: Option[Exp]) extends Stmt
-  case class BreakStmt(label: Option[Name]) extends Stmt
-  case class ContinueStmt(label: Option[Name]) extends Stmt
-  case class ReturnStmt(e: Option[Exp]) extends Stmt
-  case class ThrowStmt(e: Exp) extends Stmt
-  case class SyncStmt(e: Exp, b: Block) extends Stmt
-
-  sealed abstract class Exp
-  case class NameExp(name: Name) extends Exp
-  case class LitExp(l: Lit) extends Exp
-  case class ParenExp(e: Exp) extends Exp
-  case class FieldExp(e: Exp, t: Option[KList[Type]], f: Name) extends Exp
-  case class MethodRefExp(e: Exp, t: Option[KList[Type]], f: Name) extends Exp
-  case class NewRefExp(e: Exp, t: Option[KList[Type]]) extends Exp
-  case class TypeApplyExp(e: Exp, t: KList[Type]) extends Exp
-  case class ApplyExp(e: Exp, xs: KList[Exp], a: Around) extends Exp
-  case class NewExp(t: Option[KList[Type]], e: Exp) extends Exp
-  case class WildExp(b: Option[(Bound,Type)]) extends Exp
-  case class UnaryExp(op: UnaryOp, e: Exp) extends Exp
-  case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp
-  case class CastExp(t: Type, e: Exp) extends Exp
-  case class CondExp(cond: Exp, t: Exp, f: Exp) extends Exp
-  case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
-  case class ArrayExp(e: KList[Exp], a: Around) extends Exp
-
   sealed abstract class Around
   case object NoAround extends Around
   case object ParenAround extends Around
   case object BrackAround extends Around
   case object CurlyAround extends Around
 
-  sealed abstract class Lit
-  case class IntLit(v: String) extends Lit
-  case class LongLit(v: String) extends Lit
-  case class FloatLit(v: String) extends Lit
-  case class DoubleLit(v: String) extends Lit
-  case class BoolLit(v: Boolean) extends Lit
-  case class CharLit(v: String) extends Lit
-  case class StringLit(v: String) extends Lit
-  case class NullLit() extends Lit
+  sealed abstract class AType
+  case class NameAType(name: Name) extends AType
+  case class ModAType(mod: Mod, t: AType) extends AType
+  case class ArrayAType(t: AType) extends AType
+  case class ApplyAType(t: AType, a: KList[AType]) extends AType
+  case class FieldAType(t: AType, f: Name) extends AType
+  case class WildAType(b: Option[(Bound,AType)]) extends AType
+
+  type NameDims = (Name,Int)
+
+  type Block = List[AStmt]
+
+  sealed abstract class AStmt
+  case class EmptyAStmt() extends AStmt
+  case class VarAStmt(mod: List[Mod], t: AType, v: KList[((NameDims,Option[AExp]))]) extends AStmt
+  case class BlockAStmt(b: Block) extends AStmt
+  case class ExpAStmt(e: AExp) extends AStmt
+  case class AssertAStmt(cond: AExp, msg: Option[AExp]) extends AStmt
+  case class BreakAStmt(label: Option[Name]) extends AStmt
+  case class ContinueAStmt(label: Option[Name]) extends AStmt
+  case class ReturnAStmt(e: Option[AExp]) extends AStmt
+  case class ThrowAStmt(e: AExp) extends AStmt
+  case class SyncAStmt(e: AExp, b: Block) extends AStmt
+
+  sealed abstract class AExp
+  case class NameAExp(name: Name) extends AExp
+  case class ParenAExp(e: AExp) extends AExp
+  case class FieldAExp(e: AExp, t: Option[KList[AType]], f: Name) extends AExp
+  case class MethodRefAExp(e: AExp, t: Option[KList[AType]], f: Name) extends AExp
+  case class NewRefAExp(e: AExp, t: Option[KList[AType]]) extends AExp
+  case class TypeApplyAExp(e: AExp, t: KList[AType]) extends AExp
+  case class ApplyAExp(e: AExp, xs: KList[AExp], a: Around) extends AExp
+  case class NewAExp(t: Option[KList[AType]], e: AExp) extends AExp
+  case class WildAExp(b: Option[(Bound,AType)]) extends AExp
+  case class UnaryAExp(op: UnaryOp, e: AExp) extends AExp
+  case class BinaryAExp(op: BinaryOp, e0: AExp, e1: AExp) extends AExp
+  case class CastAExp(t: AType, e: AExp) extends AExp
+  case class CondAExp(cond: AExp, t: AExp, f: AExp) extends AExp
+  case class AssignAExp(op: Option[AssignOp], left: AExp, right: AExp) extends AExp
+  case class ArrayAExp(e: KList[AExp], a: Around) extends AExp
+
+  sealed abstract class ALit extends AExp
+  case class IntALit(v: String) extends ALit
+  case class LongALit(v: String) extends ALit
+  case class FloatALit(v: String) extends ALit
+  case class DoubleALit(v: String) extends ALit
+  case class BoolALit(v: Boolean) extends ALit
+  case class CharALit(v: String) extends ALit
+  case class StringALit(v: String) extends ALit
+  case class NullALit() extends ALit
 
   sealed abstract class UnaryOp
   sealed abstract class ImpOp extends UnaryOp

@@ -1,7 +1,7 @@
 package tarski
 
 import tarski.AST.{AssignOp, BinaryOp, UnaryOp}
-import tarski.Items.{PackageItem, ArrayType, VoidType, Type}
+import tarski.Items._
 import tarski.Types._
 
 object Denotations {
@@ -13,19 +13,19 @@ object Denotations {
 
   // Callables
   sealed abstract class Callable extends Den {
-    val f: Items.Callable
+    val f: CallableItem
     def paramTypes: List[Type] = f.paramTypes
   }
-  case class MethodDen(obj: ExpDen, override val f: Items.MethodItem) extends Callable
-  case class LocalMethodDen(override val f: Items.MethodItem) extends Callable
-  case class StaticMethodDen(override val f: Items.StaticMethodItem) extends Callable
-  case class NewDen(override val f: Items.ConstructorItem) extends Callable
-  case class ForwardDen(override val f: Items.ConstructorItem) extends Callable
+  case class MethodDen(obj: ExpDen, override val f: MethodItem) extends Callable
+  case class LocalMethodDen(override val f: MethodItem) extends Callable
+  case class StaticMethodDen(override val f: StaticMethodItem) extends Callable
+  case class NewDen(override val f: ConstructorItem) extends Callable
+  case class ForwardDen(override val f: ConstructorItem) extends Callable
 
   // Statements
   sealed abstract class StmtDen extends Den
   case class EmptyStmtDen() extends StmtDen
-  case class VarStmtDen(t: Type, vs: List[(Items.LocalVariableItem,Option[InitDen])]) extends StmtDen
+  case class VarStmtDen(t: Type, vs: List[(LocalVariableItem,Option[InitDen])]) extends StmtDen
   case class ExprStmtDen(e: ExpDen) extends StmtDen
   case class BlockStmtDen(b: List[StmtDen]) extends StmtDen
 
@@ -50,33 +50,33 @@ object Denotations {
   case class NullLit() extends LitDen
 
   // Expressions
-  case class ParameterExpDen(item: Items.ParameterItem) extends ExpDen
-  case class LocalVariableExpDen(item: Items.LocalVariableItem) extends ExpDen
-  case class EnumConstantExpDen(item: Items.EnumConstantItem) extends ExpDen
+  case class ParameterExpDen(item: ParameterItem) extends ExpDen
+  case class LocalVariableExpDen(item: LocalVariableItem) extends ExpDen
+  case class EnumConstantExpDen(item: EnumConstantItem) extends ExpDen
   case class CastExpDen(t: Type, e: ExpDen) extends ExpDen
   case class UnaryExpDen(op: UnaryOp, e: ExpDen) extends ExpDen
   case class BinaryExpDen(op: BinaryOp, e0: ExpDen, e1: ExpDen) extends ExpDen
   case class AssignExpDen(op: Option[AssignOp], left: ExpDen, right: ExpDen) extends ExpDen
   case class ParenExpDen(e: ExpDen) extends ExpDen
   case class ApplyExpDen(f: Callable, args: List[ExpDen]) extends ExpDen
-  case class FieldExpDen(obj: ExpDen, field: Items.FieldItem) extends ExpDen
-  case class LocalFieldExpDen(field: Items.FieldItem) extends ExpDen
-  case class StaticFieldExpDen(field: Items.StaticFieldItem) extends ExpDen
+  case class FieldExpDen(obj: ExpDen, field: FieldItem) extends ExpDen
+  case class LocalFieldExpDen(field: FieldItem) extends ExpDen
+  case class StaticFieldExpDen(field: StaticFieldItem) extends ExpDen
   case class IndexExpDen(e: ExpDen, i: ExpDen) extends ExpDen
   case class CondExpDen(c: ExpDen, t: ExpDen, f: ExpDen, r: Type) extends ExpDen
 
   def typeOf(d: ExpDen): Type = d match {
     // Literals
-    case ByteLit(_,_) => Items.ByteType
-    case ShortLit(_,_) => Items.ShortType
-    case IntLit(_,_) => Items.IntType
-    case LongLit(_,_) => Items.LongType
-    case BooleanLit(_) => Items.BooleanType
-    case StringLit(_,_) => Items.StringType
-    case FloatLit(_,_) => Items.FloatType
-    case DoubleLit(_,_) => Items.DoubleType
-    case CharLit(_,_) => Items.CharType
-    case NullLit() => Items.NullType
+    case ByteLit(_,_) => ByteType
+    case ShortLit(_,_) => ShortType
+    case IntLit(_,_) => IntType
+    case LongLit(_,_) => LongType
+    case BooleanLit(_) => BooleanType
+    case StringLit(_,_) => StringType
+    case FloatLit(_,_) => FloatType
+    case DoubleLit(_,_) => DoubleType
+    case CharLit(_,_) => CharType
+    case NullLit() => NullType
     // Names
     case ParameterExpDen(i) => i.ourType
     case LocalVariableExpDen(i) => i.ourType

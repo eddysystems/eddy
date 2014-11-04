@@ -123,16 +123,16 @@ object Pretty {
   def tokens(name: Name): Tokens = List(IdentTok(name))
 
   // AST types
-  implicit def prettyType(t: Type): (Fixity,Tokens) = t match {
-    case NameType(n) => prettyName(n)
-    case ModType(m,t) => fix(ModFix, tokens(m) ::: right(_,t))
-    case ArrayType(t) => fix(ApplyFix, left(_,t) ::: List(LBrackTok(),RBrackTok()))
-    case ApplyType(t,a) => fix(ApplyFix, left(_,t) ::: typeBracket(a))
-    case FieldType(t,f) => fix(FieldFix, left(_,t) ::: DotTok() :: tokens(f))
-    case WildType(None) => (HighestFix, List(QuestionTok()))
-    case WildType(Some((b,t))) => fix(WildFix, QuestionTok() :: token(b) :: right(_,t))
+  implicit def prettyType(t: AType): (Fixity,Tokens) = t match {
+    case NameAType(n) => prettyName(n)
+    case ModAType(m,t) => fix(ModFix, tokens(m) ::: right(_,t))
+    case ArrayAType(t) => fix(ApplyFix, left(_,t) ::: List(LBrackTok(),RBrackTok()))
+    case ApplyAType(t,a) => fix(ApplyFix, left(_,t) ::: typeBracket(a))
+    case FieldAType(t,f) => fix(FieldFix, left(_,t) ::: DotTok() :: tokens(f))
+    case WildAType(None) => (HighestFix, List(QuestionTok()))
+    case WildAType(Some((b,t))) => fix(WildFix, QuestionTok() :: token(b) :: right(_,t))
   }
-  implicit def prettyTypeArgs(t: Option[KList[Type]]): (Fixity,Tokens) =
+  implicit def prettyTypeArgs(t: Option[KList[AType]]): (Fixity,Tokens) =
     (HighestFix, t map (typeBracket(_)) getOrElse Nil)
 
   // Operators
@@ -190,25 +190,25 @@ object Pretty {
   }}
 
   // AST expressions
-  implicit def prettyExp(e: Exp): (Fixity,Tokens) = e match {
-    case NameExp(n) => pretty(n)
-    case LitExp(x) => prettyLit(x)
-    case ParenExp(e) => (HighestFix,parens(e))
-    case FieldExp(e,t,f) => fix(FieldFix, left(_,e) ::: DotTok() :: tokens(t) ::: tokens(f))
-    case MethodRefExp(e,t,f) => fix(FieldFix, left(_,e) ::: ColonColonTok() :: tokens(t) ::: tokens(f))
-    case NewRefExp(e,t) => fix(FieldFix, left(_,e) ::: ColonColonTok() :: tokens(t) ::: List(NewTok()))
-    case TypeApplyExp(e,t) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
-    case NewExp(t,e) => fix(NewFix, tokens(t) ::: List(NewTok()) ::: right(_,e))
-    case WildExp(None) => (HighestFix, List(QuestionTok()))
-    case WildExp(Some((b,t))) => fix(WildFix, QuestionTok() :: token(b) :: right(_,t))
-    case UnaryExp(op,e) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,e))
-    case UnaryExp(op,e)               => fix(PostfixFix, left(_,e) ::: List(token(op)))
-    case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
-    case CastExp(t,e) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
-    case CondExp(c,t,f) => fix(CondFix, s => left(s,c) ::: QuestionTok() :: tokens(t) ::: ColonTok() :: right(s,f))
-    case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
-    case ArrayExp(xs,a) => around(xs,a)
-    case ApplyExp(e,xs,a) => {
+  implicit def prettyExp(e: AExp): (Fixity,Tokens) = e match {
+    case NameAExp(n) => pretty(n)
+    case x: ALit => prettyLit(x)
+    case ParenAExp(e) => (HighestFix,parens(e))
+    case FieldAExp(e,t,f) => fix(FieldFix, left(_,e) ::: DotTok() :: tokens(t) ::: tokens(f))
+    case MethodRefAExp(e,t,f) => fix(FieldFix, left(_,e) ::: ColonColonTok() :: tokens(t) ::: tokens(f))
+    case NewRefAExp(e,t) => fix(FieldFix, left(_,e) ::: ColonColonTok() :: tokens(t) ::: List(NewTok()))
+    case TypeApplyAExp(e,t) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
+    case NewAExp(t,e) => fix(NewFix, tokens(t) ::: List(NewTok()) ::: right(_,e))
+    case WildAExp(None) => (HighestFix, List(QuestionTok()))
+    case WildAExp(Some((b,t))) => fix(WildFix, QuestionTok() :: token(b) :: right(_,t))
+    case UnaryAExp(op,e) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,e))
+    case UnaryAExp(op,e)               => fix(PostfixFix, left(_,e) ::: List(token(op)))
+    case BinaryAExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
+    case CastAExp(t,e) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
+    case CondAExp(c,t,f) => fix(CondFix, s => left(s,c) ::: QuestionTok() :: tokens(t) ::: ColonTok() :: right(s,f))
+    case AssignAExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
+    case ArrayAExp(xs,a) => around(xs,a)
+    case ApplyAExp(e,xs,a) => {
       val s = a match { case NoAround => JuxtFix; case _ => ApplyFix }
       fix(s, left(_,e) ::: around(xs,a)._2)
     }
@@ -223,24 +223,24 @@ object Pretty {
   }
 
   // AST statements
-  implicit def prettyStmt(s: Stmt): (Fixity,Tokens) = {
+  implicit def prettyStmt(s: AStmt): (Fixity,Tokens) = {
     def key[A](key: () => Token, x: Option[A])(implicit p: Pretty[A]): (Fixity,Tokens) =
       (SemiFix, key() :: (x map (tokens(_)) getOrElse Nil) ::: List(SemiTok()))
     s match {
-      case EmptyStmt() => (SemiFix,List(SemiTok()))
-      case VarStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: tokens(v))
-      case BlockStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
-      case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
-      case AssertStmt(c,m) => notImplemented
-      case BreakStmt(l)    => key(BreakTok,l)
-      case ContinueStmt(l) => key(ContinueTok,l)
-      case ReturnStmt(e)   => key(ReturnTok,e)
-      case ThrowStmt(e)    => key(ThrowTok,Some(e))
-      case SyncStmt(e,b) => notImplemented
+      case EmptyAStmt() => (SemiFix,List(SemiTok()))
+      case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: tokens(v))
+      case BlockAStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
+      case ExpAStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
+      case AssertAStmt(c,m) => notImplemented
+      case BreakAStmt(l)    => key(BreakTok,l)
+      case ContinueAStmt(l) => key(ContinueTok,l)
+      case ReturnAStmt(e)   => key(ReturnTok,e)
+      case ThrowAStmt(e)    => key(ThrowTok,Some(e))
+      case SyncAStmt(e,b) => notImplemented
     }
   }
-  implicit def prettyStmts(ss: List[Stmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(d: (NameDims,Option[Exp])): (Fixity,Tokens) = d match {
+  implicit def prettyStmts(ss: List[AStmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
+  implicit def prettyVar(d: (NameDims,Option[AExp])): (Fixity,Tokens) = d match {
     case (x,None) => pretty(x)
     case (x,Some(e)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,e))
   }
@@ -250,15 +250,15 @@ object Pretty {
     }
 
   // Literals
-  implicit def prettyLit(x: Lit) = (HighestFix, List(x match {
-    case AST.IntLit(v) => IntLitTok(v)
-    case AST.LongLit(v) => LongLitTok(v)
-    case AST.FloatLit(v) => FloatLitTok(v)
-    case AST.DoubleLit(v) => DoubleLitTok(v)
-    case AST.BoolLit(b) => BoolLitTok(b)
-    case AST.CharLit(v) => CharLitTok(v)
-    case AST.StringLit(v) => StringLitTok(v)
-    case AST.NullLit() => NullLitTok()
+  implicit def prettyLit(x: ALit) = (HighestFix, List(x match {
+    case IntALit(v) => IntLitTok(v)
+    case LongALit(v) => LongLitTok(v)
+    case FloatALit(v) => FloatLitTok(v)
+    case DoubleALit(v) => DoubleLitTok(v)
+    case BoolALit(b) => BoolLitTok(b)
+    case CharALit(v) => CharLitTok(v)
+    case StringALit(v) => StringLitTok(v)
+    case NullALit() => NullLitTok()
   }))
 
   // Keywords

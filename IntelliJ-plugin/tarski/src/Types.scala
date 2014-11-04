@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.AST.{Type => _, ArrayType => _, _}
+import tarski.AST._
 import tarski.Items._
 import tarski.Items.ArrayType
 import ambiguity.Utility._

@@ -114,7 +114,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
   }
 
-  private Callable addMethodToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiMethod method) {
+  private CallableItem addMethodToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiMethod method) {
     // get argument types
     List<Type> params = new SmartList<Type>();
     for (PsiParameter p : method.getParameterList().getParameters()) {
@@ -129,7 +129,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     RefType clsitem = (RefType)envitems.get(cls);
 
-    Callable mitem;
+    CallableItem mitem;
 
     if (method.isConstructor()) {
       assert clsitem instanceof ClassType;

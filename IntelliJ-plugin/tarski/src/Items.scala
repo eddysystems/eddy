@@ -28,7 +28,7 @@ object Items {
   sealed abstract class Value(name: Name, val ourType: Type) extends NamedItem(name) with scala.Serializable
 
   // A method or constructor
-  sealed abstract class Callable(name: Name, val paramTypes: List[Type]) extends NamedItem(name) with scala.Serializable
+  sealed abstract class CallableItem(name: Name, val paramTypes: List[Type]) extends NamedItem(name) with scala.Serializable
 
   // Miscellaneous
   case class PackageItem(override val name: Name, qualifiedName: Name, relativeName: Name) extends NamedItem(name) with scala.Serializable
@@ -74,8 +74,8 @@ object Items {
     def base = EnumBaseType
   }
   case class IntersectType(ts: Set[RefType]) extends RefType(s"IntersectType(${ts.map(_.toString).mkString(",")})") {
-    def qualifiedName = name // TODO: These make little sense
-    def relativeName = name
+    def qualifiedName = this.name // TODO: These make little sense
+    def relativeName = this.name
   }
 
   trait Member {
@@ -158,13 +158,13 @@ object Items {
   // callables
   case class MethodItem(override val name: Name, override val containing: RefType, relativeName: Name,
                         retVal: Type, override val paramTypes: List[Type])
-    extends Callable(name, paramTypes) with ClassMember with scala.Serializable
+    extends CallableItem(name, paramTypes) with ClassMember with scala.Serializable
   case class StaticMethodItem(override val name: Name, override val containing: RefType, relativeName: Name,
                               retVal: Type, override val paramTypes: List[Type])
-    extends Callable(name, paramTypes) with ClassMember with scala.Serializable
+    extends CallableItem(name, paramTypes) with ClassMember with scala.Serializable
 
 
-  sealed class ConstructorItem(val containing: ClassType, paramTypes: List[Type]) extends Callable(containing.name, paramTypes) with ClassMember with scala.Serializable {
+  sealed class ConstructorItem(val containing: ClassType, paramTypes: List[Type]) extends CallableItem(containing.name, paramTypes) with ClassMember with scala.Serializable {
     def relativeName = containing.relativeName + "." + name // TODO: Not correct if we're in the same match
    }
 
