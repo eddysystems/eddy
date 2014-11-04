@@ -56,6 +56,11 @@ object Items {
   case object CharType    extends PrimType("char")
 
   sealed abstract class RefType(name: Name) extends Type(name) with scala.Serializable { def base: RefType }
+  case class ErrorType(override val name: Name) extends RefType(name) with scala.Serializable {
+    def qualifiedName = name
+    def relativeName = name
+    def base = ObjectType
+  }
   case class InterfaceType(override val name: Name, containing: NamedItem, relativeName: Name, base: RefType = ObjectType)
     extends RefType(name) with Member with scala.Serializable
   sealed abstract class ClassOrEnumType(name: Name) extends RefType(name) { def containing: NamedItem }
@@ -134,9 +139,9 @@ object Items {
   }
 
   // Values
-  case class FieldItem(override val name: Name, override val ourType: Type, val containing: ClassType, val relativeName: Name)
+  case class FieldItem(override val name: Name, override val ourType: Type, containing: ClassType, relativeName: Name)
     extends Value(name, ourType) with ClassMember with scala.Serializable
-  case class StaticFieldItem(override val name: Name, override val ourType: Type, val containing: ClassType, val relativeName: Name)
+  case class StaticFieldItem(override val name: Name, override val ourType: Type, containing: ClassType, relativeName: Name)
     extends Value(name, ourType) with ClassMember with scala.Serializable
   case class ParameterItem(override val name: Name, override val ourType: Type)
     extends Value(name, ourType) with LocalItem with scala.Serializable
@@ -148,10 +153,10 @@ object Items {
   }
 
   // callables
-  case class MethodItem(override val name: Name, override val containing: RefType, val relativeName: Name,
+  case class MethodItem(override val name: Name, override val containing: RefType, relativeName: Name,
                         retVal: Type, override val paramTypes: List[Type])
     extends Callable(name, paramTypes) with ClassMember with scala.Serializable
-  case class StaticMethodItem(override val name: Name, override val containing: RefType, val relativeName: Name,
+  case class StaticMethodItem(override val name: Name, override val containing: RefType, relativeName: Name,
                               retVal: Type, override val paramTypes: List[Type])
     extends Callable(name, paramTypes) with ClassMember with scala.Serializable
 
@@ -160,12 +165,6 @@ object Items {
     def relativeName = containing.relativeName + "." + name // TODO: Not correct if we're in the same match
    }
 
-  // when we cannot assign anything useful to this node
-  sealed class ErrorItem() extends EnvItem with scala.Serializable
-  sealed class ErrorType() extends Type("bad type") with NoLookupItem with scala.Serializable {
-    def qualifiedName = "bad type"
-    def relativeName = "bad type"
-  }
   sealed class TypeParameterType(name: String) extends Type(name) with NoLookupItem with scala.Serializable {
     def qualifiedName = "notImplemented"
     def relativeName = "notImplemented"

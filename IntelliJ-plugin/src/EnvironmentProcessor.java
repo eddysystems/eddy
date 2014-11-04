@@ -58,8 +58,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       PsiPackageStatement stmt = ((PsiJavaFile) parent).getPackageStatement();
       if (stmt == null)
         return null;
-      else
-        return stmt.getPackageReference().resolve();
+      else {
+        try {
+          return stmt.getPackageReference().resolve();
+        } catch (UnsupportedOperationException e) {
+          // we don't have a real package here, probably we just wrote a package statement...
+          // TODO: interpret as real package anyway?
+          return null;
+        }
+      }
     }
     if (parent instanceof PsiClass) {
       return parent;
@@ -167,7 +174,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (inner instanceof PsiClassType) {
         PsiClass tcls = ((PsiClassType) inner).resolve();
         if (tcls == null) {
-          return new ErrorType();
+          String name = ((PsiClassType) inner).getClassName();
+          env_inner = new ErrorType(name);
+          types.put(inner, env_inner);
         } else if (tcls instanceof PsiTypeParameter) {
           // TODO: this should resolve to an existing type parameter (stored in the method's or class's type parameters array)
           return new TypeParameterType(tcls.getName());
@@ -196,8 +205,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         else if (inner == PsiType.VOID)
           env_inner = VoidType$.MODULE$;
         else {
-          logger.error("Unknown primitive type: " + inner.getCanonicalText());
-          return new ErrorType();
+          throw new RuntimeException("Unknown primitive type: " + inner.getCanonicalText());
         }
       }
       assert env_inner != null;
@@ -231,8 +239,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           else if (env_inner.name().equals("void"))
             types.put(t, makeArray((VoidType$) env_inner, dims));
           else {
-            logger.error("Unknown primitive type: " + env_inner.qualifiedName());
-            return new ErrorType();
+            throw new RuntimeException("Unknown primitive type: " + env_inner.qualifiedName());
           }
         }
         assert types.get(t) instanceof Type;
@@ -460,9 +467,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
   @Override
   public final void handleEvent(@NotNull Event event, Object associated){
-    if (event == JavaScopeProcessorEvent.START_STATIC)
+    if (event == JavaScopeProcessorEvent.START_STATIC) {
+      logger.debug("starting in static scope");
       inStaticScope = true;
-    else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT)
+    } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT)
       currentFileContext = (PsiElement)associated;
+      logger.debug("switching file context: " + currentFileContext);
   }
 }
