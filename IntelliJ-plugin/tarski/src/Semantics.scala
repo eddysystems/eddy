@@ -55,14 +55,21 @@ object Semantics {
       case e: ExpDen => typeOf(e) // Allow expressions to be used as types
     }
 
+  /*
+  def denoteItem(i: EnvItem): ExpDen = i match {
+
+  }*/
+
   // Expressions
   def denote(e: Exp)(implicit env: Env): Scored[Den] = e match {
     case NameExp(n) => scores(n) collect {
-      case i: FieldItem => Denotations.LocalFieldExpDen(i)
       case i: ParameterItem => Denotations.ParameterExpDen(i)
       case i: LocalVariableItem => Denotations.LocalVariableExpDen(i)
       case i: EnumConstantItem => Denotations.EnumConstantExpDen(i)
-      case i: MethodItem => throw new NotImplementedError("MethodDen") // Denotations.MethodDen(i)
+      case i: FieldItem => notImplemented // objectsOfType("", i.containing).map( x => FieldExpDen(denoteItem(x),i) )
+      case i: StaticFieldItem => Denotations.StaticFieldExpDen(i)
+      case i: MethodItem => throw new NotImplementedError("MethodDen") // Denotations.MethodDen(i) or Denotations.LocalMethodExpDen
+      case i: StaticMethodItem => Denotations.StaticMethodDen(i)
       case i: ConstructorItem => Denotations.ForwardDen(i)
     }
     case LitExp(x) => denote(x)
@@ -165,6 +172,7 @@ object Semantics {
   }
   def denoteExp(n: Exp)(implicit env: Env): Scored[ExpDen] =
     denote(n) collect {case e: ExpDen => e}
+
   def isVariable(e: ExpDen): Boolean = e match {
     // in java, we can only assign to actual variables, never to values returned by functions or expressions.
     // TODO: implement final, private, protected
@@ -184,8 +192,9 @@ object Semantics {
     case IndexExpDen(a, i) => isVariable(a)
     case CondExpDen(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
   }
-  def denoteCallable(n: Exp)(implicit env: Env): Scored[Denotations.Callable] =
-    throw new NotImplementedError("denoteCallable")
+
+  def denoteCallable(e: Exp)(implicit env: Env): Scored[Denotations.Callable] =
+    denote(e) collect { case e: Denotations.Callable => e }
 
   // Statements
   def denoteStmt(s: Stmt)(env: Env): Scored[(Env,StmtDen)] = s match {
