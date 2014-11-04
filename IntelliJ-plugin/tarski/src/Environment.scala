@@ -4,6 +4,7 @@ import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutp
 
 import Scores._
 import tarski.Items._
+import tarski.Types.isSubtype
 
 object Environment {
   /**
@@ -45,9 +46,9 @@ object Environment {
   def typeScores(name: String)(implicit env: Env): Scored[Type] =
     simple(env.things.collect({case x: Type if x.name==name => x}))
 
-  // objects of a given type (name "" matches all objects)
+  // objects of a given type (or subtypes thereof) (name "" matches all objects)
   def objectsOfType(name: String, t: Type)(implicit env: Env): Scored[Value] =
-    simple(env.things collect { case i: Value if name == "" || i.name == name => i } )
+    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) && (name == "" || i.name == name) => i } )
 
   // Does a member belong to a type?
   def memberIn(f: EnvItem, t: Type): Boolean = f match {

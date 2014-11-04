@@ -1,4 +1,5 @@
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
@@ -7,8 +8,8 @@ import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-
-import tarski.Environment.*;
+import scala.collection.JavaConversions;
+import tarski.Environment.Env;
 import tarski.Items.*;
 import tarski.Tarski;
 
@@ -16,12 +17,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import scala.collection.JavaConversions;
-
 /**
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
  */
 public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
+
+  private final @NotNull
+  Project project;
 
   private final @NotNull
   Logger logger = Logger.getInstance(getClass());
@@ -39,7 +41,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private PsiElement currentFileContext;
   private boolean honorPrivate;
 
-  EnvironmentProcessor(PsiElement place, boolean honorPrivate) {
+  EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
+    this.project = project;
     this.place = place;
     this.honorPrivate = honorPrivate;
     PsiScopesUtil.treeWalkUp(this, place, null);
@@ -55,24 +58,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private PsiElement containing(PsiElement cls) {
     PsiElement parent = cls.getParent();
     if (parent instanceof PsiJavaFile) {
-      PsiPackageStatement stmt = ((PsiJavaFile) parent).getPackageStatement();
-      if (stmt == null)
-        return null;
-      else {
-        try {
-          return stmt.getPackageReference().resolve();
-        } catch (UnsupportedOperationException e) {
-          // we don't have a real package here, probably we just wrote a package statement...
-          // TODO: interpret as real package anyway?
-          return null;
-        }
-      }
-    }
-    if (parent instanceof PsiClass) {
+      return JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile) parent).getPackageName());
+    } else if (parent instanceof PsiClass) {
       return parent;
     }
-
-    return null;
+    logger.error("parent of " + cls + " = " + parent);
+    throw new RuntimeException("unexpected parent of " + cls + " = " + parent);
   }
 
   private NamedItem addContainerToEnvMap(Map<PsiElement, NamedItem> envitems, PsiElement elem) {
@@ -260,6 +251,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     Value v;
     PsiClass cls = f.getContainingClass();
+    assert cls != null;
     if (f.hasModifierProperty(PsiModifier.STATIC))
       v = new StaticFieldItem(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
     else
@@ -343,12 +335,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private String qualifiedName(PsiElement elem) {
     if (elem instanceof PsiQualifiedNamedElement)
       return ((PsiQualifiedNamedElement) elem).getQualifiedName();
-    else if (elem instanceof PsiMethod)
-      return ((PsiMethod) elem).getContainingClass().getQualifiedName() + '.' + ((PsiMethod) elem).getName();
-    else if (elem instanceof PsiEnumConstant)
-      return ((PsiEnumConstant) elem).getContainingClass().getQualifiedName() + '.' + ((PsiEnumConstant) elem).getName();
-    else if (elem instanceof PsiField)
-      return ((PsiField) elem).getContainingClass().getQualifiedName() + '.' + ((PsiField) elem).getName();
+    else if (elem instanceof PsiMethod) {
+      PsiClass cls = ((PsiMethod) elem).getContainingClass();
+      assert cls != null;
+      return cls.getQualifiedName() + '.' + ((PsiMethod) elem).getName();
+    } else if (elem instanceof PsiEnumConstant) {
+      PsiClass cls = ((PsiEnumConstant) elem).getContainingClass();
+      assert cls != null;
+      return cls.getQualifiedName() + '.' + ((PsiEnumConstant) elem).getName();
+    } else if (elem instanceof PsiField) {
+      PsiClass cls = ((PsiField) elem).getContainingClass();
+      assert cls != null;
+      return cls.getQualifiedName() + '.' + ((PsiField) elem).getName();
+    }
 
     logger.error("Can't compute qualified name of " + elem);
     return null;

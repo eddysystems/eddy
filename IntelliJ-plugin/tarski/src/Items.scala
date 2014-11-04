@@ -61,25 +61,25 @@ object Items {
     def base = ObjectType
   }
   case class InterfaceType(override val name: Name, containing: NamedItem, relativeName: Name, base: RefType = ObjectType)
-    extends RefType(name) with Member with scala.Serializable
+    extends RefType(name) with Member with scala.Serializable { assert(containing != null); }
   sealed abstract class ClassOrEnumType(name: Name) extends RefType(name) { def containing: NamedItem }
   case class ClassType(override val name: Name, containing: NamedItem, relativeName: Name,
                        base: RefType, implements: List[InterfaceType] = Nil)
-    extends ClassOrEnumType(name) with Member with scala.Serializable
+    extends ClassOrEnumType(name) with Member with scala.Serializable { assert(name == "Object" || containing != null); }
   case class EnumType(override val name: Name, containing: NamedItem, override val relativeName: Name)
     extends ClassOrEnumType(name) with Member with scala.Serializable {
     def base = EnumBaseType
   }
 
   trait Member {
-    def name: String
+    def name: Name
     def containing: NamedItem
 
-    def qualifiedName: String = if (containing.qualifiedName.isEmpty) name else containing.qualifiedName + '.' + name
+    def qualifiedName: Name = if (containing.qualifiedName.isEmpty) name else containing.qualifiedName + '.' + name
   }
 
   trait ClassMember extends Member {
-    def name: String
+    def name: Name
     def containing: RefType
   }
 
@@ -173,7 +173,7 @@ object Items {
   sealed trait LocalItem {
     def name: String
 
-    def qualifiedName = null
+    def qualifiedName = "" // TODO: this should probably be None and does require special treatment
     def relativeName = name // we may still be shadowed, but local items are only part of the environment if they are visible
     override def toString = "local:" + name
   }

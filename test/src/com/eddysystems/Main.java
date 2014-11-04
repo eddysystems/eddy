@@ -11,6 +11,7 @@ public class Main {
     }
 
     public class X {
+        public float z;
         public int x() {
             return 2;
         }
@@ -30,8 +31,11 @@ public class Main {
 	    // write your code here
         int x;
         int y;
+        X xobj;
 
         y()
+        x()
+        z
 
         x = 1 + 3.
         x = f 4

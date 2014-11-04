@@ -59,6 +59,15 @@ object Semantics {
   // TODO: this should not rely on string matching.
   def isLocal(i: Items.NamedItem): Boolean = i.name == i.relativeName || i.relativeName == "this" || i.relativeName == "super"
 
+  // return whether this value is contained in the given type, or in something contained in the given type
+  def containedIn(field: Items.Member, t: Type): Boolean =
+    field.containing == t || (field.containing match { case c: Items.Member => containedIn(c, t); case _ => false } )
+
+  def containedIn(value: Items.Value, t: Type): Boolean = value match {
+    case m: Items.Member => containedIn(m.asInstanceOf[Items.Member],t)
+    case _ => false
+  }
+
   def denoteValue(i: Items.Value)(implicit env: Env): Scored[ExpDen] = i match {
     case i: ParameterItem => single(ParameterExpDen(i))
     case i: LocalVariableItem => single(LocalVariableExpDen(i))
@@ -67,7 +76,7 @@ object Semantics {
       if (isLocal(i))
         single(LocalFieldExpDen(i))
       else
-        for (obj <- objectsOfType("", i.containing); objden <- denoteValue(obj)) yield FieldExpDen(objden, i)
+        for (obj <- objectsOfType("", i.containing) if !containedIn(obj,i.containing); objden <- denoteValue(obj)) yield FieldExpDen(objden, i)
     case i: StaticFieldItem => single(StaticFieldExpDen(i))
   }
 

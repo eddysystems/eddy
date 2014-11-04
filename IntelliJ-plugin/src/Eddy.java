@@ -167,7 +167,7 @@ public class Eddy implements CaretListener, DocumentListener {
         }
       });
 
-      EnvironmentProcessor env = new EnvironmentProcessor(elem, true);
+      EnvironmentProcessor env = new EnvironmentProcessor(project, elem, true);
       List<scala.Tuple2<Score,List<StmtDen>>> results = Tarski.fixJava(tokens, env.getJavaEnvironment());
 
       String text = "";
