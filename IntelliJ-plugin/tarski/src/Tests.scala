@@ -28,9 +28,12 @@ class Tests {
 
   // Useful implicit conversions
   implicit def toExp(i: Int): AST.Exp = AST.LitExp(AST.IntLit(i.toString))
-  implicit def toDen(i: Int): ExpDen = IntLit(i,i.toString)
-  implicit def toDen(c: Char): ExpDen = CharLit(c, "'" + escapeJava(c.toString) + "'")
-  implicit def toDen(x: LocalVariableItem): ExpDen = LocalVariableExpDen(x)
+  implicit def toExpDen(i: Int): ExpDen = IntLit(i,i.toString)
+  implicit def toExpDen(c: Char): ExpDen = CharLit(c, "'" + escapeJava(c.toString) + "'")
+  implicit def toExpDen(x: LocalVariableItem): ExpDen = LocalVariableExpDen(x)
+  implicit def toInitDen[A](x: A)(implicit to: A => ExpDen): InitDen = ExpInitDen(to(x))
+  implicit def toExpDens[A](xs: List[A])(implicit to: A => ExpDen): List[ExpDen] = xs map to
+  implicit def toInitDens[A](xs: List[A])(implicit to: A => ExpInitDen): List[ExpInitDen] = xs map to
 
   def testDenotation(input: String, best: Env => List[StmtDen])(implicit env: Env) = {
     val (env2,stmt) = fix(lex(input).filterNot(isSpace)).best.get
@@ -47,42 +50,35 @@ class Tests {
   @Test
   def variableStmt(): Unit = {
     implicit val env = baseEnvironment
-    testDenotation("x = 1", env => List(VarStmtDen(IntType, List((env.exactLocal("x"), Some(ExpInitDen(toDen(1))))))))
+    testDenotation("x = 1", env => List(VarStmtDen(IntType, List((env.exactLocal("x"), Some(toInitDen(1)))))))
   }
 
   @Test
-  def arrayVariableStmt1(): Unit = {
+  def arrayVariableStmtCurly(): Unit = {
     implicit val env = baseEnvironment
     testDenotation("x = {1,2,3,4}", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
+      Some(ArrayInitDen(List(1,2,3,4),IntType)))))))
   }
 
   @Test
-  def arrayParenVariableStmt(): Unit = {
+  def arrayVariableStmtParen(): Unit = {
     implicit val env = baseEnvironment
     testDenotation("x = (1,2,3,4)", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
+      Some(ArrayInitDen(List(1,2,3,4),IntType)))))))
   }
 
   @Test
-  def arrayVariableStmt2(): Unit = {
+  def arrayVariableStmtBare(): Unit = {
     implicit val env = baseEnvironment
     testDenotation("x = 1,2,3,4", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
+      Some(ArrayInitDen(List(1,2,3,4),IntType)))))))
   }
 
   @Test
-  def arrayVariableStmt3(): Unit = {
-    implicit val env = baseEnvironment
-    testDenotation("x = {1,2,3,4}", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
-  }
-
-  @Test
-  def arrayVariableStmt4(): Unit = {
+  def arrayVariableStmtBrack(): Unit = {
     implicit val env = baseEnvironment
     testDenotation("x = [1,2,3,4]", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
+      Some(ArrayInitDen(List(1,2,3,4),IntType)))))))
   }
 
   @Test
@@ -91,7 +87,7 @@ class Tests {
     val f = MethodItem("f", main, "f", VoidType, List(ArrayType(IntType)))
     implicit val env = Env(List(main,f))
     testDenotation("f({1,2,3,4})", env => List(VarStmtDen(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayInitDen(List(1,2,3,4) map { x => ExpInitDen(toDen(x)) }, IntType)))))))
+      Some(ArrayInitDen(List(1,2,3,4),IntType)))))))
   }
 
   @Test
@@ -99,7 +95,7 @@ class Tests {
     implicit val env = baseEnvironment
     testDenotation("x = 1; x = 2", env => {
       val x = env.exactLocal("x")
-      List(VarStmtDen(IntType, List((x,Some(ExpInitDen(toDen(1)))))),
+      List(VarStmtDen(IntType, List((x,Some(toInitDen(1))))),
            ExprStmtDen(AssignExpDen(None,x,2)))
     })
   }
