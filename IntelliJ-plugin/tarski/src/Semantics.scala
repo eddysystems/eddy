@@ -259,5 +259,4 @@ object Semantics {
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[StmtDen])] =
     productFoldLeft(env)(s map denoteStmt)
-
 }
