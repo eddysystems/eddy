@@ -62,13 +62,15 @@ object Items {
     def base = ObjectType
   }
   case class InterfaceType(override val name: Name, containing: NamedItem, relativeName: Name, base: RefType = ObjectType)
-    extends RefType(name) with Member with scala.Serializable { assert(containing != null); }
-  sealed abstract class ClassOrEnumType(name: Name) extends RefType(name) { def containing: NamedItem }
-  case class ClassType(override val name: Name, containing: NamedItem, relativeName: Name,
+    extends RefType(name) with Member with scala.Serializable
+  sealed abstract class ClassOrObjectType(override val name: Name, val containing: NamedItem, val relativeName: Name)
+    extends RefType(name) with Member with scala.Serializable
+  case class ClassType(override val name: Name, override val containing: NamedItem, override val relativeName: Name,
                        base: RefType, implements: List[InterfaceType] = Nil)
-    extends ClassOrEnumType(name) with Member with scala.Serializable { assert(name == "Object" || containing != null); }
+    extends ClassOrObjectType(name,containing,relativeName) with Member with scala.Serializable
+  object ObjectType extends ClassOrObjectType("Object",JavaLangPkg,"Object")
   case class EnumType(override val name: Name, containing: NamedItem, override val relativeName: Name)
-    extends ClassOrEnumType(name) with Member with scala.Serializable {
+    extends RefType(name) with Member with scala.Serializable {
     def base = EnumBaseType
   }
   case class IntersectType(ts: Set[RefType]) extends RefType(s"IntersectType(${ts.map(_.toString).mkString(",")})") {
@@ -100,10 +102,8 @@ object Items {
   val LocalPkg = PackageItem("", "", "")
 
   // Common references types are important enough to name
-  private def commonRef(name: String, base: ClassType, implements: List[InterfaceType] = Nil) =
+  private def commonRef(name: String, base: ClassOrObjectType, implements: List[InterfaceType] = Nil) =
     ClassType(name,JavaLangPkg,name,base,implements)
-
-  val ObjectType = commonRef("Object", null, List())
 
   // we need some basic interfaces
   // TODO: this is ugly, the relative names must change (maybe make that a function?)

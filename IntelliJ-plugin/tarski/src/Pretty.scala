@@ -5,6 +5,7 @@ import tarski.Items.NamedItem
 import tarski.Tokens._
 import tarski.Denotations._
 import scala.language.implicitConversions
+import ambiguity.Utility._
 
 object Pretty {
   // Fixity and precedence: to parenthesize or not to parenthesize
@@ -52,7 +53,8 @@ object Pretty {
   private def RB = nextFixity(5) // right, bad
 
   // All the kinds of expression fixity in Java, from lowest to highest precedence.
-  val LowestFix    = N // Sentinel
+  val SemiFix      = N // Separating statements
+  val LowestExpFix = N // Sentinel
   val ModFix       = R // Modifiers
   val CommaListFix = N // ,-delimited lists
   val AndListFix   = N // &-delimited lists
@@ -108,7 +110,7 @@ object Pretty {
   }
   implicit def prettyList[A](k: KList[A])(implicit p: Pretty[A]): (Fixity,Tokens) = {
     val (s,sep) = k match {
-      case EmptyList() => (LowestFix,Nil)
+      case EmptyList() => (LowestExpFix,Nil)
       case CommaList(_) => (CommaListFix,List(CommaTok()))
       case JuxtList(_) => (JuxtListFix,Nil)
       case AndList(_) => (AndListFix,List(AndTok()))
@@ -206,7 +208,35 @@ object Pretty {
     case CastExp(t,e) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
     case CondExp(c,t,f) => fix(CondFix, s => left(s,c) ::: QuestionTok() :: tokens(t) ::: ColonTok() :: right(s,f))
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
+    case ArrayExp(xs) => (HighestFix, LCurlyTok() :: tokens(xs) ::: List(RCurlyTok()))
   }
+
+  // AST statements
+  implicit def prettyStmt(s: Stmt): (Fixity,Tokens) = {
+    def key[A](key: () => Token, x: Option[A])(implicit p: Pretty[A]): (Fixity,Tokens) =
+      (SemiFix, key() :: (x map (tokens(_)) getOrElse Nil) ::: List(SemiTok()))
+    s match {
+      case EmptyStmt() => (SemiFix,List(SemiTok()))
+      case VarStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: tokens(v))
+      case BlockStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
+      case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
+      case AssertStmt(c,m) => notImplemented
+      case BreakStmt(l)    => key(BreakTok,l)
+      case ContinueStmt(l) => key(ContinueTok,l)
+      case ReturnStmt(e)   => key(ReturnTok,e)
+      case ThrowStmt(e)    => key(ThrowTok,Some(e))
+      case SyncStmt(e,b) => notImplemented
+    }
+  }
+  implicit def prettyStmts(ss: List[Stmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
+  implicit def prettyVar(d: (NameDims,Option[Exp])): (Fixity,Tokens) = d match {
+    case (x,None) => pretty(x)
+    case (x,Some(e)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,e))
+  }
+  implicit def prettyNameDims(n: NameDims): (Fixity,Tokens) = n match {
+    case (x,0) => pretty(x)
+    case (x,n) => fix(ApplyFix, left(_,(x,n-1)) ::: List(LBrackTok(),RBrackTok()))
+    }
 
   // Literals
   implicit def prettyLit(x: Lit) = (HighestFix, List(x match {

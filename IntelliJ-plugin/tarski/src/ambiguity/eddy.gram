@@ -41,6 +41,15 @@ List[a] KList[a]
 List1[a] KList[a]
   Commas[a]                      { CommaList($1) }
   Juxts[a]                       { JuxtList($1) }
+List2[a] KList[a]
+  a CommaTok Commas[a]           { CommaList($1::$3) }
+  a Juxts[a]                     { JuxtList($1::$2) }
+List02[a] KList[a]
+  ""                             { EmptyList() }
+  List2[a]                       { $1 }
+Juxts0[a] List[a]
+  ""                             { Nil }
+  Juxts[a]                       { $1 }
 
 // Dims
 IdentDims NameDims
@@ -86,25 +95,25 @@ Stmts List[Stmt]
 
 // Statement
 Stmt Stmt
-  SemiTok                        { EmptyStmt() }
-  StmtHelper Option[SemiTok]     { $1 }
+  SemiTok                         { EmptyStmt() }
+  StmtHelper Option[SemiTok]      { $1 }
 StmtHelper Stmt
-  Mod Type List1[VarDecl]        { VarStmt($1,$2,$3) }
+  Juxts0[Mod] Type List1[VarDecl] { VarStmt($1,$2,$3) }
   // LabelStmt
   // IfThen / IfThenElse
   // While
   // For
-  Block                          { BlockStmt($1) }
-  Exp                            { ExpStmt($1) }
-  AssertTok Exp                  { AssertStmt($2,None) }
-  AssertTok Exp ColonTok Exp     { AssertStmt($2,Some($4)) }
+  Block                           { BlockStmt($1) }
+  Exp                             { ExpStmt($1) }
+  AssertTok Exp                   { AssertStmt($2,None) }
+  AssertTok Exp ColonTok Exp      { AssertStmt($2,Some($4)) }
   // Switch
   // Do
-  BreakTok Option[IdentTok]      { BreakStmt($2.map(_.name)) }
-  ContinueTok Option[IdentTok]   { ContinueStmt($2.map(_.name)) }
-  ReturnTok Option[Exp]          { ReturnStmt($2) }
-  ThrowTok Exp                   { ThrowStmt($2) }
-  SynchronizedTok Exp Block      { SyncStmt($2,$3) }
+  BreakTok Option[IdentTok]       { BreakStmt($2.map(_.name)) }
+  ContinueTok Option[IdentTok]    { ContinueStmt($2.map(_.name)) }
+  ReturnTok Option[Exp]           { ReturnStmt($2) }
+  ThrowTok Exp                    { ThrowStmt($2) }
+  SynchronizedTok Exp Block       { SyncStmt($2,$3) }
   SynchronizedTok LParenTok Exp RParenTok Block  { SyncStmt($3,$5) }
   // Try
 VarDecl (NameDims,Option[Exp])
@@ -116,7 +125,11 @@ Exp Exp
   IdentTok                                     { NameExp($1.name) }
   Lit                                          { LitExp($1) }
   LParenTok Exp RParenTok                      { ParenExp($2) }
-  LCurlyTok List[Exp] RCurlyTok                { ArrayExp($2) }
+
+  LCurlyTok List[Exp] RCurlyTok                { ArrayExp($2) } // TODO: Remember surrounding tokens
+  LParenTok List02[Exp] RParenTok              { ArrayExp($2) }
+  LBrackTok List[Exp] RBrackTok                { ArrayExp($2) }
+  List2[Exp]                                   { ArrayExp($1) }
 
   Exp DotTok Option[TypeArgs] IdentTok         { FieldExp($1,$3,$4.name) }
   Exp LBrackTok List[Exp] RBrackTok            { IndexExp($1,$3) }

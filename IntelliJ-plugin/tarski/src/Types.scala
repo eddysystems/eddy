@@ -106,7 +106,7 @@ object Types {
   def implements(cls: ClassType, intf: InterfaceType): Boolean =
     (    cls.implements.contains(intf)
       || cls.implements.exists( isProperSubtype(_, intf) )
-      || (cls.base != null && cls.base.isInstanceOf[ClassType] && implements(cls.base.asInstanceOf[ClassType], intf)) )
+      || (cls.base match { case b: ClassType => implements(b,intf); case _ => false }))
 
   // Is lo a subtype of hi?
   def isSubtype(lo: Type, hi: Type): Boolean = lo == hi || isProperSubtype(lo,hi)
@@ -128,8 +128,8 @@ object Types {
     case (EnumType(_,_,_), _) => isSubtype(EnumBaseType, hi)
 
     // lo is a proper subtype of hi if its superclass is a subtype of hi, or it implements (a subinterface of) hi
-    case (loi:InterfaceType, hi:InterfaceType) => if (loi.base == null) false else isSubtype(loi.base, hi)
-    case (loc:ClassType, _:ClassType) => if (loc.base == null) false else isSubtype(loc.base, hi)
+    case (loi:InterfaceType, hi:InterfaceType) => isSubtype(loi.base,hi)
+    case (loc:ClassType, _:ClassType) => isSubtype(loc.base,hi)
     case (loc:ClassType, hi:InterfaceType) => implements(loc,hi)
     case (_:InterfaceType,_:ClassType) => false
 
@@ -201,8 +201,6 @@ object Types {
   // TODO: Handle unchecked conversions
   // TODO: Handle constant expression narrowing conversions
   def assignsTo(from: Type, to: Type): Boolean = (from,to) match {
-    case (null,_) => false
-    case (_,null) => false
     case _ if from==to => true
     case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
     case (f: RefType, t: RefType) => widensRefTo(f,t)
@@ -257,6 +255,7 @@ object Types {
   // All supertypes of a reference type
   def supers(t: RefType): Set[RefType] = t match {
     case NullType => throw new RuntimeException("nulltype has infinitely many supertypes")
+    case ObjectType => Set(t)
     case i: InterfaceType => supers(i.base) + i
     case c: ClassType => supers(c.base) ++ (c.implements map supers).flatten + c
     case e: EnumType => Set(e,e.base)

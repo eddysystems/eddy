@@ -3,7 +3,7 @@ package tarski
 import java.io.{ObjectInputStream, FileInputStream}
 
 import Environment._
-import Tokens.{Token,isSpace}
+import Tokens.{Token,isSpace,show}
 import Items._
 import ambiguity.ParseEddy
 import tarski.Scores._
@@ -29,7 +29,7 @@ object Tarski {
     val asts = ParseEddy.parse(tokens.filterNot(isSpace))
     println("  " + asts)
     for (root <- asts) {
-      println("  ast: " + root)
+      println("  ast: " + show(Pretty.tokens(root)))
       println("  meanings: ")
       val ds = denoteStmts(root)(env)
       for ((s,(e,d)) <- ds.c) {

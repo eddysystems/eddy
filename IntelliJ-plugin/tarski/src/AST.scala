@@ -46,7 +46,7 @@ object AST {
 
   sealed abstract class Stmt
   case class EmptyStmt() extends Stmt
-  case class VarStmt(mod: Mod, t: Type, v: KList[((NameDims,Option[Exp]))]) extends Stmt
+  case class VarStmt(mod: List[Mod], t: Type, v: KList[((NameDims,Option[Exp]))]) extends Stmt
   case class BlockStmt(b: Block) extends Stmt
   case class ExpStmt(e: Exp) extends Stmt
   case class AssertStmt(cond: Exp, msg: Option[Exp]) extends Stmt
