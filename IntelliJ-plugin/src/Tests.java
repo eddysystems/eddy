@@ -46,12 +46,8 @@ public class Tests {
     return (float)d;
   }
 
-  public interface Mappable<R,E> {
-
-  }
-
   public static void map() {
-
+    Object x = x(1.1) > 0 ? true : new Tests();
   }
 
   /*

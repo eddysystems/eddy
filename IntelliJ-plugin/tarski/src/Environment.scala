@@ -45,6 +45,10 @@ object Environment {
   def typeScores(name: String)(implicit env: Env): Scored[Type] =
     simple(env.things.collect({case x: Type if x.name==name => x}))
 
+  // objects of a given type (name "" matches all objects)
+  def objectsOfType(name: String, t: Type)(implicit env: Env): Scored[EnvItem] =
+    simple(env.things.filter({case i: Value if name == "" || i.name == name => true }))
+
   // Does a member belong to a type?
   def memberIn(f: EnvItem, t: Type): Boolean = f match {
     case m: Member => m.containing == t // TODO: Subtypes are not handled here
