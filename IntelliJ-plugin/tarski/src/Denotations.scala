@@ -8,10 +8,6 @@ object Denotations {
 
   sealed abstract class Den
 
-  sealed abstract class ItemDen extends Den {
-    def item: Items.NamedItem
-  }
-
   // Types
   case class TypeDen(item: Type) extends Den
 
