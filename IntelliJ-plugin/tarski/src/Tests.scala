@@ -104,25 +104,32 @@ class Tests {
   def indexExp(): Unit = {
     val x = LocalVariableItem("x", ArrayType(CharType))
     implicit val env = Env(List(x))
-    testDenotation("""x[4] = '\n'""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(LocalVariableExpDen(x), 4), '\n'))))
+    testDenotation("""x[4] = '\n'""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(x,4), '\n'))))
   }
 
   @Test
-  def nestedIndexExp(): Unit = {
+  def nestedIndexExpBrack(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
     implicit val env = Env(List(x))
-    testDenotation("""x[4,5] = x[2][5]""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 4), 5), IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 2), 5)))))
+    testDenotation("""x[4,5] = x[2][5]""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(IndexExpDen(x,4),5), IndexExpDen(IndexExpDen(x,2),5)))))
   }
 
   @Test
-  def nestedIndexExp2(): Unit = {
+  def nestedIndexExpJuxt(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
     implicit val env = Env(List(x))
-    testDenotation("""x{4,5} = x{2}[5]""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 4), 5), IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 2), 5)))))
+    testDenotation("""x 4 5 = x 2 5""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(IndexExpDen(x,4),5), IndexExpDen(IndexExpDen(x,2),5)))))
   }
 
   @Test
-  def nestedIndexExp3(): Unit = {
+  def nestedIndexExpMixed(): Unit = {
+    val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
+    implicit val env = Env(List(x))
+    testDenotation("""x{4,5} = x{2}[5]""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(IndexExpDen(x,4),5), IndexExpDen(IndexExpDen(x,2),5)))))
+  }
+
+  @Test
+  def nestedIndexExpParen(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
     implicit val env = Env(List(x))
     testDenotation("""x(4,5) = x(2)(5)""", env => List(ExprStmtDen(AssignExpDen(None, IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 4), 5), IndexExpDen(IndexExpDen(LocalVariableExpDen(x), 2), 5)))))
