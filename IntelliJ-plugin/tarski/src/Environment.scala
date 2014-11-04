@@ -10,7 +10,10 @@ object Environment {
   /**
    * The environment used for name resolution
    */
-  case class Env(things: List[NamedItem]) extends scala.Serializable {
+  case class Env(allthings: List[NamedItem]) extends scala.Serializable {
+
+    val things = allthings.filterNot( _.isInstanceOf[NoLookupItem] )
+
     // used on plugin side to fill in data
     def addObjects(xs: List[NamedItem]): Env = {
       // TODO: this is quadratic time due to order, but order for now is important

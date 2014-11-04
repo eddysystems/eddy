@@ -1,7 +1,12 @@
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.codeInsight.hint.HintUtil;
+import com.intellij.ide.DataManager;
 import com.intellij.lang.ASTNode;
+import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.DataContext;
+import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -12,6 +17,8 @@ import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.popup.JBPopupFactory;
+import com.intellij.openapi.ui.popup.ListPopup;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
@@ -24,16 +31,13 @@ import com.intellij.ui.LightweightHint;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
-import tarski.AST.Stmt;
-import tarski.Items.EnvItem;
-import tarski.Scores.Score;
 import tarski.Denotations.StmtDen;
+import tarski.Scores.Score;
 import tarski.Tarski;
 import tarski.Tokens.Token;
 
 import javax.swing.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by martin on 15.10.14.
@@ -95,17 +99,26 @@ public class Eddy implements CaretListener, DocumentListener {
   /**
    * An action performing one of the edits that eddy suggested
    */
-  /*
   protected class EddyAcceptAction extends AnAction {
     EddyAcceptAction(String line) {
       super(line);
-    };
+    }
     @Override
     public void actionPerformed(AnActionEvent actionEvent) {
       logger.info("eddy thingy accepted, event: " + actionEvent.toString());
     }
   }
-*/
+
+  /**
+   * How to reformat code
+   */
+  /*
+    CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(project);
+    result = (PsiMethod) codeStyleManager.reformat(result);
+
+    JavaCodeStyleManager javaCodeStyleManager = JavaCodeStyleManager.getInstance(project);
+    result = (PsiMethod) javaCodeStyleManager.shortenClassReferences(result);
+   */
 
   protected void processLineAt(int lnum, int column) {
     int offset = document.getLineStartOffset(lnum) + column;
@@ -149,6 +162,7 @@ public class Eddy implements CaretListener, DocumentListener {
       assert node instanceof TreeElement;
 
       final List<Token> tokens = new SmartList<Token>();
+      final List<TextRange> tokens_ranges = new SmartList<TextRange>();
 
       ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
         @Override
@@ -160,6 +174,7 @@ public class Eddy implements CaretListener, DocumentListener {
 
           if (element instanceof LeafElement) {
             logger.debug("    node: " + element);
+            tokens_ranges.add(element.getTextRange());
             tokens.add(Tokenizer.psiToTok(element));
           }
 
@@ -167,85 +182,35 @@ public class Eddy implements CaretListener, DocumentListener {
         }
       });
 
+      // compute range to be replaced
+      TextRange tokens_range = TextRange.EMPTY_RANGE;
+      for (TextRange range: tokens_ranges)
+        tokens_range = tokens_range.union(range);
+
       EnvironmentProcessor env = new EnvironmentProcessor(project, elem, true);
       List<scala.Tuple2<Score,List<StmtDen>>> results = Tarski.fixJava(tokens, env.getJavaEnvironment());
 
       String text = "";
 
+      // this shows a popup, but it's way too intrusive. We need something like the hint, but have the options inside the
+      // hint, only accessible by hotkeys (maybe ^arrows, ^enter, ^numbers)
+      DataContext context = DataManager.getInstance().getDataContext(editor.getComponent());
+      DefaultActionGroup actions = new DefaultActionGroup();
+
       for (scala.Tuple2<Score,List<StmtDen>> interpretation : results) {
         text += "  Interpretation with score " + interpretation._1() + "<br/>";
         for (StmtDen meaning : interpretation._2()) {
-          text += "    " + meaning + "<br/>";
+          text += "  <q>" + meaning + "</q><br/>";
+          actions.add(new EddyAcceptAction(meaning.toString()));
         }
       }
+      
+      ListPopup popup = JBPopupFactory.getInstance().createActionGroupPopup("Eddy thinks:", actions, context, JBPopupFactory.ActionSelectionAid.NUMBERING, false, null, 4);
+      popup.showInBestPositionFor(context);
 
       logger.debug("eddy says:" + text);
-      showHint("<html><body>" + text + "</body></html>");
+      //showHint("<html><body>" + text + "</body></html>");
     }
-
-    /*
-    PsiElement elem = psifile.findElementAt(offset);
-    if (elem != null) {
-      ASTNode node = elem.getNode();
-      logger.debug("AST node: " + node.toString() + ", contained in this line: " + lrange.contains(node.getTextRange()));
-      node = node.getTreeParent();
-      while (node != null) {
-        logger.debug("  parent: " + node.toString() + ", contained in this line: " + lrange.contains(node.getTextRange()));
-        node = node.getTreeParent();
-      }
-
-      EnvironmentProcessor env = new EnvironmentProcessor(elem, true);
-
-      logger.debug("variables in scope: ");
-      for (final PsiVariable var : env.getVariables()) {
-        if (var instanceof PsiLocalVariable)
-          logger.debug("  local: " + var.getName() + ": " + var.getType().getCanonicalText());
-        else if (var instanceof PsiParameter)
-          logger.debug("  param: " + var.getName() + ": " + var.getType().getCanonicalText());
-        else if (var instanceof PsiField) {
-          logger.debug("  field: " + ((PsiField)var).getContainingClass().getQualifiedName() + "." + var.getName() + ": " + var.getType().getCanonicalText());
-        } else {
-          logger.debug("  other: " + var.getName() + ": " + var.getType().getCanonicalText() + " kind " + var.getClass().getSimpleName());
-        }
-      }
-      logger.debug("methods in scope:");
-      for (final PsiMethod m : env.getMethods()) {
-        if (m.isConstructor())
-          logger.debug("  " + m.getTypeParameterList().getText() + " " + m.getModifierList().getText().replace('\n', ' ') + " " + m.getContainingClass().getQualifiedName() + "." + m.getName() + m.getParameterList().getText());
-        else
-          logger.debug("  " + m.getTypeParameterList().getText() + " " + m.getModifierList().getText().replace('\n', ' ') + " " + m.getReturnType().getCanonicalText() + " " + m.getContainingClass().getQualifiedName() + "." + m.getName() + m.getParameterList().getText());
-      }
-      logger.debug("enums in scope:");
-      for (final PsiEnumConstant en : env.getEnums()) {
-        logger.debug("  " + en.getName() + ": " + en.getType());
-      }
-      logger.debug("classes in scope (excluding java.lang.*): ");
-      for (final PsiClass cls : env.getClasses()) {
-        if (cls.getQualifiedName() != null && cls.getQualifiedName().startsWith("java.lang"))
-          continue;
-        logger.debug("  " + cls.getQualifiedName());
-      }
-      logger.debug("packages in scope (excluding java.lang.*):");
-      for (final PsiPackage pkg : env.getPackages()) {
-        if (pkg.getQualifiedName().startsWith("java.lang"))
-          continue;
-        logger.debug("  " + pkg.getQualifiedName());
-      }
-
-    } else
-      logger.debug("PSI element not available.");
-    */
-
-    /*
-    // this shows a popup, but it's way too intrusive. We need something like the hint, but have the options inside the
-    // hint, only accessible by hotkeys (maybe ^arrows, ^enter, ^numbers)
-    DataContext context = DataManager.getInstance().getDataContext(editor.getComponent());
-    DefaultActionGroup actions = new DefaultActionGroup();
-    actions.add(new EddyAcceptAction(line));
-    actions.add(new EddyAcceptAction("noooooo!"));
-    ListPopup popup = JBPopupFactory.getInstance().createActionGroupPopup(null, actions, context, JBPopupFactory.ActionSelectionAid.NUMBERING, false, null, 4);
-    popup.showInBestPositionFor(context);
-    */
   }
 
   @Override

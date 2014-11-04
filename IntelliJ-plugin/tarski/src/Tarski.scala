@@ -32,8 +32,9 @@ object Tarski {
       println("  ast: " + root)
       println("  meanings: ")
       val ds = denoteStmts(root)(env)
-      for ((s,(e,d)) <- ds.c)
+      for ((s,(e,d)) <- ds.c) {
         println(s"    $s: $d")
+      }
       results ++= ds
     }
     results

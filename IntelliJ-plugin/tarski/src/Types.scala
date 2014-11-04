@@ -107,16 +107,32 @@ object Types {
       || (cls.base != null && cls.base.isInstanceOf[ClassType] && implements(cls.base.asInstanceOf[ClassType], intf)) )
 
   // Is lo a subtype of hi?
-  def isSubtype(lo: Type, hi: Type): Boolean = lo==hi || isProperSubtype(lo,hi)
+  def isSubtype(lo: Type, hi: Type): Boolean = lo == hi || isProperSubtype(lo,hi)
   def isProperSubtype(lo: Type, hi: Type): Boolean = (lo,hi) match {
     case _ if lo==hi => false // not proper
     case (NullType,_: RefType) => true // null can be anything
-    case (_: RefType, ObjectType) => true // every ref is Object, even interfaces!
+    case (_: RefType, ObjectType) => true // every ref is Object, even interfaces and enums!
+
+    // primitive types are not part of inheritance
+    case (_,_:PrimType)|(_:PrimType,_) => false
+
+    // array types are covariant
+    case (ArrayType(l), ArrayType(h)) => isProperSubtype(l, h)
+    // otherwise, arrays are not a subtype of anything (except ObjectType, above), and there can be no subtypes of arrays
+    case (ArrayType(_), _)|(_, ArrayType(_)) => false
+
+    // enums cannot be inherited from, but they inherit from java.lang.Enum (and only that)
+    case (_, EnumType(_,_,_)) => false
+    case (EnumType(_,_,_), _) => isSubtype(EnumBaseType, hi)
 
     // lo is a proper subtype of hi if its superclass is a subtype of hi, or it implements (a subinterface of) hi
-    case (loi:InterfaceType,hi:InterfaceType) => if (loi.base == null) false else isSubtype(loi.base, hi)
-    case (loc:ClassType,_:ClassType) => if (loc.base == null) false else isSubtype(loc.base, hi)
-    case (loc:ClassType,hi:InterfaceType) => implements(loc,hi)
+    case (loi:InterfaceType, hi:InterfaceType) => if (loi.base == null) false else isSubtype(loi.base, hi)
+    case (loc:ClassType, _:ClassType) => if (loc.base == null) false else isSubtype(loc.base, hi)
+    case (loc:ClassType, hi:InterfaceType) => implements(loc,hi)
+    case (_:InterfaceType,_:ClassType) => false
+
+    // leftover RefTypes are not subtypes of anything
+    case (_:RefType, _)|(_,_:RefType) => false
   }
 
   // Properties of reference types

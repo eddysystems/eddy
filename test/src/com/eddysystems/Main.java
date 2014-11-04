@@ -11,7 +11,7 @@ public class Main {
     }
 
     public class X {
-        public float z;
+        public float x;
         public int x() {
             return 2;
         }
@@ -35,7 +35,7 @@ public class Main {
 
         y()
         x()
-        z
+        x
 
         x = 1 + 3.
         x = f 4
