@@ -1,7 +1,7 @@
 package tarski
 
 import tarski.AST.{AssignOp, BinaryOp, UnaryOp}
-import tarski.Items.{ArrayType, VoidType, Type}
+import tarski.Items.{PackageItem, ArrayType, VoidType, Type}
 import tarski.Types._
 
 object Denotations {

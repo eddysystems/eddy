@@ -32,8 +32,7 @@ object Items {
 
   // Miscellaneous
   case class PackageItem(override val name: Name, qualifiedName: Name, relativeName: Name) extends NamedItem(name) with scala.Serializable
-
-  sealed abstract class AnnotationItem(name: Name) extends NamedItem(name) with scala.Serializable
+  case class AnnotationItem(override val name: Name, qualifiedName: Name, relativeName: Name) extends NamedItem(name) with scala.Serializable
 
   // Void is not properly a type in Java-land, but it is for us
   case object VoidType extends Type("void") with scala.Serializable {
@@ -147,7 +146,7 @@ object Items {
     extends Value(name, ourType) with LocalItem with scala.Serializable
   case class LocalVariableItem(override val name: Name, override val ourType: Type)
     extends Value(name, ourType) with LocalItem with scala.Serializable
-  sealed class EnumConstantItem(name: Name, override val ourType: EnumType) extends Value(name, ourType) with ClassMember with scala.Serializable {
+  case class EnumConstantItem(override val name: Name, override val ourType: EnumType) extends Value(name, ourType) with ClassMember with scala.Serializable {
     def containing = ourType
     def relativeName = ourType.relativeName + '.' + name // TODO: not correct if we're in the same match
   }

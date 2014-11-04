@@ -49,28 +49,44 @@ object Semantics {
     case ApplyType(_,_) => throw new NotImplementedError("Generics not implemented (ApplyType): " + n)
     case WildType(_) => throw new NotImplementedError("Type bounds not implemented (WildType): " + n)
   }
+
   def denoteType(n: Exp)(implicit env: Env): Scored[Type] =
     denote(n) collect {
       case t: TypeDen => t.item
       case e: ExpDen => typeOf(e) // Allow expressions to be used as types
     }
 
-  /*
-  def denoteItem(i: EnvItem): ExpDen = i match {
+  // TODO: this should not rely on string matching.
+  def isLocal(i: Items.NamedItem): Boolean = i.name == i.relativeName || i.relativeName == "this" || i.relativeName == "super"
 
-  }*/
+  def denoteValue(i: Items.Value)(implicit env: Env): Scored[ExpDen] = i match {
+    case i: ParameterItem => single(ParameterExpDen(i))
+    case i: LocalVariableItem => single(LocalVariableExpDen(i))
+    case i: EnumConstantItem => single(EnumConstantExpDen(i))
+    case i: FieldItem =>
+      if (isLocal(i))
+        single(LocalFieldExpDen(i))
+      else
+        for (obj <- objectsOfType("", i.containing); objden <- denoteValue(obj)) yield FieldExpDen(objden, i)
+    case i: StaticFieldItem => single(StaticFieldExpDen(i))
+  }
 
   // Expressions
   def denote(e: Exp)(implicit env: Env): Scored[Den] = e match {
-    case NameExp(n) => scores(n) collect {
-      case i: ParameterItem => Denotations.ParameterExpDen(i)
-      case i: LocalVariableItem => Denotations.LocalVariableExpDen(i)
-      case i: EnumConstantItem => Denotations.EnumConstantExpDen(i)
-      case i: FieldItem => notImplemented // objectsOfType("", i.containing).map( x => FieldExpDen(denoteItem(x),i) )
-      case i: StaticFieldItem => Denotations.StaticFieldExpDen(i)
-      case i: MethodItem => throw new NotImplementedError("MethodDen") // Denotations.MethodDen(i) or Denotations.LocalMethodExpDen
-      case i: StaticMethodItem => Denotations.StaticMethodDen(i)
-      case i: ConstructorItem => Denotations.ForwardDen(i)
+    case NameExp(n) => scores(n) flatMap {
+      case i: Value => denoteValue(i)
+
+      // callables
+      case i: MethodItem =>
+        if (isLocal(i))
+          single(LocalMethodDen(i))
+        else
+          for (obj <- objectsOfType("", i.containing); objden <- denoteValue(obj)) yield MethodDen(objden, i)
+      case i: StaticMethodItem => single(Denotations.StaticMethodDen(i))
+      case i: ConstructorItem => single(Denotations.ForwardDen(i))
+      case _: Type => fail // Expression cannot return types
+      case PackageItem(_,_,_) => notImplemented
+      case AnnotationItem(_,_,_) => notImplemented
     }
     case LitExp(x) => denote(x)
     case ParenExp(x) => denote(x) // Java doesn't allow parentheses around types, but we do
