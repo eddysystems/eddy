@@ -1,13 +1,12 @@
 package tarski
 
-import java.io.{ObjectInputStream, FileInputStream}
-
 import Environment._
-import Tokens.{Token,isSpace,show}
+import Tokens._
 import Items._
 import tarski.Scores._
 import tarski.Denotations._
 import tarski.Semantics._
+import tarski.Pretty._
 
 import scala.collection.JavaConverters._
 
@@ -20,6 +19,13 @@ object Tarski {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
     (r map {case (e,ss) => ss.asJava}).c.asJava
+  }
+
+  def pretty(stmts: java.util.List[StmtDen]): String = {
+    val ss: List[StmtDen] = stmts.asScala.toList
+    // TODO
+    ""
+    //show(tokens(ss)(prettyStmts))
   }
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[StmtDen])] = {

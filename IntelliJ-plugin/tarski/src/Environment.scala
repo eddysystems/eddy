@@ -4,7 +4,7 @@ import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutp
 
 import Scores._
 import tarski.Items._
-import tarski.Types.isSubtype
+import tarski.Types.{isSubtype,isProperSubtype}
 
 object Environment {
   /**
@@ -16,7 +16,7 @@ object Environment {
 
     // used on plugin side to fill in data
     def addObjects(xs: List[NamedItem]): Env = {
-      // TODO: this is quadratic time due to order, but order for now is important
+      // TODO: this is quadratic time due to order, but order is important for shadowing for now
       // TODO: filter identical things (like java.lang.String)
       Env(things ++ xs)
     }
@@ -55,7 +55,10 @@ object Environment {
 
   // Does a member belong to a type?
   def memberIn(f: EnvItem, t: Type): Boolean = f match {
-    case m: Member => m.containing == t // TODO: Subtypes are not handled here
+    case m: Member => m.containing == t || ( m.containing match {
+      case c: RefType => isProperSubtype(c,t) // TODO: protected, private are not handled here
+      case _ => false
+    } )
     case _ => false
   }
 

@@ -5,9 +5,8 @@
   <vendor email="support@eddy.systems" url="http://eddy.systems">Eddy</vendor>
 
   <description><![CDATA[
-      Eddy helps write code. You write pseudocode, and eddy will fill in details into the linked Java file. If Eddy
-      can't understand you, it'll ask questions. Of course, you can always inspect the generated Java, and fix it
-      as necessary.<br>
+      Eddy helps write code. You write pseudocode, and eddy will write Java. If Eddy
+      can't understand you, it'll ask.<br>
     ]]></description>
 
   <change-notes><![CDATA[
@@ -23,6 +22,16 @@
 
   <extensions defaultExtensionNs="com.intellij">
     <!-- Add your extensions here -->
+    <!--
+    <annotator language="JAVA" implementationClass="com.eddysystems.eddy.EddyAnnotator"/>
+     -->
+    <!--
+    <intentionAction>
+        <className>com.eddysystems.eddy.EddyQuickFix</className>
+        <category>Other</category>
+        <descriptionDirectoryName>Eddy</descriptionDirectoryName>
+    </intentionAction>
+    -->
   </extensions>
 
   <application-components>
@@ -32,12 +41,25 @@
   <project-components>
     <!-- Add your project components here -->
       <component>
-          <implementation-class>EddyPlugin</implementation-class>
+          <implementation-class>com.eddysystems.eddy.EddyPlugin</implementation-class>
       </component>
+      <!--
+      <component>
+          <implementation-class>com.eddysystems.eddy.EddyQuickFix</implementation-class>
+      </component>
+      -->
   </project-components>
 
   <actions>
-    <!-- Add your actions here -->
+      <action id="PrevEddySuggestion" class="com.eddysystems.eddy.EddyPrevAction" text="Previous eddy suggestion"
+              description="Select previous eddy suggestion">
+          <keyboard-shortcut keymap="$default" first-keystroke="alt UP"/>
+      </action>
+      <action id="NextEddySuggestion" class="com.eddysystems.eddy.EddyNextAction" text="Next eddy suggestion"
+              description="Select next eddy suggestion">
+          <add-to-group group-id="CodeMenu" anchor="last"/>
+          <keyboard-shortcut keymap="$default" first-keystroke="alt DOWN"/>
+      </action>
   </actions>
 
 </idea-plugin>

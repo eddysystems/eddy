@@ -2,6 +2,7 @@ package com.eddysystems;
 
 
 import java.util.Base64;
+import java.util.Map;
 
 
 public class Main {
@@ -18,7 +19,7 @@ public class Main {
     }
 
     public class Y extends X {
-        public String y() {
+        public static String y() {
             return "blah";
         };
     }
@@ -33,9 +34,14 @@ public class Main {
         int y;
         X xobj;
 
+        Map<Double>
+
         y()
         x()
-        x
+
+
+
+        xf
 
         x = 1 + 3.
         x = f 4

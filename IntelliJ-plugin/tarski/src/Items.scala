@@ -80,7 +80,7 @@ object Items {
 
   trait Member {
     def name: Name
-    def containing: NamedItem
+    def containing: NamedItem // could be package
 
     def qualifiedName: Name = if (containing.qualifiedName.isEmpty) name else containing.qualifiedName + '.' + name
   }
