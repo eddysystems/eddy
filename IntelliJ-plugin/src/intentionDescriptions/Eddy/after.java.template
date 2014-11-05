@@ -1,0 +1,7 @@
+public class X {
+  int x;
+  int y() { return 1; }
+  void f() {
+    int title = x + y();
+ }
+}

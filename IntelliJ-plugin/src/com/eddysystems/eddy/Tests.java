@@ -1,3 +1,5 @@
+package com.eddysystems.eddy;
+
 import org.testng.annotations.BeforeClass;
 
 public class Tests {

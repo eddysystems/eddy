@@ -1,3 +1,5 @@
+package com.eddysystems.eddy;
+
 import com.intellij.ide.highlighter.JavaFileType;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.*;
@@ -16,7 +18,7 @@ import java.util.HashMap;
 public class EddyInjector implements FileEditorManagerListener {
   private final Project project;
   private final Logger logger = Logger.getInstance(getClass());
-  private final HashMap<FileEditor, Eddy> injected = new HashMap<FileEditor, Eddy>();
+  private final HashMap<FileEditor, EddyFileListener> injected = new HashMap<FileEditor, EddyFileListener>();
 
   public EddyInjector(Project project) {
     this.project = project;
@@ -57,7 +59,7 @@ public class EddyInjector implements FileEditorManagerListener {
     }
 
     // make a new eddy which will attach to the editor
-    this.injected.put(editor, new Eddy(project, (TextEditor)editor, psifile));
+    this.injected.put(editor, new EddyFileListener(project, (TextEditor)editor, psifile));
   }
 
   @Override
@@ -69,9 +71,9 @@ public class EddyInjector implements FileEditorManagerListener {
   }
 
   private void uninject(FileEditor editor) {
-    Eddy eddy = injected.get(editor);
-    if (eddy != null) {
-      eddy.dispose();
+    EddyFileListener eddyFileListener = injected.get(editor);
+    if (eddyFileListener != null) {
+      eddyFileListener.dispose();
     }
   }
 

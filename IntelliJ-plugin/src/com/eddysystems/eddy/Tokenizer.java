@@ -1,3 +1,5 @@
+package com.eddysystems.eddy;
+
 import com.intellij.lang.java.lexer.JavaLexer;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.pom.java.LanguageLevel;

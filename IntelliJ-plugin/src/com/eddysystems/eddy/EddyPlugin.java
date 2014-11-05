@@ -1,3 +1,5 @@
+package com.eddysystems.eddy;
+
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
