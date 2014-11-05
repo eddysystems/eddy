@@ -137,8 +137,8 @@ object Items {
 
   case class ArrayType(inner: Type) extends RefType(inner.name + "[]") with scala.Serializable {
     def base = ObjectType
-    override def qualifiedName = inner.qualifiedName + "[]"
-    override def relativeName = inner.relativeName + "[]"
+    def qualifiedName = inner.qualifiedName + "[]"
+    def relativeName = inner.relativeName + "[]"
   }
 
   // Values
