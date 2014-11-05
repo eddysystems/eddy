@@ -9,12 +9,15 @@ import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
+import org.apache.commons.lang.NotImplementedException;
 import org.jetbrains.annotations.NotNull;
 import scala.collection.JavaConversions;
 import tarski.Environment.Env;
 import tarski.Items.*;
+import tarski.Types.*;
 import tarski.Tarski;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +46,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private PsiElement currentFileContext;
   private boolean honorPrivate;
 
-  EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
+  public EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
     this.project = project;
     this.place = place;
     this.honorPrivate = honorPrivate;
@@ -74,7 +77,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
       if (!envitems.containsKey(pkg)) {
-        PackageItem pitem = new PackageItem(pkg.getName(), qualifiedName(pkg), relativeName(pkg));
+        PackageItem pitem = new PackageItem(pkg.getName(), qualifiedName(pkg));
         envitems.put(pkg, pitem);
         return pitem;
       } else
@@ -83,45 +86,42 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return null;
   }
 
-  private RefType addClassToEnvMap(Map<PsiElement, NamedItem> envitems, PsiClass cls) {
-    RefType type = null;
-
+  private TypeItem addClassToEnvMap(Map<PsiElement, NamedItem> envitems, PsiClass cls) {
     if (cls == null)
       return null;
+    if (envitems.containsKey(cls))
+      return (TypeItem)envitems.get(cls);
 
-    if (!envitems.containsKey(cls)) {
-      if (cls.isInterface()) {
-        PsiClass superc = cls.getSuperClass();
-        InterfaceType superi = null;
-        if (superc == null || !superc.isInterface()) {
-          assert superc == null || superc.getQualifiedName().equals("java.lang.Object");
-        } else {
-          superi = (InterfaceType)addClassToEnvMap(envitems, superc);
-        }
-        type = new InterfaceType(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), superi);
-      } else if (cls.isEnum()) {
-        type = new EnumType(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls));
-      } else {
-        RefType supercls = addClassToEnvMap(envitems, cls.getSuperClass());
-        List<InterfaceType> implemented = new SmartList<InterfaceType>();
-        for (PsiClass intf : cls.getInterfaces()) {
-          implemented.add((InterfaceType)addClassToEnvMap(envitems, intf));
-        }
-        type = new ClassType(cls.getName(), addContainerToEnvMap(envitems, containing(cls)), relativeName(cls), supercls, JavaConversions.asScalaBuffer(implemented).toList());
-      }
-      envitems.put(cls, type);
-      return type;
-    } else {
-      return (RefType)envitems.get(cls);
+    // Base
+    // TODO: Handle generics
+    SimpleClassType base = new SimpleClassType((ClassItem)addClassToEnvMap(envitems, cls.getSuperClass()));
+
+    // Type parameters
+    // TODO: Handle generics
+    ArrayList<TypeParamItem> j_params = new ArrayList<TypeParamItem>();
+    scala.collection.immutable.List<TypeParamItem> params = JavaConversions.asScalaBuffer(j_params).toList();
+
+    // Interfaces
+    ArrayList<InterfaceType> j_interfaces = new ArrayList<InterfaceType>();
+    for (PsiClass i : cls.getInterfaces()) {
+      // TODO: Handle generics
+      j_interfaces.add(new SimpleInterfaceType((InterfaceItem)addClassToEnvMap(envitems,i)));
     }
+    scala.collection.immutable.List<InterfaceType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
+
+    NamedItem container = addContainerToEnvMap(envitems,containing(cls));
+    TypeItem item = cls.isInterface() ? new InterfaceItem(cls.getName(),container,params,interfaces)
+                  : cls.isEnum()      ? new EnumItem(cls.getName(),container,interfaces)
+                                      : new NormalClassItem(cls.getName(),container,params,base,interfaces);
+    envitems.put(cls,item);
+    return item;
   }
 
-  private CallableItem addMethodToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiMethod method) {
+  private CallableItem addMethodToEnvMap(Map<PsiElement,NamedItem> envitems, PsiMethod method) {
     // get argument types
     List<Type> params = new SmartList<Type>();
-    for (PsiParameter p : method.getParameterList().getParameters()) {
-      params.add(addTypeToEnvMap(envitems, types, p.getType()));
-    }
+    for (PsiParameter p : method.getParameterList().getParameters())
+      params.add(convertType(envitems,p.getType()));
 
     // get class
     PsiClass cls = method.getContainingClass();
@@ -129,136 +129,74 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (!envitems.containsKey(cls)) {
       addClassToEnvMap(envitems, cls);
     }
-    RefType clsitem = (RefType)envitems.get(cls);
+    TypeItem clsitem = (TypeItem)envitems.get(cls);
 
     CallableItem mitem;
 
     if (method.isConstructor()) {
-      assert clsitem instanceof ClassType;
+      assert clsitem instanceof ClassItem;
       // TODO: varargs
       // TODO: get type parameters
       // TODO: what to do with parameters depending on type parameters and bounded types and such?
-      mitem = new ConstructorItem((ClassType)clsitem, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+      mitem = new ConstructorItem((ClassItem)clsitem, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     } else {
       // TODO: varargs
       // TODO: get type parameters
       // TODO: what to do with parameters depending on type parameters and bounded types and such?
-      Type rtype = addTypeToEnvMap(envitems, types, method.getReturnType());
+      Type rtype = convertType(envitems, method.getReturnType());
 
       if (method.hasModifierProperty(PsiModifier.STATIC))
-        mitem = new StaticMethodItem(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new StaticMethodItem(method.getName(), clsitem, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
       else
-        mitem = new MethodItem(method.getName(), clsitem, relativeName(method), rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new MethodItem(method.getName(), clsitem, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     }
 
     envitems.put(method, mitem);
     return mitem;
   }
 
-  private Type addTypeToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiType t) {
-    if (!types.containsKey(t)) {
-      // TODO: get modifiers
+  private Type convertType(Map<PsiElement,NamedItem> envitems, PsiType t) {
+    // TODO: Handle modifiers
+    if (t instanceof PsiArrayType)
+      return new ArrayType(convertType(envitems,((PsiArrayType)t).getComponentType()));
 
-      // remove the array part
-      PsiType inner = t.getDeepComponentType();
-      Type env_inner;
-
-      // classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
-      if (inner instanceof PsiClassType) {
-        PsiClass tcls = ((PsiClassType) inner).resolve();
-        if (tcls == null) {
-          String name = ((PsiClassType) inner).getClassName();
-          env_inner = new ErrorType(name);
-          types.put(inner, env_inner);
-        } else if (tcls instanceof PsiTypeParameter) {
-          // TODO: this should resolve to an existing type parameter (stored in the method's or class's type parameters array)
-          return new TypeParameterType(tcls.getName());
-        } else {
-          env_inner = addClassToEnvMap(envitems, tcls);
-        }
+    // classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
+    if (t instanceof PsiClassType) {
+      PsiClass tcls = ((PsiClassType)t).resolve();
+      if (tcls == null) {
+        String name = ((PsiClassType)t).getClassName();
+        return new tarski.Types.ErrorType(name);
+      } else if (tcls instanceof PsiTypeParameter) {
+        // TODO: this should resolve to an existing type parameter (stored in the method's or class's type parameters array)
+        throw new NotImplementedException("type parameters");
+        // return new TypeParamType(...);
       } else {
-        assert inner instanceof PsiPrimitiveType;
-        
-        if (inner == PsiType.BOOLEAN)
-          env_inner = BooleanType$.MODULE$;
-        else if (inner == PsiType.INT)
-          env_inner = IntType$.MODULE$;
-        else if (inner == PsiType.BYTE)
-          env_inner = ByteType$.MODULE$;
-        else if (inner == PsiType.CHAR)
-          env_inner = CharType$.MODULE$;
-        else if (inner == PsiType.FLOAT)
-          env_inner = FloatType$.MODULE$;
-        else if (inner == PsiType.DOUBLE)
-          env_inner = DoubleType$.MODULE$;
-        else if (inner == PsiType.LONG)
-          env_inner = LongType$.MODULE$;
-        else if (inner == PsiType.SHORT)
-          env_inner = ShortType$.MODULE$;
-        else if (inner == PsiType.VOID)
-          env_inner = VoidType$.MODULE$;
-        else {
-          throw new RuntimeException("Unknown primitive type: " + inner.getCanonicalText());
-        }
+        // TODO: Handle generics
+        return new SimpleClassType((ClassItem)addClassToEnvMap(envitems,tcls));
       }
-      assert env_inner != null;
-
-      if (t instanceof PsiArrayType) {
-        int dims = t.getArrayDimensions();
-        if (env_inner instanceof InterfaceType) {
-          types.put(t, makeArray((InterfaceType) env_inner, dims));
-        } else if (env_inner instanceof EnumType) {
-          types.put(t, makeArray((EnumType) env_inner, dims));
-        } else if (env_inner instanceof ClassType) {
-          types.put(t, makeArray((ClassType) env_inner, dims));
-        } else {
-          // this is a primitive type, but which one?
-          if (env_inner.name().equals("boolean"))
-            types.put(t, makeArray((BooleanType$) env_inner, dims));
-          else if (env_inner.name().equals("int"))
-            types.put(t, makeArray((IntType$) env_inner, dims));
-          else if (env_inner.name().equals("byte"))
-            types.put(t, makeArray((ByteType$) env_inner, dims));
-          else if (env_inner.name().equals("char"))
-            types.put(t, makeArray((CharType$) env_inner, dims));
-          else if (env_inner.name().equals("float"))
-            types.put(t, makeArray((FloatType$) env_inner, dims));
-          else if (env_inner.name().equals("double"))
-            types.put(t, makeArray((DoubleType$) env_inner, dims));
-          else if (env_inner.name().equals("long"))
-            types.put(t, makeArray((LongType$) env_inner, dims));
-          else if (env_inner.name().equals("short"))
-            types.put(t, makeArray((ShortType$) env_inner, dims));
-          else if (env_inner.name().equals("void"))
-            types.put(t, makeArray((VoidType$) env_inner, dims));
-          else {
-            throw new RuntimeException("Unknown primitive type: " + env_inner.qualifiedName());
-          }
-        }
-        assert types.get(t) instanceof Type;
-        return (Type) types.get(t);
-      } else {
-        // inner is our original type
-        return env_inner;
-      }
-    } else {
-      assert types.get(t) instanceof Type;
-      return (Type) types.get(t);
     }
+    if (t == PsiType.BOOLEAN) return tarski.Types.BooleanType$.MODULE$;
+    if (t == PsiType.INT)     return tarski.Types.IntType$.MODULE$;
+    if (t == PsiType.BYTE)    return tarski.Types.ByteType$.MODULE$;
+    if (t == PsiType.CHAR)    return tarski.Types.CharType$.MODULE$;
+    if (t == PsiType.FLOAT)   return tarski.Types.FloatType$.MODULE$;
+    if (t == PsiType.DOUBLE)  return tarski.Types.DoubleType$.MODULE$;
+    if (t == PsiType.LONG)    return tarski.Types.LongType$.MODULE$;
+    if (t == PsiType.SHORT)   return tarski.Types.ShortType$.MODULE$;
+    if (t == PsiType.VOID)    return tarski.Types.VoidType$.MODULE$;
+    throw new RuntimeException("Unknown type: " + t.getCanonicalText());
   }
 
-  private Value addFieldToEnvMap(Map<PsiElement, NamedItem> envitems, Map<PsiType, NamedItem> types, PsiField f) {
+  private Value addFieldToEnvMap(Map<PsiElement, NamedItem> envitems, PsiField f) {
     if (envitems.containsKey(f))
       return (Value)envitems.get(f);
 
-    Value v;
     PsiClass cls = f.getContainingClass();
     assert cls != null;
-    if (f.hasModifierProperty(PsiModifier.STATIC))
-      v = new StaticFieldItem(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
-    else
-      v = new FieldItem(f.getName(), addTypeToEnvMap(envitems, types, f.getType()), (ClassType)envitems.get(cls), relativeName(f));
-
+    Type t = convertType(envitems,f.getType());
+    ClassItem c = (ClassItem)envitems.get(cls);
+    Value v = f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c)
+                                                        : new FieldItem(f.getName(),t,c);
     envitems.put(f, v);
     return v;
   }
@@ -268,7 +206,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
    */
   public Env getJavaEnvironment() {
     Map<PsiElement, NamedItem> envitems = new HashMap<PsiElement, NamedItem>();
-    Map<PsiType, NamedItem> types = new HashMap<PsiType, NamedItem>();
 
     // first, register packages (we may need those as containing elements in classes)
     for (PsiPackage pkg : packages) {
@@ -285,41 +222,43 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       // TODO: register everything that is below this class (some of which may already be in the env map)
       for (PsiField f : cls.getFields()) {
-        addFieldToEnvMap(envitems, types, f);
+        addFieldToEnvMap(envitems,f);
       }
       for (PsiMethod m : cls.getMethods()) {
         if (!envitems.containsKey(m))
-          addMethodToEnvMap(envitems, types, m);
+          addMethodToEnvMap(envitems,m);
       }
       for (PsiMethod m : cls.getConstructors()) {
         if (!envitems.containsKey(m))
-          addMethodToEnvMap(envitems, types, m);
+          addMethodToEnvMap(envitems,m);
       }
       for (PsiClass c : cls.getInnerClasses()) {
         if (!envitems.containsKey(c))
-          addClassToEnvMap(envitems, c);
+          addClassToEnvMap(envitems,c);
       }
     }
 
     // register methods (also register types used in this method)
     for (PsiMethod method : methods) {
-      addMethodToEnvMap(envitems, types, method);
+      addMethodToEnvMap(envitems,method);
     }
 
     // then, register objects which have types (enum constants, variables, parameters, fields), and their types
     for (PsiVariable var : variables) {
-      if (var instanceof PsiParameter) {
-        envitems.put(var, new ParameterItem(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
-      } else if (var instanceof PsiEnumConstant)
-        envitems.put(var, new EnumConstantItem(var.getName(), (EnumType)addTypeToEnvMap(envitems, types, var.getType())));
-      else if (var instanceof PsiLocalVariable)
-        envitems.put(var, new LocalVariableItem(var.getName(), addTypeToEnvMap(envitems, types, var.getType())));
-      else if (var instanceof PsiField) {
-        addFieldToEnvMap(envitems, types, (PsiField) var);
+      if (var instanceof PsiField)
+        addFieldToEnvMap(envitems,(PsiField)var);
+      else {
+        Type t = convertType(envitems,var.getType());
+        NamedItem i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
+                    : var instanceof PsiEnumConstant  ? new EnumConstantItem(var.getName(),(EnumItem)((SimpleClassType)t).d())
+                    : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
+                    : null;
+        if (i == null)
+          throw new NotImplementedException("Unknown variable");
       }
     }
 
-    return Tarski.environment(types.values(),envitems.values());
+    return Tarski.environment(envitems.values());
   }
 
   /**

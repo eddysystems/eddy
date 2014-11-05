@@ -2,11 +2,72 @@ package tarski
 
 import tarski.AST._
 import tarski.Items._
-import tarski.Items.ArrayType
 import ambiguity.Utility._
 
 // Properties of types according to the Java spec, without extra intelligence
 object Types {
+  // Types
+  sealed abstract class Type extends scala.Serializable
+  case object VoidType extends Type
+
+  // Primitive types
+  sealed abstract class PrimType extends Type
+  sealed abstract class NumType extends PrimType
+  case object BooleanType extends PrimType // boolean
+  case object ByteType    extends NumType  // byte
+  case object ShortType   extends NumType  // short
+  case object IntType     extends NumType  // int
+  case object LongType    extends NumType  // long
+  case object FloatType   extends NumType  // float
+  case object DoubleType  extends NumType  // double
+  case object CharType    extends NumType  // char
+
+  // Reference types
+  sealed abstract class RefType extends Type
+  sealed abstract class ClassOrObjectType extends RefType
+  sealed abstract class InterfaceType(val d: InterfaceItem) extends RefType {
+    def bases: List[InterfaceType]
+  }
+  sealed abstract class ClassType(val d: ClassItem) extends ClassOrObjectType {
+    def base: ClassOrObjectType
+    def implements: List[InterfaceType]
+  }
+  case object NullType extends RefType
+  case object ObjectType extends ClassOrObjectType
+  case class ErrorType(name: Name) extends RefType
+  case class SimpleInterfaceType(override val d: InterfaceItem) extends InterfaceType(d) {
+    def bases = d.bases
+  }
+  case class GenericInterfaceType(override val d: InterfaceItem, a: List[RefType]) extends InterfaceType(d) {
+    implicit def tenv = (d.params,a).zipped.toMap
+    def bases = d.bases map substitute
+  }
+  case class SimpleClassType(override val d: ClassItem) extends ClassType(d) {
+    def base = d.base
+    def implements = d.implements
+  }
+  case class GenericClassType(override val d: ClassItem, a: List[RefType]) extends ClassType(d) {
+    implicit def tenv = (d.params,a).zipped.toMap
+    def base = substitute(d.base)
+    def implements = d.implements map substitute
+  }
+  case class ParamType(x: TypeParamItem) extends RefType
+  case class IntersectType(ts: Set[RefType]) extends RefType
+  case class ArrayType(t: Type) extends RefType
+  // TODO: Raw types
+
+  // Basic reference types
+  val BooleanRefType = SimpleClassType(BooleanItem)
+  val CharRefType    = SimpleClassType(CharacterItem)
+  val ByteRefType    = SimpleClassType(ByteItem)
+  val ShortRefType   = SimpleClassType(ShortItem)
+  val IntRefType     = SimpleClassType(IntegerItem)
+  val LongRefType    = SimpleClassType(LongItem)
+  val FloatRefType   = SimpleClassType(FloatItem)
+  val DoubleRefType  = SimpleClassType(DoubleItem)
+  val StringType     = SimpleClassType(StringItem)
+  val CloneableType    = SimpleInterfaceType(CloneableItem)
+  val SerializableType = SimpleInterfaceType(SerializableItem)
 
   // Varieties of primitive types (no unboxing logic here)
   def isIntegral(t: PrimType): Boolean = t match {
@@ -102,35 +163,63 @@ object Types {
   def unaryLegal(op: UnaryOp, t: Type) = unaryType(op,t).isDefined
   def binaryLegal(op: BinaryOp, t0: Type, t1: Type) = binaryType(op,t0,t1).isDefined
 
-  // does this class implement the given interface?
-  def implements(cls: ClassType, intf: InterfaceType): Boolean =
-    (    cls.implements.contains(intf)
-      || cls.implements.exists( isProperSubtype(_, intf) )
-      || (cls.base match { case b: ClassType => implements(b,intf); case _ => false }))
+  // Substitute type parameters in a type
+  def substitute(t: RefType)(implicit tenv: Map[TypeParamItem,RefType]): RefType = t match {
+    case ParamType(v) => tenv get v getOrElse t
+    case i: InterfaceType => substitute(i)
+    case c: ClassOrObjectType => substitute(c)
+    case ArrayType(x:RefType) => substitute(x)
+    case IntersectType(xs) => IntersectType(xs map substitute)
+    case NullType|_:ErrorType|ArrayType(VoidType|_:PrimType) => t
+  }
+  def substitute(t: InterfaceType)(implicit tenv: Map[TypeParamItem,RefType]): InterfaceType = t match {
+    case SimpleInterfaceType(_) => t
+    case GenericInterfaceType(d,xs) => GenericInterfaceType(d,xs map substitute)
+  }
+  def substitute(t: ClassOrObjectType)(implicit tenv: Map[TypeParamItem,RefType]): ClassOrObjectType = t match {
+    case ObjectType|SimpleClassType(_) => t
+    case GenericClassType(d,xs) => GenericClassType(d,xs map substitute)
+  }
+
+  // Turn a TypeItem into a type
+  // TODO: Handle generics
+  def toType(i: TypeItem): Type =
+    if (!i.params.isEmpty)
+      notImplemented
+    else i match {
+      case x: InterfaceItem => SimpleInterfaceType(x)
+      case x: ClassItem => SimpleClassType(x)
+      case ObjectItem => ObjectType
+    }
+
+  // Does a class implement an interface?
+  def implements(c: ClassType, i: InterfaceType): Boolean = {
+    val ci = c.implements
+    (   ci.contains(i)
+     || ci.exists(isProperSubtype(_,i))
+     || (c.base match { case ObjectType => false; case b: ClassType => implements(b,i) }))
+  }
 
   // Is lo a subtype of hi?
   def isSubtype(lo: Type, hi: Type): Boolean = lo == hi || isProperSubtype(lo,hi)
   def isProperSubtype(lo: Type, hi: Type): Boolean = (lo,hi) match {
-    case _ if lo==hi => false // not proper
+    case _ if lo==hi => false // Not proper
     case (NullType,_: RefType) => true // null can be anything
-    case (_: RefType, ObjectType) => true // every ref is Object, even interfaces and enums!
+    case (_: RefType, ObjectType) => true // Every ref is Object, even interfaces and enums!
 
-    // primitive types are not part of inheritance
+    // Primitive types are not part of inheritance
     case (_,_:PrimType)|(_:PrimType,_) => false
 
-    // array types are covariant
+    // Array types are covariant
     case (ArrayType(l), ArrayType(h)) => isProperSubtype(l, h)
-    // otherwise, arrays are not a subtype of anything (except ObjectType, above), and there can be no subtypes of arrays
+    // Otherwise, arrays are not a subtype of anything (except ObjectType, above), and there can be no subtypes of arrays
+    // TODO: Actually, arrays are Cloneable and Serializable
     case (ArrayType(_), _)|(_, ArrayType(_)) => false
 
-    // enums cannot be inherited from, but they inherit from java.lang.Enum (and only that)
-    case (_, EnumType(_,_,_)) => false
-    case (EnumType(_,_,_), _) => isSubtype(EnumBaseType, hi)
-
     // lo is a proper subtype of hi if its superclass is a subtype of hi, or it implements (a subinterface of) hi
-    case (loi:InterfaceType, hi:InterfaceType) => isSubtype(loi.base,hi)
-    case (loc:ClassType, _:ClassType) => isSubtype(loc.base,hi)
-    case (loc:ClassType, hi:InterfaceType) => implements(loc,hi)
+    case (lo:InterfaceType, hi:InterfaceType) => lo.bases exists (isSubtype(_,hi))
+    case (lo:ClassType, hi:ClassType) => isSubtype(lo.base,hi)
+    case (lo:ClassType, hi:InterfaceType) => implements(lo,hi)
     case (_:InterfaceType,_:ClassType) => false
 
     // leftover RefTypes are not subtypes of anything
@@ -140,10 +229,6 @@ object Types {
   // Properties of reference types
   def isFinal(t: ClassType): Boolean =
     throw new RuntimeException("Not implemented")
-  def isParameterized(t: RefType): Boolean = {
-    // TODO
-    false
-  }
 
   // Widening, narrowing, and widening-and-narrowing primitive conversions: 5.1.2, 5.1.3, 5.1.4
   def widensPrimTo(from: PrimType, to: PrimType): Boolean = (from,to) match {
@@ -171,10 +256,9 @@ object Types {
   // Widening and narrowing reference conversions: 5.1.5, 5.1.6
   def widensRefTo(from: RefType, to: RefType): Boolean = isProperSubtype(from,to)
   def narrowsRefTo(from: RefType, to: RefType): Boolean = isProperSubtype(to,from) || (!isSubtype(from,to) && ((from,to) match {
-    case (f: ClassType,t: InterfaceType) if !isFinal(f) && !isParameterized(t) => true
-    case (f: InterfaceType,t: ClassType) if !isFinal(t) => true
-    case (f: InterfaceType,t: InterfaceType) => true
-    // TODO: From Cloneable and java.io.Serializable to any T[]
+    case (f: ClassType,t: SimpleInterfaceType) if !isFinal(f) => true
+    case (f: InterfaceType,t: SimpleClassType) if !isFinal(t) => true
+    case (f: InterfaceType,t: SimpleInterfaceType) => true
     case (ArrayType(f: RefType),ArrayType(t: RefType)) => narrowsRefTo(f,t)
     case _ => false
   }))
@@ -233,7 +317,7 @@ object Types {
   // Whether from can be explicitly cast to to
   def castsTo(from: Type, to: Type): Boolean = from==to || ((from,to) match {
     case (_:ErrorType,_)|(_,_:ErrorType) => false
-    case (_:TypeParameterType,_)|(_,_:TypeParameterType) => false // TODO: Handle type parameters correctly
+    case (_:ParamType,_)|(_,_:ParamType) => notImplemented // TODO: Handle type parameters correctly
     case (VoidType,_) => false
     case (_,VoidType) => true
     case (f:PrimType,t:PrimType) => (f==BooleanType)==(t==BooleanType)
@@ -252,15 +336,14 @@ object Types {
     case (f:RefType,t:RefType) => isSubtype(f,t) || isSubtype(t,f)
   })
 
-  // All supertypes of a reference type
+  // All supertypes of a reference type, including self
   def supers(t: RefType): Set[RefType] = t match {
     case NullType => throw new RuntimeException("nulltype has infinitely many supertypes")
-    case ObjectType => Set(t)
-    case i: InterfaceType => supers(i.base) + i
+    case ObjectType|_:ParamType => Set(t)
+    case i: InterfaceType => Set(i,ObjectType) ++ (i.bases map supers).flatten
     case c: ClassType => supers(c.base) ++ (c.implements map supers).flatten + c
-    case e: EnumType => Set(e,e.base)
-    case a: ArrayType => Set(a,a.base) // TODO: Cloneable, Serializable
-    case e: ErrorType => Set(e,e.base)
+    case a: ArrayType => Set(a,CloneableType,SerializableType,ObjectType)
+    case e: ErrorType => Set(e,ObjectType)
     case IntersectType(ts) => ts.toSet.flatMap(supers)
   }
 
@@ -297,7 +380,7 @@ object Types {
     }
     (x,y) match {
       case (_:ErrorType,_)|(_,_:ErrorType) => notImplemented
-      case (_:TypeParameterType,_)|(_,_:TypeParameterType) => notImplemented
+      case (_:ParamType,_)|(_,_:ParamType) => notImplemented
       case (VoidType,_)|(_,VoidType) => VoidType
       case (x:PrimType,y:PrimType) => pp(x,y)
       case (x:PrimType,y:RefType) => pr(x,y)

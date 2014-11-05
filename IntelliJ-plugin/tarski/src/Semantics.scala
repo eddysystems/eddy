@@ -24,7 +24,7 @@ object Semantics {
   */
 
   // Literals
-  def denoteLit(x: ALit): Scored[LitDen] = {
+  def denoteLit(x: ALit): Scored[Lit] = {
     def f[A,B](v: String, c: String => A)(t: (A,String) => B) = t(c(v.replaceAllLiterally("_","")),v)
     single(x match {
       case IntALit(v) =>    f(v,_.toInt)(IntLit)
@@ -53,31 +53,30 @@ object Semantics {
   def denoteType(n: AExp)(implicit env: Env): Scored[Type] =
     denote(n) collect {
       case t: TypeDen => t.item
-      case e: ExpDen => typeOf(e) // Allow expressions to be used as types
+      case e: Exp => typeOf(e) // Allow expressions to be used as types
     }
 
-  // TODO: this should not rely on string matching.
-  def isLocal(i: NamedItem): Boolean = i.name == i.relativeName || i.relativeName == "this" || i.relativeName == "super"
+  // TODO: Something is local if it can be referred to without qualifiers
+  def isLocal(i: NamedItem): Boolean = false
 
-  // return whether this value is contained in the given type, or in something contained in the given type
-  def containedIn(field: Member, t: Type): Boolean =
-    field.containing == t || (field.containing match { case c: Member => containedIn(c, t); case _ => false } )
-
-  def containedIn(value: Value, t: Type): Boolean = value match {
-    case m: Member => containedIn(m.asInstanceOf[Member],t)
+  // Are we contained in the given type, or in something contained in the given type?
+  def containedIn(i: NamedItem, t: TypeItem): Boolean = i match {
+    case f: Member => f.container == t || containedIn(f.container,t)
     case _ => false
   }
 
-  def denoteValue(i: Value)(implicit env: Env): Scored[ExpDen] = i match {
-    case i: ParameterItem => single(ParameterExpDen(i))
-    case i: LocalVariableItem => single(LocalVariableExpDen(i))
-    case i: EnumConstantItem => single(EnumConstantExpDen(i))
+  def denoteValue(i: Value)(implicit env: Env): Scored[Exp] = i match {
+    case i: ParameterItem => single(ParameterExp(i))
+    case i: LocalVariableItem => single(LocalVariableExp(i))
+    case i: EnumConstantItem => single(EnumConstantExp(i))
     case i: FieldItem =>
       if (isLocal(i))
-        single(LocalFieldExpDen(i))
-      else
-        for (obj <- objectsOfType("", i.containing) if !containedIn(obj,i.containing); objden <- denoteValue(obj)) yield FieldExpDen(objden, i)
-    case i: StaticFieldItem => single(StaticFieldExpDen(i))
+        single(LocalFieldExp(i))
+      else {
+        val c = toType(i.container)
+        for (obj <- objectsOfType(c) if !containedIn(obj,i.container); objden <- denoteValue(obj)) yield FieldExp(objden, i)
+      }
+    case i: StaticFieldItem => single(StaticFieldExp(i))
   }
 
   // Expressions
@@ -85,17 +84,18 @@ object Semantics {
     case NameAExp(n) => scores(n) flatMap {
       case i: Value => denoteValue(i)
 
-      // callables
+      // Callables
       case i: MethodItem =>
         if (isLocal(i))
           single(LocalMethodDen(i))
         else
-          for (obj <- objectsOfType("", i.containing); objden <- denoteValue(obj)) yield MethodDen(objden, i)
+          for (obj <- objectsOfType(toType(i.container)); objden <- denoteValue(obj)) yield MethodDen(objden, i)
       case i: StaticMethodItem => single(StaticMethodDen(i))
       case i: ConstructorItem => single(ForwardDen(i))
-      case _: Type => fail // Expression cannot return types
-      case PackageItem(_,_,_) => notImplemented
-      case AnnotationItem(_,_,_) => notImplemented
+      case i: TypeParamItem => single(TypeDen(ParamType(i)))
+      case _: TypeItem => fail // Expression cannot return types
+      case _: PackageItem => notImplemented
+      case _: AnnotationItem => notImplemented
     }
     case x: ALit => denoteLit(x)
     case ParenAExp(x) => denote(x) // Java doesn't allow parentheses around types, but we do
@@ -105,17 +105,17 @@ object Semantics {
       for (d <- denote(x);
            t <- d match {
              case t: TypeDen => single(t.item)
-             case e: ExpDen => single(typeOf(e))
+             case e: Exp => single(typeOf(e))
              case _ => fail
            };
            fi <- fieldScores(t,f);
            r <- (d,fi) match {
-             case (_, f: Type) => single(TypeDen(f))
-             case (_, f: EnumConstantItem) => single(EnumConstantExpDen(f))
-             case (_, f: StaticFieldItem) => single(StaticFieldExpDen(f))
-             case (e: ExpDen, f: FieldItem) => single(FieldExpDen(e,f))
+             case (_, f: TypeItem) => single(TypeDen(toType(f)))
+             case (_, f: EnumConstantItem) => single(EnumConstantExp(f))
+             case (_, f: StaticFieldItem) => single(StaticFieldExp(f))
+             case (e: Exp, f: FieldItem) => single(FieldExp(e,f))
              case (_, f: StaticMethodItem) => single(StaticMethodDen(f))
-             case (e: ExpDen, f: MethodItem) => single(MethodDen(e,f))
+             case (e: Exp, f: MethodItem) => single(MethodDen(e,f))
              case (_, f: PackageItem) => throw new NotImplementedError("FieldExp: packages not implemented: " + e)
              case (_, f: ConstructorItem) => throw new NotImplementedError("FieldExp: ConstructorItem")
              case (_, f: LocalItem) => fail // can't qualify locals, parameters, TODO: return something with a low score
@@ -132,13 +132,13 @@ object Semantics {
     case ApplyAExp(f,xsn,_) => {
       val xsl = xsn.list map denoteExp
       val n = xsl.size
-      def call(f: Callable): Scored[ExpDen] =
+      def call(f: Callable): Scored[Exp] =
         if (f.paramTypes.size != n) fail
         else {
           val filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs.filter(x => looseInvokeContext(typeOf(x),p))}
-          for (xl <- product(filtered)) yield ApplyExpDen(f,xl)
+          for (xl <- product(filtered)) yield ApplyExp(f,xl)
         }
-      def index(f: ExpDen, ft: ArrayType): Scored[ExpDen] = {
+      def index(f: Exp, ft: ArrayType): Scored[Exp] = {
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
           case ArrayType(t) => hasDims(t,d-1)
           case _ => false
@@ -149,11 +149,11 @@ object Semantics {
             case Some(p: PrimType) => promote(p) == IntType
             case _ => false
           }))
-          for (xl <- product(filtered)) yield xl.foldLeft(f)(IndexExpDen)
+          for (xl <- product(filtered)) yield xl.foldLeft(f)(IndexExp)
         }
       }
       denote(f) flatMap {
-        case a: ExpDen => typeOf(a) match {
+        case a: Exp => typeOf(a) match {
           case t: ArrayType => index(a,t)
           case _ => fail
         }
@@ -165,21 +165,21 @@ object Semantics {
     case UnaryAExp(op,x) =>
       for (x <- denoteExp(x);
            if unaryLegal(op,typeOf(x)))
-        yield UnaryExpDen(op,x)
+        yield UnaryExp(op,x)
 
     case BinaryAExp(op,x,y) => {
       val dy = denoteExp(y);
       for (x <- denoteExp(x);
            y <- dy;
            if binaryLegal(op,typeOf(x),typeOf(y)))
-        yield BinaryExpDen(op,x,y)
+        yield BinaryExp(op,x,y)
     }
 
     case CastAExp(t,x) =>
       for (t <- denote(t);
            x <- denoteExp(x);
            if castsTo(typeOf(x),t))
-        yield CastExpDen(t,x)
+        yield CastExp(t,x)
 
     case CondAExp(c,x,y) =>
       for (c <- denoteExp(c);
@@ -188,7 +188,7 @@ object Semantics {
            tx = typeOf(x);
            y <- denoteExp(y);
            ty = typeOf(y))
-        yield CondExpDen(c,x,y,condType(tx,ty))
+        yield CondExp(c,x,y,condType(tx,ty))
 
     case AssignAExp(op,x,y) =>
       for (x <- denoteExp(x);
@@ -197,58 +197,58 @@ object Semantics {
            y <- denoteExp(y);
            yt = typeOf(y);
            t <- option(assignOpType(op,xt,yt)))
-        yield AssignExpDen(op,x,y)
+        yield AssignExp(op,x,y)
 
     case ArrayAExp(xs,a) => fail // TODO: Handle array literals generally
   }
 
-  def denoteExp(n: AExp)(implicit env: Env): Scored[ExpDen] =
-    denote(n) collect {case e: ExpDen => e}
+  def denoteExp(n: AExp)(implicit env: Env): Scored[Exp] =
+    denote(n) collect {case e: Exp => e}
 
-  def isVariable(e: ExpDen): Boolean = e match {
+  def isVariable(e: Exp): Boolean = e match {
     // in java, we can only assign to actual variables, never to values returned by functions or expressions.
     // TODO: implement final, private, protected
-    case _: LitDen => false
-    case ParameterExpDen(i) => true // TODO: check for final
-    case LocalVariableExpDen(i) => true // TODO: check for final
-    case EnumConstantExpDen(_) => false
-    case CastExpDen(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
-    case UnaryExpDen(_,_) => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
-    case BinaryExpDen(_,_,_) => false
-    case AssignExpDen(_,_,_) => false
-    case ParenExpDen(x) => isVariable(x)
-    case ApplyExpDen(_,_) => false
-    case FieldExpDen(obj, field) => true // TODO: check for final, private, protected
-    case LocalFieldExpDen(field) => true // TODO: check for final
-    case StaticFieldExpDen(field) => true // TODO: check for final, private, protected
-    case IndexExpDen(a, i) => isVariable(a)
-    case CondExpDen(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
+    case _: Lit => false
+    case ParameterExp(i) => true // TODO: check for final
+    case LocalVariableExp(i) => true // TODO: check for final
+    case EnumConstantExp(_) => false
+    case CastExp(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
+    case UnaryExp(_,_) => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
+    case BinaryExp(_,_,_) => false
+    case AssignExp(_,_,_) => false
+    case ParenExp(x) => isVariable(x)
+    case ApplyExp(_,_) => false
+    case FieldExp(obj, field) => true // TODO: check for final, private, protected
+    case LocalFieldExp(field) => true // TODO: check for final
+    case StaticFieldExp(field) => true // TODO: check for final, private, protected
+    case IndexExp(a, i) => isVariable(a)
+    case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
   }
 
-  def denoteInit(n: AExp)(implicit env: Env): Scored[InitDen] = n match {
+  def denoteInit(n: AExp)(implicit env: Env): Scored[Init] = n match {
     case ArrayAExp(xs,_) =>
       for (is <- product(xs.list map denoteInit))
-        yield ArrayInitDen(is,condTypes(is map typeOf))
-    case n => denoteExp(n) map ExpInitDen
+        yield ArrayInit(is,condTypes(is map typeOf))
+    case n => denoteExp(n) map ExpInit
   }
 
   // Statements
-  def denoteStmt(s: AStmt)(env: Env): Scored[(Env,StmtDen)] = s match {
-    case EmptyAStmt() => single((env,EmptyStmtDen()))
+  def denoteStmt(s: AStmt)(env: Env): Scored[(Env,Stmt)] = s match {
+    case EmptyAStmt() => single((env,EmptyStmt()))
     case VarAStmt(mod,t,v) => notImplemented
     case ExpAStmt(e) => {
-      val exps = denoteExp(e)(env) map ExprStmtDen
+      val exps = denoteExp(e)(env) map ExpStmt
       val stmts = e match {
         case AssignAExp(None,NameAExp(x),y) =>
           for {y <- denoteInit(y)(env);
                t = typeOf(y);
                (env,x) <- env.newVariable(x,t)}
-            yield (env,VarStmtDen(t,List((x,Some(y)))))
+            yield (env,VarStmt(t,List((x,Some(y)))))
         case _ => fail
       }
       exps.map((env,_)) ++ stmts
     }
-    case BlockAStmt(b) => denoteStmts(b)(env) map {case (e,ss) => (e,BlockStmtDen(ss))}
+    case BlockAStmt(b) => denoteStmts(b)(env) map {case (e,ss) => (e,BlockStmt(ss))}
     case AssertAStmt(cond: AExp, msg: Option[AExp]) => notImplemented
     case BreakAStmt(label: Option[Name]) => notImplemented
     case ContinueAStmt(label: Option[Name]) => notImplemented
@@ -257,6 +257,6 @@ object Semantics {
     case SyncAStmt(e: AExp, b: Block) => notImplemented
   }
 
-  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[StmtDen])] =
+  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt)
 }
