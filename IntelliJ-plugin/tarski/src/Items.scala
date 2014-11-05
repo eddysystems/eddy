@@ -74,8 +74,8 @@ object Items {
     def base = EnumBaseType
   }
   case class IntersectType(ts: Set[RefType]) extends RefType(s"IntersectType(${ts.map(_.toString).mkString(",")})") {
-    def qualifiedName = this.name // TODO: These make little sense
-    def relativeName = this.name
+    def qualifiedName = name // TODO: These make little sense
+    def relativeName = name
   }
 
   trait Member {
