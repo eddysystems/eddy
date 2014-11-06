@@ -1,7 +1,7 @@
 package tarski
 
 import AST._
-import tarski.Items.NamedItem
+import tarski.Items.{LocalVariableItem, NamedItem}
 import tarski.Tokens._
 import tarski.Denotations._
 import scala.language.implicitConversions
@@ -239,7 +239,7 @@ object Pretty {
       case SyncAStmt(e,b) => notImplemented
     }
   }
-  implicit def prettyStmts(ss: List[AStmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
+  implicit def prettyAStmts(ss: List[AStmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyVar(d: (NameDims,Option[AExp])): (Fixity,Tokens) = d match {
     case (x,None) => pretty(x)
     case (x,Some(e)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,e))
@@ -282,7 +282,7 @@ object Pretty {
 
   // Denotations
   implicit def prettyNamedItem(i: NamedItem): (Fixity,Tokens) = {
-    throw new NotImplementedError("Need to think about scoping.  This routine should return FieldFix sometimes.")
+    //throw new NotImplementedError("Need to think about scoping.  This routine should return FieldFix sometimes.")
     prettyName(i.name)
   }
   implicit def prettyExpDen(e: ExpDen): (Fixity,Tokens) = e match {
@@ -307,4 +307,27 @@ object Pretty {
     case StaticFieldExpDen(f) => pretty(f)
     case IndexExpDen(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))
   }
+  implicit def prettyTypeDen(t: TypeDen): (Fixity,Tokens) = prettyNamedItem(t.item)
+  implicit def prettyInitDen(i: InitDen): (Fixity,Tokens) = i match {
+    case ArrayInitDen(is, t) => (HighestFix, LCurlyTok() :: separate(is.map( tokens(_) ),List(CommaTok())) ::: List(RCurlyTok()))
+    case ExpInitDen(e) => pretty(e)
+  }
+
+  implicit def prettyVarInit(vi: (LocalVariableItem, Option[InitDen])): (Fixity,Tokens) = vi match {
+    case (v,Some(i)) => (AssignFix, tokens(v) ::: List(EqTok()) ::: tokens(i))
+    case (v,None) => pretty(vi)
+  }
+
+  implicit def prettyStmt(s: StmtDen): (Fixity,Tokens) = {
+    def key[A](key: () => Token, x: Option[A])(implicit p: Pretty[A]): (Fixity,Tokens) =
+      (SemiFix, key() :: (x map (tokens(_)) getOrElse Nil) ::: List(SemiTok()))
+    s match {
+      case EmptyStmtDen() => (SemiFix,List(SemiTok()))
+      case VarStmtDen(t, vs) => (SemiFix, tokens(t) ::: separate(vs.map( tokens(_) ),List(CommaTok())) ::: List(SemiTok()) )
+      case ExprStmtDen(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
+      case BlockStmtDen(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
+    }
+  }
+  implicit def prettyStmts(ss: List[StmtDen]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
+
 }

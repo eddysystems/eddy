@@ -23,9 +23,7 @@ object Tarski {
 
   def pretty(stmts: java.util.List[StmtDen]): String = {
     val ss: List[StmtDen] = stmts.asScala.toList
-    // TODO
-    ""
-    //show(tokens(ss)(prettyStmts))
+    show(tokens(ss))
   }
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[StmtDen])] = {
