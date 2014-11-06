@@ -70,7 +70,7 @@ object AST {
   case class MethodRefAExp(e: AExp, t: Option[KList[AType]], f: Name) extends AExp
   case class NewRefAExp(e: AExp, t: Option[KList[AType]]) extends AExp
   case class TypeApplyAExp(e: AExp, t: KList[AType]) extends AExp
-  case class ApplyAExp(e: AExp, xs: KList[AExp], a: Around) extends AExp
+  case class ApplyAExp(e: AExp, xs: KList[AExp], a: Around = ParenAround) extends AExp
   case class NewAExp(t: Option[KList[AType]], e: AExp) extends AExp
   case class WildAExp(b: Option[(Bound,AType)]) extends AExp
   case class UnaryAExp(op: UnaryOp, e: AExp) extends AExp

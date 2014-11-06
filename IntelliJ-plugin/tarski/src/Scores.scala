@@ -15,13 +15,16 @@ object Scores {
 
   // Structured errors
   sealed abstract class Error {
-    def show(prefix: String): String
+    def prefixed(p: String): String
+    def short: String
   }
   case class OneError(e: String) extends Error {
-    def show(prefix: String) = prefix+e
+    def prefixed(p: String) = p+e
+    def short = e
   }
   case class NestError(e: String, es: List[Error]) extends Error {
-    def show(prefix: String) = (prefix+e :: es.map(_.show(prefix+"  "))).mkString("\n")
+    def prefixed(p: String) = (p+e :: es.map(_.prefixed(p+"  "))).mkString("\n")
+    def short = e
   }
 
   sealed abstract class Scored[+A] {

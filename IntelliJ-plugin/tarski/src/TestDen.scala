@@ -15,29 +15,13 @@ import tarski.Items._
 import tarski.Lexer._
 import tarski.Tokens._
 import tarski.Types._
-import tarski.Pretty._
+import tarski.TestUtils._
 import ambiguity.Utility._
 
-class Tests {
-
-  @BeforeClass
-  def init(): Unit = {
-    // this happens once
-
-    // read default java environment from file
-    // TODO
-  }
-
-  // Useful implicit conversions
-  implicit def toAExp(i: Int): AExp = IntALit(i.toString)
-  implicit def toExp(i: Int): Exp = IntLit(i,i.toString)
-  implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
-  implicit def toExp(x: LocalVariableItem): Exp = LocalVariableExp(x)
-  implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
-
+class TestDen {
   def testDen(input: String, best: Env => List[Stmt])(implicit env: Env): Unit = {
     fix(lex(input).filterNot(isSpace)).best match {
-      case Left(e) => throw new RuntimeException("denotation error: $e")
+      case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
       case Right((env,s)) => assertEquals(best(env),s)
     }
   }
@@ -176,39 +160,8 @@ class Tests {
     val T = TypeParamItem("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,List(ParamType(T)))
-    implicit val env = baseEnv.addObjects(List(A))
+    implicit val env = baseEnv.addObjects(List(A,AC))
     testDen("x = A(Object())", env => List(VarStmt(GenericClassType(A,List(ObjectType)),
       List((env.exactLocal("x"),Some(ApplyExp(NewDen(AC),List(ApplyExp(NewDen(ObjectConsItem),Nil)))))))))
-  }
-
-  @Test
-  def lexer(): Unit = {
-    // Utilities
-    def spaced(ts: List[Token]): List[Token] = ts match {
-      case Nil|List(_) => ts
-      case x :: xs => x :: WhitespaceTok(" ") :: spaced(xs)
-    }
-    def check(name: String, cons: String => Token, options: String) =
-      assertEquals(spaced(splitWhitespace(options) map cons),lex(options))
-
-    assertEquals(spaced(List(AbstractTok(),FinalTok(),DoTok())),lex("abstract final do"))
-    check("ints",IntLitTok,"0 1 17l 0x81 07_43 0b1010_110")
-    check("floats",FloatLitTok,"5.3 .4e-8 0x4.aP1_7")
-    check("chars",CharLitTok,"""'x' '\t' '\n' '\0133'""")
-    check("strings",StringLitTok,""""xyz" "\n\b\r\t" "\0\1\2"""")
-  }
-
-  @Test
-  def pretty(): Unit = {
-    def check(s: String, e: AExp) = assertEquals(s,show(tokens(e)))
-    def add(x: AExp, y: AExp) = BinaryAExp(AddOp(),x,y)
-    def mul(x: AExp, y: AExp) = BinaryAExp(MulOp(),x,y)
-
-    check("1 + 2 + 3",     add(add(1,2),3))
-    check("1 + ( 2 + 3 )", add(1,add(2,3)))
-    check("1 + 2 * 3",     add(1,mul(2,3)))
-    check("1 * 2 + 3",     add(mul(1,2),3))
-    check("1 * ( 2 + 3 )", mul(1,add(2,3)))
-    check("( 1 + 2 ) * 3", mul(add(1,2),3))
   }
 }

@@ -36,29 +36,24 @@ object Tarski {
 
     // Check for duplicates
     val uasts = asts.toSet
-    var bad = false
-    for (a <- uasts; n = asts.count(a==_); if n > 1) {
+    val bads = for (a <- uasts; n = asts.count(a==_); if n > 1) yield
       println(s"  $n copied ast: $a")
-      bad = true
-    }
-    if (bad)
+    if (!bads.isEmpty)
       throw new RuntimeException("duplicated ast")
 
     // Determine meaning(s)
-    var results: Scored[(Env,List[Stmt])] = fail("Parse failed")
-    for (root <- uasts) {
+    simple(uasts.toList,"Parse failed") flatMap { root => {
       println("  ast: " + show(Pretty.tokens(root)))
       //println("  ast: " + root)
       println("  meanings: ")
       val ds = denoteStmts(root)(env)
       ds.all match {
-        case Left(e) => println(e.show("    error: "))
+        case Left(e) => println(e.prefixed("    error: "))
         case Right(all) =>
           for ((s,(e,d)) <- all)
             println(s"    $s: $d")
       }
-      results ++= ds
-    }
-    results
+      ds
+    }}
   }
 }

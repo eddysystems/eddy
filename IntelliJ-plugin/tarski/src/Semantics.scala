@@ -136,7 +136,7 @@ object Semantics {
       val n = xsl.size
       def call(f: Callable): Scored[Exp] = {
         val fn = f.paramTypes.size
-        if (fn != n) fail(show(f)+s": expected $fn arguments, got $n")
+        if (fn != n) fail(show(f)+s": expected $fn arguments (${show(CommaList(f.paramTypes))}), got $n ($xsn)")
         else {
           val filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs.filter(x => looseInvokeContext(typeOf(x),p))}
           for (xl <- product(filtered)) yield ApplyExp(f,xl)
