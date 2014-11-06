@@ -91,7 +91,7 @@ object Semantics {
         else
           for (obj <- objectsOfType(toType(i.container)); objden <- denoteValue(obj)) yield MethodDen(objden, i)
       case i: StaticMethodItem => single(StaticMethodDen(i))
-      case i: ConstructorItem => single(ForwardDen(i))
+      case i: ConstructorItem => single(NewDen(i))
       case i: TypeParamItem => single(TypeDen(ParamType(i)))
       case _: TypeItem => fail // Expression cannot return types
       case _: PackageItem => notImplemented
