@@ -19,7 +19,7 @@ public class Main {
     }
 
     public class Y extends X {
-        public static String y() {
+        public String y() {
             return "blah";
         };
     }
@@ -33,11 +33,12 @@ public class Main {
         int x;
         int y;
         X xobj;
+        Y yobj;
 
         Map<Double>
 
         y()
-        x()
+        xobj . x ( ) ;
 
 
 

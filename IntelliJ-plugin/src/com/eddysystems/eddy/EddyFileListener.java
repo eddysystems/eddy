@@ -109,6 +109,10 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     }
   }
 
+  public void dumpEnvironment(String filename) {
+    eddy.dumpEnvironment(filename);
+  }
+
   @Override
   public void caretPositionChanged(CaretEvent e) {
     if (!enabled())

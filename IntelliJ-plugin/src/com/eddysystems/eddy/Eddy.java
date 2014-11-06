@@ -21,7 +21,7 @@ import tarski.Denotations;
 import tarski.Scores;
 import tarski.Tarski;
 import tarski.Tokens;
-import tarski.Pretty;
+import tarski.Environment;
 
 import java.util.List;
 
@@ -37,6 +37,7 @@ public class Eddy {
   private Document document = null;
   private Editor editor = null;
   // the results of the interpretation
+  private Environment.Env env = null;
   private List<scala.Tuple2<Scores.Score,List<Denotations.StmtDen>>> results;
 
   // a bias for which result is the best one (reset in process())
@@ -79,6 +80,11 @@ public class Eddy {
 
   public List<scala.Tuple2<Scores.Score,List<Denotations.StmtDen>>> getResults() {
     return results;
+  }
+
+  public void dumpEnvironment(String filename) {
+    if (env != null)
+      Environment.envToFile(env,filename);
   }
 
   public void process(@NotNull Editor editor) {
@@ -187,8 +193,8 @@ public class Eddy {
           tokens_range = tokens_range.union(range);
       }
 
-      EnvironmentProcessor env = new EnvironmentProcessor(project, elem, true);
-      results = Tarski.fixJava(tokens, env.getJavaEnvironment());
+      env = (new EnvironmentProcessor(project, elem, true)).getJavaEnvironment();
+      results = Tarski.fixJava(tokens, env);
 
       String text = "";
 
@@ -201,7 +207,6 @@ public class Eddy {
 
       logger.debug("eddy says:" + text);
     }
-
   }
 
   public boolean foundSomethingUseful() {
@@ -215,7 +220,7 @@ public class Eddy {
   }
 
   public boolean nextBestResult() {
-    if (foundSomethingUseful() && !single()) {
+    if (foundSomethingUseful() && results.size()>1) {
       selectedExplicitly = true;
       resultOffset += 1;
       if (resultOffset == results.size())
@@ -226,7 +231,7 @@ public class Eddy {
   }
 
   public boolean prevBestResult() {
-    if (foundSomethingUseful() && !single()) {
+    if (foundSomethingUseful() && results.size()>1) {
       selectedExplicitly = true;
       resultOffset -= 1;
       if (resultOffset < 0)
