@@ -31,12 +31,7 @@ object Scores {
     def all: Either[Error,List[(Score,A)]]
     def best: Either[Error,A]
     def map[B](f: A => B): Scored[B]
-    def filter(p: A => Boolean): Scored[A]
-    def withFilter[B >: A](p: B => Boolean): Scored[B]
     def flatMap[B](f: A => Scored[B]): Scored[B]
-    def product[B](f: => Scored[B]): Scored[(A,B)]
-    def productWith[B,C](f: => Scored[B])(g: (A,B) => C): Scored[C]
-    def collect[B](f: PartialFunction[A,B]): Scored[B]
     def ++[B >: A](s: Scored[B]): Scored[B]
   }
 
@@ -45,12 +40,7 @@ object Scores {
     def all = Left(e)
     def best = Left(e)
     def map[B](f: A => B) = Bad(e)
-    def filter(p: A => Boolean) = Bad(e)
-    def withFilter[B >: A](p: B => Boolean) = Bad(e)
     def flatMap[B](f: A => Scored[B]) = Bad(e)
-    def product[B](f: => Scored[B]) = Bad(e)
-    def productWith[B,C](f: => Scored[B])(g: (A,B) => C) = Bad(e)
-    def collect[B](f: PartialFunction[A,B]) = Bad(e)
     def ++[B >: A](s: Scored[B]) = s match {
       case Bad(f) => Bad(NestError("++ failed",List(e,f)))
       case Good(_) => s
@@ -64,15 +54,6 @@ object Scores {
 
     def map[B](f: A => B) = Good(
       c map {case (s,a) => (s,f(a))})
-
-    def filter(p: A => Boolean): Scored[A] =
-      c filter {case (_,a) => p(a)} match {
-        case Nil => Bad(OneError("filter failed"))
-        case c => Good(c)
-      }
-
-    // TODO: Optimize
-    def withFilter[B >: A](p: B => Boolean) = filter(p)
 
     def flatMap[B](f: A => Scored[B]): Scored[B] = {
       def process(good: List[(Score,B)], bad: List[Error], as: List[(Score,A)]): Scored[B] = as match {
@@ -96,22 +77,6 @@ object Scores {
       process(Nil,Nil,c)
     }
 
-    def product[B](f: => Scored[B]): Scored[(A,B)] = f match {
-      case Bad(e) => Bad(e)
-      case Good(bs) => Good(for ((sa,a) <- c; (sb,b) <- bs) yield (sa+sb,(a,b)))
-    }
-
-    def productWith[B,C](f: => Scored[B])(g: (A,B) => C) = f match {
-      case Bad(e) => Bad(e)
-      case Good(bs) => Good(for ((sa,a) <- c; (sb,b) <- bs) yield (sa+sb,g(a,b)))
-    }
-        
-    def collect[B](f: PartialFunction[A,B]): Scored[B] =
-      (for ((s,a) <- c; b <- f.lift(a).toList) yield (s,b)) match {
-        case Nil => Bad(OneError("collect failed"))
-        case bs => Good(bs)
-      }
-
     def ++[B >: A](s: Scored[B]): Scored[B] = Good(s match {
       case Bad(_) => c
       case Good(sc) => c++sc
@@ -130,19 +95,41 @@ object Scores {
     case None => fail(error)
   }
 
-  def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
-    case Nil => single(Nil)
-    case sx :: sxs => sx.productWith(product(sxs))(_::_)
+  def product[A,B](a: Scored[A], b: => Scored[B]): Scored[(A,B)] = a match {
+    case Bad(e) => Bad(e)
+    case Good(as) => b match {
+      case Bad(e) => Bad(e)
+      case Good(bs) => Good(for ((sa,a) <- as; (sb,b) <- bs) yield (sa+sb,(a,b)))
+    }
+  }
+  def product[A,B,C](a: Scored[A], b: => Scored[B], c: => Scored[C]): Scored[(A,B,C)] = a match {
+    case Bad(e) => Bad(e)
+    case Good(as) => b match {
+      case Bad(e) => Bad(e)
+      case Good(bs) => c match {
+        case Bad(e) => Bad(e)
+        case Good(cs) => Good(for ((sa,a) <- as; (sb,b) <- bs; (sc,c) <- cs) yield (sa+sb+sc,(a,b,c)))
+      }
+    }
+  }
+  def productWith[A,B,C](a: Scored[A], b: => Scored[B])(f: (A,B) => C): Scored[C] = a match {
+    case Bad(e) => Bad(e)
+    case Good(as) => b match {
+      case Bad(e) => Bad(e)
+      case Good(bs) => Good(for ((sa,a) <- as; (sb,b) <- bs) yield (sa+sb,f(a,b)))
+    }
   }
 
-  def partialProduct[A,B](xs: List[Scored[A]])(f: PartialFunction[A,B]): Scored[List[B]] =
-    product(xs.map(_.collect(f)))
+  def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
+    case Nil => single(Nil)
+    case sx :: sxs => productWith(sx,product(sxs))(_::_)
+  }
 
   def productFoldLeft[A,E](e: E)(fs: List[E => Scored[(E,A)]]): Scored[(E,List[A])] = fs match {
     case Nil => single((e,Nil))
     case f :: fs =>
-      for ((ex,x) <- f(e);
-           (exs,xs) <- productFoldLeft(ex)(fs))
-        yield (exs,x::xs)
+      f(e) flatMap {case (ex,x) =>
+      productFoldLeft(ex)(fs) map {case (exs,xs) =>
+        (exs,x::xs)}}
   }
 }
