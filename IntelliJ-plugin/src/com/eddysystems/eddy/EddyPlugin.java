@@ -19,6 +19,8 @@ public class EddyPlugin implements ProjectComponent {
     logger.setLevel(Level.DEBUG);
     this.project = project;
     injector = new EddyInjector(project);
+
+    // TODO: talk to server to send usage info
   }
 
   public void initComponent() {

@@ -10,26 +10,38 @@ object Environment {
   /**
    * The environment used for name resolution
    */
-  case class Env(allthings: List[NamedItem]) extends scala.Serializable {
+  case class Env(allthings: List[NamedItem], inScope: Map[NamedItem,Int] = Map[NamedItem,Int](), place: NamedItem = Base.LocalPkg) extends scala.Serializable {
 
+    assert(place == Base.LocalPkg || allthings.contains(place))
     val things = allthings.filterNot( _.isInstanceOf[NoLookupItem] )
 
-    // used on plugin side to fill in data
-    def addObjects(xs: List[NamedItem]): Env = {
-      // TODO: this is quadratic time due to order, but order is important for shadowing for now
+    // add objects (while filling environment)
+    def addObjects(xs: List[NamedItem], is: Map[NamedItem,Int]): Env = {
+      // TODO: this is quadratic time
       // TODO: filter identical things (like java.lang.String)
-      Env(things ++ xs)
+      Env(allthings ++ xs, inScope ++ is, place)
     }
-    
+
+    // add local objects (they all appear in inScope with priority 1)
+    def addLocalObjects(xs: List[NamedItem]): Env = {
+      Env(allthings ++ xs, inScope ++ xs.map((_,1)).toMap, place)
+    }
+
+    def move(newPlace: NamedItem): Env = {
+      assert(allthings.contains(newPlace))
+      Env(allthings, inScope, newPlace)
+    }
+
     def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] =
       if (this.things.exists(_.name == name)) // TODO: Fix name handling
         fail
       else {
         val x = LocalVariableItem(name, t)
-        single((addObjects(List(x)),x))
+        single((addObjects(List(x), Map((x,1))),x))
       }
 
     // fragile, only use for tests
+    // TODO: should use inScope and return the highest priority one
     def exactLocal(name: String): LocalVariableItem = {
       things collect { case x: LocalVariableItem if x.name == name => x } match {
         case List(x) => x

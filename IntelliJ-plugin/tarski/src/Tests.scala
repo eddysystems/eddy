@@ -1,5 +1,7 @@
 package tarski
 
+import java.io.FileOutputStream
+
 import tarski.AST._
 import tarski.Denotations._
 
@@ -19,13 +21,11 @@ import tarski.Pretty._
 import ambiguity.Utility._
 
 class Tests {
+  //val testenv: Env = Environment.envFromFile("test.jenv")
 
   @BeforeClass
   def init(): Unit = {
     // this happens once
-
-    // read default java environment from file
-    // TODO
   }
 
   // Useful implicit conversions
@@ -41,6 +41,13 @@ class Tests {
   }
   def testDen(input: String, best: Exp)(implicit env: Env): Unit =
     testDen(input, env => List(ExpStmt(best)))
+
+  def testOnlyDenotation(input: String, best: Env => List[Stmt])(implicit env: Env) = {
+    val fixes = fix(lex(input).filterNot(isSpace))
+    assertEquals(fixes.c.size, 1)
+    val (env2,stmt) = fixes.best.get
+    assertEquals(stmt, best(env2))
+  }
 
   @Test
   def assignExp(): Unit = {
@@ -174,7 +181,7 @@ class Tests {
     val T = TypeParamItem("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,List(ParamType(T)))
-    implicit val env = baseEnv.addObjects(List(A))
+    implicit val env = baseEnv.addLocalObjects(List(A))
     testDen("x = A(Object())", env => List(VarStmt(GenericClassType(A,List(ObjectType)),
       List((env.exactLocal("x"),Some(ApplyExp(NewDen(AC),List(ApplyExp(NewDen(ObjectConsItem),Nil)))))))))
   }
@@ -209,4 +216,18 @@ class Tests {
     check("1 * ( 2 + 3 )", mul(1,add(2,3)))
     check("( 1 + 2 ) * 3", mul(add(1,2),3))
   }
+
+  /*
+  @Test
+  def thisNameResolution(): Unit = {
+    val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
+    val f = FieldItem("f",main,FloatType)
+    val f2 = LocalVariableItem("f",ObjectType)
+    implicit val env = Env(List(main,f))
+
+    // f2 shadows f, so we should only get the f
+    testDenotation("f = 1", )
+
+  }
+  */
 }

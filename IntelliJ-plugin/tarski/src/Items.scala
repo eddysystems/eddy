@@ -96,7 +96,7 @@ object Items {
   case class StaticMethodItem(override val name: Name, override val container: TypeItem,
                               retVal: Type, override val paramTypes: List[Type])
     extends CallableItem(name,paramTypes) with ClassMember with scala.Serializable
-  case class ConstructorItem(val container: ClassOrObjectItem, override val paramTypes: List[Type])
+  case class ConstructorItem(container: ClassOrObjectItem, override val paramTypes: List[Type])
     extends CallableItem(container.name,paramTypes) with ClassMember with scala.Serializable
 
   // Items that have no qualified names

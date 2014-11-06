@@ -11,9 +11,11 @@ import tarski.Pretty._
 import scala.collection.JavaConverters._
 
 object Tarski {
-  def environment(values: java.util.Collection[NamedItem]): Env = {
-    Base.baseEnv.addObjects(values.asScala.toList)
+  def environment(values: java.util.Collection[NamedItem], inScope: java.util.Map[NamedItem,Integer], place: NamedItem): Env = {
+    Base.baseEnv.move(place).addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue))
   }
+
+  def localPkg(): PackageItem = Base.LocalPkg
 
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[Stmt])] = {
     val toks = tokens.asScala.toList

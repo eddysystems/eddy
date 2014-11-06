@@ -14,8 +14,8 @@ import org.jetbrains.annotations.NotNull;
 import scala.collection.JavaConversions;
 import tarski.Environment.Env;
 import tarski.Items.*;
-import tarski.Types.*;
 import tarski.Tarski;
+import tarski.Types.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,15 +33,26 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private final @NotNull
   Logger logger = Logger.getInstance(getClass());
 
+  public class ShadowElement<E> {
+    public final E e;
+    public final int shadowingPriority;
+
+    public ShadowElement(E e, int p) {
+      this.e = e;
+      shadowingPriority = p;
+    }
+  }
+
   // things that are in scope (not all these are accessible! things may be private, or not static while we are)
-  private final List<PsiPackage> packages = new SmartList<PsiPackage>();
-  private final List<PsiClass> classes = new SmartList<PsiClass>();
-  private final List<PsiVariable> variables = new SmartList<PsiVariable>();
-  private final List<PsiMethod> methods = new SmartList<PsiMethod>();
+  private final List<ShadowElement<PsiPackage>> packages = new SmartList<ShadowElement<PsiPackage>>();
+  private final List<ShadowElement<PsiClass>> classes = new SmartList<ShadowElement<PsiClass>>();
+  private final List<ShadowElement<PsiVariable>> variables = new SmartList<ShadowElement<PsiVariable>>();
+  private final List<ShadowElement<PsiMethod>> methods = new SmartList<ShadowElement<PsiMethod>>();
 
   private final PsiElement place;
 
   // used during walking
+  private int currentLevel = 0;
   private boolean inStaticScope = false;
   private PsiElement currentFileContext;
   private boolean honorPrivate;
@@ -51,6 +62,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     this.place = place;
     this.honorPrivate = honorPrivate;
     PsiScopesUtil.treeWalkUp(this, place, null);
+
+    // TODO: find import statements and add those to scope
   }
 
   private Type makeArray(Type t, int dims) {
@@ -61,17 +74,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   }
 
   private PsiElement containing(PsiElement cls) {
+    // TODO: handle local classes (parent is PsiDeclarationStatement or similar)
     PsiElement parent = cls.getParent();
     if (parent instanceof PsiJavaFile) {
       return JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile) parent).getPackageName());
     } else if (parent instanceof PsiClass) {
       return parent;
     }
-    logger.error("parent of " + cls + " = " + parent);
+    logger.error("parent of " + cls + " = " + parent + ", possibly local class.");
     throw new RuntimeException("unexpected parent of " + cls + " = " + parent);
   }
 
   private NamedItem addContainerToEnvMap(Map<PsiElement, NamedItem> envitems, PsiElement elem) {
+    // TODO: local classes
     if (elem instanceof PsiClass)
       return addClassToEnvMap(envitems, (PsiClass)elem);
     else if (elem instanceof PsiPackage) {
@@ -195,8 +210,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     assert cls != null;
     Type t = convertType(envitems,f.getType());
     ClassItem c = (ClassItem)envitems.get(cls);
-    Value v = f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c)
-                                                        : new FieldItem(f.getName(),t,c);
+    Value v = f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(), (EnumItem)c) :
+             (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c)
+                                                        : new FieldItem(f.getName(),t,c));
     envitems.put(f, v);
     return v;
   }
@@ -206,59 +222,105 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
    */
   public Env getJavaEnvironment() {
     Map<PsiElement, NamedItem> envitems = new HashMap<PsiElement, NamedItem>();
+    Map<NamedItem, Integer> localItems = new HashMap<NamedItem, Integer>();
 
-    // first, register packages (we may need those as containing elements in classes)
-    for (PsiPackage pkg : packages) {
-      addContainerToEnvMap(envitems, pkg);
+    // register locally visible items (each item will register things it contains, inherits from, etc.)
+
+    for (ShadowElement<PsiPackage> spkg : packages) {
+      final PsiPackage pkg = spkg.e;
+      NamedItem ipkg = addContainerToEnvMap(envitems, pkg);
+
+      localItems.put(ipkg,spkg.shadowingPriority);
 
       // TODO: register everything that is below this package (some of which may already be in the env map)
     }
 
     // then, register classes (we need those as containing elements in the other things)
     // classes may be contained in classes, so partial-order the list first
-    for (PsiClass cls : classes) {
-      // TODO: get type parameters etc
-      addClassToEnvMap(envitems, cls);
+    for (ShadowElement<PsiClass> scls : classes) {
+      final PsiClass cls = scls.e;
+        // TODO: get type parameters etc
+      NamedItem icls = addClassToEnvMap(envitems, cls);
+      localItems.put(icls,scls.shadowingPriority);
 
       // TODO: register everything that is below this class (some of which may already be in the env map)
+      // if these items don't already exist, they can never shadow things
       for (PsiField f : cls.getFields()) {
-        addFieldToEnvMap(envitems,f);
+        addFieldToEnvMap(envitems, f);
       }
       for (PsiMethod m : cls.getMethods()) {
         if (!envitems.containsKey(m))
-          addMethodToEnvMap(envitems,m);
+          addMethodToEnvMap(envitems, m);
       }
       for (PsiMethod m : cls.getConstructors()) {
         if (!envitems.containsKey(m))
-          addMethodToEnvMap(envitems,m);
+          addMethodToEnvMap(envitems, m);
       }
       for (PsiClass c : cls.getInnerClasses()) {
         if (!envitems.containsKey(c))
-          addClassToEnvMap(envitems,c);
+          addClassToEnvMap(envitems, c);
       }
     }
 
     // register methods (also register types used in this method)
-    for (PsiMethod method : methods) {
-      addMethodToEnvMap(envitems,method);
+    for (ShadowElement<PsiMethod> smethod : methods) {
+      final PsiMethod method = smethod.e;
+      NamedItem imethod = addMethodToEnvMap(envitems,method);
+      localItems.put(imethod,smethod.shadowingPriority);
+
+      // TODO: local classes may go here
     }
 
     // then, register objects which have types (enum constants, variables, parameters, fields), and their types
-    for (PsiVariable var : variables) {
-      if (var instanceof PsiField)
-        addFieldToEnvMap(envitems,(PsiField)var);
-      else {
-        Type t = convertType(envitems,var.getType());
-        NamedItem i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
-                    : var instanceof PsiEnumConstant  ? new EnumConstantItem(var.getName(),(EnumItem)((SimpleClassType)t).d())
-                    : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
-                    : null;
-        if (i == null)
-          throw new NotImplementedException("Unknown variable");
+    for (ShadowElement<PsiVariable> svar : variables) {
+      final PsiVariable var = svar.e;
+      if (var instanceof PsiField) {
+        NamedItem ivar = addFieldToEnvMap(envitems,(PsiField)var);
+        localItems.put(ivar,svar.shadowingPriority);
+      } else {
+        if (envitems.containsKey(var)) {
+          Type t = convertType(envitems,var.getType());
+          NamedItem i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
+                      : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
+                      : null;
+          if (i == null)
+            throw new NotImplementedException("Unknown variable: " + var);
+
+          // actually add to envitems map
+          envitems.put(var, i);
+          localItems.put(i,svar.shadowingPriority);
+        }
       }
     }
 
-    return Tarski.environment(envitems.values());
+    // find out which element we are inside (method, class or interface, or package)
+    NamedItem placeItem = null;
+    // walk straight up until we see a method, class, or package
+    PsiElement place = this.place;
+    while (place != null) {
+      if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
+        assert envitems.containsKey(place);
+        placeItem = envitems.get(place);
+        break;
+      } else if (place instanceof PsiJavaFile) {
+        PsiPackage pkg = JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile) place).getPackageName());
+        if (pkg == null) {
+          // TODO: probably we're top-level in a file without package statement, use LocalPackageItem
+          logger.info("no package for file " + place);
+          placeItem = Tarski.localPkg();
+        } else {
+          assert envitems.containsKey(pkg);
+          placeItem = envitems.get(pkg);
+          break;
+        }
+      }
+      place = place.getParent();
+    }
+    assert placeItem != null;
+
+    logger.debug("environment taken inside " + placeItem);
+
+    return Tarski.environment(envitems.values(), localItems, placeItem);
   }
 
   /**
@@ -291,14 +353,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     logger.error("Can't compute qualified name of " + elem);
-    return null;
-  }
-
-  /**
-   * Compute the relative name of an object (the minimally qualified name needed to access it from here
-   */
-  private String relativeName(PsiElement elem) {
-    // TODO
     return null;
   }
 
@@ -339,31 +393,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return false;
   }
 
-  /**
-   * Check if a variable is visible in our place (not private member in a superclass)
-   */
-  public boolean isVisible(PsiVariable var) {
-    if (var instanceof PsiMember) {
-      PsiMember member = (PsiMember)var;
-      return !isInaccessible(member, member.getContainingClass());
-    } else
-      return true; // parameters and local variables are always visible
-  }
-
-  /**
-   * Check if a member (field or method) is visible in our place (not private in a superclass)
-   */
-  public boolean isVisible(PsiMember member) {
-    return !isInaccessible(member, member.getContainingClass());
-  }
-
-  /**
-   * Check if a class is visible in our place (not private)
-   */
-  public boolean isVisible(PsiClass clazz) {
-    return !isInaccessible(clazz, clazz.getContainingClass());
-  }
-
   @Override
   public boolean shouldProcess(DeclarationKind kind) {
     return kind == DeclarationKind.CLASS ||
@@ -393,14 +422,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
+    //logger.info("found element " + element + " at level " + currentLevel);
+
     if (element instanceof PsiClass) {
-      classes.add((PsiClass)element);
+      classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
     } else if (element instanceof PsiVariable) {
-      variables.add((PsiVariable)element);
+      variables.add(new ShadowElement<PsiVariable>((PsiVariable)element, currentLevel));
     } else if (element instanceof PsiMethod) {
-      methods.add((PsiMethod)element);
+      methods.add(new ShadowElement<PsiMethod>((PsiMethod)element, currentLevel));
     } else if (element instanceof PsiPackage) {
-      packages.add((PsiPackage)element);
+      packages.add(new ShadowElement<PsiPackage>((PsiPackage)element, currentLevel));
     }
     return true;
   }
@@ -410,8 +441,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (event == JavaScopeProcessorEvent.START_STATIC) {
       logger.debug("starting in static scope");
       inStaticScope = true;
-    } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT)
+    } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
       currentFileContext = (PsiElement)associated;
       logger.debug("switching file context: " + currentFileContext);
+    } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
+      currentLevel++;
+      logger.debug("change level.");
+    }
   }
 }
