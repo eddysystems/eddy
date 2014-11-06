@@ -11,22 +11,20 @@ import tarski.Pretty._
 import scala.collection.JavaConverters._
 
 object Tarski {
-  def environment(types: java.util.Collection[NamedItem], values: java.util.Collection[NamedItem]): Env = {
-    baseEnvironment.addObjects(types.asScala.toList++values.asScala.toList)
+  def environment(values: java.util.Collection[NamedItem]): Env = {
+    baseEnvironment.addObjects(values.asScala.toList)
   }
 
-  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[StmtDen])] = {
+  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[Stmt])] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
     (r map {case (e,ss) => ss.asJava}).c.asJava
   }
 
-  def pretty(stmts: java.util.List[StmtDen]): String = {
-    val ss: List[StmtDen] = stmts.asScala.toList
-    show(tokens(ss))
-  }
+  def pretty(ss: java.util.List[Stmt]): String =
+    show(tokens(ss.asScala.toList))
 
-  def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[StmtDen])] = {
+  def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     println("parsing " + show(tokens))
     val asts = ParseEddy.parse(tokens.filterNot(isSpace))
     if (asts.isEmpty)
@@ -43,7 +41,7 @@ object Tarski {
       throw new RuntimeException("duplicated ast")
 
     // Determine meaning(s)
-    var results: Scored[(Env,List[StmtDen])] = fail
+    var results: Scored[(Env,List[Stmt])] = fail
     for (root <- uasts) {
       println("  ast: " + show(Pretty.tokens(root)))
       //println("  ast: " + root)

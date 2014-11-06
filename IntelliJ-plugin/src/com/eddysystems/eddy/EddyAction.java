@@ -27,8 +27,8 @@ public class EddyAction implements QuestionAction {
       eddy.applyBest();
     } else {
       // show selection dialog
-      final BaseListPopupStep<scala.Tuple2<Scores.Score,List<Denotations.StmtDen>>> step =
-        new BaseListPopupStep<scala.Tuple2<Scores.Score,List<Denotations.StmtDen>>>("eddy suggests:", eddy.getResults()) {
+      final BaseListPopupStep<scala.Tuple2<Scores.Score,List<Denotations.Stmt>>> step =
+        new BaseListPopupStep<scala.Tuple2<Scores.Score,List<Denotations.Stmt>>>("eddy suggests:", eddy.getResults()) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;
@@ -40,7 +40,7 @@ public class EddyAction implements QuestionAction {
           }
 
           @Override
-          public PopupStep onChosen(scala.Tuple2<Scores.Score,List<Denotations.StmtDen>> selectedValue, boolean finalChoice) {
+          public PopupStep onChosen(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> selectedValue, boolean finalChoice) {
             if (selectedValue == null) {
               return FINAL_CHOICE;
             }
@@ -74,18 +74,18 @@ public class EddyAction implements QuestionAction {
           }
 
           @Override
-          public boolean hasSubstep(scala.Tuple2<Scores.Score,List<Denotations.StmtDen>> selectedValue) {
+          public boolean hasSubstep(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> selectedValue) {
             return false;
           }
 
           @NotNull
           @Override
-          public String getTextFor(scala.Tuple2<Scores.Score,List<Denotations.StmtDen>> value) {
+          public String getTextFor(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> value) {
             return eddy.code(value);
           }
 
           @Override
-          public Icon getIconFor(scala.Tuple2<Scores.Score,List<Denotations.StmtDen>> value) {
+          public Icon getIconFor(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> value) {
             return null;
           }
         };

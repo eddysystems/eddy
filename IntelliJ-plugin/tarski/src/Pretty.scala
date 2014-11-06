@@ -2,6 +2,7 @@ package tarski
 
 import AST._
 import tarski.Items.{LocalVariableItem, NamedItem}
+import tarski.Types._
 import tarski.Tokens._
 import tarski.Denotations._
 import scala.language.implicitConversions
@@ -123,7 +124,7 @@ object Pretty {
   def tokens(name: Name): Tokens = List(IdentTok(name))
 
   // AST types
-  implicit def prettyType(t: AType): (Fixity,Tokens) = t match {
+  implicit def prettyAType(t: AType): (Fixity,Tokens) = t match {
     case NameAType(n) => prettyName(n)
     case ModAType(m,t) => fix(ModFix, tokens(m) ::: right(_,t))
     case ArrayAType(t) => fix(ApplyFix, left(_,t) ::: List(LBrackTok(),RBrackTok()))
@@ -132,7 +133,7 @@ object Pretty {
     case WildAType(None) => (HighestFix, List(QuestionTok()))
     case WildAType(Some((b,t))) => fix(WildFix, QuestionTok() :: token(b) :: right(_,t))
   }
-  implicit def prettyTypeArgs(t: Option[KList[AType]]): (Fixity,Tokens) =
+  implicit def prettyATypeArgs(t: Option[KList[AType]]): (Fixity,Tokens) =
     (HighestFix, t map (typeBracket(_)) getOrElse Nil)
 
   // Operators
@@ -190,9 +191,9 @@ object Pretty {
   }}
 
   // AST expressions
-  implicit def prettyExp(e: AExp): (Fixity,Tokens) = e match {
+  implicit def prettyAExp(e: AExp): (Fixity,Tokens) = e match {
     case NameAExp(n) => pretty(n)
-    case x: ALit => prettyLit(x)
+    case x: ALit => prettyALit(x)
     case ParenAExp(e) => (HighestFix,parens(e))
     case FieldAExp(e,t,f) => fix(FieldFix, left(_,e) ::: DotTok() :: tokens(t) ::: tokens(f))
     case MethodRefAExp(e,t,f) => fix(FieldFix, left(_,e) ::: ColonColonTok() :: tokens(t) ::: tokens(f))
@@ -223,7 +224,7 @@ object Pretty {
   }
 
   // AST statements
-  implicit def prettyStmt(s: AStmt): (Fixity,Tokens) = {
+  implicit def prettyAStmt(s: AStmt): (Fixity,Tokens) = {
     def key[A](key: () => Token, x: Option[A])(implicit p: Pretty[A]): (Fixity,Tokens) =
       (SemiFix, key() :: (x map (tokens(_)) getOrElse Nil) ::: List(SemiTok()))
     s match {
@@ -240,7 +241,7 @@ object Pretty {
     }
   }
   implicit def prettyAStmts(ss: List[AStmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(d: (NameDims,Option[AExp])): (Fixity,Tokens) = d match {
+  implicit def prettyAVar(d: (NameDims,Option[AExp])): (Fixity,Tokens) = d match {
     case (x,None) => pretty(x)
     case (x,Some(e)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,e))
   }
@@ -250,7 +251,7 @@ object Pretty {
     }
 
   // Literals
-  implicit def prettyLit(x: ALit) = (HighestFix, List(x match {
+  implicit def prettyALit(x: ALit) = (HighestFix, List(x match {
     case IntALit(v) => IntLitTok(v)
     case LongALit(v) => LongLitTok(v)
     case FloatALit(v) => FloatLitTok(v)
@@ -285,49 +286,69 @@ object Pretty {
     //throw new NotImplementedError("Need to think about scoping.  This routine should return FieldFix sometimes.")
     prettyName(i.name)
   }
-  implicit def prettyExpDen(e: ExpDen): (Fixity,Tokens) = e match {
-    case ParameterExpDen(x) => pretty(x)
-    case LocalVariableExpDen(x) => pretty(x)
-    case EnumConstantExpDen(x) => pretty(x)
-    case CastExpDen(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
-    case UnaryExpDen(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
-    case UnaryExpDen(op,x)               => fix(PostfixFix, left(_,x) ::: List(token(op)))
-    case BinaryExpDen(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
-    case AssignExpDen(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
-    case ParenExpDen(x) => (HighestFix,parens(x))
-    case ApplyExpDen(f,a) => (ApplyFix, (f match {
+  implicit def prettyType(t: Type): (Fixity,Tokens) = {
+    implicit def hi(t: () => Token) = (HighestFix,List(t()))
+    def gen(d: NamedItem, ts: List[Type]) = (ApplyFix, tokens(d) ::: LtTok() :: tokens(CommaList(ts)) ::: List(GtTok()))
+    t match {
+      // Primitive types
+      case VoidType    => VoidTok
+      case BooleanType => BooleanTok
+      case ByteType    => ByteTok
+      case ShortType   => ShortTok
+      case IntType     => IntTok
+      case LongType    => LongTok
+      case FloatType   => FloatTok
+      case DoubleType  => DoubleTok
+      case CharType    => CharTok
+      // Reference types
+      case NullType => pretty("nulltype")
+      case ObjectType => pretty("Object")
+      case ErrorType(n) => pretty(n)
+      case SimpleInterfaceType(d) => pretty(d)
+      case SimpleClassType(d) => pretty(d)
+      case GenericInterfaceType(d,ts) => gen(d,ts)
+      case GenericClassType(d,ts) => gen(d,ts)
+      case ParamType(x) => pretty(x)
+      case IntersectType(ts) => pretty(AndList(ts.toList))
+      case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok(),RBrackTok()))
+    }
+  }
+  implicit def prettyExp(e: Exp): (Fixity,Tokens) = e match {
+    case ParameterExp(x) => pretty(x)
+    case LocalVariableExp(x) => pretty(x)
+    case EnumConstantExp(x) => pretty(x)
+    case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
+    case UnaryExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
+    case UnaryExp(op,x)               => fix(PostfixFix, left(_,x) ::: List(token(op)))
+    case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
+    case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
+    case ParenExp(x) => (HighestFix,parens(x))
+    case ApplyExp(f,a) => (ApplyFix, (f match {
       case MethodDen(x,f) => left(FieldFix,x) ::: DotTok() :: tokens(f.name)
       case LocalMethodDen(f) => tokens(f)
       case StaticMethodDen(f) => tokens(f)
-      case NewDen(c) => NewTok() :: tokens(c.containing)
+      case NewDen(c) => NewTok() :: tokens(c.container)
       case ForwardDen(c) => List(ThisTok())
     }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
-    case FieldExpDen(x,f) => fix(FieldFix, left(_,x) ::: tokens(f.name))
-    case LocalFieldExpDen(f) => pretty(f)
-    case StaticFieldExpDen(f) => pretty(f)
-    case IndexExpDen(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))
+    case FieldExp(x,f) => fix(FieldFix, left(_,x) ::: tokens(f.name))
+    case LocalFieldExp(f) => pretty(f)
+    case StaticFieldExp(f) => pretty(f)
+    case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))
   }
-  implicit def prettyTypeDen(t: TypeDen): (Fixity,Tokens) = prettyNamedItem(t.item)
-  implicit def prettyInitDen(i: InitDen): (Fixity,Tokens) = i match {
-    case ArrayInitDen(is, t) => (HighestFix, LCurlyTok() :: separate(is.map( tokens(_) ),List(CommaTok())) ::: List(RCurlyTok()))
-    case ExpInitDen(e) => pretty(e)
+  implicit def prettyInit(i: Init): (Fixity,Tokens) = i match {
+    case ExpInit(e) => pretty(e)
+    case ArrayInit(xs,t) => (HighestFix, LCurlyTok() :: tokens(CommaList(xs)) ::: List(RCurlyTok()))
   }
-
-  implicit def prettyVarInit(vi: (LocalVariableItem, Option[InitDen])): (Fixity,Tokens) = vi match {
-    case (v,Some(i)) => (AssignFix, tokens(v) ::: List(EqTok()) ::: tokens(i))
-    case (v,None) => pretty(vi)
+  implicit def prettyStmt(s: Stmt): (Fixity,Tokens) = s match {
+    case EmptyStmt() => (SemiFix, List(SemiTok()))
+    case VarStmt(t,vs) => (SemiFix, tokens(t) ::: tokens(CommaList(vs)) ::: List(SemiTok()))
+    case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
+    case BlockStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
   }
-
-  implicit def prettyStmt(s: StmtDen): (Fixity,Tokens) = {
-    def key[A](key: () => Token, x: Option[A])(implicit p: Pretty[A]): (Fixity,Tokens) =
-      (SemiFix, key() :: (x map (tokens(_)) getOrElse Nil) ::: List(SemiTok()))
-    s match {
-      case EmptyStmtDen() => (SemiFix,List(SemiTok()))
-      case VarStmtDen(t, vs) => (SemiFix, tokens(t) ::: separate(vs.map( tokens(_) ),List(CommaTok())) ::: List(SemiTok()) )
-      case ExprStmtDen(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
-      case BlockStmtDen(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
-    }
+  implicit def prettyStmts(ss: List[Stmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
+  implicit def prettyVar(v: (LocalVariableItem,Option[Init])): (Fixity,Tokens) = v match {
+    case (x,None) => pretty(x)
+    case (x,Some(i)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,i))
   }
-  implicit def prettyStmts(ss: List[StmtDen]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
 
 }

@@ -4,7 +4,7 @@ import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutp
 
 import Scores._
 import tarski.Items._
-import tarski.Types.{isSubtype,isProperSubtype}
+import tarski.Types._
 
 object Environment {
   /**
@@ -22,7 +22,7 @@ object Environment {
     }
     
     def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] =
-      if (this.things.exists(_.relativeName == name))
+      if (this.things.exists(_.name == name)) // TODO: Fix name handling
         fail
       else {
         val x = LocalVariableItem(name, t)
@@ -42,33 +42,53 @@ object Environment {
   // Fuzzy Query interface
 
   // What could this name be?
-  def scores(name: String)(implicit env: Env): Scored[EnvItem] =
+  def scores(name: String)(implicit env: Env): Scored[NamedItem] =
     simple(env.things.filter(_.name == name))
 
   // What could this name be, assuming it is a type?
+  // TODO: Handle generics
   def typeScores(name: String)(implicit env: Env): Scored[Type] =
-    simple(env.things.collect({case x: Type if x.name==name => x}))
+    simple(env.things collect { case x: TypeItem if x.name==name => toType(x) })
 
-  // objects of a given type (or subtypes thereof) (name "" matches all objects)
+  // Objects of a given type (or subtypes thereof)
+  def objectsOfType(t: Type)(implicit env: Env): Scored[Value] =
+    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) => i })
   def objectsOfType(name: String, t: Type)(implicit env: Env): Scored[Value] =
-    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) && (name == "" || i.name == name) => i } )
+    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) && i.name == name => i })
 
   // Does a member belong to a type?
-  def memberIn(f: EnvItem, t: Type): Boolean = f match {
-    case m: Member => m.containing == t || ( m.containing match {
-      case c: RefType => isProperSubtype(c,t) // TODO: protected, private are not handled here
-      case _ => false
-    } )
+  def memberIn(f: Item, t: Type): Boolean = f match {
+    case m: ClassMember => {
+      val d = m.container
+      def itemHas(t: TypeItem): Boolean = d == t || (t match {
+        case ObjectItem => false
+        case t: InterfaceItem => t.bases exists typeHas
+        case t: ClassItem => typeHas(t.base) || t.implements.exists(typeHas)
+      })
+      def typeHas(t: RefType): Boolean = t match {
+        case t: InterfaceType => itemHas(t.d)
+        case t: ClassType => itemHas(t.d)
+        case ArrayType(_) => false // TODO: Arrays have lengths
+        case ObjectType => false // TODO: Does Object have fields?
+        case NullType|ErrorType(_)|ParamType(_) => false
+        case IntersectType(ts) => ts exists typeHas
+      }
+      t match {
+        case t: RefType => typeHas(t)
+        case _ => false
+      }
+    }
     case _ => false
   }
 
   // What could this name be, assuming it is a field of the given type?
-  def fieldScores(t: Type, name: String)(implicit env: Env): Scored[EnvItem] =
+  def fieldScores(t: Type, name: String)(implicit env: Env): Scored[NamedItem] =
     simple(env.things.filter(f => f.name == name && memberIn(f,t)))
 
   // What could this be, assuming it is a type field of the given type?
+  // TODO: Handle generics
   def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =
-    simple(env.things.collect({case f: Type if f.name==name && memberIn(f,t) => f}))
+    simple(env.things collect { case f: TypeItem if f.name==name && memberIn(f,t) => toType(f) })
 
   // what could this name be, assuming it is an annotation
   def annotationScores(name: String)(implicit env: Env): Scored[AnnotationItem] =
@@ -91,11 +111,10 @@ object Environment {
     env
   }
 
-  val baseEnvironment = Env(List(BooleanType, IntType, FloatType, LongType, DoubleType, CharType,
-    JavaLangPkg, JavaIoPkg, LocalPkg,
-    ObjectType, Serializable, CharSequence,
-    ComparableEnum, ComparableString, ComparableBoolean, ComparableCharacter, ComparableByte, ComparableShort, ComparableInteger, ComparableLong, ComparableFloat, ComparableDouble,
-    NumberType, EnumBaseType, StringType,
-    BooleanRefType, CharRefType, ByteRefType, ShortRefType, IntRefType, LongRefType, FloatRefType, DoubleRefType
+  val baseEnvironment = Env(List(
+    JavaLangPkg,JavaIoPkg,LocalPkg,
+    CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,EnumBaseItem,
+    StringItem,BooleanItem,CharacterItem,
+    NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem
   ))
 }

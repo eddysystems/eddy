@@ -38,7 +38,7 @@ public class Eddy {
   private Editor editor = null;
   // the results of the interpretation
   private Environment.Env env = null;
-  private List<scala.Tuple2<Scores.Score,List<Denotations.StmtDen>>> results;
+  private List<scala.Tuple2<Scores.Score,List<Denotations.Stmt>>> results;
 
   // a bias for which result is the best one (reset in process())
   private int resultOffset = 0;
@@ -66,7 +66,7 @@ public class Eddy {
     });
   }
 
-  public void apply(scala.Tuple2<Scores.Score,List<Denotations.StmtDen>> r) {
+  public void apply(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> r) {
     apply(code(r._2()));
   }
 
@@ -78,7 +78,7 @@ public class Eddy {
     return editor;
   }
 
-  public List<scala.Tuple2<Scores.Score,List<Denotations.StmtDen>>> getResults() {
+  public List<scala.Tuple2<Scores.Score,List<Denotations.Stmt>>> getResults() {
     return results;
   }
 
@@ -198,9 +198,9 @@ public class Eddy {
 
       String text = "";
 
-      for (scala.Tuple2<Scores.Score,List<Denotations.StmtDen>> interpretation : results) {
+      for (scala.Tuple2<Scores.Score,List<Denotations.Stmt>> interpretation : results) {
         text += "  Interpretation with score " + interpretation._1() + "<br/>";
-        for (Denotations.StmtDen meaning : interpretation._2()) {
+        for (Denotations.Stmt meaning : interpretation._2()) {
           text += "  <q>" + meaning + "</q><br/>";
         }
       }
@@ -245,11 +245,11 @@ public class Eddy {
     return code(results.get(i)._2());
   }
 
-  private String code(List<Denotations.StmtDen> stmts) {
+  private String code(List<Denotations.Stmt> stmts) {
     return Tarski.pretty(stmts);
   }
 
-  public String code(scala.Tuple2<Scores.Score,List<Denotations.StmtDen>> res) {
+  public String code(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> res) {
     return code(res._2());
   }
 
