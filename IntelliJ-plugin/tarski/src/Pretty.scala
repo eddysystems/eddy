@@ -7,6 +7,7 @@ import tarski.Tokens._
 import tarski.Denotations._
 import scala.language.implicitConversions
 import ambiguity.Utility._
+import scala.collection.mutable
 
 object Pretty {
   // Fixity and precedence: to parenthesize or not to parenthesize
@@ -36,50 +37,53 @@ object Pretty {
     //   5:  bad right associative
     def prec = x & ~7
     def assoc = x & 7
-    override def toString = s"Fixity($prec,$assoc)"
+    override def toString = fixityNames(this)+"Fix"
   }
+  private val fixityNames = mutable.Map[Fixity,String]()
 
   // The fixity declarations below go from lowest to highest precedence
   private var nextPrec = 0
-  private def nextFixity(assoc: Int) = {
+  private def nextFixity(assoc: Int)(name: String) = {
     val p = nextPrec
     nextPrec += 1
-    new Fixity(8*p+assoc)
+    val f = new Fixity(8*p+assoc)
+    fixityNames(f) = name
+    f
   }
-  private def N  = nextFixity(0) // nonassociative, good
-  private def NB = nextFixity(1) // nonassociative, bad
-  private def L  = nextFixity(2) // left, good
-  private def LB = nextFixity(3) // left, bad
-  private def R  = nextFixity(4) // right, good
-  private def RB = nextFixity(5) // right, bad
+  private def N  = nextFixity(0)(_) // nonassociative, good
+  private def NB = nextFixity(1)(_) // nonassociative, bad
+  private def L  = nextFixity(2)(_) // left, good
+  private def LB = nextFixity(3)(_) // left, bad
+  private def R  = nextFixity(4)(_) // right, good
+  private def RB = nextFixity(5)(_) // right, bad
 
   // All the kinds of expression fixity in Java, from lowest to highest precedence.
-  val SemiFix      = N // Separating statements
-  val LowestExpFix = N // Sentinel
-  val ModFix       = R // Modifiers
-  val CommaListFix = N // ,-delimited lists
-  val AndListFix   = N // &-delimited lists
-  val LambdaFix    = R
-  val AssignFix    = R
-  val CondFix      = R // 15.25
-  val OrOrFix      = L // 15.24
-  val AndAndFix    = L // 15.23
-  val OrFix        = L // 15.22
-  val XorFix       = L
-  val AndFix       = L
-  val EqFix        = LB // 15.21: Equality operators
-  val RelFix       = LB // 15.20: Relational operators
-  val ShiftFix     = L // 15.19
-  val AddFix       = L // 15.18
-  val MulFix       = L // 15.17
-  val PrefixFix    = N // 15.15.  Includes casts.  The worries about (p)+q shouldn't apply for pretty printing purposes.
-  val PostfixFix   = N // 15.14
-  val WildFix      = N // ? extends T (? alone is HighestFix)
-  val JuxtFix      = N // Juxtaposition lists
-  val NewFix       = N // new x
-  val ApplyFix     = L // x[y], x(y)
-  val FieldFix     = L // x.y
-  val HighestFix   = N // Parentheses, etc.
+  val SemiFix      = N("Semi") // Separating statements
+  val LowestExpFix = N("LowestExp") // Sentinel
+  val ModFix       = R("Mod") // Modifiers
+  val CommaListFix = N("CommaList") // ,-delimited lists
+  val AndListFix   = N("AndList") // &-delimited lists
+  val LambdaFix    = R("Lambda")
+  val AssignFix    = R("Assign")
+  val CondFix      = R("Cond") // 15.25
+  val OrOrFix      = L("OrOr") // 15.24
+  val AndAndFix    = L("AndAnd") // 15.23
+  val OrFix        = L("Or") // 15.22
+  val XorFix       = L("Xor")
+  val AndFix       = L("And")
+  val EqFix        = LB("Eq") // 15.21: Equality operators
+  val RelFix       = LB("Rel") // 15.20: Relational operators
+  val ShiftFix     = L("Shift") // 15.19
+  val AddFix       = L("And") // 15.18
+  val MulFix       = L("Mul") // 15.17
+  val PrefixFix    = N("Prefix") // 15.15.  Includes casts.  The worries about (p)+q shouldn't apply for pretty printing purposes.
+  val PostfixFix   = N("Postfix") // 15.14
+  val WildFix      = N("Wild") // ? extends T (? alone is HighestFix)
+  val JuxtFix      = N("Juxt") // Juxtaposition lists
+  val NewFix       = N("New") // new x
+  val ApplyFix     = L("Apply") // x[y], x(y)
+  val FieldFix     = L("Field") // x.y
+  val HighestFix   = N("Highest") // Parentheses, etc.
 
   // Top level pretty printing
   type Tokens = List[Token]
@@ -110,14 +114,14 @@ object Pretty {
     case x :: y => x ::: sep ::: separate(y,sep)
   }
   implicit def prettyList[A](k: KList[A])(implicit p: Pretty[A]): (Fixity,Tokens) = {
-    val (s,sep) = k match {
+    def wrap(s: Fixity, sep: Tokens) = (s,separate(k.list.map(non(s,_)),sep))
+    k match {
       case EmptyList => (LowestExpFix,Nil)
       case SingleList(x) => pretty(x)
-      case CommaList(_) => (CommaListFix,List(CommaTok()))
-      case JuxtList(_) => (JuxtFix,Nil)
-      case AndList(_) => (AndListFix,List(AndTok()))
+      case CommaList(_) => wrap(CommaListFix,List(CommaTok()))
+      case JuxtList(_) => wrap(JuxtFix,Nil)
+      case AndList(_) => wrap(AndListFix,List(AndTok()))
     }
-    (s,separate(k.list.map(non(s,_)),sep))
   }
 
   // Names
