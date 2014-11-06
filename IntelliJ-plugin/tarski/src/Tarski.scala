@@ -20,7 +20,11 @@ object Tarski {
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[Stmt])] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
-    (r map {case (e,ss) => ss.asJava}).c.asJava
+    // TODO: Propagate error messages into Java
+    ((r map {case (e,ss) => ss.asJava}).all match {
+      case Left(error) => Nil
+      case Right(all) => all
+    }).asJava
   }
 
   def pretty(ss: java.util.List[Stmt]): String =
@@ -34,26 +38,24 @@ object Tarski {
 
     // Check for duplicates
     val uasts = asts.toSet
-    var bad = false
-    for (a <- uasts; n = asts.count(a==_); if n > 1) {
+    val bads = for (a <- uasts; n = asts.count(a==_); if n > 1) yield
       println(s"  $n copied ast: $a")
-      bad = true
-    }
-    if (bad)
+    if (!bads.isEmpty)
       throw new RuntimeException("duplicated ast")
 
     // Determine meaning(s)
-    var results: Scored[(Env,List[Stmt])] = fail
-    for (root <- uasts) {
+    simple(uasts.toList,"Parse failed") flatMap { root => {
       println("  ast: " + show(Pretty.tokens(root)))
       //println("  ast: " + root)
       println("  meanings: ")
       val ds = denoteStmts(root)(env)
-      for ((s,(e,d)) <- ds.c) {
-        println(s"    $s: $d")
+      ds.all match {
+        case Left(e) => println(e.prefixed("    error: "))
+        case Right(all) =>
+          for ((s,(e,d)) <- all)
+            println(s"    $s: $d")
       }
-      results ++= ds
-    }
-    results
+      ds
+    }}
   }
 }

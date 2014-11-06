@@ -17,35 +17,24 @@ import tarski.Items._
 import tarski.Lexer._
 import tarski.Tokens._
 import tarski.Types._
-import tarski.Pretty._
+import tarski.TestUtils._
 import ambiguity.Utility._
 
-class Tests {
-  //val testenv: Env = Environment.envFromFile("test.jenv")
-
-  @BeforeClass
-  def init(): Unit = {
-    // this happens once
-  }
-
-  // Useful implicit conversions
-  implicit def toAExp(i: Int): AExp = IntALit(i.toString)
-  implicit def toExp(i: Int): Exp = IntLit(i,i.toString)
-  implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
-  implicit def toExp(x: LocalVariableItem): Exp = LocalVariableExp(x)
-  implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
+class TestDen {
 
   def testDen(input: String, best: Env => List[Stmt])(implicit env: Env): Unit = {
-    val (env2,stmt) = fix(lex(input).filterNot(isSpace)).best.get
-    assertEquals(best(env2),stmt)
+    fix(lex(input).filterNot(isSpace)).best match {
+      case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
+      case Right((env,s)) => assertEquals(best(env),s)
+    }
   }
   def testDen(input: String, best: Exp)(implicit env: Env): Unit =
     testDen(input, env => List(ExpStmt(best)))
 
   def testOnlyDenotation(input: String, best: Env => List[Stmt])(implicit env: Env) = {
     val fixes = fix(lex(input).filterNot(isSpace))
-    assertEquals(fixes.c.size, 1)
-    val (env2,stmt) = fixes.best.get
+    assertEquals(fixes.all.right.get.length, 1)
+    val (env2,stmt) = fixes.best.right.get
     assertEquals(stmt, best(env2))
   }
 
@@ -99,11 +88,11 @@ class Tests {
 
   @Test
   def arrayLiteral(): Unit = {
-    val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val f = MethodItem("f",main,VoidType,List(ArrayType(IntType)))
-    implicit val env = Env(List(main,f))
-    testDen("f({1,2,3,4})", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayExp(IntType,List(1,2,3,4))))))))
+    val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
+    val main = LocalVariableItem("main",SimpleClassType(Main))
+    val f = MethodItem("f",Main,VoidType,List(ArrayType(IntType)))
+    implicit val env = Env(List(Main,main,f))
+    testDen("f({1,2,3,4})", ApplyExp(MethodDen(main,f),List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
   @Test
@@ -181,53 +170,8 @@ class Tests {
     val T = TypeParamItem("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,List(ParamType(T)))
-    implicit val env = baseEnv.addLocalObjects(List(A))
+    implicit val env = baseEnv.addObjects(List(A,AC), Map((A,2), (AC,1)))
     testDen("x = A(Object())", env => List(VarStmt(GenericClassType(A,List(ObjectType)),
       List((env.exactLocal("x"),Some(ApplyExp(NewDen(AC),List(ApplyExp(NewDen(ObjectConsItem),Nil)))))))))
   }
-
-  @Test
-  def lexer(): Unit = {
-    // Utilities
-    def spaced(ts: List[Token]): List[Token] = ts match {
-      case Nil|List(_) => ts
-      case x :: xs => x :: WhitespaceTok(" ") :: spaced(xs)
-    }
-    def check(name: String, cons: String => Token, options: String) =
-      assertEquals(spaced(splitWhitespace(options) map cons),lex(options))
-
-    assertEquals(spaced(List(AbstractTok(),FinalTok(),DoTok())),lex("abstract final do"))
-    check("ints",IntLitTok,"0 1 17l 0x81 07_43 0b1010_110")
-    check("floats",FloatLitTok,"5.3 .4e-8 0x4.aP1_7")
-    check("chars",CharLitTok,"""'x' '\t' '\n' '\0133'""")
-    check("strings",StringLitTok,""""xyz" "\n\b\r\t" "\0\1\2"""")
-  }
-
-  @Test
-  def pretty(): Unit = {
-    def check(s: String, e: AExp) = assertEquals(s,show(tokens(e)))
-    def add(x: AExp, y: AExp) = BinaryAExp(AddOp(),x,y)
-    def mul(x: AExp, y: AExp) = BinaryAExp(MulOp(),x,y)
-
-    check("1 + 2 + 3",     add(add(1,2),3))
-    check("1 + ( 2 + 3 )", add(1,add(2,3)))
-    check("1 + 2 * 3",     add(1,mul(2,3)))
-    check("1 * 2 + 3",     add(mul(1,2),3))
-    check("1 * ( 2 + 3 )", mul(1,add(2,3)))
-    check("( 1 + 2 ) * 3", mul(add(1,2),3))
-  }
-
-  /*
-  @Test
-  def thisNameResolution(): Unit = {
-    val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val f = FieldItem("f",main,FloatType)
-    val f2 = LocalVariableItem("f",ObjectType)
-    implicit val env = Env(List(main,f))
-
-    // f2 shadows f, so we should only get the f
-    testDenotation("f = 1", )
-
-  }
-  */
 }

@@ -422,7 +422,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    //logger.info("found element " + element + " at level " + currentLevel);
+    logger.info("found element " + element + " at level " + currentLevel);
 
     if (element instanceof PsiClass) {
       classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));

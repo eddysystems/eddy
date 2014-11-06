@@ -369,5 +369,17 @@ object Pretty {
     case (x,None) => pretty(x)
     case (x,Some(i)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,i)(prettyInit))
   }
-
+  implicit def prettyCallable(c: Callable): (Fixity,Tokens) = c match {
+    case MethodDen(x,f) => fix(FieldFix,left(_,x) ::: DotTok() :: tokens(f))
+    case LocalMethodDen(f) => pretty(f)
+    case StaticMethodDen(f) => pretty(f)
+    case NewDen(f) => (ApplyFix,NewTok() :: tokens(f))
+    case ForwardDen(f) => (HighestFix,List(ThisTok()))
+  }
+  implicit def prettyDen(d: Den): (Fixity,Tokens) = d match {
+    case TypeDen(t) => prettyType(t)
+    case c: Callable => prettyCallable(c)
+    case s: Stmt => prettyStmt(s)
+    case e: Exp => prettyExp(e)
+  }
 }
