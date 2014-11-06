@@ -334,11 +334,26 @@ object Pretty {
     case LocalFieldExp(f) => pretty(f)
     case StaticFieldExp(f) => pretty(f)
     case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))
+    case ArrayExp(t,xs) => (ApplyFix, NewTok() :: tokens(ArrayType(t)) ::: prettyArrayExp(xs)._2)
+    case EmptyArrayExp(t,is) => {
+      def inner(t: Type, ts: Tokens): Tokens = t match {
+        case ArrayType(t) => inner(t, ts ::: List(LBrackTok(),RBrackTok()))
+        case t => tokens(t) ::: ts
+      }
+      def outer(t: Type, is: List[Exp], ts: Tokens): Tokens = (t,is) match {
+        case (t,Nil) => inner(t,ts)
+        case (ArrayType(t),i::is) => outer(t, is, ts ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))
+        case _ => throw new RuntimeException("type mismatch (not enough array dimensions)")
+      }
+      (ApplyFix, NewTok() :: outer(t,is,Nil))
+    }
   }
-  implicit def prettyInit(i: Init): (Fixity,Tokens) = i match {
-    case ExpInit(e) => pretty(e)
-    case ArrayInit(xs,t) => (HighestFix, LCurlyTok() :: tokens(CommaList(xs)) ::: List(RCurlyTok()))
+  def prettyInit(e: Exp): (Fixity,Tokens) = e match {
+    case ArrayExp(_,xs) => prettyArrayExp(xs)
+    case e => prettyExp(e)
   }
+  def prettyArrayExp(xs: List[Exp]): (Fixity,Tokens) =
+    (HighestFix, LCurlyTok() :: tokens(CommaList(xs))(prettyList(_)(prettyInit)) ::: List(RCurlyTok()))
   implicit def prettyStmt(s: Stmt): (Fixity,Tokens) = s match {
     case EmptyStmt() => (SemiFix, List(SemiTok()))
     case VarStmt(t,vs) => (SemiFix, tokens(t) ::: tokens(CommaList(vs)) ::: List(SemiTok()))
@@ -346,9 +361,9 @@ object Pretty {
     case BlockStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
   }
   implicit def prettyStmts(ss: List[Stmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(v: (LocalVariableItem,Option[Init])): (Fixity,Tokens) = v match {
+  implicit def prettyVar(v: (LocalVariableItem,Option[Exp])): (Fixity,Tokens) = v match {
     case (x,None) => pretty(x)
-    case (x,Some(i)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,i))
+    case (x,Some(i)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,i)(prettyInit))
   }
 
 }

@@ -110,11 +110,4 @@ object Environment {
     is.close()
     env
   }
-
-  val baseEnvironment = Env(List(
-    JavaLangPkg,JavaIoPkg,LocalPkg,
-    CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,EnumBaseItem,
-    StringItem,BooleanItem,CharacterItem,
-    NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem
-  ))
 }

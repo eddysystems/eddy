@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 
 object Tarski {
   def environment(values: java.util.Collection[NamedItem]): Env = {
-    baseEnvironment.addObjects(values.asScala.toList)
+    Base.baseEnv.addObjects(values.asScala.toList)
   }
 
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[Stmt])] = {

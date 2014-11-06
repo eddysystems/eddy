@@ -199,7 +199,9 @@ object Semantics {
            t <- option(assignOpType(op,xt,yt)))
         yield AssignExp(op,x,y)
 
-    case ArrayAExp(xs,a) => fail // TODO: Handle array literals generally
+    case ArrayAExp(xs,a) =>
+      for (is <- product(xs.list map denoteExp))
+        yield ArrayExp(condTypes(is map typeOf),is)
   }
 
   def denoteExp(n: AExp)(implicit env: Env): Scored[Exp] =
@@ -223,13 +225,8 @@ object Semantics {
     case StaticFieldExp(field) => true // TODO: check for final, private, protected
     case IndexExp(a, i) => isVariable(a)
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
-  }
-
-  def denoteInit(n: AExp)(implicit env: Env): Scored[Init] = n match {
-    case ArrayAExp(xs,_) =>
-      for (is <- product(xs.list map denoteInit))
-        yield ArrayInit(is,condTypes(is map typeOf))
-    case n => denoteExp(n) map ExpInit
+    case ArrayExp(_,_) => false
+    case EmptyArrayExp(_,_) => false
   }
 
   // Statements
@@ -240,7 +237,7 @@ object Semantics {
       val exps = denoteExp(e)(env) map ExpStmt
       val stmts = e match {
         case AssignAExp(None,NameAExp(x),y) =>
-          for {y <- denoteInit(y)(env);
+          for {y <- denoteExp(y)(env);
                t = typeOf(y);
                (env,x) <- env.newVariable(x,t)}
             yield (env,VarStmt(t,List((x,Some(y)))))

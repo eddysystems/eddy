@@ -25,14 +25,9 @@ object Denotations {
   // Statements
   sealed abstract class Stmt extends Den
   case class EmptyStmt() extends Stmt
-  case class VarStmt(t: Type, vs: List[(LocalVariableItem,Option[Init])]) extends Stmt
+  case class VarStmt(t: Type, vs: List[(LocalVariableItem,Option[Exp])]) extends Stmt
   case class ExpStmt(e: Exp) extends Stmt
   case class BlockStmt(b: List[Stmt]) extends Stmt
-
-  // Variable initializers
-  sealed abstract class Init extends Den
-  case class ExpInit(e: Exp) extends Init
-  case class ArrayInit(i: List[Init], t: Type) extends Init // t is the inner type
 
   // It's all expressions from here
   sealed abstract class Exp extends Den
@@ -64,6 +59,8 @@ object Denotations {
   case class StaticFieldExp(field: StaticFieldItem) extends Exp
   case class IndexExp(e: Exp, i: Exp) extends Exp
   case class CondExp(c: Exp, t: Exp, f: Exp, r: Type) extends Exp
+  case class ArrayExp(t: Type, i: List[Exp]) extends Exp // t is the inner type
+  case class EmptyArrayExp(t: Type, i: List[Exp]) extends Exp // new t[i]
 
   def typeOf(d: Exp): Type = d match {
     // Literals
@@ -101,10 +98,8 @@ object Denotations {
       case _ => throw new RuntimeException("type error")
     }
     case CondExp(_,_,_,r) => r
-  }
-
-  def typeOf(i: Init): Type = i match {
-    case ExpInit(e) => typeOf(e)
-    case ArrayInit(_,t) => ArrayType(t)
+    // Arrays
+    case ArrayExp(t,_) => ArrayType(t)
+    case EmptyArrayExp(t,is) => is.foldLeft(t)((t,i) => ArrayType(t))
   }
 }

@@ -2,6 +2,7 @@ package tarski
 
 import tarski.AST._
 import tarski.Items._
+import tarski.Base._
 import ambiguity.Utility._
 
 // Properties of types according to the Java spec, without extra intelligence
