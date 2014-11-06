@@ -36,8 +36,10 @@ class Tests {
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
 
   def testDen(input: String, best: Env => List[Stmt])(implicit env: Env): Unit = {
-    val (env2,stmt) = fix(lex(input).filterNot(isSpace)).best.get
-    assertEquals(best(env2),stmt)
+    fix(lex(input).filterNot(isSpace)).best match {
+      case Left(e) => throw new RuntimeException("denotation error: $e")
+      case Right((env,s)) => assertEquals(best(env),s)
+    }
   }
   def testDen(input: String, best: Exp)(implicit env: Env): Unit =
     testDen(input, env => List(ExpStmt(best)))
@@ -92,11 +94,11 @@ class Tests {
 
   @Test
   def arrayLiteral(): Unit = {
-    val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val f = MethodItem("f",main,VoidType,List(ArrayType(IntType)))
-    implicit val env = Env(List(main,f))
-    testDen("f({1,2,3,4})", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),
-      Some(ArrayExp(IntType,List(1,2,3,4))))))))
+    val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
+    val main = LocalVariableItem("main",SimpleClassType(Main))
+    val f = MethodItem("f",Main,VoidType,List(ArrayType(IntType)))
+    implicit val env = Env(List(Main,main,f))
+    testDen("f({1,2,3,4})", ApplyExp(MethodDen(main,f),List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
   @Test

@@ -1,5 +1,7 @@
 package tarski
 
+import tarski.Pretty._
+
 object Tokens {
 
   sealed abstract class Token
@@ -260,4 +262,7 @@ object Tokens {
 
   def show(ts: List[Token]): String =
     ts map show mkString " "
+
+  def show[A](x: A)(implicit p: Pretty[A]): String =
+    show(tokens(x))
 }

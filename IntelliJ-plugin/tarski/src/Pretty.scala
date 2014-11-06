@@ -369,5 +369,10 @@ object Pretty {
     case (x,None) => pretty(x)
     case (x,Some(i)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,i)(prettyInit))
   }
-
+  implicit def prettyDen(d: Den): (Fixity,Tokens) = d match {
+    case TypeDen(t) => pretty(t)
+    case c: Callable => pretty(c)
+    case s: Stmt => pretty(s)
+    case e: Exp => pretty(e)
+  }
 }

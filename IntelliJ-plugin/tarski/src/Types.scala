@@ -403,4 +403,9 @@ object Types {
     case Some(op) => binaryType(op,t0,t1) filter (castsTo(_,t0))
     case None => if (assignsTo(t1,t0)) Some(t0) else None
   }
+
+  def dimensions(t: Type): Int = t match {
+    case ArrayType(t) => 1+dimensions(t)
+    case _ => 0
+  }
 }

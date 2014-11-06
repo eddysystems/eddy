@@ -6,8 +6,10 @@ import AST._
 import Types._
 import Environment._
 import Items._
-import tarski.Denotations._
+import Denotations._
 import Scores._
+import Tokens.show
+import Pretty.token
 import ambiguity.Utility.notImplemented
 
 object Semantics {
@@ -44,7 +46,7 @@ object Semantics {
     case NameAType(n) => typeScores(n)
     case FieldAType(x,f) => for (t <- denote(x); fi <- typeFieldScores(t,f)) yield fi
     case ModAType(Annotation(_),t) => throw new NotImplementedError("Types with annotations")
-    case ModAType(_,_) => fail
+    case ModAType(_,_) => fail("Not implemented: type modifiers")
     case ArrayAType(t) => denote(t) map ArrayType
     case ApplyAType(_,_) => throw new NotImplementedError("Generics not implemented (ApplyType): " + n)
     case WildAType(_) => throw new NotImplementedError("Type bounds not implemented (WildType): " + n)
@@ -93,7 +95,7 @@ object Semantics {
       case i: StaticMethodItem => single(StaticMethodDen(i))
       case i: ConstructorItem => single(NewDen(i))
       case i: TypeParamItem => single(TypeDen(ParamType(i)))
-      case _: TypeItem => fail // Expression cannot return types
+      case _: TypeItem => fail("Expression cannot return types")
       case _: PackageItem => notImplemented
       case _: AnnotationItem => notImplemented
     }
@@ -106,7 +108,7 @@ object Semantics {
            t <- d match {
              case t: TypeDen => single(t.item)
              case e: Exp => single(typeOf(e))
-             case _ => fail
+             case _ => fail(show(d)+" has no type")
            };
            fi <- fieldScores(t,f);
            r <- (d,fi) match {
@@ -118,8 +120,8 @@ object Semantics {
              case (e: Exp, f: MethodItem) => single(MethodDen(e,f))
              case (_, f: PackageItem) => throw new NotImplementedError("FieldExp: packages not implemented: " + e)
              case (_, f: ConstructorItem) => throw new NotImplementedError("FieldExp: ConstructorItem")
-             case (_, f: LocalItem) => fail // can't qualify locals, parameters, TODO: return something with a low score
-             case _ => fail
+             case (_, f: LocalItem) => fail("Can't qualify locals, parameters") // TODO: return something with a low score
+             case _ => fail(show(fi)+" is not field-like")
            })
         yield r
 
@@ -132,18 +134,20 @@ object Semantics {
     case ApplyAExp(f,xsn,_) => {
       val xsl = xsn.list map denoteExp
       val n = xsl.size
-      def call(f: Callable): Scored[Exp] =
-        if (f.paramTypes.size != n) fail
+      def call(f: Callable): Scored[Exp] = {
+        val fn = f.paramTypes.size
+        if (fn != n) fail(show(f)+s": expected $fn arguments, got $n")
         else {
           val filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs.filter(x => looseInvokeContext(typeOf(x),p))}
           for (xl <- product(filtered)) yield ApplyExp(f,xl)
         }
+      }
       def index(f: Exp, ft: ArrayType): Scored[Exp] = {
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
           case ArrayType(t) => hasDims(t,d-1)
           case _ => false
         })
-        if (!hasDims(ft,n)) fail
+        if (!hasDims(ft,n)) fail(show(e)+s": expected >= $n dimensions, got ${dimensions(ft)}")
         else {
           val filtered = xsl map (xs => xs.filter(x => unbox(typeOf(x)) match {
             case Some(p: PrimType) => promote(p) == IntType
@@ -155,10 +159,10 @@ object Semantics {
       denote(f) flatMap {
         case a: Exp => typeOf(a) match {
           case t: ArrayType => index(a,t)
-          case _ => fail
+          case _ => fail(show(f)+": not an array")
         }
         case c: Callable => call(c)
-        case _ => fail
+        case _ => fail(show(f)+": neither callable nor an array")
       }
     }
 
@@ -196,7 +200,7 @@ object Semantics {
            xt = typeOf(x);
            y <- denoteExp(y);
            yt = typeOf(y);
-           t <- option(assignOpType(op,xt,yt)))
+           t <- orFail(assignOpType(op,xt,yt),s"${show(xt)} ${show(token(op))} ${show(yt)}: invalid assignop"))
         yield AssignExp(op,x,y)
 
     case ArrayAExp(xs,a) =>
@@ -241,7 +245,7 @@ object Semantics {
                t = typeOf(y);
                (env,x) <- env.newVariable(x,t)}
             yield (env,VarStmt(t,List((x,Some(y)))))
-        case _ => fail
+        case _ => fail(show(e)+": expression doesn't look like a statement")
       }
       exps.map((env,_)) ++ stmts
     }

@@ -5,6 +5,8 @@ import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutp
 import Scores._
 import tarski.Items._
 import tarski.Types._
+import tarski.Tokens.show
+import tarski.Pretty._
 
 object Environment {
   /**
@@ -23,7 +25,7 @@ object Environment {
     
     def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] =
       if (this.things.exists(_.name == name)) // TODO: Fix name handling
-        fail
+        fail(s"Invalid new variable $name: already exists")
       else {
         val x = LocalVariableItem(name, t)
         single((addObjects(List(x)),x))
@@ -43,18 +45,21 @@ object Environment {
 
   // What could this name be?
   def scores(name: String)(implicit env: Env): Scored[NamedItem] =
-    simple(env.things.filter(_.name == name))
+    simple(env.things.filter(_.name == name), s"Item $name not found")
 
   // What could this name be, assuming it is a type?
   // TODO: Handle generics
   def typeScores(name: String)(implicit env: Env): Scored[Type] =
-    simple(env.things collect { case x: TypeItem if x.name==name => toType(x) })
+    simple(env.things collect { case x: TypeItem if x.name==name => toType(x) },
+           s"Type $name not found")
 
   // Objects of a given type (or subtypes thereof)
   def objectsOfType(t: Type)(implicit env: Env): Scored[Value] =
-    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) => i })
+    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) => i },
+           s"Value of type ${show(t)} not found")
   def objectsOfType(name: String, t: Type)(implicit env: Env): Scored[Value] =
-    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) && i.name == name => i })
+    simple(env.things collect { case i: Value if isSubtype(i.ourType,t) && i.name == name => i },
+           s"Value $name of type ${show(t)} not found")
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {
@@ -83,16 +88,19 @@ object Environment {
 
   // What could this name be, assuming it is a field of the given type?
   def fieldScores(t: Type, name: String)(implicit env: Env): Scored[NamedItem] =
-    simple(env.things.filter(f => f.name == name && memberIn(f,t)))
+    simple(env.things.filter(f => f.name == name && memberIn(f,t)),
+           s"Type ${show(t)} has no field $name")
 
   // What could this be, assuming it is a type field of the given type?
   // TODO: Handle generics
   def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =
-    simple(env.things collect { case f: TypeItem if f.name==name && memberIn(f,t) => toType(f) })
+    simple(env.things collect { case f: TypeItem if f.name==name && memberIn(f,t) => toType(f) },
+           s"Type ${show(t)} has no type field $name")
 
   // what could this name be, assuming it is an annotation
   def annotationScores(name: String)(implicit env: Env): Scored[AnnotationItem] =
-    simple(env.things.collect({case a: AnnotationItem if a.name==name => a}))
+    simple(env.things.collect({case a: AnnotationItem if a.name==name => a}),
+           "Annotation @$name not found")
 
   def envToFile(env: Env, name: String): Unit = {
     val os = new FileOutputStream(name)

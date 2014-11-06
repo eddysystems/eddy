@@ -18,7 +18,11 @@ object Tarski {
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[Stmt])] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
-    (r map {case (e,ss) => ss.asJava}).c.asJava
+    // TODO: Propagate error messages into Java
+    ((r map {case (e,ss) => ss.asJava}).all match {
+      case Left(error) => Nil
+      case Right(all) => all
+    }).asJava
   }
 
   def pretty(ss: java.util.List[Stmt]): String =
@@ -41,14 +45,17 @@ object Tarski {
       throw new RuntimeException("duplicated ast")
 
     // Determine meaning(s)
-    var results: Scored[(Env,List[Stmt])] = fail
+    var results: Scored[(Env,List[Stmt])] = fail("Parse failed")
     for (root <- uasts) {
       println("  ast: " + show(Pretty.tokens(root)))
       //println("  ast: " + root)
       println("  meanings: ")
       val ds = denoteStmts(root)(env)
-      for ((s,(e,d)) <- ds.c) {
-        println(s"    $s: $d")
+      ds.all match {
+        case Left(e) => println(e.show("    error: "))
+        case Right(all) =>
+          for ((s,(e,d)) <- all)
+            println(s"    $s: $d")
       }
       results ++= ds
     }
