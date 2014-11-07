@@ -293,26 +293,39 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
+    List<NamedItem> items = new ArrayList<NamedItem>(envitems.values());
+
     // find out which element we are inside (method, class or interface, or package)
     NamedItem placeItem = null;
     // walk straight up until we see a method, class, or package
     PsiElement place = this.place;
     while (place != null) {
+      if (place instanceof PsiClass) {
+        // add special items this for each class we're inside of, with same shadowing priority as the class itself
+        assert envitems.containsKey(place);
+        NamedItem c = envitems.get(place);
+        assert localItems.containsKey(c);
+        int p = localItems.get(c);
+
+        items.add(new ThisItem(new toType(c)));
+      }
+
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         assert envitems.containsKey(place);
-        placeItem = envitems.get(place);
-        break;
+        if (placeItem == null)
+          placeItem = envitems.get(place);
       } else if (place instanceof PsiJavaFile) {
         PsiPackage pkg = JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile) place).getPackageName());
         if (pkg == null) {
-          // TODO: probably we're top-level in a file without package statement, use LocalPackageItem
-          logger.info("no package for file " + place);
-          placeItem = Tarski.localPkg();
+          // probably we're top-level in a file without package statement, use LocalPackageItem
+          if (placeItem == null)
+            placeItem = Tarski.localPkg();
         } else {
           assert envitems.containsKey(pkg);
-          placeItem = envitems.get(pkg);
-          break;
+          if (placeItem == null)
+            placeItem = envitems.get(pkg);
         }
+        break;
       }
       place = place.getParent();
     }
@@ -320,7 +333,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.debug("environment taken inside " + placeItem);
 
-    return Tarski.environment(envitems.values(), localItems, placeItem);
+    return Tarski.environment(items, localItems, placeItem);
   }
 
   /**

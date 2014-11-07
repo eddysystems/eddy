@@ -76,6 +76,7 @@ object Items {
   }
 
   // Values
+  case class ThisItem(ourType: ClassType) extends Value("this") with Member with scala.Serializable { def container = ourType.d }
   case class FieldItem(override val name: Name, ourType: Type, container: ClassItem)
     extends Value(name) with ClassMember with scala.Serializable
   case class StaticFieldItem(override val name: Name, ourType: Type, container: TypeItem)
