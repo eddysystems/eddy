@@ -27,7 +27,12 @@ object Tarski {
     }).asJava
   }
 
-  def pretty(ss: java.util.List[Stmt]): String =
+  def prettyJava(ss: java.util.List[Stmt], e: Env): String = {
+    implicit val env = e
+    show(tokens(ss.asScala.toList))
+  }
+
+  def pretty(ss: java.util.List[Stmt])(implicit env: Env): String =
     show(tokens(ss.asScala.toList))
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
