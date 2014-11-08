@@ -12,7 +12,7 @@ import tarski.Tokens._
 class TestEnvironment {
 
   @Test
-  def testStaticShadowing() = {
+  def testStaticShadowedByLocal() = {
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val yf = StaticFieldItem("y",FloatType,main)
     val f = StaticMethodItem("f",main,FloatType,List(ArrayType(IntType)))

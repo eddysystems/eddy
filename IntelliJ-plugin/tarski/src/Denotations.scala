@@ -48,15 +48,15 @@ object Denotations {
   case class ParameterExp(item: ParameterItem) extends Exp
   case class LocalVariableExp(item: LocalVariableItem) extends Exp
   case class EnumConstantExp(item: EnumConstantItem) extends Exp
+  case class StaticFieldExp(field: StaticFieldItem) extends Exp
+  case class LocalFieldExp(field: FieldItem) extends Exp
+  case class FieldExp(obj: Exp, field: FieldItem) extends Exp
   case class CastExp(t: Type, e: Exp) extends Exp
   case class UnaryExp(op: UnaryOp, e: Exp) extends Exp
   case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp
   case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
   case class ParenExp(e: Exp) extends Exp
   case class ApplyExp(f: Callable, args: List[Exp]) extends Exp
-  case class FieldExp(obj: Exp, field: FieldItem) extends Exp
-  case class LocalFieldExp(field: FieldItem) extends Exp
-  case class StaticFieldExp(field: StaticFieldItem) extends Exp
   case class IndexExp(e: Exp, i: Exp) extends Exp
   case class CondExp(c: Exp, t: Exp, f: Exp, r: Type) extends Exp
   case class ArrayExp(t: Type, i: List[Exp]) extends Exp // t is the inner type

@@ -58,9 +58,6 @@ object Semantics {
       case e: Exp => typeOf(e) // Allow expressions to be used as types
     }
 
-  // TODO: Something is local if it can be referred to without qualifiers
-  def isLocal(i: NamedItem): Boolean = false
-
   // Are we contained in the given type, or in something contained in the given type?
   def containedIn(i: NamedItem, t: TypeItem): Boolean = i match {
     case f: Member => f.container == t || containedIn(f.container,t)
@@ -68,17 +65,20 @@ object Semantics {
   }
 
   def denoteValue(i: Value)(implicit env: Env): Scored[Exp] = i match {
-    case i: ParameterItem => single(ParameterExp(i))
-    case i: LocalVariableItem => single(LocalVariableExp(i))
-    case i: EnumConstantItem => single(EnumConstantExp(i))
+    case i: ParameterItem if env.itemInScope(i) => single(ParameterExp(i))
+    case i: LocalVariableItem if env.itemInScope(i) => single(LocalVariableExp(i))
+    case i: StaticFieldItem if env.itemInScope(i) => single(StaticFieldExp(i))
+    case i: ThisItem => notImplemented // can be qualified by casting to supertype, by changing its name to super for the direct supertype, or by prepending class for this of enclosing class
+    case i: EnumConstantItem if env.itemInScope(i) => single(EnumConstantExp(i))
+    // TODO: take proper care of scoping and shadowing here
     case i: FieldItem =>
-      if (isLocal(i))
+      if (env.itemInScope(i))
         single(LocalFieldExp(i))
       else {
         val c = toType(i.container)
         for (obj <- objectsOfType(c) if !containedIn(obj,i.container); objden <- denoteValue(obj)) yield FieldExp(objden, i)
       }
-    case i: StaticFieldItem => single(StaticFieldExp(i))
+    case _ => fail("Can't find a denotation for " + i + ", inaccessible?")
   }
 
   // Expressions
@@ -87,11 +87,13 @@ object Semantics {
       case i: Value => denoteValue(i)
 
       // Callables
+      // TODO: take proper care of scoping and shadowing here
       case i: MethodItem =>
-        if (isLocal(i))
+        if (env.itemInScope(i))
           single(LocalMethodDen(i))
         else
           for (obj <- objectsOfType(toType(i.container)); objden <- denoteValue(obj)) yield MethodDen(objden, i)
+
       case i: StaticMethodItem => single(StaticMethodDen(i))
       case i: ConstructorItem => single(NewDen(i))
       case i: TypeParamItem => single(TypeDen(ParamType(i)))
