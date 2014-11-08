@@ -9,7 +9,7 @@ import Items._
 import Denotations._
 import Scores._
 import Tokens.show
-import Pretty.token
+import Pretty._
 import ambiguity.Utility.notImplemented
 
 object Semantics {
@@ -53,9 +53,10 @@ object Semantics {
   }
 
   def denoteType(n: AExp)(implicit env: Env): Scored[Type] =
-    denote(n) collect {
-      case t: TypeDen => t.item
-      case e: Exp => typeOf(e) // Allow expressions to be used as types
+    denote(n) flatMap {
+      case t: TypeDen => single(t.item)
+      case e: Exp => single(typeOf(e)) // Allow expressions to be used as types
+      case d => fail(show(d)+": has no type")
     }
 
   // Are we contained in the given type, or in something contained in the given type?
@@ -76,7 +77,11 @@ object Semantics {
         single(LocalFieldExp(i))
       else {
         val c = toType(i.container)
-        for (obj <- objectsOfType(c) if !containedIn(obj,i.container); objden <- denoteValue(obj)) yield FieldExp(objden, i)
+        objectsOfType(c).flatMap(x =>
+          if (containedIn(x,i.container))
+            fail(s"Field ${show(i)}: all objects of type ${show(c)} contained in ${show(i.container)}")
+          else
+            denoteValue(x).map(FieldExp(_,i)))
       }
     case _ => fail("Can't find a denotation for " + i + ", inaccessible?")
   }
@@ -140,7 +145,10 @@ object Semantics {
         val fn = f.paramTypes.size
         if (fn != n) fail(show(f)+s": expected $fn arguments (${show(CommaList(f.paramTypes))}), got $n ($xsn)")
         else {
-          val filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs.filter(x => looseInvokeContext(typeOf(x),p))}
+          val filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs flatMap {x =>
+            if (looseInvokeContext(typeOf(x),p)) single(x)
+            else fail(s"Argument ${show(x)} doesn't match type ${show(p)}")
+          }}
           for (xl <- product(filtered)) yield ApplyExp(f,xl)
         }
       }
@@ -151,10 +159,10 @@ object Semantics {
         })
         if (!hasDims(ft,n)) fail(show(e)+s": expected >= $n dimensions, got ${dimensions(ft)}")
         else {
-          val filtered = xsl map (xs => xs.filter(x => unbox(typeOf(x)) match {
-            case Some(p: PrimType) => promote(p) == IntType
-            case _ => false
-          }))
+          val filtered = xsl map (_ flatMap {x => unbox(typeOf(x)) match {
+            case Some(p: PrimType) if promote(p) == IntType => single(x)
+            case _ => fail(s"Index ${show(x)} doesn't convert to int")
+          }})
           for (xl <- product(filtered)) yield xl.foldLeft(f)(IndexExp)
         }
       }
@@ -168,42 +176,47 @@ object Semantics {
       }
     }
 
-    case UnaryAExp(op,x) =>
-      for (x <- denoteExp(x);
-           if unaryLegal(op,typeOf(x)))
-        yield UnaryExp(op,x)
-
-    case BinaryAExp(op,x,y) => {
-      val dy = denoteExp(y);
-      for (x <- denoteExp(x);
-           y <- dy;
-           if binaryLegal(op,typeOf(x),typeOf(y)))
-        yield BinaryExp(op,x,y)
+    case UnaryAExp(op,x) => denoteExp(x) flatMap {
+      case x if unaryLegal(op,typeOf(x)) => single(UnaryExp(op,x))
+      case x => fail(s"${show(e)}: invalid unary ${show(token(op))} on type ${show(typeOf(x))}")
     }
 
-    case CastAExp(t,x) =>
-      for (t <- denote(t);
-           x <- denoteExp(x);
-           if castsTo(typeOf(x),t))
-        yield CastExp(t,x)
+    case BinaryAExp(op,x,y) => product(denoteExp(x),denoteExp(y)) flatMap {case (x,y) => {
+      val tx = typeOf(x)
+      val ty = typeOf(y)
+      if (binaryLegal(op,tx,ty)) single(BinaryExp(op,x,y))
+      else fail("${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
+    }}
 
-    case CondAExp(c,x,y) =>
-      for (c <- denoteExp(c);
-           if isToBoolean(typeOf(c));
-           x <- denoteExp(x);
-           tx = typeOf(x);
-           y <- denoteExp(y);
-           ty = typeOf(y))
-        yield CondExp(c,x,y,condType(tx,ty))
+    case CastAExp(t,x) => product(denote(t),denoteExp(x)) flatMap {case (t,x) => {
+      val tx = typeOf(x)
+      if (castsTo(tx,t)) single(CastExp(t,x))
+      else fail("${show(e)}: can't cast ${show(tx)} to ${show(t)}")
+    }}
 
-    case AssignAExp(op,x,y) =>
-      for (x <- denoteExp(x);
-           if isVariable(x);
-           xt = typeOf(x);
-           y <- denoteExp(y);
-           yt = typeOf(y);
-           t <- orFail(assignOpType(op,xt,yt),s"${show(xt)} ${show(token(op))} ${show(yt)}: invalid assignop"))
-        yield AssignExp(op,x,y)
+    case CondAExp(c,x,y) => {
+      val cc = denoteExp(c) flatMap {c =>
+        if (isToBoolean(typeOf(c))) single(c)
+        else fail("${show(c)}: can't convert to boolean")
+      }
+      product(cc,denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
+        CondExp(c,x,y,condType(typeOf(x),typeOf(y)))}
+    }
+
+    case AssignAExp(op,x,y) => {
+      val xx = denoteExp(x) flatMap {x =>
+        if (isVariable(x)) single(x)
+        else fail("${show(e)}: ${show(x)} cannot be assigned to")
+      }
+      product(xx,denoteExp(y)) flatMap {case (x,y) => {
+        val tx = typeOf(x)
+        val ty = typeOf(y)
+        assignOpType(op,tx,ty) match {
+          case None => fail(s"${show(e)}: invalid assignop ${show(tx)} ${show(token(op))} ${show(ty)}")
+          case Some(t) => single(AssignExp(op,x,y))
+        }
+      }}
+    }
 
     case ArrayAExp(xs,a) =>
       for (is <- product(xs.list map denoteExp))
@@ -211,7 +224,10 @@ object Semantics {
   }
 
   def denoteExp(n: AExp)(implicit env: Env): Scored[Exp] =
-    denote(n) collect {case e: Exp => e}
+    denote(n) flatMap {
+      case e: Exp => single(e)
+      case d => fail("${show(n)}: ${show(d)} isn't an expression")
+    }
 
   def isVariable(e: Exp): Boolean = e match {
     // in java, we can only assign to actual variables, never to values returned by functions or expressions.
@@ -242,11 +258,10 @@ object Semantics {
     case ExpAStmt(e) => {
       val exps = denoteExp(e)(env) map ExpStmt
       val stmts = e match {
-        case AssignAExp(None,NameAExp(x),y) =>
-          for {y <- denoteExp(y)(env);
-               t = typeOf(y);
-               (env,x) <- env.newVariable(x,t)}
-            yield (env,VarStmt(t,List((x,Some(y)))))
+        case AssignAExp(None,NameAExp(x),y) => denoteExp(y)(env) flatMap {y => {
+          val t = typeOf(y)
+          env.newVariable(x,t) map {case (env,x) => (env,VarStmt(t,List((x,Some(y)))))}
+        }}
         case _ => fail(show(e)+": expression doesn't look like a statement")
       }
       exps.map((env,_)) ++ stmts
