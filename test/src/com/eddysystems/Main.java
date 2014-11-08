@@ -15,8 +15,8 @@ public class Main {
                 int x;
                 for (x = 0; x < 3; ++x) {
                   class Q {
-                    int x;
-
+                    int x[];
+                    X.this.x = 1;
                   }
                 }
             }

@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 
 object Tarski {
   def environment(values: java.util.Collection[NamedItem], inScope: java.util.Map[NamedItem,Integer], place: NamedItem): Env = {
-    Base.baseEnv.move(place).addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue))
+    Base.baseEnv.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue)).move(place)
   }
 
   def localPkg(): PackageItem = Base.LocalPkg

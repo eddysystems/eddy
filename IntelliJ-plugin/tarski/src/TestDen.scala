@@ -21,14 +21,19 @@ import ambiguity.Utility._
 class TestDen {
 
   def testDen(input: String, best: Env => List[Stmt])(implicit env: Env): Unit = {
-    fix(lex(input).filterNot(isSpace)).best match {
+    val fixes = fix(lex(input).filterNot(isSpace))
+    //println(fixes)
+    fixes.best match {
       case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
       case Right((env,s)) => assertEquals(best(env),s)
     }
   }
 
+  def testDen(input: String, best: ExpStmt)(implicit env: Env): Unit =
+    testDen(input, env => List(best))
+
   def testDen(input: String, best: Exp)(implicit env: Env): Unit =
-    testDen(input, env => List(ExpStmt(best)))
+    testDen(input, ExpStmt(best))
 
   def testOnlyDenotation(input: String, best: Env => List[Stmt])(implicit env: Env) = {
     val fixes = fix(lex(input).filterNot(isSpace))
@@ -40,7 +45,7 @@ class TestDen {
   @Test
   def assignExp(): Unit = {
     val x = LocalVariableItem("x",IntType)
-    implicit val env = (new Env(List(x))).makeAllLocal()
+    implicit val env = new Env(List(x)).makeAllLocal()
     testDen("x = 1", AssignExp(None,x,1))
   }
 
@@ -151,7 +156,7 @@ class TestDen {
     val f = StaticMethodItem("f",main,FloatType,List(ArrayType(IntType)))
     val x = LocalVariableItem("x",ArrayType(DoubleType))
     val y = LocalVariableItem("y",ArrayType(DoubleType))
-    implicit val env = Env(List(main,f))
+    implicit val env = Env(List(main,f)).makeAllLocal()
     testDen("y = f(x)", env => Nil)
     notImplemented
   }
@@ -173,9 +178,90 @@ class TestDen {
       List((env.exactLocal("x"),Some(ApplyExp(NewDen(AC),List(ApplyExp(NewDen(ObjectConsItem),Nil)))))))))
   }
 
+  @Test
+  def inheritanceShadowing(): Unit = {
+    /* corresponding to
+      class Q {}
+      class R {}
+
+      class X {
+        Q f;
+      }
+      class Y extends X {
+        R f;
+      }
+      class Z {
+        void m(Q d) {}
+      }
+
+      Y y;
+      m(f); // should resolve to m( ((X)y).f )
+     */
+
+    val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
+    val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
+
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val Xf = FieldItem("f", SimpleClassType(Q), X)
+    val Y = NormalClassItem("Y", LocalPkg, Nil, SimpleClassType(X), Nil)
+    val Yf = FieldItem("f", SimpleClassType(R), Y)
+
+    val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
+    val m = MethodItem("m", Z, VoidType, List(SimpleClassType(Q)))
+    val y = LocalVariableItem("y", SimpleClassType(Y))
+    implicit val env = Env(List(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
+
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),List(FieldExp(CastExp(SimpleClassType(X), y), Xf))))
+  }
+
+  @Test
+  def thisToSuper(): Unit = {
+    /* corresponding to
+      class Q {}
+      class R {}
+
+      class X {
+        Q f;
+      }
+      class Y extends X {
+        R f;
+        void m(Q d) {}
+
+        ...
+        m(f); // should resolve to m( super.f )
+      }
+
+     */
+
+    val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
+    val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
+
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val Xf = FieldItem("f", SimpleClassType(Q), X)
+    val Y = NormalClassItem("Y", LocalPkg, Nil, SimpleClassType(X), Nil)
+    val Yf = FieldItem("f", SimpleClassType(R), Y)
+
+    val m = MethodItem("m", Y, VoidType, List(SimpleClassType(Q)))
+    val tY = ThisItem(Y)
+    implicit val env = Env(List(X,Y,Xf,Yf,m,tY), Map((tY,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
+
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),List(FieldExp(SuperExp(tY), Xf))))
+  }
+
+  @Test
+  def thisExp(): Unit = {
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val Xx = FieldItem("x", IntType, X)
+    val x = LocalVariableItem("x", StringType)
+    val t = ThisItem(X)
+    implicit val env = Env(List(X,Xx,x,t), Map((x,1),(X,2),(t,2),(Xx,2)))
+
+    testDen("x = 1", AssignExp(None,FieldExp(ThisExp(t),Xx),1))
+  }
+
   /*
   @Test
-  def testRelativeNames() = {
+  def relativeNames() = {
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
     val X = NormalClassItem("X", LocalPkg, Nil, SimpleClassType(Z), Nil)
     val S = NormalClassItem("S", LocalPkg, Nil, ObjectType, Nil)

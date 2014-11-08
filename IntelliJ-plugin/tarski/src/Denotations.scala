@@ -51,6 +51,8 @@ object Denotations {
   case class StaticFieldExp(field: StaticFieldItem) extends Exp
   case class LocalFieldExp(field: FieldItem) extends Exp
   case class FieldExp(obj: Exp, field: FieldItem) extends Exp
+  case class ThisExp(t: ThisItem) extends Exp
+  case class SuperExp(t: ThisItem) extends Exp // t is the type super is used in, t.base is the type of this expression
   case class CastExp(t: Type, e: Exp) extends Exp
   case class UnaryExp(op: UnaryOp, e: Exp) extends Exp
   case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp
@@ -78,6 +80,9 @@ object Denotations {
     case ParameterExp(i) => i.ourType
     case LocalVariableExp(i) => i.ourType
     case EnumConstantExp(i) => i.ourType
+    case ThisExp(t) => t.ourType
+    case SuperExp(ThisItem(c:NormalClassItem)) => c.base
+    case SuperExp(_) => throw new RuntimeException("type error")
     case CastExp(t,_) => t
     case UnaryExp(op,e) => unaryType(op,typeOf(e)) getOrElse (throw new RuntimeException("type error"))
     case BinaryExp(op,x,y) => binaryType(op,typeOf(x),typeOf(y)) getOrElse (throw new RuntimeException("type error"))

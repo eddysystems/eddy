@@ -57,7 +57,7 @@ public class Eddy {
     ApplicationManager.getApplication().runWriteAction(new Runnable() {
       @Override public void run() {
         if (document != null) {
-          // TODO: get correct replacement string
+          // TODO: re-format code
           int newoffset = tokens_range.getEndOffset() - tokens_range.getLength() + code.length();
           document.replaceString(tokens_range.getStartOffset(), tokens_range.getEndOffset()+1, code);
           editor.getCaretModel().moveToOffset(newoffset);
@@ -206,6 +206,9 @@ public class Eddy {
       }
 
       logger.debug("eddy says:" + text);
+
+      // TODO: check whether one of the computed solutions corresponds to what's currently there. If so, we don't want to replace it
+
     }
   }
 

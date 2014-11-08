@@ -68,9 +68,12 @@ object Semantics {
   def denoteValue(i: Value)(implicit env: Env): Scored[Exp] = i match {
     case i: ParameterItem if env.itemInScope(i) => single(ParameterExp(i))
     case i: LocalVariableItem if env.itemInScope(i) => single(LocalVariableExp(i))
-    case i: StaticFieldItem if env.itemInScope(i) => single(StaticFieldExp(i))
-    case i: ThisItem => notImplemented // can be qualified by casting to supertype, by changing its name to super for the direct supertype, or by prepending class for this of enclosing class
-    case i: EnumConstantItem if env.itemInScope(i) => single(EnumConstantExp(i))
+
+    // we can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
+    case i: StaticFieldItem => single(StaticFieldExp(i))
+    case i: EnumConstantItem => single(EnumConstantExp(i))
+    case i: ThisItem => single(ThisExp(i))
+
     // TODO: take proper care of scoping and shadowing here
     case i: FieldItem =>
       if (env.itemInScope(i))
@@ -81,9 +84,18 @@ object Semantics {
           if (containedIn(x,i.container))
             fail(s"Field ${show(i)}: all objects of type ${show(c)} contained in ${show(i.container)}")
           else
-            denoteValue(x).map(FieldExp(_,i)))
+            denoteValue(x).flatMap( xd =>
+              if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
+                xd match {
+                  case ThisExp(ThisItem(tt:ClassItem)) if tt.base == c => single(FieldExp(SuperExp(ThisItem(tt)),i))
+                  case _ => single(FieldExp(CastExp(c,xd),i))
+                }
+              } else {
+                single(FieldExp(xd,i))
+              }
+            ))
       }
-    case _ => fail("Can't find a denotation for " + i + ", inaccessible?")
+    case _ => fail("Can't find a denotation for " + i + ", inaccessible")
   }
 
   // Expressions
@@ -233,6 +245,8 @@ object Semantics {
     // in java, we can only assign to actual variables, never to values returned by functions or expressions.
     // TODO: implement final, private, protected
     case _: Lit => false
+    case ThisExp(_) => false
+    case SuperExp(_) => false
     case ParameterExp(i) => true // TODO: check for final
     case LocalVariableExp(i) => true // TODO: check for final
     case EnumConstantExp(_) => false

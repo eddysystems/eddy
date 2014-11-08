@@ -38,7 +38,6 @@ public class EddyQuickFix extends BaseElementAtCaretIntentionAction implements H
   @Override
   public boolean showHint(@NotNull final Editor editor) {
 
-    // TODO: this should compute the actual eddy solution for the current line of this editor.
     // Only if it comes up with something will we show a hint.
     eddy.process(editor);
 

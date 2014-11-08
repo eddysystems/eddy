@@ -3,6 +3,7 @@ package tarski
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
 import tarski.Base._
+import tarski.Denotations.{ThisExp, FieldExp, AssignExp}
 import tarski.Environment._
 import tarski.Items._
 import tarski.Types._
@@ -21,6 +22,17 @@ class TestEnvironment {
     implicit val env = Env(List(main,f),scope)
     assertEquals(tokens(y), List(IdentTok("y")))
     assertEquals(tokens(yf), List(IdentTok("Main"),DotTok(), IdentTok("y")))
+  }
+
+  @Test
+  def nestedThisExp(): Unit = {
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val Y = NormalClassItem("Y", X, Nil, ObjectType, Nil)
+    val tX = ThisItem(X)
+    val tY = ThisItem(Y)
+    implicit val env = Env(List(X,Y,tX,tY), Map((tX,2),(X,2),(tY,1),(Y,1)))
+    assertEquals(tokens(ThisExp(tX)), List(IdentTok("X"),DotTok(),ThisTok()))
+    assertEquals(tokens(ThisExp(tY)), List(ThisTok()))
   }
 
 }

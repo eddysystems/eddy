@@ -185,13 +185,22 @@ object Types {
   // Turn a TypeItem into a type
   // TODO: Handle generics
   def toType(i: TypeItem): Type =
-    if (!i.params.isEmpty)
+    if (i.params.nonEmpty)
       notImplemented
     else i match {
       case x: InterfaceItem => SimpleInterfaceType(x)
       case x: ClassItem => SimpleClassType(x)
       case ObjectItem => ObjectType
     }
+
+  // if a type has an associated item, return it
+  def toItem(t: RefType): Option[TypeItem] = t match {
+    case c: ClassType => Some(c.d)
+    case i: InterfaceType => Some(i.d)
+    case ObjectType => Some(ObjectItem)
+    case ArrayType(_)|ErrorType(_)|IntersectType(_)|ParamType(_)|NullType => None
+  }
+
 
   // Does a class implement an interface?
   def implements(c: ClassType, i: InterfaceType): Boolean = {

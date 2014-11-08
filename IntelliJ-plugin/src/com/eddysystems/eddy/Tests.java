@@ -2,6 +2,73 @@ package com.eddysystems.eddy;
 
 import org.testng.annotations.BeforeClass;
 
+class Z {
+  int x;
+}
+
+class V {
+  int x;
+}
+
+class X extends Z {
+  int x;
+  static final Integer q = 0;
+}
+
+class S extends V {
+  int x;
+
+  class Y extends X {
+    int x;
+
+    public void t() {
+      int x = 1;
+
+      int a[];
+
+      x *= 2; // local
+      this.x *= 2; // Y.x
+      super.x *= 2; // X.x
+      ((X)this).x *= 2; // X.x
+      ((Z)this).x *= 2; // Z.x
+      S.this.x *= 2; // S.x
+      S.super.x *= 2; // V.x
+
+      class L {
+        int x = Y.this.x;
+      }
+    }
+  }
+
+  Y y;
+}
+
+class T extends X {
+  static int g;
+  final static Integer q = 0;
+
+  static class R {
+    static class Q {
+      final static Integer q = 0;
+
+      public void test() {
+        g = 2;
+        this.hashCode();
+      }
+    }
+
+    // no static fields here
+  }
+
+  public static void t() {
+    final Integer q = 1;
+
+    q.hashCode(); // local
+    T.q.hashCode(); // T.q
+    X.q.hashCode(); // X.q
+  }
+}
+
 public class Tests {
   @BeforeClass
   public void init() {

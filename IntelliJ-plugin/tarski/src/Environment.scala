@@ -4,6 +4,7 @@ import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutp
 
 import ambiguity.Utility.notImplemented
 import Scores._
+import tarski.AST.Name
 import tarski.Denotations.Exp
 import tarski.Items._
 import tarski.Types._
@@ -50,7 +51,6 @@ object Environment {
       }
 
     // fragile, only use for tests
-    // TODO: should use inScope and return the highest priority one
     def exactLocal(name: String): LocalVariableItem = {
       things collect { case x: LocalVariableItem if x.name == name => x } match {
         case List(x) => x
@@ -98,7 +98,7 @@ object Environment {
         case t: InterfaceType => itemHas(t.d)
         case t: ClassType => itemHas(t.d)
         case ArrayType(_) => false // TODO: Arrays have lengths
-        case ObjectType => false // TODO: Does Object have fields?
+        case ObjectType => itemHas(ObjectItem)
         case NullType|ErrorType(_)|ParamType(_) => false
         case IntersectType(ts) => ts exists typeHas
       }
@@ -108,6 +108,27 @@ object Environment {
       }
     }
     case _ => false
+  }
+
+  // does an item declare a member of the given name
+  def declaresName(i: NamedItem, name: Name)(implicit env: Env): Boolean = {
+    env.things.exists({ case f: Member if f.container == i && f.name == name => true; case _ => false })
+  }
+
+  def shadowedInSubType(i: Member, t: RefType)(implicit env: Env): Boolean = {
+    i.container match {
+      case c: RefTypeItem => {
+        assert(isSubtype(t, toType(c)))
+        toItem(t) match {
+          case Some(ti) if c == ti => false
+          case Some(ti: ClassItem) => declaresName(ti, i.name) || shadowedInSubType(i, ti.base)
+          case None => false
+        }
+      }
+      case PackageItem(_,_) => false // member of package, no subtypes of packages, we're safe
+      case v: Value => throw new RuntimeException(s"container of $i cannot be a value: $v")
+      case _ => notImplemented // TODO: there can be local classes in methods
+    }
   }
 
   // What could this name be, assuming it is a field of the given type?

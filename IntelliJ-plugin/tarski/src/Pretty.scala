@@ -336,6 +336,8 @@ object Pretty {
     case ParameterExp(x) => pretty(x)
     case LocalVariableExp(x) => pretty(x)
     case EnumConstantExp(x) => pretty(x)
+    case ThisExp(i) => if (env.itemInScope(i)) (HighestFix,List(ThisTok())) else (FieldFix, tokens(i.ourItem) ::: DotTok() :: List(ThisTok()))
+    case SuperExp(i) => if (env.itemInScope(i)) (HighestFix,List(SuperTok())) else (FieldFix, tokens(i.ourItem) ::: DotTok() :: List(SuperTok()))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
     case UnaryExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
     case UnaryExp(op,x)               => fix(PostfixFix, left(_,x) ::: List(token(op)))

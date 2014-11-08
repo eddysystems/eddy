@@ -10,7 +10,9 @@ import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
 import org.apache.commons.lang.NotImplementedException;
+import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import scala.collection.JavaConversions;
 import tarski.Environment.Env;
 import tarski.Items.*;
@@ -61,6 +63,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     this.project = project;
     this.place = place;
     this.honorPrivate = honorPrivate;
+
+    logger.setLevel(Level.DEBUG);
+
     PsiScopesUtil.treeWalkUp(this, place, null);
 
     // TODO: find import statements and add those to scope
@@ -73,20 +78,31 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return t;
   }
 
+  private @Nullable PsiPackage getPackage(@NotNull PsiJavaFile file) {
+    PsiPackage pkg = JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
+    return pkg;
+  }
+
   private PsiElement containing(PsiElement cls) {
-    // TODO: handle local classes (parent is PsiDeclarationStatement or similar)
     PsiElement parent = cls.getParent();
     if (parent instanceof PsiJavaFile) {
-      return JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile) parent).getPackageName());
+      return getPackage((PsiJavaFile) parent);
     } else if (parent instanceof PsiClass) {
       return parent;
+    } else if (parent instanceof PsiDeclarationStatement) {
+      while (!(parent instanceof PsiMethod)) {
+        logger.debug("walking up to find containing method for local class " + cls + ": " + parent);
+        parent = parent.getParent();
+      }
+      return parent;
     }
-    logger.error("parent of " + cls + " = " + parent + ", possibly local class.");
-    throw new RuntimeException("unexpected parent of " + cls + " = " + parent);
+    throw new RuntimeException("unexpected container of " + cls + ": " + parent);
   }
 
   private NamedItem addContainerToEnvMap(Map<PsiElement, NamedItem> envitems, PsiElement elem) {
-    // TODO: local classes
+    // local classes
+    if (elem instanceof PsiMethod)
+      return addMethodToEnvMap(envitems, (PsiMethod)elem);
     if (elem instanceof PsiClass)
       return addClassToEnvMap(envitems, (PsiClass)elem);
     else if (elem instanceof PsiPackage) {
@@ -124,7 +140,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     scala.collection.immutable.List<InterfaceType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
 
-    NamedItem container = addContainerToEnvMap(envitems,containing(cls));
+    PsiElement celem = containing(cls);
+    NamedItem container;
+    if (celem != null) {
+      container = addContainerToEnvMap(envitems,celem);
+    } else {
+      container = Tarski.localPkg();
+    }
     TypeItem item = cls.isInterface() ? new InterfaceItem(cls.getName(),container,params,interfaces)
                   : cls.isEnum()      ? new EnumItem(cls.getName(),container,interfaces)
                                       : new NormalClassItem(cls.getName(),container,params,base,interfaces);
@@ -183,8 +205,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         return new tarski.Types.ErrorType(name);
       } else if (tcls instanceof PsiTypeParameter) {
         // TODO: this should resolve to an existing type parameter (stored in the method's or class's type parameters array)
-        throw new NotImplementedException("type parameters");
+        return new tarski.Types.ErrorType("TParam " + ((PsiTypeParameter) tcls).getIndex());
+        //throw new NotImplementedError("type parameters");
         // return new TypeParamType(...);
+      } else if (tcls.isInterface()) {
+        // TODO: Handle generics
+        return new SimpleInterfaceType((InterfaceItem)addClassToEnvMap(envitems,tcls));
       } else {
         // TODO: Handle generics
         return new SimpleClassType((ClassItem)addClassToEnvMap(envitems,tcls));
@@ -209,10 +235,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiClass cls = f.getContainingClass();
     assert cls != null;
     Type t = convertType(envitems,f.getType());
-    ClassItem c = (ClassItem)envitems.get(cls);
-    Value v = f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(), (EnumItem)c) :
-             (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c)
-                                                        : new FieldItem(f.getName(),t,c));
+    RefTypeItem c = (RefTypeItem)envitems.get(cls);
+    Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(), (EnumItem)c) :
+              (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c)
+                                                         : new FieldItem(f.getName(),t,(ClassItem)c));
     envitems.put(f, v);
     return v;
   }
@@ -300,14 +326,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // walk straight up until we see a method, class, or package
     PsiElement place = this.place;
     while (place != null) {
-      if (place instanceof PsiClass) {
+      if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         // add special items this for each class we're inside of, with same shadowing priority as the class itself
         assert envitems.containsKey(place);
-        RefTypeItem c = (RefTypeItem)envitems.get(place);
+        ClassOrObjectItem c = (ClassOrObjectItem)envitems.get(place);
         assert localItems.containsKey(c);
         int p = localItems.get(c);
-
-        items.add(new ThisItem(c));
+        ThisItem ti = new ThisItem(c);
+        items.add(ti);
+        localItems.put(ti,p);
       }
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
@@ -315,7 +342,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (placeItem == null)
           placeItem = envitems.get(place);
       } else if (place instanceof PsiJavaFile) {
-        PsiPackage pkg = JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile) place).getPackageName());
+        PsiPackage pkg = getPackage((PsiJavaFile)place);
         if (pkg == null) {
           // probably we're top-level in a file without package statement, use LocalPackageItem
           if (placeItem == null)
@@ -331,7 +358,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     assert placeItem != null;
 
-    logger.debug("environment taken inside " + placeItem);
+    logger.debug("environment taken inside " + placeItem + ": ");
+
+    for (NamedItem item : items) {
+      logger.debug("  " + item + (localItems.containsKey(item) ? " scope level " + localItems.get(item).toString() : " not in scope."));
+    }
 
     return Tarski.environment(items, localItems, placeItem);
   }
@@ -435,7 +466,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    logger.info("found element " + element + " at level " + currentLevel);
+    logger.debug("found element " + element + " at level " + currentLevel);
 
     if (element instanceof PsiClass) {
       classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
