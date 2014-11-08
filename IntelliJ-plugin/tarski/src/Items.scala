@@ -39,12 +39,13 @@ object Items {
   case class AnnotationItem(override val name: Name, qualifiedName: Name) extends NamedItem(name) with scala.Serializable
 
   // Classes and interfaces
-  sealed abstract class TypeItem(override val name: Name) extends NamedItem(name) with Member with scala.Serializable {
+  sealed abstract class TypeItem(name: Name) extends NamedItem(name) with Member with scala.Serializable {
     def params: List[TypeParamItem]
   }
+  sealed abstract class RefTypeItem(name: Name) extends TypeItem(name) with scala.Serializable
   case class InterfaceItem(override val name: Name, container: NamedItem, params: List[TypeParamItem] = Nil,
-                           bases: List[InterfaceType] = Nil) extends TypeItem(name)
-  sealed abstract class ClassOrObjectItem(override val name: Name) extends TypeItem(name)
+                           bases: List[InterfaceType] = Nil) extends RefTypeItem(name)
+  sealed abstract class ClassOrObjectItem(override val name: Name) extends RefTypeItem(name)
   case object ObjectItem extends ClassOrObjectItem("Object") {
     def container = JavaLangPkg
     def params = Nil
@@ -76,7 +77,10 @@ object Items {
   }
 
   // Values
-  case class ThisItem(ourType: ClassType) extends Value("this") with Member with scala.Serializable { def container = ourType.d }
+  case class ThisItem(ourItem: RefTypeItem) extends Value("this") with Member with scala.Serializable {
+    def container = ourItem; def
+    ourType = toType(ourItem)
+  }
   case class FieldItem(override val name: Name, ourType: Type, container: ClassItem)
     extends Value(name) with ClassMember with scala.Serializable
   case class StaticFieldItem(override val name: Name, ourType: Type, container: TypeItem)

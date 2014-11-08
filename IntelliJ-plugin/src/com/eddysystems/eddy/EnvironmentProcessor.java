@@ -303,11 +303,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (place instanceof PsiClass) {
         // add special items this for each class we're inside of, with same shadowing priority as the class itself
         assert envitems.containsKey(place);
-        NamedItem c = envitems.get(place);
+        RefTypeItem c = (RefTypeItem)envitems.get(place);
         assert localItems.containsKey(c);
         int p = localItems.get(c);
 
-        items.add(new ThisItem(new toType(c)));
+        items.add(new ThisItem(c));
       }
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {

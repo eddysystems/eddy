@@ -2,7 +2,9 @@ package tarski
 
 import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
 
+import ambiguity.Utility.notImplemented
 import Scores._
+import tarski.Denotations.Exp
 import tarski.Items._
 import tarski.Types._
 import tarski.Tokens.show
@@ -24,6 +26,11 @@ object Environment {
       Env(allthings ++ xs, inScope ++ is, place)
     }
 
+    // makes all items local with priority 1 (for tests)
+    def makeAllLocal(): Env = {
+      Env(allthings, things.map( i => (i,1)).toMap)
+    }
+
     // add local objects (they all appear in inScope with priority 1)
     def addLocalObjects(xs: List[NamedItem]): Env = {
       Env(allthings ++ xs, inScope ++ xs.map((_,1)).toMap, place)
@@ -35,8 +42,8 @@ object Environment {
     }
 
     def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] =
-      if (this.things.exists(_.name == name)) // TODO: Fix name handling
-        fail(s"Invalid new variable $name: already exists")
+      if (inScope.exists( { case (LocalVariableItem(iname,_),1) => iname == name; case _ => false } )) // shadowing == 1 => local variable in this block
+        fail(s"Invalid new local variable $name: already exists.")
       else {
         val x = LocalVariableItem(name, t)
         single((addObjects(List(x), Map((x,1))),x))
@@ -51,6 +58,11 @@ object Environment {
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
       }
     }
+
+    // check if an item is in scope and not shadowed by another item
+    def itemInScope(i: NamedItem): Boolean =
+      inScope.contains(i) && !inScope.exists { case (ii,p) => p < inScope.get(i).get && i.name == ii.name }
+
   }
 
   // Fuzzy Query interface
