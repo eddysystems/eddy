@@ -1,7 +1,8 @@
 package tarski
 
 import AST._
-import tarski.Items.{LocalVariableItem, NamedItem}
+import tarski.Environment.Env
+import tarski.Items._
 import tarski.Types._
 import tarski.Tokens._
 import tarski.Denotations._
@@ -286,11 +287,25 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyNamedItem(i: NamedItem): (Fixity,Tokens) = {
-    //throw new NotImplementedError("Need to think about scoping.  This routine should return FieldFix sometimes.")
-    prettyName(i.name)
+  implicit def prettyNamedItem(i: NamedItem)(implicit env: Env): (Fixity,Tokens) = {
+    def staticRelativeName(i: NamedItem with Member) =
+      if (env.itemInScope(i)) pretty(i.name) else (FieldFix, tokens(i.container) ::: DotTok() :: tokens(i.name))
+
+    i match {
+      // types
+      case i: TypeItem => staticRelativeName(i)
+
+      // static members
+      case i: EnumConstantItem => staticRelativeName(i)
+      case i: StaticFieldItem => staticRelativeName(i)
+      case i: StaticMethodItem => staticRelativeName(i)
+
+      // non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)
+      case i: NamedItem => pretty(i.name)
+    }
   }
-  implicit def prettyType(t: Type): (Fixity,Tokens) = {
+
+  implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = {
     implicit def hi(t: () => Token) = (HighestFix,List(t()))
     def gen(d: NamedItem, ts: List[Type]) = (ApplyFix, tokens(d) ::: LtTok() :: tokens(CommaList(ts)) ::: List(GtTok()))
     t match {
@@ -317,7 +332,7 @@ object Pretty {
       case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok(),RBrackTok()))
     }
   }
-  implicit def prettyExp(e: Exp): (Fixity,Tokens) = e match {
+  implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case ParameterExp(x) => pretty(x)
     case LocalVariableExp(x) => pretty(x)
     case EnumConstantExp(x) => pretty(x)
@@ -352,31 +367,31 @@ object Pretty {
       (ApplyFix, NewTok() :: outer(t,is,Nil))
     }
   }
-  def prettyInit(e: Exp): (Fixity,Tokens) = e match {
+  def prettyInit(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case ArrayExp(_,xs) => prettyArrayExp(xs)
     case e => prettyExp(e)
   }
-  def prettyArrayExp(xs: List[Exp]): (Fixity,Tokens) =
+  def prettyArrayExp(xs: List[Exp])(implicit env: Env): (Fixity,Tokens) =
     (HighestFix, LCurlyTok() :: tokens(CommaList(xs))(prettyList(_)(prettyInit)) ::: List(RCurlyTok()))
-  implicit def prettyStmt(s: Stmt): (Fixity,Tokens) = s match {
+  implicit def prettyStmt(s: Stmt)(implicit env: Env): (Fixity,Tokens) = s match {
     case EmptyStmt() => (SemiFix, List(SemiTok()))
     case VarStmt(t,vs) => (SemiFix, tokens(t) ::: tokens(CommaList(vs)) ::: List(SemiTok()))
     case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
     case BlockStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
   }
-  implicit def prettyStmts(ss: List[Stmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(v: (LocalVariableItem,Option[Exp])): (Fixity,Tokens) = v match {
+  implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
+  implicit def prettyVar(v: (LocalVariableItem,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
     case (x,None) => pretty(x)
     case (x,Some(i)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,i)(prettyInit))
   }
-  implicit def prettyCallable(c: Callable): (Fixity,Tokens) = c match {
+  implicit def prettyCallable(c: Callable)(implicit env: Env): (Fixity,Tokens) = c match {
     case MethodDen(x,f) => fix(FieldFix,left(_,x) ::: DotTok() :: tokens(f))
     case LocalMethodDen(f) => pretty(f)
     case StaticMethodDen(f) => pretty(f)
     case NewDen(f) => (ApplyFix,NewTok() :: tokens(f))
     case ForwardDen(f) => (HighestFix,List(ThisTok()))
   }
-  implicit def prettyDen(d: Den): (Fixity,Tokens) = d match {
+  implicit def prettyDen(d: Den)(implicit env: Env): (Fixity,Tokens) = d match {
     case TypeDen(t) => prettyType(t)
     case c: Callable => prettyCallable(c)
     case s: Stmt => prettyStmt(s)
