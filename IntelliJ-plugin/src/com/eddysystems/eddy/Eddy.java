@@ -246,7 +246,7 @@ public class Eddy {
   }
 
   private String code(List<Denotations.Stmt> stmts) {
-    return Tarski.pretty(stmts);
+    return Tarski.pretty(stmts, env);
   }
 
   public String code(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> res) {
