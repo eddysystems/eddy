@@ -336,21 +336,24 @@ object Pretty {
     case ParameterExp(x) => pretty(x)
     case LocalVariableExp(x) => pretty(x)
     case EnumConstantExp(x) => pretty(x)
-    case ThisExp(i) => if (env.itemInScope(i)) (HighestFix,List(ThisTok())) else (FieldFix, tokens(i.ourItem) ::: DotTok() :: List(ThisTok()))
-    case SuperExp(i) => if (env.itemInScope(i)) (HighestFix,List(SuperTok())) else (FieldFix, tokens(i.ourItem) ::: DotTok() :: List(SuperTok()))
+    case ThisExp(i) => if (env.itemInScope(i)) (HighestFix,List(ThisTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(ThisTok()))
+    case SuperExp(i) => if (env.itemInScope(i)) (HighestFix,List(SuperTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(SuperTok()))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
     case UnaryExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
     case UnaryExp(op,x)               => fix(PostfixFix, left(_,x) ::: List(token(op)))
     case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
-    case ApplyExp(f,a) => (ApplyFix, (f match {
-      case MethodDen(x,f) => left(FieldFix,x) ::: DotTok() :: tokens(f.name)
-      case LocalMethodDen(f) => tokens(f)
-      case StaticMethodDen(f) => tokens(f)
-      case NewDen(c) => NewTok() :: tokens(c.container)
-      case ForwardDen(c) => List(ThisTok())
-    }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
+    case ApplyExp(f,ts,a) => {
+      val t = tokensTypeArgs(ts)
+      (ApplyFix, (f match {
+        case MethodDen(x,f) => left(FieldFix,x) ::: DotTok() :: t ::: tokens(f.name)
+        case LocalMethodDen(f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
+        case StaticMethodDen(f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
+        case NewDen(c) => NewTok() :: t ::: tokens(c.container) // TODO: ts splits into two lists in different places
+        case ForwardDen(c) => ThisTok() :: t
+      }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
+    }
     case FieldExp(x,f) => fix(FieldFix, left(_,x) ::: tokens(f.name))
     case LocalFieldExp(f) => pretty(f)
     case StaticFieldExp(f) => pretty(f)
@@ -369,6 +372,12 @@ object Pretty {
       (ApplyFix, NewTok() :: outer(t,is,Nil))
     }
   }
+  def tokensTypeArgs[A](ts: List[A])(implicit p: Pretty[A]): Tokens = ts match {
+    case Nil => Nil
+    case ts => LtTok() :: separate(ts.map(tokens(_)),List(CommaTok())) ::: List(GtTok())
+  }
+  def tokensSig(f: Signature)(implicit env: Env): Tokens =
+    tokensTypeArgs(f.tparams) ::: LParenTok() :: tokens(CommaList(f.params)) ::: List(RParenTok())
   def prettyInit(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case ArrayExp(_,xs) => prettyArrayExp(xs)
     case e => prettyExp(e)

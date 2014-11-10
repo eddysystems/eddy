@@ -12,15 +12,21 @@ object Denotations {
   case class TypeDen(item: Type) extends Den
 
   // Callables
-  sealed abstract class Callable extends Den {
+  sealed abstract class Callable extends Den with Signature {
     val f: CallableItem
-    def paramTypes: List[Type] = f.paramTypes
   }
-  case class MethodDen(obj: Exp, override val f: MethodItem) extends Callable
-  case class LocalMethodDen(override val f: MethodItem) extends Callable
-  case class StaticMethodDen(override val f: StaticMethodItem) extends Callable
-  case class NewDen(override val f: ConstructorItem) extends Callable
-  case class ForwardDen(override val f: ConstructorItem) extends Callable
+  sealed abstract class NonNewCallable extends Callable {
+    def tparams: List[TypeParamItem] = f.tparams
+    def params: List[Type] = f.params
+  }
+  case class MethodDen(obj: Exp, override val f: MethodItem) extends NonNewCallable
+  case class LocalMethodDen(override val f: MethodItem) extends NonNewCallable
+  case class StaticMethodDen(override val f: StaticMethodItem) extends NonNewCallable
+  case class ForwardDen(override val f: ConstructorItem) extends NonNewCallable
+  case class NewDen(override val f: ConstructorItem) extends Callable {
+    def tparams = f.container.params ++ f.tparams
+    def params = f.params
+  }
 
   // Statements
   sealed abstract class Stmt extends Den
@@ -58,7 +64,7 @@ object Denotations {
   case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp
   case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
   case class ParenExp(e: Exp) extends Exp
-  case class ApplyExp(f: Callable, args: List[Exp]) extends Exp
+  case class ApplyExp(f: Callable, targs: List[RefType], args: List[Exp]) extends Exp
   case class IndexExp(e: Exp, i: Exp) extends Exp
   case class CondExp(c: Exp, t: Exp, f: Exp, r: Type) extends Exp
   case class ArrayExp(t: Type, i: List[Exp]) extends Exp // t is the inner type
@@ -88,11 +94,11 @@ object Denotations {
     case BinaryExp(op,x,y) => binaryType(op,typeOf(x),typeOf(y)) getOrElse (throw new RuntimeException("type error"))
     case AssignExp(op,left,right) => typeOf(left)
     case ParenExp(e) => typeOf(e)
-    case ApplyExp(f,_) => f match {
-      case MethodDen(_,f) => f.retVal
-      case LocalMethodDen(f) => f.retVal
-      case StaticMethodDen(f) => f.retVal
-      case NewDen(c) => toType(c.container)
+    case ApplyExp(f,ts,_) => f match {
+      case MethodDen(_,f)     => substitute(f.tparams,ts,f.retVal)
+      case LocalMethodDen(f)  => substitute(f.tparams,ts,f.retVal)
+      case StaticMethodDen(f) => substitute(f.tparams,ts,f.retVal)
+      case NewDen(c) => toType(c.container,ts.take(c.container.arity))
       case ForwardDen(_) => VoidType
     }
     case FieldExp(_,f) => f.ourType

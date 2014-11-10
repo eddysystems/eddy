@@ -167,7 +167,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       addClassToEnvMap(envitems, cls);
     }
     TypeItem clsitem = (TypeItem)envitems.get(cls);
-
+    scala.collection.immutable.List<TypeParamItem> tparams = scala.collection.JavaConversions.asScalaBuffer(
+      new ArrayList<TypeParamItem>()).toList();
     CallableItem mitem;
 
     if (method.isConstructor()) {
@@ -175,7 +176,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // TODO: varargs
       // TODO: get type parameters
       // TODO: what to do with parameters depending on type parameters and bounded types and such?
-      mitem = new ConstructorItem((ClassItem)clsitem, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+      mitem = new ConstructorItem((ClassItem)clsitem, tparams, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     } else {
       // TODO: varargs
       // TODO: get type parameters
@@ -183,9 +184,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       Type rtype = convertType(envitems, method.getReturnType());
 
       if (method.hasModifierProperty(PsiModifier.STATIC))
-        mitem = new StaticMethodItem(method.getName(), clsitem, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new StaticMethodItem(method.getName(), clsitem, tparams, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
       else
-        mitem = new MethodItem(method.getName(), clsitem, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new MethodItem(method.getName(), clsitem, tparams, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     }
 
     envitems.put(method, mitem);
@@ -329,7 +330,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         // add special items this for each class we're inside of, with same shadowing priority as the class itself
         assert envitems.containsKey(place);
-        ClassOrObjectItem c = (ClassOrObjectItem)envitems.get(place);
+        ClassItem c = (ClassItem)envitems.get(place);
         assert localItems.containsKey(c);
         int p = localItems.get(c);
         ThisItem ti = new ThisItem(c);

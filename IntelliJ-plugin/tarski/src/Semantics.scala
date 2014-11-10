@@ -79,16 +79,16 @@ object Semantics {
       if (env.itemInScope(i))
         single(LocalFieldExp(i))
       else {
-        val c = toType(i.container)
-        objectsOfType(c).flatMap(x =>
+        val c = i.container
+        objectsOfItem(c).flatMap(x =>
           if (containedIn(x,i.container))
-            fail(s"Field ${show(i)}: all objects of type ${show(c)} contained in ${show(i.container)}")
+            fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
           else
             denoteValue(x).flatMap( xd =>
               if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
                 xd match {
                   case ThisExp(ThisItem(tt:ClassItem)) if tt.base == c => single(FieldExp(SuperExp(ThisItem(tt)),i))
-                  case _ => single(FieldExp(CastExp(c,xd),i))
+                  case _ => single(FieldExp(CastExp(toType(c,Nil),xd),i))
                 }
               } else {
                 single(FieldExp(xd,i))
@@ -109,7 +109,7 @@ object Semantics {
         if (env.itemInScope(i))
           single(LocalMethodDen(i))
         else
-          for (obj <- objectsOfType(toType(i.container)); objden <- denoteValue(obj)) yield MethodDen(objden, i)
+          for (obj <- objectsOfItem(i.container); obj <- denoteValue(obj)) yield MethodDen(obj, i)
 
       case i: StaticMethodItem => single(StaticMethodDen(i))
       case i: ConstructorItem => single(NewDen(i))
@@ -131,7 +131,7 @@ object Semantics {
            };
            fi <- fieldScores(t,f);
            r <- (d,fi) match {
-             case (_, f: TypeItem) => single(TypeDen(toType(f)))
+             case (_, f: TypeItem) => single(TypeDen(toType(f,Nil)))
              case (_, f: EnumConstantItem) => single(EnumConstantExp(f))
              case (_, f: StaticFieldItem) => single(StaticFieldExp(f))
              case (e: Exp, f: FieldItem) => single(FieldExp(e,f))
@@ -154,15 +154,13 @@ object Semantics {
       val xsl = xsn.list map denoteExp
       val n = xsl.size
       def call(f: Callable): Scored[Exp] = {
-        val fn = f.paramTypes.size
-        if (fn != n) fail(show(f)+s": expected $fn arguments (${show(CommaList(f.paramTypes))}), got $n ($xsn)")
-        else {
-          val filtered = (f.paramTypes zip xsl) map {case (p,xs) => xs flatMap {x =>
-            if (looseInvokeContext(typeOf(x),p)) single(x)
-            else fail(s"Argument ${show(x)} doesn't match type ${show(p)}")
-          }}
-          for (xl <- product(filtered)) yield ApplyExp(f,xl)
-        }
+        val fn = f.params.size
+        if (fn != n) fail(show(f)+s": expected $fn arguments (${show(CommaList(f.params))}), got $n ($xsn)")
+        else product(xsl) flatMap { xl => resolve(List(f),xl map typeOf) match {
+          case None => fail(show(f)+": params "+show(tokensSig(f))
+                            +" don't match arguments "+show(CommaList(xl))+" with types "+show(CommaList(xl map typeOf)))
+          case Some((_,ts)) => single(ApplyExp(f,ts,xl))
+        }}
       }
       def index(f: Exp, ft: ArrayType): Scored[Exp] = {
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
@@ -255,7 +253,7 @@ object Semantics {
     case BinaryExp(_,_,_) => false
     case AssignExp(_,_,_) => false
     case ParenExp(x) => isVariable(x)
-    case ApplyExp(_,_) => false
+    case ApplyExp(_,_,_) => false
     case FieldExp(obj, field) => true // TODO: check for final, private, protected
     case LocalFieldExp(field) => true // TODO: check for final
     case StaticFieldExp(field) => true // TODO: check for final, private, protected

@@ -22,8 +22,9 @@ object Items {
   }
 
   // Type parameters
-  case class TypeParamItem(override val name: String) extends NamedItem(name) with NoLookupItem with scala.Serializable {
-    def qualifiedName = "notImplemented"
+  case class TypeParamItem(override val name: String)
+    extends NamedItem(name) with NoLookupItem with scala.Serializable {
+    def qualifiedName = name
   }
 
   // NamedItems that have a type
@@ -32,7 +33,8 @@ object Items {
   }
 
   // A method or constructor
-  sealed abstract class CallableItem(name: Name, val paramTypes: List[Type]) extends NamedItem(name) with scala.Serializable
+  sealed abstract class CallableItem(name: Name, val tparams: List[TypeParamItem], val params: List[Type])
+    extends NamedItem(name) with scala.Serializable
 
   // Miscellaneous
   case class PackageItem(override val name: Name, qualifiedName: Name) extends NamedItem(name) with scala.Serializable
@@ -41,6 +43,7 @@ object Items {
   // Classes and interfaces
   sealed abstract class TypeItem(name: Name) extends NamedItem(name) with Member with scala.Serializable {
     def params: List[TypeParamItem]
+    def arity: Int = params.size
   }
   sealed abstract class RefTypeItem(name: Name) extends TypeItem(name) with scala.Serializable
   case class InterfaceItem(override val name: Name, container: NamedItem, params: List[TypeParamItem] = Nil,
@@ -77,9 +80,12 @@ object Items {
   }
 
   // Values
-  case class ThisItem(ourItem: ClassOrObjectItem) extends Value("this") with scala.Serializable {
-    def qualifiedName = ourItem.qualifiedName + ".this"
-    def ourType: ClassOrObjectType = toType(ourItem).asInstanceOf[ClassOrObjectType]
+  case class ThisItem(self: ClassItem) extends Value("this") with scala.Serializable {
+    def qualifiedName = self.qualifiedName + ".this"
+    def ourType = {
+      assert(self.params.isEmpty)
+      SimpleClassType(self)
+    }
   }
   case class FieldItem(override val name: Name, ourType: Type, container: ClassItem)
     extends Value(name) with ClassMember with scala.Serializable
@@ -96,13 +102,14 @@ object Items {
 
   // Callables
   case class MethodItem(override val name: Name, override val container: TypeItem,
-                        retVal: Type, override val paramTypes: List[Type])
-    extends CallableItem(name,paramTypes) with ClassMember with scala.Serializable
+                        override val tparams: List[TypeParamItem], retVal: Type, override val params: List[Type])
+    extends CallableItem(name,tparams,params) with ClassMember with scala.Serializable
   case class StaticMethodItem(override val name: Name, override val container: TypeItem,
-                              retVal: Type, override val paramTypes: List[Type])
-    extends CallableItem(name,paramTypes) with ClassMember with scala.Serializable
-  case class ConstructorItem(container: ClassOrObjectItem, override val paramTypes: List[Type])
-    extends CallableItem(container.name,paramTypes) with ClassMember with scala.Serializable
+                              override val tparams: List[TypeParamItem], retVal: Type, override val params: List[Type])
+    extends CallableItem(name,tparams,params) with ClassMember with scala.Serializable
+  case class ConstructorItem(container: ClassOrObjectItem,
+                             override val tparams: List[TypeParamItem], override val params: List[Type])
+    extends CallableItem(container.name,tparams,params) with ClassMember with scala.Serializable
 
   // Items that have no qualified names
   sealed trait LocalItem {

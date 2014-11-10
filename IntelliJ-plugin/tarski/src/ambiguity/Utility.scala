@@ -24,6 +24,12 @@ object Utility {
     Literal(Constant(raw)).toString
   }
 
+  // Iterate a function until referential equality fixpoint is reached
+  def fixRef[A <: AnyRef](x: A)(f: A => A): A = {
+    val fx = f(x)
+    if (x eq fx) x else fixRef(fx)(f)
+  }
+
   // Memoize the fixpoint of a recursive function
   def fixpoint[A,B](base: B, f: (A => B, A) => B): A => B = {
     val done = smutable.Map[A,B]()

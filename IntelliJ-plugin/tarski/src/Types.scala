@@ -9,10 +9,11 @@ import ambiguity.Utility._
 object Types {
   // Types
   sealed abstract class Type extends scala.Serializable
-  case object VoidType extends Type
+  sealed trait SimpleType // Definitely no type variables
+  case object VoidType extends Type with SimpleType
 
   // Primitive types
-  sealed abstract class PrimType extends Type
+  sealed abstract class PrimType extends Type with SimpleType
   sealed abstract class NumType extends PrimType
   case object BooleanType extends PrimType // boolean
   case object ByteType    extends NumType  // byte
@@ -26,6 +27,16 @@ object Types {
   // Reference types
   sealed abstract class RefType extends Type
   sealed abstract class ClassOrObjectType extends RefType
+  sealed trait ClassOrInterfaceType extends RefType {
+    def d: TypeItem
+  }
+  sealed trait SimpleClassOrInterface extends RefType with SimpleType with ClassOrInterfaceType {
+    def d: TypeItem
+  }
+  sealed trait GenericType extends RefType with ClassOrInterfaceType {
+    def d: TypeItem
+    def args: List[RefType]
+  }
   sealed abstract class InterfaceType(val d: InterfaceItem) extends RefType {
     def bases: List[InterfaceType]
   }
@@ -33,22 +44,23 @@ object Types {
     def base: ClassOrObjectType
     def implements: List[InterfaceType]
   }
-  case object NullType extends RefType
-  case object ObjectType extends ClassOrObjectType
-  case class ErrorType(name: Name) extends RefType
-  case class SimpleInterfaceType(override val d: InterfaceItem) extends InterfaceType(d) {
+  case object NullType extends RefType with SimpleType
+  case object ObjectType extends ClassOrObjectType with SimpleType
+  case class ErrorType(name: Name) extends RefType with SimpleType
+  case class SimpleInterfaceType(override val d: InterfaceItem) extends InterfaceType(d) with SimpleClassOrInterface {
     def bases = d.bases
   }
-  case class GenericInterfaceType(override val d: InterfaceItem, a: List[RefType]) extends InterfaceType(d) {
-    implicit def tenv = (d.params,a).zipped.toMap
+  case class GenericInterfaceType(override val d: InterfaceItem, args: List[RefType])
+    extends InterfaceType(d) with GenericType {
+    implicit def tenv = (d.params,args).zipped.toMap
     def bases = d.bases map substitute
   }
-  case class SimpleClassType(override val d: ClassItem) extends ClassType(d) {
+  case class SimpleClassType(override val d: ClassItem) extends ClassType(d) with SimpleClassOrInterface {
     def base = d.base
     def implements = d.implements
   }
-  case class GenericClassType(override val d: ClassItem, a: List[RefType]) extends ClassType(d) {
-    implicit def tenv = (d.params,a).zipped.toMap
+  case class GenericClassType(override val d: ClassItem, args: List[RefType]) extends ClassType(d) with GenericType {
+    implicit def tenv = (d.params,args).zipped.toMap
     def base = substitute(d.base)
     def implements = d.implements map substitute
   }
@@ -164,34 +176,51 @@ object Types {
   def unaryLegal(op: UnaryOp, t: Type) = unaryType(op,t).isDefined
   def binaryLegal(op: BinaryOp, t0: Type, t1: Type) = binaryType(op,t0,t1).isDefined
 
-  // Substitute type parameters in a type
-  def substitute(t: RefType)(implicit tenv: Map[TypeParamItem,RefType]): RefType = t match {
-    case ParamType(v) => tenv get v getOrElse t
-    case i: InterfaceType => substitute(i)
-    case c: ClassOrObjectType => substitute(c)
-    case ArrayType(x:RefType) => substitute(x)
+  // Substitute type parameters in a type.
+  // Substitution is intentionally *not* recursive.  Each type parameter is substituted once and only once.
+  // I believe this will make recursive generic function callers easier to handle.
+  type TEnv = Map[TypeParamItem,RefType]
+  def substitute(t: RefType)(implicit tenv: TEnv): RefType = t match {
+    case ParamType(v) => tenv.getOrElse(v,t)
+    case GenericInterfaceType(d,xs) => GenericInterfaceType(d,xs map substitute)
+    case GenericClassType(d,xs) => GenericClassType(d,xs map substitute)
+    case ArrayType(t:RefType) => ArrayType(substitute(t))
     case IntersectType(xs) => IntersectType(xs map substitute)
-    case NullType|_:ErrorType|ArrayType(VoidType|_:PrimType) => t
+    case _:SimpleType|ArrayType(VoidType|_:PrimType) => t
   }
-  def substitute(t: InterfaceType)(implicit tenv: Map[TypeParamItem,RefType]): InterfaceType = t match {
+  def substitute(t: InterfaceType)(implicit tenv: TEnv): InterfaceType = t match {
     case SimpleInterfaceType(_) => t
     case GenericInterfaceType(d,xs) => GenericInterfaceType(d,xs map substitute)
   }
-  def substitute(t: ClassOrObjectType)(implicit tenv: Map[TypeParamItem,RefType]): ClassOrObjectType = t match {
+  def substitute(t: ClassOrObjectType)(implicit tenv: TEnv): ClassOrObjectType = t match {
     case ObjectType|SimpleClassType(_) => t
     case GenericClassType(d,xs) => GenericClassType(d,xs map substitute)
   }
+  def substituteAny(t: Type)(implicit tenv: TEnv): Type = t match {
+    case t: RefType => substitute(t)
+    case _ => t
+  }
+
+  // Substitute given tenv as two lists
+  def substitute(vs: List[TypeParamItem], ts: List[RefType], t: Type): Type =
+    if (vs.isEmpty) t
+    else substituteAny(t)((vs,ts).zipped.toMap)
 
   // Turn a TypeItem into a type
   // TODO: Handle generics
-  def toType(i: TypeItem): Type =
-    if (i.params.nonEmpty)
-      notImplemented
-    else i match {
-      case x: InterfaceItem => SimpleInterfaceType(x)
-      case x: ClassItem => SimpleClassType(x)
+  def toType(i: TypeItem, ts: List[RefType]): Type = {
+    val n = i.arity
+    assert(n == ts.size)
+    if (n == 0) i match {
+      case i: InterfaceItem => SimpleInterfaceType(i)
+      case c: ClassItem => SimpleClassType(c)
       case ObjectItem => ObjectType
+    } else i match {
+      case i: InterfaceItem => GenericInterfaceType(i,ts)
+      case c: ClassItem => GenericClassType(c,ts)
+      case ObjectItem => throw new RuntimeException("Object has no type parameters")
     }
+  }
 
   // if a type has an associated item, return it
   def toItem(t: RefType): Option[TypeItem] = t match {
@@ -235,6 +264,21 @@ object Types {
     // leftover RefTypes are not subtypes of anything
     case (_:RefType, _)|(_,_:RefType) => false
   }
+
+  // Same as above, but for items (types without their type arguments)
+  def isSubitem(lo: Type, hi: TypeItem): Boolean = lo match {
+    case NullType => true // null can be anything
+    case VoidType|_:PrimType|_:ErrorType => false
+    case _:RefType if hi==ObjectItem => true // Every ref is Object, even interfaces and enums
+    case ObjectType => false // Object is a subtype only of itself
+    case ArrayType(_) => false // TODO: Actually, arrays are Cloneable and Serializable
+    case lo:ClassOrInterfaceType => isSubitem(lo.d,hi)
+  }
+  def isSubitem(lo: TypeItem, hi: TypeItem): Boolean = lo==hi || (lo match {
+    case ObjectItem => false // Object is a subitem only of itself
+    case lo: InterfaceItem => lo.bases exists (isSubitem(_,hi))
+    case lo: ClassItem => isSubitem(lo.base,hi) || lo.implements.exists(isSubitem(_,hi))
+  })
 
   // Properties of reference types
   def isFinal(t: ClassType): Boolean =
@@ -371,6 +415,19 @@ object Types {
         case _ => IntersectType(mec)
       }
   }
+  // TODO: Implementing lub with fold is not correct
+  def lub(xs: List[RefType]): RefType = xs match {
+    case Nil => NullType
+    case List(x) => x
+    case x::xs => lub(x,lub(xs))
+  }
+
+  // Greatest lower bounds: 5.1.10
+  def glb(xs: List[RefType]): RefType = xs match {
+    case Nil => ObjectType
+    case List(x) => x
+    case xs => IntersectType(xs.toSet)
+  }
 
   // Combine left and right sides of a conditional expression
   // TODO: Handle poly expressions (admittedly, this doesn't even make sense with this signature)
@@ -413,8 +470,46 @@ object Types {
     case None => if (assignsTo(t1,t0)) Some(t0) else None
   }
 
+  // The number of array dimensions
   def dimensions(t: Type): Int = t match {
     case ArrayType(t) => 1+dimensions(t)
     case _ => 0
+  }
+
+  // Method resolution: generics and overloads, 15.12.2
+  // Given a list of callables, find the most specific one along with its type parameters
+  // TODO: Handle explicit type parameters, possibly by prefiltering fs outside of this function
+  trait Signature {
+    def tparams: List[TypeParamItem]
+    def params: List[Type]
+
+    def isGeneric: Boolean = !tparams.isEmpty
+    def arity: Int = params.size
+  }
+  def resolve[F <: Signature](fs: List[F], ts: List[Type]): Option[(F,List[RefType])] = {
+    val n = ts.size
+    // TODO: Handle access restrictions (public, private, protected) and scoping
+    // TODO: Handle variable arity
+    def potentiallyCompatible(f: F): Boolean = f.arity == n && {
+      (f.params,ts).zipped forall {case (p,t) => true}} // TODO: Handle poly expression constraints
+    def compatible(f: F, form: Inference.Form, context: (Type,Type) => Boolean): Option[List[RefType]] =
+      if (!f.isGeneric)
+        if ((f.params,ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
+        else None
+      else Inference.infer(f.tparams,f.params,ts)(form)
+    def strictCompatible(f: F): Option[List[RefType]] = compatible(f,Inference.strictBounds,strictInvokeContext)
+    def looseCompatible (f: F): Option[List[RefType]] = compatible(f,Inference.looseBounds ,looseInvokeContext)
+    def mostSpecific(fs: List[(F,List[RefType])]): Option[(F,List[RefType])] = fs match {
+      case Nil => None
+      case List(f) => Some(f)
+      case _ => notImplemented
+    }
+    // Pick function
+    val potential = fs filter potentiallyCompatible
+    val applies = potential flatMap (f => strictCompatible(f).map((f,_)).toList) match {
+      case Nil => potential flatMap (f =>  looseCompatible(f).map((f,_)).toList)
+      case fs => fs
+    }
+    mostSpecific(applies)
   }
 }

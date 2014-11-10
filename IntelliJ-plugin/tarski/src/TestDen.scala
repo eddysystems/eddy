@@ -93,9 +93,9 @@ class TestDen {
   @Test
   def arrayLiteral(): Unit = {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val f = StaticMethodItem("f",Main,VoidType,List(ArrayType(IntType)))
+    val f = StaticMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)))
     implicit val env = Env(List(Main,f)).makeAllLocal()
-    testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(f),List(ArrayExp(IntType,List(1,2,3,4)))))
+    testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
   @Test
@@ -153,7 +153,7 @@ class TestDen {
   @Test
   def mapExp(): Unit = {
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val f = StaticMethodItem("f",main,FloatType,List(ArrayType(IntType)))
+    val f = StaticMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)))
     val x = LocalVariableItem("x",ArrayType(DoubleType))
     val y = LocalVariableItem("y",ArrayType(DoubleType))
     implicit val env = Env(List(main,f)).makeAllLocal()
@@ -165,17 +165,17 @@ class TestDen {
   def cons(): Unit = {
     implicit val env = baseEnv
     testDen("x = Object()", env => List(VarStmt(ObjectType,
-      List((env.exactLocal("x"),Some(ApplyExp(NewDen(ObjectConsItem),Nil)))))))
+      List((env.exactLocal("x"),Some(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))
   }
 
   @Test
   def genericConsObject(): Unit = {
     val T = TypeParamItem("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
-    val AC = ConstructorItem(A,List(ParamType(T)))
-    implicit val env = baseEnv.addObjects(List(A,AC), Map((A,2), (AC,1)))
+    val AC = ConstructorItem(A,Nil,List(ParamType(T)))
+    implicit val env = baseEnv.addObjects(List(A,AC),Map((A,2),(AC,1)))
     testDen("x = A(Object())", env => List(VarStmt(GenericClassType(A,List(ObjectType)),
-      List((env.exactLocal("x"),Some(ApplyExp(NewDen(AC),List(ApplyExp(NewDen(ObjectConsItem),Nil)))))))))
+      List((env.exactLocal("x"),Some(ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))))
   }
 
   @Test
@@ -207,11 +207,11 @@ class TestDen {
     val Yf = FieldItem("f", SimpleClassType(R), Y)
 
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
-    val m = MethodItem("m", Z, VoidType, List(SimpleClassType(Q)))
+    val m = MethodItem("m", Z, Nil, VoidType, List(SimpleClassType(Q)))
     val y = LocalVariableItem("y", SimpleClassType(Y))
     implicit val env = Env(List(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
 
-    testDen("m(f)", ApplyExp(LocalMethodDen(m),List(FieldExp(CastExp(SimpleClassType(X), y), Xf))))
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(CastExp(SimpleClassType(X), y), Xf))))
   }
 
   @Test
@@ -241,11 +241,11 @@ class TestDen {
     val Y = NormalClassItem("Y", LocalPkg, Nil, SimpleClassType(X), Nil)
     val Yf = FieldItem("f", SimpleClassType(R), Y)
 
-    val m = MethodItem("m", Y, VoidType, List(SimpleClassType(Q)))
+    val m = MethodItem("m", Y, Nil, VoidType, List(SimpleClassType(Q)))
     val tY = ThisItem(Y)
     implicit val env = Env(List(X,Y,Xf,Yf,m,tY), Map((tY,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
-    testDen("m(f)", ApplyExp(LocalMethodDen(m),List(FieldExp(SuperExp(tY), Xf))))
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(SuperExp(tY), Xf))))
   }
 
   @Test

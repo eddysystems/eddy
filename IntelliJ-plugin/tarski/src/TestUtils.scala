@@ -5,6 +5,7 @@ import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Denotations._
 import tarski.Items._
+import tarski.Types._
 
 object TestUtils {
   // AST implicit conversions
@@ -18,6 +19,9 @@ object TestUtils {
   implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
   implicit def toExp(x: LocalVariableItem): Exp = LocalVariableExp(x)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
+
+  // Type implicit conversions
+  implicit def toType(v: TypeParamItem): Type = ParamType(v)
 
   def assertIn[A](x: A, xs: Set[A]): Unit =
     if (!xs.contains(x))

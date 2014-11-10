@@ -74,7 +74,7 @@ object Environment {
   // What could this name be, assuming it is a type?
   // TODO: Handle generics
   def typeScores(name: String)(implicit env: Env): Scored[Type] =
-    simple(env.things collect { case x: TypeItem if x.name==name => toType(x) },
+    simple(env.things collect { case x: TypeItem if x.name==name => toType(x,Nil) },
            s"Type $name not found")
 
   // Objects of a given type (or subtypes thereof)
@@ -84,6 +84,11 @@ object Environment {
   def objectsOfType(name: String, t: Type)(implicit env: Env): Scored[Value] =
     simple(env.things collect { case i: Value if isSubtype(i.ourType,t) && i.name == name => i },
            s"Value $name of type ${show(t)} not found")
+
+  // Same as objectsOfType, but without type arguments
+  def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
+    simple(env.things collect { case i: Value if isSubitem(i.ourType,t) => i },
+           s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {
@@ -118,7 +123,7 @@ object Environment {
   def shadowedInSubType(i: Member, t: RefType)(implicit env: Env): Boolean = {
     i.container match {
       case c: RefTypeItem => {
-        assert(isSubtype(t, toType(c)))
+        assert(isSubitem(t,c))
         toItem(t) match {
           case Some(ti) if c == ti => false
           case Some(ti: ClassItem) => declaresName(ti, i.name) || shadowedInSubType(i, ti.base)
@@ -139,7 +144,7 @@ object Environment {
   // What could this be, assuming it is a type field of the given type?
   // TODO: Handle generics
   def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =
-    simple(env.things collect { case f: TypeItem if f.name==name && memberIn(f,t) => toType(f) },
+    simple(env.things collect { case f: TypeItem if f.name==name && memberIn(f,t) => toType(f,Nil) },
            s"Type ${show(t)} has no type field $name")
 
   // what could this name be, assuming it is an annotation

@@ -58,7 +58,7 @@ object Base {
   object DoubleItem  extends NumberClassItem("Double")
 
   // Basic callables for test use
-  val ObjectConsItem = ConstructorItem(ObjectItem,Nil)
+  val ObjectConsItem = ConstructorItem(ObjectItem,Nil,Nil)
 
   // Standard base environment
   val baseEnv = Env(List(
