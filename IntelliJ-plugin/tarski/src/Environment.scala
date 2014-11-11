@@ -28,7 +28,7 @@ object Environment {
     }
 
     // makes all items local with priority 1 (for tests)
-    def makeAllLocal(): Env = {
+    def makeAllLocal: Env = {
       Env(allthings, things.map( i => (i,1)).toMap)
     }
 

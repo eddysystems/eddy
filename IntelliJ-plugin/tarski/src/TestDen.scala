@@ -45,7 +45,7 @@ class TestDen {
   @Test
   def assignExp(): Unit = {
     val x = LocalVariableItem("x",IntType)
-    implicit val env = new Env(List(x)).makeAllLocal()
+    implicit val env = new Env(List(x)).makeAllLocal
     testDen("x = 1", AssignExp(None,x,1))
   }
 
@@ -86,7 +86,7 @@ class TestDen {
   @Test
   def arrayLiteralAssign(): Unit = {
     val x = LocalVariableItem("x",ArrayType(IntType))
-    implicit val env = Env(List(x)).makeAllLocal()
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("x = {1,2,3}", AssignExp(None,x,ArrayExp(IntType,List(1,2,3))))
   }
 
@@ -94,7 +94,7 @@ class TestDen {
   def arrayLiteral(): Unit = {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = StaticMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)))
-    implicit val env = Env(List(Main,f)).makeAllLocal()
+    implicit val env = Env(List(Main,f)).makeAllLocal
     testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
@@ -111,42 +111,42 @@ class TestDen {
   @Test
   def indexExp(): Unit = {
     val x = LocalVariableItem("x", ArrayType(CharType))
-    implicit val env = Env(List(x)).makeAllLocal()
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("""x[4] = '\n'""", AssignExp(None,IndexExp(x,4),'\n'))
   }
 
   @Test
   def nestedIndexExpBrack(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
-    implicit val env = Env(List(x)).makeAllLocal()
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("""x[4,5] = x[2][5]""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def nestedIndexExpJuxt(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
-    implicit val env = Env(List(x)).makeAllLocal()
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("""x 4 5 = x 2 5""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def nestedIndexExpMixed(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
-    implicit val env = Env(List(x)).makeAllLocal()
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("""x{4,5} = x{2}[5]""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def nestedIndexExpParen(): Unit = {
     val x = new LocalVariableItem("x", ArrayType(ArrayType(CharType)))
-    implicit val env = Env(List(x)).makeAllLocal()
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("""x(4,5) = x(2)(5)""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def indexOpExp(): Unit = {
     val x = LocalVariableItem("x", ArrayType(CharType))
-    implicit val env = Env(List(x)).makeAllLocal()
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("""x[4] *= '\n'""", AssignExp(Some(MulOp()), IndexExp(x,4), '\n'))
   }
 
@@ -156,7 +156,7 @@ class TestDen {
     val f = StaticMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)))
     val x = LocalVariableItem("x",ArrayType(DoubleType))
     val y = LocalVariableItem("y",ArrayType(DoubleType))
-    implicit val env = Env(List(main,f)).makeAllLocal()
+    implicit val env = Env(List(main,f)).makeAllLocal
     testDen("y = f(x)", env => Nil)
     notImplemented
   }
