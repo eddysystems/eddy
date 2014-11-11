@@ -12,6 +12,7 @@ import scala.language.implicitConversions
 class TestInfer {
   def v(s: String): Var = TypeParamItem(s)
   val T = v("T")
+  implicit def toVarType[A](x: (Var,A))(implicit f: A => RefType): (Var,RefType) = (x._1,f(x._2))
 
   def testInfer(goal: (Var,RefType)*)(ts: Type*)(as: Type*): Unit = {
     val (vs,rts) = goal.toList.unzip
@@ -32,11 +33,11 @@ class TestInfer {
   def simpleInt() = testInfer(T -> IntRefType)(T)(IntType)
 
   @Test
-  def lubIntegerFloat() = testInfer(T -> SimpleClassType(NumberItem))(T,T)(IntRefType,FloatRefType)
+  def lubIntegerFloat() = testInfer(T -> NumberItem)(T,T)(IntRefType,FloatRefType)
 
   @Test
-  def lubIntFloat() = testInfer(T -> SimpleClassType(NumberItem))(T,T)(IntType,FloatRefType)
+  def lubIntFloat() = testInfer(T -> NumberItem)(T,T)(IntType,FloatRefType)
 
   @Test
-  def intFail() = testInferFail()(IntRefType)(SimpleClassType(NumberItem))
+  def intFail() = testInferFail()(IntRefType)(NumberItem)
 }

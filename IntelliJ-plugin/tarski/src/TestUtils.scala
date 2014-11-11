@@ -21,7 +21,9 @@ object TestUtils {
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
 
   // Type implicit conversions
-  implicit def toType(v: TypeParamItem): Type = ParamType(v)
+  implicit def toType(v: TypeParamItem): ParamType = ParamType(v)
+  implicit def toType(c: ClassItem): SimpleClassType = { assert(c.params.isEmpty); SimpleClassType(c) }
+  implicit def toType(i: InterfaceItem): SimpleInterfaceType = { assert(i.params.isEmpty); SimpleInterfaceType(i) }
 
   def assertIn[A](x: A, xs: Set[A]): Unit =
     if (!xs.contains(x))
