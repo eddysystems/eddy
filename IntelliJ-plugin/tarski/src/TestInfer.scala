@@ -5,13 +5,11 @@ import org.testng.AssertJUnit._
 import tarski.Base._
 import tarski.Items._
 import tarski.Types._
-import tarski.TestUtils._
+import tarski.TestUtils.{toType,_}
 import tarski.Inference.{Var,Bound,Fixed,Bounded,infer,looseBounds}
 import scala.language.implicitConversions
 
 class TestInfer {
-  implicit def toType(v: TypeParamItem): Type = ParamType(v)
-
   def v(s: String): Var = TypeParamItem(s)
   val T = v("T")
 
