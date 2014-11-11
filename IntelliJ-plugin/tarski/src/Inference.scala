@@ -11,7 +11,7 @@ object Inference {
   type Var = TypeParamItem
   type Bounds = Map[Var,Bound] // If false is allowed, use Option[Bounds]
   sealed abstract class Bound
-  case class Fixed(t: RefType) extends Bound                       // s == t
+  case class Fixed(t: RefType) extends Bound // s == t
   case class Bounded(lo: Set[RefType], hi: Set[RefType]) extends Bound // lo <: s <: hi
   // TODO: capture and throws
 
