@@ -230,7 +230,6 @@ class TestDen {
         ...
         m(f); // should resolve to m( super.f )
       }
-
      */
 
     val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
