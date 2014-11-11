@@ -17,6 +17,7 @@ public class Main {
                   class Q {
                     int x[];
                     X.this.x = 1;
+                    x=1
                   }
                 }
             }

@@ -5,6 +5,7 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiDocumentManager;
@@ -35,6 +36,7 @@ public class Eddy {
   // information of where we were
   private PsiFile psifile = null;
   private Document document = null;
+  private Project project = null;
   private Editor editor = null;
   // the results of the interpretation
   private Environment.Env env = null;
@@ -64,6 +66,8 @@ public class Eddy {
         }
       }
     });
+
+    // TODO: use ReformatCodeProcessor with the appropriate (inserted) range
   }
 
   public void apply(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> r) {
@@ -90,7 +94,7 @@ public class Eddy {
   public void process(@NotNull Editor editor) {
     this.editor = editor;
     document = editor.getDocument();
-    Project project = editor.getProject();
+    project = editor.getProject();
 
     if (results != null)
       results = null;
@@ -249,7 +253,15 @@ public class Eddy {
   }
 
   private String code(List<Denotations.Stmt> stmts) {
-    return Tarski.pretty(stmts, env);
+    String raw = Tarski.pretty(stmts, env);
+    return reformat(raw);
+  }
+
+  public String reformat(@NotNull String in) {
+    Document doc = EditorFactory.getInstance().createDocument(in);
+    PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(doc);
+    logger.info("reformatting: " + doc + psifile);
+    return in;
   }
 
   public String code(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> res) {
