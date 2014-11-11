@@ -87,7 +87,7 @@ object Semantics {
             denoteValue(x).flatMap( xd =>
               if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
                 xd match {
-                  case ThisExp(ThisItem(tt:ClassItem)) if tt.base == c => single(FieldExp(SuperExp(ThisItem(tt)),i))
+                  case ThisExp(ThisItem(tt:ClassItem)) if toItem(tt.base) == Some(c) => single(FieldExp(SuperExp(ThisItem(tt)),i))
                   case _ => single(FieldExp(CastExp(toType(c,Nil),xd),i))
                 }
               } else {
