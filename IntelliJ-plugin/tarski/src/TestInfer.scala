@@ -20,6 +20,10 @@ class TestInfer {
     assertEquals(Some(rts),infer(vs,ts.toList,as.toList)(looseBounds))
   }
 
+  def testInferFail(vs: Var*)(ts: Type*)(as: Type*): Unit = {
+    assertEquals(None,infer(vs.toList,ts.toList,as.toList)(looseBounds))
+  }
+
   @Test
   def simpleObject() = testInfer(T -> ObjectType)(T)(ObjectType)
 
@@ -34,4 +38,7 @@ class TestInfer {
 
   @Test
   def lubIntFloat() = testInfer(T -> SimpleClassType(NumberItem))(T,T)(IntType,FloatRefType)
+
+  @Test
+  def intFail() = testInferFail()(IntRefType)(SimpleClassType(NumberItem))
 }
