@@ -8,6 +8,7 @@ import tarski.Lexer._
 import tarski.Pretty._
 import tarski.Tokens._
 import tarski.TestUtils._
+import tarski.Types._
 
 class TestParse {
   @Test
@@ -54,5 +55,16 @@ class TestParse {
     testAST("x = A(Object())",
       AssignAExp(None,"x",ApplyAExp("A",SingleList(ApplyAExp("Object",EmptyList)))),
       AssignAExp(None,"x",ApplyAExp("A",JuxtList(List("Object",ArrayAExp(EmptyList,ParenAround))))))
+  }
+
+  @Test
+  def primTypes(): Unit = {
+    for (t <- VoidAType() :: List(ByteType,ShortType,IntType,LongType,FloatType,DoubleType,CharType).map(PrimAType(_)))
+      testAST(show(t)+" x",VarAStmt(Nil,t,SingleList(("x",0,None))))
+  }
+
+  @Test
+  def varArray(): Unit = {
+    testAST("int x[]",VarAStmt(Nil,IntType,SingleList(("x",1,None))))
   }
 }

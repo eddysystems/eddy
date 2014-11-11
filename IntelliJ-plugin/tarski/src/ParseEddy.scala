@@ -2,6 +2,7 @@
 package tarski
 import tarski.Tokens._
 import tarski.AST._
+import tarski.Types._
 
 object ParseEddy {
   def parse(input: List[Token]): List[List[AStmt]] = {
@@ -13,11 +14,13 @@ object ParseEddy {
     val array = input.toArray
     def tok(i: Int) = array(i)
     def P_PlusEqTok(i: Int) = array(i) match { case t: PlusEqTok => List(t); case _ => Nil }
+    def P_LongTok(i: Int) = array(i) match { case t: LongTok => List(t); case _ => Nil }
     def P_OrTok(i: Int) = array(i) match { case t: OrTok => List(t); case _ => Nil }
     def P_SynchronizedTok(i: Int) = array(i) match { case t: SynchronizedTok => List(t); case _ => Nil }
     def P_ModTok(i: Int) = array(i) match { case t: ModTok => List(t); case _ => Nil }
     def P_CommaTok(i: Int) = array(i) match { case t: CommaTok => List(t); case _ => Nil }
     def P_SuperTok(i: Int) = array(i) match { case t: SuperTok => List(t); case _ => Nil }
+    def P_DoubleTok(i: Int) = array(i) match { case t: DoubleTok => List(t); case _ => Nil }
     def P_CompTok(i: Int) = array(i) match { case t: CompTok => List(t); case _ => Nil }
     def P_AbstractTok(i: Int) = array(i) match { case t: AbstractTok => List(t); case _ => Nil }
     def P_ProtectedTok(i: Int) = array(i) match { case t: ProtectedTok => List(t); case _ => Nil }
@@ -43,12 +46,15 @@ object ParseEddy {
     def P_VolatileTok(i: Int) = array(i) match { case t: VolatileTok => List(t); case _ => Nil }
     def P_RCurlyTok(i: Int) = array(i) match { case t: RCurlyTok => List(t); case _ => Nil }
     def P_NewTok(i: Int) = array(i) match { case t: NewTok => List(t); case _ => Nil }
+    def P_IntTok(i: Int) = array(i) match { case t: IntTok => List(t); case _ => Nil }
+    def P_CharTok(i: Int) = array(i) match { case t: CharTok => List(t); case _ => Nil }
     def P_LCurlyTok(i: Int) = array(i) match { case t: LCurlyTok => List(t); case _ => Nil }
     def P_XorEqTok(i: Int) = array(i) match { case t: XorEqTok => List(t); case _ => Nil }
     def P_EqTok(i: Int) = array(i) match { case t: EqTok => List(t); case _ => Nil }
     def P_PrivateTok(i: Int) = array(i) match { case t: PrivateTok => List(t); case _ => Nil }
     def P_BreakTok(i: Int) = array(i) match { case t: BreakTok => List(t); case _ => Nil }
     def P_LParenTok(i: Int) = array(i) match { case t: LParenTok => List(t); case _ => Nil }
+    def P_ByteTok(i: Int) = array(i) match { case t: ByteTok => List(t); case _ => Nil }
     def P_MulTok(i: Int) = array(i) match { case t: MulTok => List(t); case _ => Nil }
     def P_DivTok(i: Int) = array(i) match { case t: DivTok => List(t); case _ => Nil }
     def P_DoubleLitTok(i: Int) = array(i) match { case t: DoubleLitTok => List(t); case _ => Nil }
@@ -62,9 +68,12 @@ object ParseEddy {
     def P_NeTok(i: Int) = array(i) match { case t: NeTok => List(t); case _ => Nil }
     def P_RParenTok(i: Int) = array(i) match { case t: RParenTok => List(t); case _ => Nil }
     def P_AndEqTok(i: Int) = array(i) match { case t: AndEqTok => List(t); case _ => Nil }
+    def P_ShortTok(i: Int) = array(i) match { case t: ShortTok => List(t); case _ => Nil }
     def P_CharLitTok(i: Int) = array(i) match { case t: CharLitTok => List(t); case _ => Nil }
+    def P_FloatTok(i: Int) = array(i) match { case t: FloatTok => List(t); case _ => Nil }
     def P_MinusEqTok(i: Int) = array(i) match { case t: MinusEqTok => List(t); case _ => Nil }
     def P_GtTok(i: Int) = array(i) match { case t: GtTok => List(t); case _ => Nil }
+    def P_VoidTok(i: Int) = array(i) match { case t: VoidTok => List(t); case _ => Nil }
     def P_BoolLitTok(i: Int) = array(i) match { case t: BoolLitTok => List(t); case _ => Nil }
     def P_StrictfpTok(i: Int) = array(i) match { case t: StrictfpTok => List(t); case _ => Nil }
     def P_EqEqTok(i: Int) = array(i) match { case t: EqEqTok => List(t); case _ => Nil }
@@ -96,7 +105,7 @@ object ParseEddy {
     val P_Stmts__RCurlyTok = mutable.Map[R,List[(List[AStmt],RCurlyTok)]]()
     val P_Juxts2_ExpNew__RBrackTok = mutable.Map[R,List[(List[AExp],RBrackTok)]]()
     val P_SemiTok__Stmts = mutable.Map[R,List[(SemiTok,List[AStmt])]]()
-    val P_Type__List1_VarDecl = mutable.Map[R,List[(AType,KList[(NameDims,Option[AExp])])]]()
+    val P_Type__List1_VarDecl = mutable.Map[R,List[(AType,KList[(Name,Int,Option[AExp])])]]()
     val P_ColonTok__ExpBinary = mutable.Map[R,List[(ColonTok,AExp)]]()
     val P_List_Type__GtTok = mutable.Map[R,List[(KList[AType],GtTok)]]()
     val P_Juxts2_ExpAssignNC = mutable.Map[R,List[List[AExp]]]()
@@ -112,16 +121,20 @@ object ParseEddy {
     val P_Juxts2_ExpNew = mutable.Map[R,List[List[AExp]]]()
     val P_Juxts2_ExpNew__RCurlyTok = mutable.Map[R,List[(List[AExp],RCurlyTok)]]()
     val P_PostOp = mutable.Map[R,List[UnaryOp]]()
-    val P_CommaTok__Commas1_VarDecl = mutable.Map[R,List[(CommaTok,List[(NameDims,Option[AExp])])]]()
+    val P_CommaTok__Commas1_VarDecl = mutable.Map[R,List[(CommaTok,List[(Name,Int,Option[AExp])])]]()
     val P_BinaryOp = mutable.Map[R,List[BinaryOp]]()
     val P_ExpHigh__DotTok = mutable.Map[R,List[(AExp,DotTok)]]()
     val P_Commas2_Type = mutable.Map[R,List[List[AType]]]()
     val P_CommaTok__Commas1_Type = mutable.Map[R,List[(CommaTok,List[AType])]]()
     val P_TypeArgs = mutable.Map[R,List[KList[AType]]]()
     val P_Option_TypeArgs = mutable.Map[R,List[Option[KList[AType]]]]()
-    val P_Juxts2_VarDecl = mutable.Map[R,List[List[(NameDims,Option[AExp])]]]()
+    val P_Juxts2_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
     val P_ExpBinary__RBrackTok = mutable.Map[R,List[(AExp,RBrackTok)]]()
     val P_ColonTok__ExpJuxt = mutable.Map[R,List[(ColonTok,AExp)]]()
+    val P_PrimType = mutable.Map[R,List[PrimType]]()
+    val P_Type = mutable.Map[R,List[AType]]()
+    val P_Juxts1_Type = mutable.Map[R,List[List[AType]]]()
+    val P_Commas1_Type = mutable.Map[R,List[List[AType]]]()
     val P_ExpBinary__RCurlyTok = mutable.Map[R,List[(AExp,RCurlyTok)]]()
     val P_ExpHigh__LParenTok = mutable.Map[R,List[(AExp,LParenTok)]]()
     val P_Mod = mutable.Map[R,List[Mod]]()
@@ -130,13 +143,15 @@ object ParseEddy {
     val P_List_ExpAssignNC__RCurlyTok = mutable.Map[R,List[(KList[AExp],RCurlyTok)]]()
     val P_RParenTok__ExpUnary = mutable.Map[R,List[(RParenTok,AExp)]]()
     val P_LBrackTok__RBrackTok = mutable.Map[R,List[(LBrackTok,RBrackTok)]]()
-    val P_IdentDims = mutable.Map[R,List[NameDims]]()
-    val P_VarDecl = mutable.Map[R,List[(NameDims,Option[AExp])]]()
-    val P_Commas1_VarDecl = mutable.Map[R,List[List[(NameDims,Option[AExp])]]]()
-    val P_Juxts1_VarDecl = mutable.Map[R,List[List[(NameDims,Option[AExp])]]]()
+    val P_IdentDims = mutable.Map[R,List[(Name,Int)]]()
+    val P_VarDecl = mutable.Map[R,List[(Name,Int,Option[AExp])]]()
+    val P_Commas1_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
+    val P_Juxts1_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
     val P_EqTok__ExpCommas = mutable.Map[R,List[(EqTok,AExp)]]()
     val P_CommaTok__Commas1_ExpBinary = mutable.Map[R,List[(CommaTok,List[AExp])]]()
     val P_Juxts2_Type = mutable.Map[R,List[List[AType]]]()
+    val P_List1_Type = mutable.Map[R,List[KList[AType]]]()
+    val P_List_Type = mutable.Map[R,List[KList[AType]]]()
     val P_LParenTok__Type = mutable.Map[R,List[(LParenTok,AType)]]()
     val P_CommaTok__Commas1_ExpAssignNC = mutable.Map[R,List[(CommaTok,List[AExp])]]()
     val P_Juxts2_ExpNew__RParenTok = mutable.Map[R,List[(List[AExp],RParenTok)]]()
@@ -172,15 +187,10 @@ object ParseEddy {
     val P_DotTok__IdentTok = mutable.Map[R,List[(DotTok,IdentTok)]]()
     val P_BinaryOp__ExpBinary = mutable.Map[R,List[(BinaryOp,AExp)]]()
     val P_ExpHigh__ColonColonTok = mutable.Map[R,List[(AExp,ColonColonTok)]]()
-    val P_Commas2_VarDecl = mutable.Map[R,List[List[(NameDims,Option[AExp])]]]()
-    val P_List1_VarDecl = mutable.Map[R,List[KList[(NameDims,Option[AExp])]]]()
+    val P_Commas2_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
+    val P_List1_VarDecl = mutable.Map[R,List[KList[(Name,Int,Option[AExp])]]]()
     val P_Commas2_ExpBinary__RCurlyTok = mutable.Map[R,List[(List[AExp],RCurlyTok)]]()
     val P_List_ExpAssignNC__RBrackTok = mutable.Map[R,List[(KList[AExp],RBrackTok)]]()
-    val P_Type = mutable.Map[R,List[AType]]()
-    val P_Juxts1_Type = mutable.Map[R,List[List[AType]]]()
-    val P_List1_Type = mutable.Map[R,List[KList[AType]]]()
-    val P_List_Type = mutable.Map[R,List[KList[AType]]]()
-    val P_Commas1_Type = mutable.Map[R,List[List[AType]]]()
     val P_Option_TypeArgs__NewTok = mutable.Map[R,List[(Option[KList[AType]],NewTok)]]()
     
     // Parse bottom up for each nonterminal
@@ -219,6 +229,10 @@ object ParseEddy {
       P_Juxts2_VarDecl((lo,lo)) = List()
       P_ExpBinary__RBrackTok((lo,lo)) = List()
       P_ColonTok__ExpJuxt((lo,lo)) = List()
+      P_PrimType((lo,lo)) = List()
+      P_Type((lo,lo)) = List()
+      P_Juxts1_Type((lo,lo)) = List()
+      P_Commas1_Type((lo,lo)) = List()
       P_ExpBinary__RCurlyTok((lo,lo)) = List()
       P_ExpHigh__LParenTok((lo,lo)) = List()
       P_Mod((lo,lo)) = List()
@@ -234,6 +248,8 @@ object ParseEddy {
       P_EqTok__ExpCommas((lo,lo)) = List()
       P_CommaTok__Commas1_ExpBinary((lo,lo)) = List()
       P_Juxts2_Type((lo,lo)) = List()
+      P_List1_Type((lo,lo)) = List()
+      P_List_Type((lo,lo)) = List(EmptyList)
       P_LParenTok__Type((lo,lo)) = List()
       P_CommaTok__Commas1_ExpAssignNC((lo,lo)) = List()
       P_Juxts2_ExpNew__RParenTok((lo,lo)) = List()
@@ -273,11 +289,6 @@ object ParseEddy {
       P_List1_VarDecl((lo,lo)) = List()
       P_Commas2_ExpBinary__RCurlyTok((lo,lo)) = List()
       P_List_ExpAssignNC__RBrackTok((lo,lo)) = List()
-      P_Type((lo,lo)) = List()
-      P_Juxts1_Type((lo,lo)) = List()
-      P_List1_Type((lo,lo)) = List()
-      P_List_Type((lo,lo)) = List(EmptyList)
-      P_Commas1_Type((lo,lo)) = List()
       P_Option_TypeArgs__NewTok((lo,lo)) = List()
     }
     // Parse nonnull productions
@@ -331,6 +342,10 @@ object ParseEddy {
       P_Juxts2_VarDecl((lo,hi)) = ss(P_VarDecl,P_Juxts1_VarDecl)((x,y) => x :: y); d("Juxts2_VarDecl",P_Juxts2_VarDecl)
       P_ExpBinary__RBrackTok((lo,hi)) = st(P_ExpBinary,P_RBrackTok)((x,y) => (x,y)); d("ExpBinary__RBrackTok",P_ExpBinary__RBrackTok)
       P_ColonTok__ExpJuxt((lo,hi)) = ts(P_ColonTok,P_ExpJuxt)((x,y) => (x,y)); d("ColonTok__ExpJuxt",P_ColonTok__ExpJuxt)
+      P_PrimType((lo,hi)) = t(P_ByteTok)(x => ByteType) ::: t(P_LongTok)(x => LongType) ::: t(P_IntTok)(x => IntType) ::: t(P_CharTok)(x => CharType) ::: t(P_DoubleTok)(x => DoubleType) ::: t(P_FloatTok)(x => FloatType) ::: t(P_ShortTok)(x => ShortType); d("PrimType",P_PrimType)
+      P_Type((lo,hi)) = tn(P_QuestionTok,P_WildcardBounds)((x,y) => WildAType(y)) ::: ss(P_Type,P_DotTok__IdentTok)((x,y) => FieldAType(x,y._2.name)) ::: s(P_PrimType)(x => PrimAType(x)) ::: t(P_IdentTok)(x => NameAType(x.name)) ::: ss(P_Type,P_TypeArgs)((x,y) => ApplyAType(x,y)) ::: ss(P_Type,P_LBrackTok__RBrackTok)((x,y) => ArrayAType(x)) ::: t(P_VoidTok)(x => VoidAType()) ::: ss(P_Mod,P_Type)((x,y) => ModAType(x,y)); d("Type",P_Type)
+      P_Juxts1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_Juxts1_Type)((x,y) => x :: y); d("Juxts1_Type",P_Juxts1_Type)
+      P_Commas1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_CommaTok__Commas1_Type)((x,y) => x :: y._2); d("Commas1_Type",P_Commas1_Type)
       P_ExpBinary__RCurlyTok((lo,hi)) = st(P_ExpBinary,P_RCurlyTok)((x,y) => (x,y)); d("ExpBinary__RCurlyTok",P_ExpBinary__RCurlyTok)
       P_ExpHigh__LParenTok((lo,hi)) = st(P_ExpHigh,P_LParenTok)((x,y) => (x,y)); d("ExpHigh__LParenTok",P_ExpHigh__LParenTok)
       P_Mod((lo,hi)) = t(P_AbstractTok)(x => Abstract()) ::: t(P_ProtectedTok)(x => Protected()) ::: t(P_StrictfpTok)(x => Strictfp()) ::: t(P_PublicTok)(x => Public()) ::: tt(P_AtTok,P_IdentTok)((x,y) => Annotation(y.name)) ::: t(P_SynchronizedTok)(x => Synchronized()) ::: t(P_VolatileTok)(x => Volatile()) ::: t(P_TransientTok)(x => Transient()) ::: t(P_FinalTok)(x => Final()) ::: t(P_PrivateTok)(x => Private()) ::: t(P_StaticTok)(x => Static()); d("Mod",P_Mod)
@@ -340,12 +355,14 @@ object ParseEddy {
       P_RParenTok__ExpUnary((lo,hi)) = ts(P_RParenTok,P_ExpUnary)((x,y) => (x,y)); d("RParenTok__ExpUnary",P_RParenTok__ExpUnary)
       P_LBrackTok__RBrackTok((lo,hi)) = tt(P_LBrackTok,P_RBrackTok)((x,y) => (x,y)); d("LBrackTok__RBrackTok",P_LBrackTok__RBrackTok)
       P_IdentDims((lo,hi)) = t(P_IdentTok)(x => (x.name,0)) ::: ss(P_IdentDims,P_LBrackTok__RBrackTok)((x,y) => (x._1,x._2+1)); d("IdentDims",P_IdentDims)
-      P_VarDecl((lo,hi)) = s(P_IdentDims)(x => (x,None)) ::: ss(P_IdentDims,P_EqTok__ExpCommas)((x,y) => (x,Some(y._2))); d("VarDecl",P_VarDecl)
+      P_VarDecl((lo,hi)) = s(P_IdentDims)(x => (x._1,x._2,None)) ::: ss(P_IdentDims,P_EqTok__ExpCommas)((x,y) => (x._1,x._2,Some(y._2))); d("VarDecl",P_VarDecl)
       P_Commas1_VarDecl((lo,hi)) = s(P_VarDecl)(x => List(x)) ::: ss(P_VarDecl,P_CommaTok__Commas1_VarDecl)((x,y) => x :: y._2); d("Commas1_VarDecl",P_Commas1_VarDecl)
       P_Juxts1_VarDecl((lo,hi)) = s(P_VarDecl)(x => List(x)) ::: ss(P_VarDecl,P_Juxts1_VarDecl)((x,y) => x :: y); d("Juxts1_VarDecl",P_Juxts1_VarDecl)
       P_EqTok__ExpCommas((lo,hi)) = ts(P_EqTok,P_ExpCommas)((x,y) => (x,y)); d("EqTok__ExpCommas",P_EqTok__ExpCommas)
       P_CommaTok__Commas1_ExpBinary((lo,hi)) = ts(P_CommaTok,P_Commas1_ExpBinary)((x,y) => (x,y)); d("CommaTok__Commas1_ExpBinary",P_CommaTok__Commas1_ExpBinary)
       P_Juxts2_Type((lo,hi)) = ss(P_Type,P_Juxts1_Type)((x,y) => x :: y); d("Juxts2_Type",P_Juxts2_Type)
+      P_List1_Type((lo,hi)) = s(P_Type)(x => SingleList(x)) ::: s(P_Commas2_Type)(x => CommaList(x)) ::: s(P_Juxts2_Type)(x => JuxtList(x)); d("List1_Type",P_List1_Type)
+      P_List_Type((lo,hi)) = s(P_List1_Type)(x => x); d("List_Type",P_List_Type)
       P_LParenTok__Type((lo,hi)) = ts(P_LParenTok,P_Type)((x,y) => (x,y)); d("LParenTok__Type",P_LParenTok__Type)
       P_CommaTok__Commas1_ExpAssignNC((lo,hi)) = ts(P_CommaTok,P_Commas1_ExpAssignNC)((x,y) => (x,y)); d("CommaTok__Commas1_ExpAssignNC",P_CommaTok__Commas1_ExpAssignNC)
       P_Juxts2_ExpNew__RParenTok((lo,hi)) = st(P_Juxts2_ExpNew,P_RParenTok)((x,y) => (x,y)); d("Juxts2_ExpNew__RParenTok",P_Juxts2_ExpNew__RParenTok)
@@ -385,11 +402,6 @@ object ParseEddy {
       P_List1_VarDecl((lo,hi)) = s(P_VarDecl)(x => SingleList(x)) ::: s(P_Commas2_VarDecl)(x => CommaList(x)) ::: s(P_Juxts2_VarDecl)(x => JuxtList(x)); d("List1_VarDecl",P_List1_VarDecl)
       P_Commas2_ExpBinary__RCurlyTok((lo,hi)) = st(P_Commas2_ExpBinary,P_RCurlyTok)((x,y) => (x,y)); d("Commas2_ExpBinary__RCurlyTok",P_Commas2_ExpBinary__RCurlyTok)
       P_List_ExpAssignNC__RBrackTok((lo,hi)) = nt(P_List_ExpAssignNC,P_RBrackTok)((x,y) => (x,y)); d("List_ExpAssignNC__RBrackTok",P_List_ExpAssignNC__RBrackTok)
-      P_Type((lo,hi)) = tn(P_QuestionTok,P_WildcardBounds)((x,y) => WildAType(y)) ::: ss(P_Type,P_DotTok__IdentTok)((x,y) => FieldAType(x,y._2.name)) ::: t(P_IdentTok)(x => NameAType(x.name)) ::: ss(P_Type,P_TypeArgs)((x,y) => ApplyAType(x,y)) ::: ss(P_Type,P_LBrackTok__RBrackTok)((x,y) => ArrayAType(x)) ::: ss(P_Mod,P_Type)((x,y) => ModAType(x,y)); d("Type",P_Type)
-      P_Juxts1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_Juxts1_Type)((x,y) => x :: y); d("Juxts1_Type",P_Juxts1_Type)
-      P_List1_Type((lo,hi)) = s(P_Type)(x => SingleList(x)) ::: s(P_Commas2_Type)(x => CommaList(x)) ::: s(P_Juxts2_Type)(x => JuxtList(x)); d("List1_Type",P_List1_Type)
-      P_List_Type((lo,hi)) = s(P_List1_Type)(x => x); d("List_Type",P_List_Type)
-      P_Commas1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_CommaTok__Commas1_Type)((x,y) => x :: y._2); d("Commas1_Type",P_Commas1_Type)
       P_Option_TypeArgs__NewTok((lo,hi)) = nt(P_Option_TypeArgs,P_NewTok)((x,y) => (x,y)); d("Option_TypeArgs__NewTok",P_Option_TypeArgs__NewTok)
     }
     

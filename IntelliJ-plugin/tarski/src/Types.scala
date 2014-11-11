@@ -230,7 +230,6 @@ object Types {
     case ArrayType(_)|ErrorType(_)|IntersectType(_)|ParamType(_)|NullType => None
   }
 
-
   // Does a class implement an interface?
   def implements(c: ClassType, i: InterfaceType): Boolean = {
     val ci = c.implements
@@ -470,10 +469,14 @@ object Types {
     case None => if (assignsTo(t1,t0)) Some(t0) else None
   }
 
-  // The number of array dimensions
+  // Convenience functions for arrays
   def dimensions(t: Type): Int = t match {
     case ArrayType(t) => 1+dimensions(t)
     case _ => 0
+  }
+  def arrays(t: Type, dims: Int): Type = {
+    if (dims == 0) t
+    else arrays(ArrayType(t),dims-1)
   }
 
   // Method resolution: generics and overloads, 15.12.2

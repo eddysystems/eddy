@@ -52,34 +52,34 @@ class TestDen {
   @Test
   def variableStmt(): Unit = {
     implicit val env = baseEnv
-    testDen("x = 1", env => List(VarStmt(IntType, List((env.exactLocal("x"), Some(toExp(1)))))))
+    testDen("x = 1", env => List(VarStmt(IntType, List((env.exactLocal("x"),0,Some(toExp(1)))))))
   }
 
   @Test
   def arrayVariableStmtCurly(): Unit = {
     implicit val env = baseEnv
-    testDen("x = {1,2,3,4}", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),
+    testDen("x = {1,2,3,4}", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
       Some(ArrayExp(IntType,List(1,2,3,4))))))))
   }
 
   @Test
   def arrayVariableStmtParen(): Unit = {
     implicit val env = baseEnv
-    testDen("x = (1,2,3,4)", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),
+    testDen("x = (1,2,3,4)", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
       Some(ArrayExp(IntType,List(1,2,3,4))))))))
   }
 
   @Test
   def arrayVariableStmtBare(): Unit = {
     implicit val env = baseEnv
-    testDen("x = 1,2,3,4", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),
+    testDen("x = 1,2,3,4", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
       Some(ArrayExp(IntType,List(1,2,3,4))))))))
   }
 
   @Test
   def arrayVariableStmtBrack(): Unit = {
     implicit val env = baseEnv
-    testDen("x = [1,2,3,4]", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),
+    testDen("x = [1,2,3,4]", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
       Some(ArrayExp(IntType,List(1,2,3,4))))))))
   }
 
@@ -103,7 +103,7 @@ class TestDen {
     implicit val env = baseEnv
     testDen("x = 1; x = 2", env => {
       val x = env.exactLocal("x")
-      List(VarStmt(IntType, List((x,Some(toExp(1))))),
+      List(VarStmt(IntType, List((x,0,Some(toExp(1))))),
            ExpStmt(AssignExp(None,x,2)))
     })
   }
@@ -165,7 +165,7 @@ class TestDen {
   def cons(): Unit = {
     implicit val env = baseEnv
     testDen("x = Object()", env => List(VarStmt(ObjectType,
-      List((env.exactLocal("x"),Some(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))
+      List((env.exactLocal("x"),0,Some(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))
   }
 
   @Test
@@ -175,9 +175,21 @@ class TestDen {
     val AC = ConstructorItem(A,Nil,List(ParamType(T)))
     implicit val env = baseEnv.addObjects(List(A,AC),Map((A,2),(AC,1)))
     testDen("x = A(Object())", env => List(VarStmt(GenericClassType(A,List(ObjectType)),
-      List((env.exactLocal("x"),Some(ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))))
+      List((env.exactLocal("x"),0,Some(ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))))
   }
 
+  @Test
+  def varArray(): Unit = {
+    implicit val env = Env(Nil)
+    testDen("int x[]", env => List(VarStmt(IntType,List((env.exactLocal("x"),1,None)))))
+  }
+
+  @Test
+  def varArrayInit(): Unit = {
+    implicit val env = Env(Nil)
+    testDen("int x[] = {1,2,3}", env =>
+      List(VarStmt(IntType,List((env.exactLocal("x"),1,Some(ArrayExp(IntType,List(1,2,3))))))))
+  }
   @Test
   def inheritanceShadowing(): Unit = {
     /* corresponding to

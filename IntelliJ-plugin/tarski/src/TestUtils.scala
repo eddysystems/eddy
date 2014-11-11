@@ -13,6 +13,10 @@ object TestUtils {
   implicit def toAExp(s: String): AExp = NameAExp(s)
   implicit def toAStmt(e: AExp): AStmt = ExpAStmt(e)
   implicit def toAStmts(e: AExp): List[AStmt] = List(ExpAStmt(e))
+  implicit def toAStmts(s: AStmt): List[AStmt] = List(s)
+
+  // AST type implicit conversions
+  implicit def toAType(t: PrimType): AType = PrimAType(t)
 
   // Denotation implicit conversions
   implicit def toExp(i: Int): Exp = IntLit(i,i.toString)

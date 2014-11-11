@@ -28,10 +28,13 @@ object Denotations {
     def params = f.params
   }
 
+  type Dims = Int
+  type VarDecl = (LocalVariableItem,Dims,Option[Exp]) // name,dims,init
+
   // Statements
   sealed abstract class Stmt extends Den
   case class EmptyStmt() extends Stmt
-  case class VarStmt(t: Type, vs: List[(LocalVariableItem,Option[Exp])]) extends Stmt
+  case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt
   case class ExpStmt(e: Exp) extends Stmt
   case class BlockStmt(b: List[Stmt]) extends Stmt
 
