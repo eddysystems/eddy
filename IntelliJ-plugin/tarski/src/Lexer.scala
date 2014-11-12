@@ -31,15 +31,20 @@ object Lexer {
     // Regular expressions to factories
     val subs = List(
       // Digits
-      "$ds" -> """(?:\d(?:|[_\d]*\d))""",
-      "$bs" -> """(?:[01](?:|[_01]*[01]))""",
-      "$hs" -> """(?:[\da-fA-F](?:|[_\da-fA-F]*[\da-fA-F]))""",
+      "$ds"  -> """(?:\d(?:|[_\d]*\d))""",
+      "$bs"  -> """(?:[01](?:|[_01]*[01]))""",
+      "$hs"  -> """(?:[\da-fA-F](?:|[_\da-fA-F]*[\da-fA-F]))""",
+      "$int" -> """(?:\d|[1-9]_*$ds|0[xX]$hs|0[0-7_]*[0-7]|0[bB]$bs)""",
       // Float support
-      "$e"  -> """(?:[eE][+-]?$ds)""",
-      "$p"  -> """(?:[pP][+-]?$ds)""",
-      "$f"  -> """[fFdD]""",
+      "$e"   -> """(?:[eE][+-]?$ds)""",
+      "$p"   -> """(?:[pP][+-]?$ds)""",
+      "$ff"  -> """[fF]""",
+      "$of"  -> """[fF]""",
+      "$fd"  -> """[dD]""",
+      "$od"  -> """[dD]?""",
       // Escape sequences
       "$esc" -> """(?:\\[btnfr"'\\]|\\[0-7]+)""")
+    val float = """$ds\.$ds?$e?$of|\.$ds$e?$of|$ds(?:$e$of|$e?$ff)|0[xX](?:$hs\.|$hs?\.$hs)$p$of"""
     def close(s: String) =
       if (s.count('('==_) == s.count(')'==_)) s
       else throw new RuntimeException("unclosed: "+escape(s))
@@ -47,8 +52,10 @@ object Lexer {
       fixedMap.keys.map(Pattern.quote).mkString("|") -> fixedMap,
       """\s+"""    -> WhitespaceTok, // 3.6
       """[a-zA-Z$][\w$]*""" -> IdentTok, // 3.8
-      """(?:\d|[1-9]_*$ds|0[xX]$hs|0[0-7_]*[0-7]|0[bB]$bs)[lL]?""" -> IntLitTok, // 3.10.1, TODO: LongLitTok
-      """$ds\.$ds?$e?$f?|\.$ds$e?$f?|$ds(?:$e$f?|$e?$f)|0[xX](?:$hs\.|$hs?\.$hs)$p$f?""" -> FloatLitTok, // 3.10.2, TODO: DoubleLitTok
+      """$int""" -> IntLitTok, // 3.10.1
+      """$int[lL]""" -> LongLitTok, // 3.10.1
+      float -> FloatLitTok, // 3.10.2
+      float.replaceAllLiterally("$ff","$fd").replaceAllLiterally("$of","$od") -> DoubleLitTok, // 3.10.2
       """'(?:[^'\\]|$esc)'""" -> CharLitTok, // 3.10.4
       """"(?:[^"\\]|$esc)*"""" -> StringLitTok) // 3.10.5
 

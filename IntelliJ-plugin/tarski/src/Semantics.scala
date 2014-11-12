@@ -30,7 +30,7 @@ object Semantics {
     def f[A,B](v: String, c: String => A)(t: (A,String) => B) = t(c(v.replaceAllLiterally("_","")),v)
     single(x match {
       case IntALit(v) =>    f(v,_.toInt)(IntLit)
-      case LongALit(v) =>   f(v,_.toLong)(LongLit)
+      case LongALit(v) =>   f(v,_.dropRight(1).toLong)(LongLit)
       case FloatALit(v) =>  f(v,_.toFloat)(FloatLit)
       case DoubleALit(v) => f(v,_.toDouble)(DoubleLit)
       case BoolALit(b) =>   BooleanLit(b)

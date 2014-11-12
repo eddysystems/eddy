@@ -22,8 +22,10 @@ class TestParse {
       assertEquals(spaced(splitWhitespace(options) map cons),lex(options))
 
     assertEquals(spaced(List(AbstractTok(),FinalTok(),DoTok())),lex("abstract final do"))
-    check("ints",IntLitTok,"0 1 17l 0x81 07_43 0b1010_110")
-    check("floats",FloatLitTok,"5.3 .4e-8 0x4.aP1_7")
+    check("ints",IntLitTok,"0 1 17 0x81 07_43 0b1010_110")
+    check("longs",LongLitTok,"0l 1L 17l 0x81L 07_43l 0b1010_110L")
+    check("floats",FloatLitTok,"0f 5F 5.3f .4e-8F 0x4.aP1_7f")
+    check("doubles",DoubleLitTok,"0d 5D 5.3 5.3d .4e-8 .4e-8D 0x4.aP1_7 0x4.aP1_7d")
     check("chars",CharLitTok,"""'x' '\t' '\n' '\0133'""")
     check("strings",StringLitTok,""""xyz" "\n\b\r\t" "\0\1\2"""")
   }
