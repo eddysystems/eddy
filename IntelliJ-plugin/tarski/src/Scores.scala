@@ -18,15 +18,15 @@ object Scores {
   // Distributions, which must be nonzero length and normalized
   type Dist[+A] = List[(Prob,A)]
 
-  // Normalize a distribution
-  def normalize[A](xs: Dist[A]): Dist[A] = {
+  // Normalize a distribution into a valid Scored
+  def normalize[A](xs: Dist[A]): Scored[A] = {
     assert(xs.nonEmpty)
     def total(xs: Dist[A], t: Float): Float = xs match {
       case Nil => t
       case (Prob(p),_)::xs => total(xs,t+p)
     }
     val s = 1/total(xs,0)
-    xs map {case (Prob(p),x) => (Prob(s*p),x)}
+    Good(xs map {case (Prob(p),x) => (Prob(s*p),x)})
   }
 
   // Structured errors
@@ -77,7 +77,7 @@ object Scores {
         case (sb,b)::bs => absorb((sa*sb,b)::good,sa,as,bs)
       }
       def processGood(good: Dist[B], as: Dist[A]): Scored[B] = as match {
-        case Nil => Good(normalize(good))
+        case Nil => normalize(good)
         case (sa,a)::as => f(a) match {
           case Bad(_) => processGood(good,as)
           case Good(bs) => absorb(good,sa,as,bs)
