@@ -45,15 +45,23 @@ class TestDen {
   @Test
   def assignExp(): Unit = {
     val x = LocalVariableItem("x",IntType)
-    implicit val env = new Env(List(x)).makeAllLocal
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("x = 1", AssignExp(None,x,1))
   }
 
   @Test
   def longLit() = {
     val x = LocalVariableItem("x",LongType)
-    implicit val env = new Env(List(x)).makeAllLocal
+    implicit val env = Env(List(x)).makeAllLocal
     testDen("x = 2l", AssignExp(None,x,LongLit(2,"2l")))
+  }
+
+  @Test
+  def bigIntLit() = {
+    val x = LocalVariableItem("x",LongType)
+    implicit val env = Env(List(x)).makeAllLocal
+    val big = 1099511627776L
+    testDen(s"x = $big", AssignExp(None,x,LongLit(big,s"${big}L")))
   }
 
   @Test

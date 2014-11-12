@@ -36,7 +36,7 @@ public class Eddy {
   private PsiElement place = null;
   // the results of the interpretation
   private Environment.Env env = null;
-  private List<scala.Tuple2<Scores.Score,List<Denotations.Stmt>>> results;
+  private List<scala.Tuple2<Scores.Prob,List<Denotations.Stmt>>> results;
   private List<String> resultStrings;
   private boolean found_existing;
 
@@ -207,7 +207,7 @@ public class Eddy {
 
       found_existing = false;
       resultStrings = new SmartList<String>();
-      for (scala.Tuple2<Scores.Score,List<Denotations.Stmt>> interpretation : results) {
+      for (scala.Tuple2<Scores.Prob,List<Denotations.Stmt>> interpretation : results) {
         // for each interpretation, compute a string
         if (interpretation._2().isEmpty()) {
           resultStrings.add("");
