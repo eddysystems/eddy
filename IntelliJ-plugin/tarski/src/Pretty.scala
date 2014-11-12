@@ -107,6 +107,10 @@ object Pretty {
 
   // Names
   implicit def prettyName(n: Name) = (HighestFix,List(IdentTok(n)))
+  def prettyDims[A](x: A, n: Dims)(implicit p: Pretty[A]): (Fixity,Tokens) = {
+    if (n == 0) pretty(x)
+    else fix(ApplyFix, left(_,x) ::: List.fill(n)(List(LBrackTok(),RBrackTok())).flatten)
+  }
 
   // Lists
   def separate(ts: List[Tokens], sep: Tokens): Tokens = ts match {
@@ -131,6 +135,8 @@ object Pretty {
   // AST types
   implicit def prettyAType(t: AType): (Fixity,Tokens) = t match {
     case NameAType(n) => prettyName(n)
+    case VoidAType() => (HighestFix, List(VoidTok()))
+    case PrimAType(t) => pretty(t)
     case ModAType(m,t) => fix(ModFix, tokens(m) ::: right(_,t))
     case ArrayAType(t) => fix(ApplyFix, left(_,t) ::: List(LBrackTok(),RBrackTok()))
     case ApplyAType(t,a) => fix(ApplyFix, left(_,t) ::: typeBracket(a))
@@ -246,14 +252,10 @@ object Pretty {
     }
   }
   implicit def prettyAStmts(ss: List[AStmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyAVar(d: (NameDims,Option[AExp])): (Fixity,Tokens) = d match {
-    case (x,None) => pretty(x)
-    case (x,Some(e)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,e))
+  implicit def prettyAVar(d: AVarDecl): (Fixity,Tokens) = d match {
+    case (x,n,None) => prettyDims(x,n)
+    case (x,n,Some(e)) => fix(AssignFix, prettyDims(x,n)._2 ::: EqTok() :: right(_,e))
   }
-  implicit def prettyNameDims(n: NameDims): (Fixity,Tokens) = n match {
-    case (x,0) => pretty(x)
-    case (x,n) => fix(ApplyFix, left(_,(x,n-1)) ::: List(LBrackTok(),RBrackTok()))
-    }
 
   // Literals
   implicit def prettyALit(x: ALit) = (HighestFix, List(x match {
@@ -305,20 +307,22 @@ object Pretty {
     }
   }
 
+  implicit def prettyPrimType(t: PrimType): (Fixity,Tokens) = (HighestFix, List((t match {
+    case BooleanType => BooleanTok
+    case ByteType    => ByteTok
+    case ShortType   => ShortTok
+    case IntType     => IntTok
+    case LongType    => LongTok
+    case FloatType   => FloatTok
+    case DoubleType  => DoubleTok
+    case CharType    => CharTok
+  })()))
   implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = {
-    implicit def hi(t: () => Token) = (HighestFix,List(t()))
     def gen(d: NamedItem, ts: List[Type]) = (ApplyFix, tokens(d) ::: LtTok() :: tokens(CommaList(ts)) ::: List(GtTok()))
     t match {
       // Primitive types
-      case VoidType    => VoidTok
-      case BooleanType => BooleanTok
-      case ByteType    => ByteTok
-      case ShortType   => ShortTok
-      case IntType     => IntTok
-      case LongType    => LongTok
-      case FloatType   => FloatTok
-      case DoubleType  => DoubleTok
-      case CharType    => CharTok
+      case VoidType    => (HighestFix, List(VoidTok()))
+      case t: PrimType => prettyPrimType(t)
       // Reference types
       case NullType => pretty("nulltype")
       case ObjectType => pretty("Object")
@@ -342,7 +346,7 @@ object Pretty {
     case BooleanLit(b) => BoolLitTok(b)
     case CharLit(v,s) => CharLitTok(s)
     case StringLit(v,s) => StringLitTok(s)
-    case NullLit() => NullLitTok()
+    case NullLit => NullLitTok()
   }))
   implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case l: Lit => pretty(l)
@@ -404,9 +408,9 @@ object Pretty {
     case BlockStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(v: (LocalVariableItem,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
-    case (x,None) => pretty(x)
-    case (x,Some(i)) => fix(AssignFix, tokens(x) ::: EqTok() :: right(_,i)(prettyInit))
+  implicit def prettyVar(v: (LocalVariableItem,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
+    case (x,n,None) => prettyDims(x,n)
+    case (x,n,Some(i)) => fix(AssignFix, prettyDims(x,n)._2 ::: EqTok() :: right(_,i)(prettyInit))
   }
   implicit def prettyCallable(c: Callable)(implicit env: Env): (Fixity,Tokens) = c match {
     case MethodDen(x,f) => fix(FieldFix,left(_,x) ::: DotTok() :: tokens(f))

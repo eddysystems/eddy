@@ -36,7 +36,7 @@ object Semantics {
       case BoolALit(b) =>   BooleanLit(b)
       case CharALit(v) =>   CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v)
       case StringALit(v) => StringLit(unescapeJava(v.slice(1,v.size-1)),v)
-      case NullALit() =>    NullLit()
+      case NullALit() =>    NullLit
     })
   }
 
@@ -44,6 +44,8 @@ object Semantics {
   // TODO: The grammar currently rules out stuff like (1+2).A matching as a type.  Maybe we want this?
   def denote(n: AType)(implicit env: Env): Scored[Type] = n match {
     case NameAType(n) => typeScores(n)
+    case VoidAType() => single(VoidType)
+    case PrimAType(t) => single(t)
     case FieldAType(x,f) => for (t <- denote(x); fi <- typeFieldScores(t,f)) yield fi
     case ModAType(Annotation(_),t) => throw new NotImplementedError("Types with annotations")
     case ModAType(_,_) => fail("Not implemented: type modifiers")
@@ -266,13 +268,35 @@ object Semantics {
   // Statements
   def denoteStmt(s: AStmt)(env: Env): Scored[(Env,Stmt)] = s match {
     case EmptyAStmt() => single((env,EmptyStmt()))
-    case VarAStmt(mod,t,v) => notImplemented
+    case VarAStmt(mod,t,ds) =>
+      if (mod.nonEmpty) notImplemented
+      else denote(t)(env).flatMap(t => {
+        def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
+          case None => single(None)
+          case Some(e) => denoteExp(e)(env) flatMap {e =>
+            if (assignsTo(typeOf(e),t)) single(Some(e))
+            else {
+              implicit val imp = env // Make env available for show
+              fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
+            }
+          }
+        }
+        def define(env: Env, ds: List[AVarDecl]): Scored[(Env,List[VarDecl])] = ds match {
+          case Nil => single((env,Nil))
+          case (v,k,i)::ds =>
+            val tk = arrays(t,k)
+            product(env.newVariable(v,tk),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
+              define(env,ds) map {case (env,ds) => (env,(v,k,i)::ds)}}
+        }
+        val st = safe(t)
+        define(env,ds.list) map {case (env,ds) => (env,VarStmt(st,ds))}
+      })
     case ExpAStmt(e) => {
       val exps = denoteExp(e)(env) map ExpStmt
       val stmts = e match {
         case AssignAExp(None,NameAExp(x),y) => denoteExp(y)(env) flatMap {y => {
-          val t = typeOf(y)
-          env.newVariable(x,t) map {case (env,x) => (env,VarStmt(t,List((x,Some(y)))))}
+          val t = safe(typeOf(y))
+          env.newVariable(x,t) map {case (env,x) => (env,VarStmt(t,List((x,0,Some(y)))))}
         }}
         case _ => fail(show(e)+": expression doesn't look like a statement")
       }

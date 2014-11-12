@@ -36,12 +36,12 @@ object Scores {
   }
 
   // Failure
-  private case class Bad[+A](e: Error) extends Scored[A] {
+  private case class Bad(e: Error) extends Scored[Nothing] {
     def all = Left(e)
     def best = Left(e)
-    def map[B](f: A => B) = Bad(e)
-    def flatMap[B](f: A => Scored[B]) = Bad(e)
-    def ++[B >: A](s: Scored[B]) = s match {
+    def map[B](f: Nothing => B) = Bad(e)
+    def flatMap[B](f: Nothing => Scored[B]) = Bad(e)
+    def ++[B](s: Scored[B]) = s match {
       case Bad(f) => Bad(NestError("++ failed",List(e,f)))
       case Good(_) => s
     }

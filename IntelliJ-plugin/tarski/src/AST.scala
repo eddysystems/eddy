@@ -2,6 +2,7 @@ package tarski
 
 import Tokens.Token
 import Environment.Env
+import tarski.Types.PrimType
 
 object AST {
 
@@ -46,14 +47,16 @@ object AST {
   case class ApplyAType(t: AType, a: KList[AType]) extends AType
   case class FieldAType(t: AType, f: Name) extends AType
   case class WildAType(b: Option[(Bound,AType)]) extends AType
-
-  type NameDims = (Name,Int)
+  case class PrimAType(t: PrimType) extends AType
+  case class VoidAType() extends AType
 
   type Block = List[AStmt]
+  type ADims = Int
+  type AVarDecl = (Name,ADims,Option[AExp])
 
   sealed abstract class AStmt
   case class EmptyAStmt() extends AStmt
-  case class VarAStmt(mod: List[Mod], t: AType, v: KList[((NameDims,Option[AExp]))]) extends AStmt
+  case class VarAStmt(mod: List[Mod], t: AType, v: KList[AVarDecl]) extends AStmt
   case class BlockAStmt(b: Block) extends AStmt
   case class ExpAStmt(e: AExp) extends AStmt
   case class AssertAStmt(cond: AExp, msg: Option[AExp]) extends AStmt

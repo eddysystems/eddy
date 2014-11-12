@@ -5,6 +5,7 @@ token Token
 preamble package tarski
 preamble import tarski.Tokens._
 preamble import tarski.AST._
+preamble import tarski.Types._
 
 // Modifiers
 Mod Mod
@@ -54,13 +55,15 @@ Juxts0[a] List[a]
   Juxts1[a]                      { $1 }
 
 // Dims
-IdentDims NameDims
+IdentDims (Name,Int)
   IdentTok                       { ($1.name,0) }
   IdentDims LBrackTok RBrackTok  { ($1._1,$1._2+1) }
 
 // Types
 Type AType
   IdentTok                       { NameAType($1.name) }
+  VoidTok                        { VoidAType() }
+  PrimType                       { PrimAType($1) }
   Mod Type                       { ModAType($1,$2) }
   Type LBrackTok RBrackTok       { ArrayAType($1) }
   Type TypeArgs                  { ApplyAType($1,$2) }
@@ -73,6 +76,14 @@ WildcardBounds Option[(Bound,AType)]
   ExtendsTok Type                { Some((Extends(),$2)) }
   ColonTok Type                  { Some((Extends(),$2)) }
   SuperTok Type                  { Some((Super(),$2)) }
+PrimType PrimType
+  ByteTok                        { ByteType }
+  ShortTok                       { ShortType }
+  IntTok                         { IntType }
+  LongTok                        { LongType }
+  FloatTok                       { FloatType }
+  DoubleTok                      { DoubleType }
+  CharTok                        { CharType }
 
 // Type parameters
 //TypeParam
@@ -117,9 +128,9 @@ StmtHelper AStmt
   ThrowTok ExpJuxt                   { ThrowAStmt($2) }
   SynchronizedTok ExpJuxt Block      { SyncAStmt($2,$3) } // Parens handled inside ExpJuxt
   // Try
-VarDecl (NameDims,Option[AExp])
-  IdentDims                      { ($1,None) }
-  IdentDims EqTok ExpCommas      { ($1,Some($3)) }
+VarDecl (Name,Int,Option[AExp])
+  IdentDims                      { ($1._1,$1._2,None) }
+  IdentDims EqTok ExpCommas      { ($1._1,$1._2,Some($3)) }
 
 // Expressions, lowest to highest precedence
 // Suffixes: NJ is no juxtaposition, NC is no commas, NA is no args
