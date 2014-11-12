@@ -301,4 +301,16 @@ class TestDen {
     assertEquals(tokens(x), List(IdentTok("x"))) // Local x
   }
   */
+
+  @Test
+  def byteLiteral(): Unit = {
+    implicit val env = Env(Nil)
+    testDen("byte x = 3", env => List(VarStmt(ByteType,List((env.exactLocal("x"),0,Some(ByteLit(3,"3")))))))
+  }
+
+  @Test
+  def intLiteral(): Unit = {
+    implicit val env = Env(Nil)
+    testDen("int x = 3", env => List(VarStmt(IntType,List((env.exactLocal("x"),0,Some(IntLit(3,"3")))))))
+  }
 }
