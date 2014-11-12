@@ -50,6 +50,13 @@ class TestDen {
   }
 
   @Test
+  def parseLong() = {
+    val x = LocalVariableItem("x",LongType)
+    implicit val env = new Env(List(x)).makeAllLocal
+    testDen("x = 2l", AssignExp(None,x,LongLit(2,"2l")))
+  }
+
+  @Test
   def variableStmt(): Unit = {
     implicit val env = baseEnv
     testDen("x = 1", env => List(VarStmt(IntType, List((env.exactLocal("x"), Some(toExp(1)))))))
