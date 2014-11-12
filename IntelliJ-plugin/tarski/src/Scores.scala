@@ -9,25 +9,15 @@ object Scores {
    */
 
   // Wrapper around probabilities
-  case class Prob(p: Float) extends AnyVal with Ordered[Prob] {
+  case class Prob(p: Double) extends AnyVal with Ordered[Prob] {
     override def compare(x: Prob) = p.compare(x.p)
     override def toString = p.toString
     def *(x: Prob) = Prob(p * x.p) // Valid only if independence or conditionality holds
   }
 
-  // Distributions, which must be nonzero length and normalized
-  type Dist[+A] = List[(Prob,A)]
-
-  // Normalize a distribution into a valid Scored
-  def normalize[A](xs: Dist[A]): Scored[A] = {
-    assert(xs.nonEmpty)
-    def total(xs: Dist[A], t: Float): Float = xs match {
-      case Nil => t
-      case (Prob(p),_)::xs => total(xs,t+p)
-    }
-    val s = 1/total(xs,0)
-    Good(xs map {case (Prob(p),x) => (Prob(s*p),x)})
-  }
+  // Nonempty lists of probability,value pairs.  These are *not* normalized since the probabilities go
+  // the other way: they are frequentist information not distributions.
+  type Probs[+A] = List[(Prob,A)]
 
   // Structured errors
   sealed abstract class Error {
@@ -44,7 +34,7 @@ object Scores {
   }
 
   sealed abstract class Scored[+A] {
-    def all: Either[Error,Dist[A]]
+    def all: Either[Error,Probs[A]]
     def best: Either[Error,A]
     def map[B](f: A => B): Scored[B]
     def flatMap[B](f: A => Scored[B]): Scored[B] // f is assumed to generate conditional probabilities
@@ -64,7 +54,7 @@ object Scores {
   }
 
   // Nonempty list of possibilities
-  private case class Good[+A](c: Dist[A]) extends Scored[A] {
+  private case class Good[+A](c: Probs[A]) extends Scored[A] {
     def all = Right(c)
     def best = Right(c.maxBy(_._1.p)._2)
 
@@ -72,18 +62,18 @@ object Scores {
       c map {case (s,a) => (s,f(a))})
 
     def flatMap[B](f: A => Scored[B]): Scored[B] = {
-      def absorb(good: Dist[B], sa: Prob, as: Dist[A], bs: Dist[B]): Scored[B] = bs match {
+      def absorb(good: Probs[B], sa: Prob, as: Probs[A], bs: Probs[B]): Scored[B] = bs match {
         case Nil => processGood(good,as)
         case (sb,b)::bs => absorb((sa*sb,b)::good,sa,as,bs)
       }
-      def processGood(good: Dist[B], as: Dist[A]): Scored[B] = as match {
-        case Nil => normalize(good)
+      def processGood(good: Probs[B], as: Probs[A]): Scored[B] = as match {
+        case Nil => Good(good)
         case (sa,a)::as => f(a) match {
           case Bad(_) => processGood(good,as)
           case Good(bs) => absorb(good,sa,as,bs)
         }
       }
-      def processBad(bad: List[Error], as: Dist[A]): Scored[B] = as match {
+      def processBad(bad: List[Error], as: Probs[A]): Scored[B] = as match {
         case Nil => bad match {
           case List(e) => Bad(e)
           case es => Bad(NestError("flatMap failed",es))
@@ -105,15 +95,11 @@ object Scores {
   // Score constructors
   def fail[A](error: String): Scored[A] = Bad(OneError(error))
   def single[A](x: A): Scored[A] = Good(List((Prob(1),x)))
+
+  // TODO: This one is nonsense, and needs to go.
   def simple[A](xs: List[A], error: => String): Scored[A] = xs match {
     case Nil => Bad(OneError(error))
-    case _ =>
-      val p = Prob(1/xs.size)
-      Good(xs.map((p,_)))
-  }
-  def orFail[A](x: Option[A], error: => String): Scored[A] = x match {
-    case Some(s) => single(s)
-    case None => fail(error)
+    case _ => Good(xs.map((Prob(.5),_)))
   }
 
   // a and b are assumed independent
