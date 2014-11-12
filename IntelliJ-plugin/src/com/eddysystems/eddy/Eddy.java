@@ -63,7 +63,7 @@ public class Eddy {
             if (document != null) {
               int newoffset = tokens_range.getEndOffset() - tokens_range.getLength() + code.length();
               logger.debug("replacing '" + document.getText(tokens_range) + "' with '" + code + "'");
-              document.replaceString(tokens_range.getStartOffset(), tokens_range.getEndOffset() - 1, code);
+              document.replaceString(tokens_range.getStartOffset(), tokens_range.getEndOffset(), code);
               editor.getCaretModel().moveToOffset(newoffset);
               PsiDocumentManager.getInstance(project).commitDocument(document);
               // if we apply, we know we shouldn't show again
@@ -122,6 +122,7 @@ public class Eddy {
 
     // whitespace is counted toward the next token/statement, so start at the beginning of the line
 
+    PsiElement prevLineEnd = psifile.findElementAt(lnum==0 ? 0 : document.getLineEndOffset(lnum-1));
     PsiElement elem = psifile.findElementAt(document.getLineStartOffset(lnum));
 
     // if we hit whitespace, advance until we find something substantial, or leave the line
@@ -199,7 +200,8 @@ public class Eddy {
 
       String before_text = document.getText(tokens_range);
 
-      place = elem;
+      // place is just before this line
+      place = prevLineEnd;
       env = (new EnvironmentProcessor(project, place, true)).getJavaEnvironment();
       results = Tarski.fixJava(tokens, env);
 

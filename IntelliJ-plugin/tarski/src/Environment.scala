@@ -42,13 +42,39 @@ object Environment {
       Env(allthings, inScope, newPlace)
     }
 
-    def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] =
-      if (inScope.exists( { case (LocalVariableItem(iname,_),_) => iname == name; case _ => false } ))
-        fail(s"Invalid new local variable $name: already exists.")
-      else {
-        val x = LocalVariableItem(name, t)
-        single((addObjects(List(x), Map((x,1))),x))
-      }
+    def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] = place match {
+      case c: CallableItem =>
+        if (inScope.exists( { case (LocalVariableItem(iname,_),_) => iname == name; case _ => false } ))
+          fail(s"Invalid new local variable $name: already exists.")
+        else {
+          val x = LocalVariableItem(name, t)
+          single((addObjects(List(x), Map((x,0))),x))
+        }
+      case _ => fail("Cannot declare local variables outside of methods or constructors.")
+    }
+
+
+    def newField(name: String, t: Type): Scored[(Env,Value)] = place match {
+      case c: ClassItem =>
+        // if there's already a member of the same name (for our place)
+        if (inScope.exists( { case (m: Member,_) => m.container == place && m.name == name; case _ => false } ))
+          fail(s"Invalid new field $name: a member with this name already exists.")
+        else {
+          // TODO: modifiers
+          val x = FieldItem(name, t, c)
+          single((addObjects(List(x), Map((x,0))),x))
+        }
+      case c: InterfaceItem =>
+        // if there's already a member of the same name (for our place)
+        if (inScope.exists( { case (m: Member,_) => m.container == place && m.name == name; case _ => false } ))
+          fail(s"Invalid new field $name: a member with this name already exists.")
+        else {
+          // TODO: modifiers
+          val x = StaticFieldItem(name, t, c)
+          single((addObjects(List(x), Map((x,0))),x))
+        }
+      case _ => fail("Cannot declare fields outside of class or interface declarations.")
+    }
 
     // fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {

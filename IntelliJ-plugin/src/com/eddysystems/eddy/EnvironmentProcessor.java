@@ -14,8 +14,6 @@ import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.collection.JavaConversions;
-import scala.collection.immutable.Nil;
-import scala.collection.immutable.Nil$;
 import tarski.Environment.Env;
 import tarski.Items.*;
 import tarski.Tarski;
@@ -47,6 +45,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
   }
 
+  // a cache containing all the items in the global environment (everything outside this file)
+  // if the PSI referenced here changes, this map becomes useless (we can check with PsiElement.isValid())
+  static final Object global_envitems_lock = new Object();
+  static boolean global_envitems_ready = false;
+  static Map<PsiElement, NamedItem> global_envitems = null;
+
   // things that are in scope (not all these are accessible! things may be private, or not static while we are)
   private final List<ShadowElement<PsiPackage>> packages = new SmartList<ShadowElement<PsiPackage>>();
   private final List<ShadowElement<PsiClass>> classes = new SmartList<ShadowElement<PsiClass>>();
@@ -65,6 +69,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     this.project = project;
     this.place = place;
     this.honorPrivate = honorPrivate;
+
+    // this is set to null when we go to java.lang
+    this.currentFileContext = place;
 
     logger.setLevel(Level.INFO);
 
@@ -246,11 +253,42 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return v;
   }
 
+  private Map<PsiElement, NamedItem> getGlobalEnvItems() {
+    if (global_envitems_ready) {
+      HashMap<PsiElement, NamedItem> newmap = new HashMap<PsiElement, NamedItem>();
+      newmap.putAll(global_envitems);
+      return newmap;
+    } else
+      return new HashMap<PsiElement, NamedItem>();
+  }
+
+  private void updateGlobalEnvItems(Map<PsiElement, NamedItem> envitems) {
+    // only the first one to call this function gets through
+    boolean first = false;
+    synchronized (global_envitems_lock) {
+      if (global_envitems == null) {
+        global_envitems = new HashMap<PsiElement, NamedItem>();
+        first = true;
+      }
+    }
+
+    // we are the ones to update
+    if (first) {
+      // update global_envitems from envitems
+      for (PsiElement elem: envitems.keySet()) {
+        if (elem.getContainingFile() != place.getContainingFile())
+          global_envitems.put(elem, envitems.get(elem));
+      }
+
+      global_envitems_ready = true;
+    }
+  }
+
   /**
    * Make the IntelliJ-independent class that is used by the tarksi engine to look up possible names
    */
   public Env getJavaEnvironment() {
-    Map<PsiElement, NamedItem> envitems = new HashMap<PsiElement, NamedItem>();
+    Map<PsiElement, NamedItem> envitems = getGlobalEnvItems();
     Map<NamedItem, Integer> localItems = new HashMap<NamedItem, Integer>();
 
     // register locally visible items (each item will register things it contains, inherits from, etc.)
@@ -321,6 +359,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
+    // update the global map if needed
+    updateGlobalEnvItems(envitems);
+
     List<NamedItem> items = new ArrayList<NamedItem>(envitems.values());
 
     // find out which element we are inside (method, class or interface, or package)
@@ -362,29 +403,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.debug("environment taken inside " + placeItem + ": ");
 
+    /*
     for (NamedItem item: localItems.keySet()) {
       if (item.qualifiedName().startsWith("java.lang."))
         continue;
-      logger.info("  " + item);
+      logger.debug("  " + item);
     }
 
     for (NamedItem item : items) {
       logger.debug("  " + item + (localItems.containsKey(item) ? " scope level " + localItems.get(item).toString() : " not in scope."));
     }
+    */
 
     return Tarski.environment(items, localItems, placeItem);
-  }
-
-  /**
-   * Compute a name for any element type that matter to us
-   */
-  private String name(PsiElement elem) {
-    if (elem instanceof PsiNamedElement) {
-      return ((PsiNamedElement) elem).getName();
-    } else {
-      logger.error("Can't compute name of " + elem);
-      return null;
-    }
   }
 
   private String qualifiedName(PsiElement elem) {
@@ -474,7 +505,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    logger.info("found element " + element + " at level " + currentLevel);
+    logger.debug("found element " + element + " at level " + currentLevel);
 
     if (element instanceof PsiClass) {
       classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
@@ -491,14 +522,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   @Override
   public final void handleEvent(@NotNull Event event, Object associated){
     if (event == JavaScopeProcessorEvent.START_STATIC) {
-      logger.debug("starting in static scope");
+      logger.debug("starting static scope");
       inStaticScope = true;
     } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
       currentFileContext = (PsiElement)associated;
       logger.debug("switching file context: " + currentFileContext);
     } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
       currentLevel++;
-      logger.debug("change level.");
+      logger.debug("change level to " + currentLevel);
     }
   }
 }

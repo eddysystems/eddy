@@ -31,12 +31,14 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   private static EddyFileListener active = null;
   private static final Object activeLock = new Object();
 
+  private boolean inChange = false;
+
   public static EddyFileListener activeInstance() {
     return active;
   }
 
   public EddyFileListener(@NotNull Project project, TextEditor editor, @NotNull PsiFile psifile) {
-    logger.setLevel(Level.DEBUG);
+    logger.setLevel(Level.INFO);
 
     this.project = project;
     this.editor = editor.getEditor();
@@ -66,17 +68,6 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     return editor.getCaretModel().getCaretCount() == 1;
   }
 
-  /**
-   * How to reformat code
-   */
-  /*
-    CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(project);
-    result = (PsiMethod) codeStyleManager.reformat(result);
-
-    JavaCodeStyleManager javaCodeStyleManager = JavaCodeStyleManager.getInstance(project);
-    result = (PsiMethod) javaCodeStyleManager.shortenClassReferences(result);
-   */
-
   protected void showHint() {
     int offset = editor.getCaretModel().getOffset();
     String text = eddy.bestText() + (eddy.single() ? " " : " (multiple options...) ");
@@ -90,8 +81,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected void process() {
-
-    PsiDocumentManager.getInstance(project).commitAndRunReadAction(new Runnable() {
+    PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
       @Override
       public void run() {
         eddy.process(editor);
@@ -122,8 +112,11 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   @Override
   public void caretPositionChanged(CaretEvent e) {
+    if (inChange)
+      return;
     if (!enabled())
       return;
+    logger.debug("caret position changed");
     process();
   }
 
@@ -137,11 +130,14 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   @Override
   public void beforeDocumentChange(DocumentEvent event) {
-    //logger.debug("before document change");
+    logger.debug("before document change");
+    inChange = true;
   }
 
   @Override
   public void documentChanged(DocumentEvent event) {
-    //logger.debug("document changed");
+    logger.debug("document changed");
+    inChange = false;
+    process();
   }
 }
