@@ -27,9 +27,13 @@ object Semantics {
 
   // Literals
   def denoteLit(x: ALit): Scored[Lit] = {
-    def f[A,B](v: String, c: String => A)(t: (A,String) => B) = t(c(v.replaceAllLiterally("_","")),v)
+    def under(v: String): String = v.replaceAllLiterally("_","")
+    def f[A,B](v: String, c: String => A)(t: (A,String) => B) = t(c(under(v)),v)
     single(x match {
-      case IntALit(v) =>    f(v,_.toInt)(IntLit)
+      case IntALit(v) =>
+        val n = under(v).toLong
+        val i = n.toInt
+        if (i == n) IntLit(i,v) else LongLit(n,v+'L')
       case LongALit(v) =>   f(v,_.dropRight(1).toLong)(LongLit)
       case FloatALit(v) =>  f(v,_.toFloat)(FloatLit)
       case DoubleALit(v) => f(v,_.toDouble)(DoubleLit)
