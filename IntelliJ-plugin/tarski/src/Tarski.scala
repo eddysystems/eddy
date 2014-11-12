@@ -35,6 +35,9 @@ object Tarski {
     show(tokens(ss.asScala.toList))
   }
 
+  def pretty(s: Stmt)(implicit env: Env): String =
+    show(tokens(s))
+
   def pretty(ss: java.util.List[Stmt])(implicit env: Env): String =
     show(tokens(ss.asScala.toList))
 

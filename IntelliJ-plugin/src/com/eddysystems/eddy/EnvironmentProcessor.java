@@ -66,7 +66,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     this.place = place;
     this.honorPrivate = honorPrivate;
 
-    logger.setLevel(Level.DEBUG);
+    logger.setLevel(Level.INFO);
 
     PsiScopesUtil.treeWalkUp(this, place, null);
 
@@ -307,18 +307,17 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         NamedItem ivar = addFieldToEnvMap(envitems,(PsiField)var);
         localItems.put(ivar,svar.shadowingPriority);
       } else {
-        if (envitems.containsKey(var)) {
-          Type t = convertType(envitems,var.getType());
-          NamedItem i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
-                      : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
-                      : null;
-          if (i == null)
-            throw new NotImplementedException("Unknown variable: " + var);
+        assert !envitems.containsKey(var);
+        Type t = convertType(envitems,var.getType());
+        NamedItem i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
+                    : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
+                    : null;
+        if (i == null)
+          throw new NotImplementedException("Unknown variable: " + var);
 
-          // actually add to envitems map
-          envitems.put(var, i);
-          localItems.put(i,svar.shadowingPriority);
-        }
+        // actually add to envitems map
+        envitems.put(var, i);
+        localItems.put(i,svar.shadowingPriority);
       }
     }
 
@@ -363,11 +362,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.debug("environment taken inside " + placeItem + ": ");
 
-    /*
+    for (NamedItem item: localItems.keySet()) {
+      if (item.qualifiedName().startsWith("java.lang."))
+        continue;
+      logger.info("  " + item);
+    }
+
     for (NamedItem item : items) {
       logger.debug("  " + item + (localItems.containsKey(item) ? " scope level " + localItems.get(item).toString() : " not in scope."));
     }
-    */
 
     return Tarski.environment(items, localItems, placeItem);
   }
@@ -471,7 +474,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    //logger.debug("found element " + element + " at level " + currentLevel);
+    logger.info("found element " + element + " at level " + currentLevel);
 
     if (element instanceof PsiClass) {
       classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));

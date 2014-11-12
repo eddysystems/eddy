@@ -43,7 +43,7 @@ object Environment {
     }
 
     def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] =
-      if (inScope.exists( { case (LocalVariableItem(iname,_),1) => iname == name; case _ => false } )) // shadowing == 1 => local variable in this block
+      if (inScope.exists( { case (LocalVariableItem(iname,_),_) => iname == name; case _ => false } ))
         fail(s"Invalid new local variable $name: already exists.")
       else {
         val x = LocalVariableItem(name, t)

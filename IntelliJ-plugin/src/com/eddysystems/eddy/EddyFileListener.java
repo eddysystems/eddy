@@ -15,6 +15,7 @@ import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.keymap.KeymapUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
@@ -89,12 +90,18 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected void process() {
-    eddy.process(editor);
 
-    if (!eddy.foundSomethingUseful())
-      return;
+    PsiDocumentManager.getInstance(project).commitAndRunReadAction(new Runnable() {
+      @Override
+      public void run() {
+        eddy.process(editor);
 
-    showHint();
+        if (!eddy.foundSomethingUseful())
+          return;
+
+        showHint();
+      }
+    });
   }
 
   public void nextResult() {

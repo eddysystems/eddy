@@ -367,7 +367,7 @@ object Pretty {
         case ForwardDen(c) => ThisTok() :: t
       }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
     }
-    case FieldExp(x,f) => fix(FieldFix, left(_,x) ::: tokens(f.name))
+    case FieldExp(x,f) => fix(FieldFix, left(_,x) ::: DotTok() :: tokens(f.name))
     case LocalFieldExp(f) => pretty(f)
     case StaticFieldExp(f) => pretty(f)
     case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))

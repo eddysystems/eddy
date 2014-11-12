@@ -14,11 +14,11 @@ public class Main {
             public static int f() {
                 int x;
                 for (x = 0; x < 3; ++x) {
-                  class Q {
-                    int x[];
+                    class Q {
+                        int x[];
+                    }
                     X.this.x = 1;
-                    x=1
-                  }
+                    x = 1; x = 2;
                 }
             }
         }

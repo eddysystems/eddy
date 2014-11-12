@@ -2,27 +2,22 @@ package com.eddysystems.eddy;
 
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.Result;
+import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiWhiteSpace;
+import com.intellij.psi.*;
+import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.impl.source.tree.LeafElement;
 import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
-import tarski.Denotations;
-import tarski.Scores;
-import tarski.Tarski;
-import tarski.Tokens;
-import tarski.Environment;
+import tarski.*;
 
 import java.util.List;
 
@@ -38,16 +33,19 @@ public class Eddy {
   private Document document = null;
   private Project project = null;
   private Editor editor = null;
+  private PsiElement place = null;
   // the results of the interpretation
   private Environment.Env env = null;
   private List<scala.Tuple2<Scores.Score,List<Denotations.Stmt>>> results;
+  private List<String> resultStrings;
+  private boolean found_existing;
 
   // a bias for which result is the best one (reset in process())
   private int resultOffset = 0;
   boolean selectedExplicitly = true;
 
   Eddy() {
-    logger.setLevel(Level.WARN);
+    logger.setLevel(Level.DEBUG);
   }
 
   // applies a result by modifying the psifile
@@ -57,21 +55,24 @@ public class Eddy {
 
   public void apply(final @NotNull String code) {
     ApplicationManager.getApplication().runWriteAction(new Runnable() {
-      @Override public void run() {
-        if (document != null) {
-          // TODO: re-format code
-          int newoffset = tokens_range.getEndOffset() - tokens_range.getLength() + code.length();
-          document.replaceString(tokens_range.getStartOffset(), tokens_range.getEndOffset()+1, code);
-          editor.getCaretModel().moveToOffset(newoffset);
-        }
+      @Override
+      public void run() {
+        new WriteCommandAction(project, psifile) {
+          @Override
+          public void run(@NotNull Result result) {
+            if (document != null) {
+              int newoffset = tokens_range.getEndOffset() - tokens_range.getLength() + code.length();
+              logger.debug("replacing '" + document.getText(tokens_range) + "' with '" + code + "'");
+              document.replaceString(tokens_range.getStartOffset(), tokens_range.getEndOffset() - 1, code);
+              editor.getCaretModel().moveToOffset(newoffset);
+              PsiDocumentManager.getInstance(project).commitDocument(document);
+              // if we apply, we know we shouldn't show again
+              found_existing = true;
+            }
+          }
+        }.execute();
       }
     });
-
-    // TODO: use ReformatCodeProcessor with the appropriate (inserted) range
-  }
-
-  public void apply(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> r) {
-    apply(code(r._2()));
   }
 
   public void applyBest() {
@@ -82,9 +83,7 @@ public class Eddy {
     return editor;
   }
 
-  public List<scala.Tuple2<Scores.Score,List<Denotations.Stmt>>> getResults() {
-    return results;
-  }
+  public List<String> getResultStrings() { return resultStrings; }
 
   public void dumpEnvironment(String filename) {
     if (env != null)
@@ -102,11 +101,6 @@ public class Eddy {
     if (project == null)
       return;
 
-    psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-
-    if (psifile == null)
-      return;
-
     // clear the offset
     resultOffset = 0;
     selectedExplicitly = false;
@@ -120,6 +114,11 @@ public class Eddy {
 
     logger.debug("processing at " + lnum + "/" + column);
     logger.debug("  current line: " + line);
+
+    psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
+
+    if (psifile == null)
+      return;
 
     // whitespace is counted toward the next token/statement, so start at the beginning of the line
 
@@ -167,7 +166,7 @@ public class Eddy {
           }
 
           if (element instanceof LeafElement) {
-            logger.debug("    node: " + element);
+            logger.debug("    node: " + element + " " + element.getTextRange() + " -> " + Tokenizer.psiToTok(element));
             vtokens_ranges.add(element.getTextRange());
             vtokens.add(Tokenizer.psiToTok(element));
           }
@@ -182,43 +181,53 @@ public class Eddy {
       // remove leading and trailing whitespace
       while (!tokens.isEmpty() && tokens.get(0) instanceof Tokens.WhitespaceTok) {
         tokens = tokens.subList(1,tokens.size());
-        tokens_ranges = tokens_ranges.subList(1,tokens.size());
+        tokens_ranges = tokens_ranges.subList(1,tokens_ranges.size());
       }
       while (!tokens.isEmpty() && tokens.get(tokens.size()-1) instanceof Tokens.WhitespaceTok) {
         tokens = tokens.subList(0,tokens.size()-1);
-        tokens_ranges = tokens_ranges.subList(0,tokens.size()-1);
+        tokens_ranges = tokens_ranges.subList(0,tokens_ranges.size()-1);
       }
 
       // compute range to be replaced
       tokens_range = TextRange.EMPTY_RANGE; // TextRange is broken. Argh.
       if (!tokens_ranges.isEmpty()) {
         tokens_range = tokens_ranges.get(0);
-        for (TextRange range: tokens_ranges)
+        for (TextRange range: tokens_ranges) {
           tokens_range = tokens_range.union(range);
-      }
-
-      env = (new EnvironmentProcessor(project, elem, true)).getJavaEnvironment();
-      results = Tarski.fixJava(tokens, env);
-
-      String text = "";
-
-      for (scala.Tuple2<Scores.Score,List<Denotations.Stmt>> interpretation : results) {
-        text += "  Interpretation with score " + interpretation._1() + "<br/>";
-        for (Denotations.Stmt meaning : interpretation._2()) {
-          text += "  <q>" + meaning + "</q><br/>";
         }
       }
 
-      logger.debug("eddy says:" + text);
+      String before_text = document.getText(tokens_range);
 
-      // TODO: check whether one of the computed solutions corresponds to what's currently there. If so, we don't want to replace it
+      place = elem;
+      env = (new EnvironmentProcessor(project, place, true)).getJavaEnvironment();
+      results = Tarski.fixJava(tokens, env);
 
+      found_existing = false;
+      resultStrings = new SmartList<String>();
+      for (scala.Tuple2<Scores.Score,List<Denotations.Stmt>> interpretation : results) {
+        // for each interpretation, compute a string
+        if (interpretation._2().isEmpty()) {
+          resultStrings.add("");
+        } else {
+          String s = "";
+          for (Denotations.Stmt meaning : interpretation._2()) {
+            s = s + code(meaning) + " ";
+          }
+          s = s.substring(0,s.length()-1); // remove trailing space
+          resultStrings.add(s);
+          logger.debug("eddy result: '" + s + "' existing '" + before_text + "'");
+          if (s.equals(before_text)) {
+            found_existing = true;
+          }
+        }
+      }
     }
   }
 
   public boolean foundSomethingUseful() {
     // did we find useful meanings, and are those meanings different from what's already there?
-    return results != null && !results.isEmpty();
+    return !found_existing && results != null && !results.isEmpty();
   }
 
   public boolean single() {
@@ -249,23 +258,18 @@ public class Eddy {
   }
 
   private String code(int i) {
-    return code(results.get(i)._2());
+    return resultStrings.get(i);
   }
 
-  private String code(List<Denotations.Stmt> stmts) {
-    String raw = Tarski.pretty(stmts, env);
-    return reformat(raw);
+  private String code(Denotations.Stmt stmt) {
+    return reformat(Tarski.pretty(stmt, env));
   }
 
-  public String reformat(@NotNull String in) {
-    Document doc = EditorFactory.getInstance().createDocument(in);
-    PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(doc);
-    logger.info("reformatting: " + doc + psifile);
-    return in;
-  }
-
-  public String code(scala.Tuple2<Scores.Score,List<Denotations.Stmt>> res) {
-    return code(res._2());
+  // the string should be a single syntactically valid statement
+  private String reformat(@NotNull String in) {
+    PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(in, place);
+    CodeStyleManager.getInstance(project).reformat(elem, true);
+    return elem.getText();
   }
 
   public String bestText() {
