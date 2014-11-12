@@ -1,5 +1,7 @@
 package tarski
 
+import scala.annotation.tailrec
+
 object Scores {
   /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability
    *
@@ -62,16 +64,16 @@ object Scores {
       c map {case (s,a) => (s,f(a))})
 
     def flatMap[B](f: A => Scored[B]): Scored[B] = {
-      def absorb(good: Probs[B], sa: Prob, as: Probs[A], bs: Probs[B]): Scored[B] = bs match {
-        case Nil => processGood(good,as)
-        case (sb,b)::bs => absorb((sa*sb,b)::good,sa,as,bs)
+      def absorb(sa: Prob, bs: Probs[B], good: Probs[B]): Probs[B] = bs match {
+        case Nil => good
+        case (sb,b)::bs => absorb(sa,bs,(sa*sb,b)::good)
       }
-      def processGood(good: Probs[B], as: Probs[A]): Scored[B] = as match {
+      def processGood(as: Probs[A], good: Probs[B]): Scored[B] = as match {
         case Nil => Good(good)
-        case (sa,a)::as => f(a) match {
-          case Bad(_) => processGood(good,as)
-          case Good(bs) => absorb(good,sa,as,bs)
-        }
+        case (sa,a)::as => processGood(as, f(a) match {
+          case Bad(_) => good
+          case Good(bs) => absorb(sa,bs,good)
+        })
       }
       def processBad(bad: List[Error], as: Probs[A]): Scored[B] = as match {
         case Nil => bad match {
@@ -80,7 +82,7 @@ object Scores {
         }
         case (sa,a)::as => f(a) match {
           case Bad(e) => processBad(e::bad,as)
-          case Good(bs) => absorb(Nil,sa,as,bs)
+          case Good(bs) => processGood(as,absorb(sa,bs,Nil))
         }
       }
       processBad(Nil,c)
