@@ -190,6 +190,14 @@ class TestDen {
     testDen("int x[] = {1,2,3}", env =>
       List(VarStmt(IntType,List((env.exactLocal("x"),1,Some(ArrayExp(IntType,List(1,2,3))))))))
   }
+
+  @Test
+  def nullInit(): Unit = {
+    implicit val env = baseEnv
+    testDen("x = null", env =>
+      List(VarStmt(ObjectType,List((env.exactLocal("x"),0,Some(NullLit))))))
+  }
+
   @Test
   def inheritanceShadowing(): Unit = {
     /* corresponding to

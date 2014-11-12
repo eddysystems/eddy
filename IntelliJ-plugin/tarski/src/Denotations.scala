@@ -51,7 +51,7 @@ object Denotations {
   case class FloatLit(f: Float, text: String) extends Lit
   case class DoubleLit(d: Double, text: String) extends Lit
   case class CharLit(c: Char, text: String) extends Lit
-  case class NullLit() extends Lit
+  case object NullLit extends Lit
 
   // Expressions
   case class ParameterExp(item: ParameterItem) extends Exp
@@ -84,7 +84,7 @@ object Denotations {
     case FloatLit(_,_) => FloatType
     case DoubleLit(_,_) => DoubleType
     case CharLit(_,_) => CharType
-    case NullLit() => NullType
+    case NullLit => NullType
     // Names
     case ParameterExp(i) => i.ourType
     case LocalVariableExp(i) => i.ourType

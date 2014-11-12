@@ -346,7 +346,7 @@ object Pretty {
     case BooleanLit(b) => BoolLitTok(b)
     case CharLit(v,s) => CharLitTok(s)
     case StringLit(v,s) => StringLitTok(s)
-    case NullLit() => NullLitTok()
+    case NullLit => NullLitTok()
   }))
   implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case l: Lit => pretty(l)

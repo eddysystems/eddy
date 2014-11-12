@@ -36,7 +36,7 @@ object Semantics {
       case BoolALit(b) =>   BooleanLit(b)
       case CharALit(v) =>   CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v)
       case StringALit(v) => StringLit(unescapeJava(v.slice(1,v.size-1)),v)
-      case NullALit() =>    NullLit()
+      case NullALit() =>    NullLit
     })
   }
 
@@ -288,13 +288,14 @@ object Semantics {
             product(env.newVariable(v,tk),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
               define(env,ds) map {case (env,ds) => (env,(v,k,i)::ds)}}
         }
-        define(env,ds.list) map {case (env,ds) => (env,VarStmt(t,ds))}
+        val st = safe(t)
+        define(env,ds.list) map {case (env,ds) => (env,VarStmt(st,ds))}
       })
     case ExpAStmt(e) => {
       val exps = denoteExp(e)(env) map ExpStmt
       val stmts = e match {
         case AssignAExp(None,NameAExp(x),y) => denoteExp(y)(env) flatMap {y => {
-          val t = typeOf(y)
+          val t = safe(typeOf(y))
           env.newVariable(x,t) map {case (env,x) => (env,VarStmt(t,List((x,0,Some(y)))))}
         }}
         case _ => fail(show(e)+": expression doesn't look like a statement")

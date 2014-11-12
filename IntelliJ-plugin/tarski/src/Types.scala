@@ -9,7 +9,7 @@ import ambiguity.Utility._
 object Types {
   // Types
   sealed abstract class Type extends scala.Serializable
-  sealed trait SimpleType // Definitely no type variables
+  sealed trait SimpleType extends Type // Definitely no type variables
   case object VoidType extends Type with SimpleType
 
   // Primitive types
@@ -514,5 +514,20 @@ object Types {
       case fs => fs
     }
     mostSpecific(applies)
+  }
+
+  // Make sure a type can be written in Java
+  def safe(t: Type): Type = t match {
+    case r: RefType => safe(r)
+    case VoidType => notImplemented
+    case _:PrimType => t
+  }
+  def safe(t: RefType): RefType = t match {
+    case NullType => ObjectType
+    case ObjectType|ErrorType(_)|SimpleInterfaceType(_)|SimpleClassType(_)|ParamType(_) => t
+    case GenericInterfaceType(d,ts) => GenericInterfaceType(d,ts map safe)
+    case GenericClassType(d,ts) => GenericClassType(d,ts map safe)
+    case IntersectType(ts) => IntersectType(ts map safe)
+    case ArrayType(t) => ArrayType(safe(t))
   }
 }

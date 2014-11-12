@@ -40,4 +40,7 @@ class TestInfer {
 
   @Test
   def intFail() = testInferFail()(IntRefType)(NumberItem)
+
+  @Test
+  def simpleNull() = testInfer(T -> ObjectType)(T)(NullType)
 }
