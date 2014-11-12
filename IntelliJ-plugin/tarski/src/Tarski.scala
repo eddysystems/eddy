@@ -17,6 +17,9 @@ object Tarski {
 
   def localPkg(): PackageItem = Base.LocalPkg
 
+  // like Types.toType, but without support for generics right now
+  def toType(ty: TypeItem): Types.Type = Types.toType(ty,Nil)
+
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Score,java.util.List[Stmt])] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)

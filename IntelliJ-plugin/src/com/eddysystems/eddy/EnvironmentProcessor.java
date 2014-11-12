@@ -14,6 +14,8 @@ import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.collection.JavaConversions;
+import scala.collection.immutable.Nil;
+import scala.collection.immutable.Nil$;
 import tarski.Environment.Env;
 import tarski.Items.*;
 import tarski.Tarski;
@@ -68,14 +70,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     PsiScopesUtil.treeWalkUp(this, place, null);
 
+    // TODO: add all installed packages
     // TODO: find import statements and add those to scope
-  }
-
-  private Type makeArray(Type t, int dims) {
-    assert dims >= 1;
-    while (dims-- != 0)
-      t = new ArrayType(t);
-    return t;
   }
 
   private @Nullable PsiPackage getPackage(@NotNull PsiJavaFile file) {
@@ -118,14 +114,20 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   }
 
   private TypeItem addClassToEnvMap(Map<PsiElement, NamedItem> envitems, PsiClass cls) {
-    if (cls == null)
-      return null;
     if (envitems.containsKey(cls))
       return (TypeItem)envitems.get(cls);
 
+    // java.lang.Object is special
+    if (cls.getQualifiedName() != null && cls.getQualifiedName().equals("java.lang.Object")) {
+      envitems.put(cls, tarski.Items.ObjectItem$.MODULE$);
+      return tarski.Items.ObjectItem$.MODULE$;
+    }
+
     // Base
     // TODO: Handle generics
-    SimpleClassType base = new SimpleClassType((ClassItem)addClassToEnvMap(envitems, cls.getSuperClass()));
+    PsiClass scls = cls.getSuperClass();
+    assert scls != null;
+    ClassOrObjectType base = (ClassOrObjectType)tarski.Tarski.toType(addClassToEnvMap(envitems, scls));
 
     // Type parameters
     // TODO: Handle generics
@@ -172,11 +174,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     CallableItem mitem;
 
     if (method.isConstructor()) {
-      assert clsitem instanceof ClassItem;
+      assert clsitem instanceof ClassOrObjectItem;
       // TODO: varargs
       // TODO: get type parameters
       // TODO: what to do with parameters depending on type parameters and bounded types and such?
-      mitem = new ConstructorItem((ClassItem)clsitem, tparams, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+      mitem = new ConstructorItem((ClassOrObjectItem)clsitem, tparams, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     } else {
       // TODO: varargs
       // TODO: get type parameters
@@ -214,7 +216,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         return new SimpleInterfaceType((InterfaceItem)addClassToEnvMap(envitems,tcls));
       } else {
         // TODO: Handle generics
-        return new SimpleClassType((ClassItem)addClassToEnvMap(envitems,tcls));
+        return tarski.Tarski.toType(addClassToEnvMap(envitems,tcls));
       }
     }
     if (t == PsiType.BOOLEAN) return tarski.Types.BooleanType$.MODULE$;
@@ -361,9 +363,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.debug("environment taken inside " + placeItem + ": ");
 
+    /*
     for (NamedItem item : items) {
       logger.debug("  " + item + (localItems.containsKey(item) ? " scope level " + localItems.get(item).toString() : " not in scope."));
     }
+    */
 
     return Tarski.environment(items, localItems, placeItem);
   }
@@ -467,7 +471,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    logger.debug("found element " + element + " at level " + currentLevel);
+    //logger.debug("found element " + element + " at level " + currentLevel);
 
     if (element instanceof PsiClass) {
       classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));

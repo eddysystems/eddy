@@ -336,7 +336,20 @@ object Pretty {
       case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok(),RBrackTok()))
     }
   }
+  implicit def prettyLit(x: Lit) = (HighestFix, List(x match {
+    case ByteLit(v,s) => IntLitTok(s)
+    case ShortLit(v,s) => IntLitTok(s)
+    case IntLit(v,s) => IntLitTok(s)
+    case LongLit(v,s) => LongLitTok(s)
+    case FloatLit(v,s) => FloatLitTok(s)
+    case DoubleLit(v,s) => DoubleLitTok(s)
+    case BooleanLit(b) => BoolLitTok(b)
+    case CharLit(v,s) => CharLitTok(s)
+    case StringLit(v,s) => StringLitTok(s)
+    case NullLit() => NullLitTok()
+  }))
   implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
+    case l: Lit => pretty(l)
     case ParameterExp(x) => pretty(x)
     case LocalVariableExp(x) => pretty(x)
     case EnumConstantExp(x) => pretty(x)
