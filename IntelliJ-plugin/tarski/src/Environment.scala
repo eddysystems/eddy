@@ -94,15 +94,21 @@ object Environment {
 
   // Fuzzy Query interface
 
-  // What could this name be?
-  def scores(name: String)(implicit env: Env): Scored[NamedItem] =
-    simple(env.things.filter(_.name == name), s"Item $name not found")
-
   // What could this name be, assuming it is a type?
   // TODO: Handle generics
   def typeScores(name: String)(implicit env: Env): Scored[Type] =
     simple(env.things collect { case x: TypeItem if x.name==name => toType(x,Nil) },
            s"Type $name not found")
+
+  // What could it be, given it's a callable?
+  def callableScores(name: String)(implicit env: Env): Scored[CallableItem] =
+    simple(env.things collect { case x: CallableItem if x.name==name => x },
+           s"Callable $name not found")
+
+  // What could this be, we know it's a value
+  def valueScores(name: String)(implicit env: Env): Scored[Value] =
+    simple(env.things collect { case x: Value if x.name==name => x },
+           s"Value $name not found")
 
   // Objects of a given type (or subtypes thereof)
   def objectsOfType(t: Type)(implicit env: Env): Scored[Value] =
@@ -163,10 +169,22 @@ object Environment {
     }
   }
 
-  // What could this name be, assuming it is a field of the given type?
-  def fieldScores(t: Type, name: String)(implicit env: Env): Scored[NamedItem] =
-    simple(env.things.filter(f => f.name == name && memberIn(f,t)),
+  // What could this be, assuming it's a callable field of the given type?
+  def callableFieldScores(t: Type, name: String)(implicit env: Env): Scored[CallableItem] =
+    simple(env.things.collect( { case f: CallableItem if f.name == name && memberIn(f,t) => f } ),
+           s"Type ${show(t)} has no callable field $name")
+
+  // What could this name be, assuming it is a member of the given type?
+  def fieldScores(t: Type, name: String)(implicit env: Env): Scored[Value with Member] =
+    simple(env.things.collect( { case f: Value with Member if f.name == name && memberIn(f,t) => f } ),
            s"Type ${show(t)} has no field $name")
+
+  // what could this be, assuming it's a static member of the given type?
+  def staticFieldScores(t: Type, name: String)(implicit env: Env): Scored[StaticValue with Member] =
+    simple(env.things.collect( {
+      case f: StaticFieldItem if f.name == name && memberIn(f,t) => f
+      case f: EnumConstantItem if f.name == name && memberIn(f,t) => f
+    }), s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?
   // TODO: Handle generics

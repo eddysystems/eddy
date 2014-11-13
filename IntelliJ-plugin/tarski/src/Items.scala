@@ -34,6 +34,7 @@ object Items {
   sealed abstract class Value(name: Name) extends NamedItem(name) with scala.Serializable {
     def ourType: Type
   }
+  sealed abstract class StaticValue(name: Name) extends Value(name)
 
   // A method or constructor
   sealed abstract class CallableItem(name: Name, val tparams: List[TypeParamItem], val params: List[Type])
@@ -93,13 +94,13 @@ object Items {
   case class FieldItem(override val name: Name, ourType: Type, container: ClassItem)
     extends Value(name) with ClassMember with scala.Serializable
   case class StaticFieldItem(override val name: Name, ourType: Type, container: TypeItem)
-    extends Value(name) with ClassMember with scala.Serializable
+    extends StaticValue(name) with ClassMember with scala.Serializable
   case class ParameterItem(override val name: Name, ourType: Type)
     extends Value(name) with LocalItem with scala.Serializable
   case class LocalVariableItem(override val name: Name, ourType: Type)
     extends Value(name) with LocalItem with scala.Serializable
   case class EnumConstantItem(override val name: Name, container: EnumItem)
-    extends Value(name) with ClassMember with scala.Serializable {
+    extends StaticValue(name) with ClassMember with scala.Serializable {
     def ourType = SimpleClassType(container)
   }
 

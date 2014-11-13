@@ -8,7 +8,7 @@ import Environment._
 import Items._
 import Denotations._
 import Scores._
-import Tokens.show
+import tarski.Tokens._
 import Pretty._
 import ambiguity.Utility.notImplemented
 
@@ -45,25 +45,49 @@ object Semantics {
   }
 
   // Types
-  // TODO: The grammar currently rules out stuff like (1+2).A matching as a type.  Maybe we want this?
-  def denote(n: AType)(implicit env: Env): Scored[Type] = n match {
+  def denoteType(n: AType)(implicit env: Env): Scored[Type] = n match {
     case NameAType(n) => typeScores(n)
     case VoidAType() => single(VoidType)
     case PrimAType(t) => single(t)
-    case FieldAType(x,f) => for (t <- denote(x); fi <- typeFieldScores(t,f)) yield fi
+    case FieldAType(x,f) => for (t <- denoteType(x); fi <- typeFieldScores(t,f)) yield fi
     case ModAType(Annotation(_),t) => throw new NotImplementedError("Types with annotations")
     case ModAType(_,_) => fail("Not implemented: type modifiers")
-    case ArrayAType(t) => denote(t) map ArrayType
+    case ArrayAType(t) => denoteType(t) map ArrayType
     case ApplyAType(_,_) => throw new NotImplementedError("Generics not implemented (ApplyType): " + n)
     case WildAType(_) => throw new NotImplementedError("Type bounds not implemented (WildType): " + n)
   }
 
-  def denoteType(n: AExp)(implicit env: Env): Scored[Type] =
-    denote(n) flatMap {
-      case t: TypeDen => single(t.item)
-      case e: Exp => single(typeOf(e)) // Allow expressions to be used as types
-      case d => fail(show(d)+": has no type")
+  def denoteType(e: AExp)(implicit env: Env): Scored[Type] = e match {
+    case NameAExp(n) => typeScores(n)
+    case x: ALit => fail("literals are not types.")
+    case ParenAExp(x) => denoteType(x) // Java doesn't allow parentheses around types, but we do
+
+    // x is either a type or an expression, f is an inner type, method, or field
+    case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
+      // first, the ones where x is a type
+      val tdens: Scored[Type] = for {t <- denoteType(x)
+                                    fi <- typeFieldScores(t,f)}
+                                 yield fi
+      val edens: Scored[Type] = for {e <- denoteExp(x)
+                                     fi <- typeFieldScores(typeOf(e),f)}
+                                 yield fi
+      tdens++edens
     }
+
+    case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
+    case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
+    case TypeApplyAExp(x,ts) => throw new NotImplementedError("Generics not implemented (TypeApplyExp): " + e)
+    case NewAExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
+    case WildAExp(b) => throw new NotImplementedError("wildcard expressions not implemented: " + e)
+
+    case ApplyAExp(f,xsn,_) => fail("expressions are not types")
+    case UnaryAExp(op,x) => fail("expressions are not types")
+    case BinaryAExp(op,x,y) => fail("expressions are not types")
+    case CastAExp(t,x) => fail("expressions are not types")
+    case CondAExp(c,x,y) => fail("expressions are not types") // TODO: translate to if statement somehow
+    case AssignAExp(op,x,y) => fail("expressions are not types")
+    case ArrayAExp(xs,a) => fail("expressions are not types")
+  }
 
   // Are we contained in the given type, or in something contained in the given type?
   def containedIn(i: NamedItem, t: TypeItem): Boolean = i match {
@@ -80,7 +104,6 @@ object Semantics {
     case i: EnumConstantItem => single(EnumConstantExp(i))
     case i: ThisItem => single(ThisExp(i))
 
-    // TODO: take proper care of scoping and shadowing here
     case i: FieldItem =>
       if (env.itemInScope(i))
         single(LocalFieldExp(i))
@@ -104,11 +127,13 @@ object Semantics {
     case _ => fail("Can't find a denotation for " + i + ", inaccessible")
   }
 
-  // Expressions
-  def denote(e: AExp)(implicit env: Env): Scored[Den] = e match {
-    case NameAExp(n) => scores(n) flatMap {
-      case i: Value => denoteValue(i)
+  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {
+    case a if typeOf(a).isInstanceOf[ArrayType] => single(a)
+    case d => fail(show(d) + " is not an array")
+  }
 
+  def denoteCallable(e: AExp)(implicit env: Env): Scored[Callable] = e match {
+    case NameAExp(n) => callableScores(n) flatMap {
       // Callables
       // TODO: take proper care of scoping and shadowing here
       case i: MethodItem =>
@@ -116,39 +141,70 @@ object Semantics {
           single(LocalMethodDen(i))
         else
           for (obj <- objectsOfItem(i.container); obj <- denoteValue(obj)) yield MethodDen(obj, i)
-
       case i: StaticMethodItem => single(StaticMethodDen(i))
       case i: ConstructorItem => single(NewDen(i))
-      case i: TypeParamItem => single(TypeDen(ParamType(i)))
-      case _: TypeItem => fail("Expression cannot return types")
-      case _: PackageItem => notImplemented
-      case _: AnnotationItem => notImplemented
     }
-    case x: ALit => denoteLit(x)
-    case ParenAExp(x) => denote(x) // Java doesn't allow parentheses around types, but we do
+    case ParenAExp(x) => denoteCallable(x) // Java doesn't allow parentheses around callables, but we do
 
     // x is either a type or an expression, f is an inner type, method, or field
-    case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else
-      for (d <- denote(x);
-           t <- d match {
-             case t: TypeDen => single(t.item)
-             case e: Exp => single(typeOf(e))
-             case _ => fail(show(d)+" has no type")
-           };
-           fi <- fieldScores(t,f);
-           r <- (d,fi) match {
-             case (_, f: TypeItem) => single(TypeDen(toType(f,Nil)))
-             case (_, f: EnumConstantItem) => single(EnumConstantExp(f))
-             case (_, f: StaticFieldItem) => single(StaticFieldExp(f))
-             case (e: Exp, f: FieldItem) => single(FieldExp(e,f))
-             case (_, f: StaticMethodItem) => single(StaticMethodDen(f))
-             case (e: Exp, f: MethodItem) => single(MethodDen(e,f))
-             case (_, f: PackageItem) => throw new NotImplementedError("FieldExp: packages not implemented: " + e)
-             case (_, f: ConstructorItem) => throw new NotImplementedError("FieldExp: ConstructorItem")
-             case (_, f: LocalItem) => fail("Can't qualify locals, parameters") // TODO: return something with a low score
-             case _ => fail(show(fi)+" is not field-like")
-           })
-        yield r
+    case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
+      // first, the ones where x is a type
+      val tdens: Scored[Callable] = for {t <- denoteType(x)
+                                         fi <- callableFieldScores(t,f)
+                                         r <- (t,fi) match {
+                                           case (_, f: StaticMethodItem) => single(StaticMethodDen(f))
+                                           case (_, f: MethodItem) => fail(show(fi)+" is not static, and is used without an object.")
+                                           case (_, f: ConstructorItem) => throw new NotImplementedError("FieldExp: ConstructorItem")
+                                         }}
+                                      yield r
+      val edens: Scored[Callable] = for {e <- denoteExp(x)
+                                         fi <- callableFieldScores(typeOf(e),f)
+                                         r <- (e,fi) match {
+                                           case (_, f: StaticMethodItem) => single(StaticMethodDen(f))
+                                           case (_, f: MethodItem) => single(MethodDen(e,f))
+                                           case (_, f: ConstructorItem) => throw new NotImplementedError("FieldExp: ConstructorItem")
+                                         }}
+                                      yield r
+      tdens++edens
+    }
+
+    case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
+    case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
+    case TypeApplyAExp(x,ts) => throw new NotImplementedError("Generics not implemented (TypeApplyExp): " + e)
+    case NewAExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
+    case WildAExp(b) => throw new NotImplementedError("wildcard expressions not implemented: " + e)
+
+    // objects that are function-like interfaces should be callable, but that is handled in denoteExp: ApplyAExp
+    case x: ALit => fail("literals are not callable.")
+    case ApplyAExp(_,_,_) => fail("results of function applications are not callable.")
+    case UnaryAExp(_,_) => fail("expressions are not callable")
+    case BinaryAExp(_,_,_) => fail("expressions are not callable")
+    case CastAExp(_,_) => fail("expressions are not callable")
+    case CondAExp(c,x,y) => fail("expressions are not callable") // TODO: of course, this should be callable if the two options are
+    case AssignAExp(op,x,y) => fail("expressions are not callable")
+    case ArrayAExp(xs,a) => fail("expressions are not callable")
+  }
+
+  def denoteExp(e: AExp)(implicit env: Env): Scored[Exp] = e match {
+    case NameAExp(n) => valueScores(n) flatMap denoteValue
+    case x: ALit => denoteLit(x)
+    case ParenAExp(x) => denoteExp(x)
+
+    // x is either a type or an expression, f is an inner type, method, or field
+    case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
+      // First, the ones where x is a type
+      val tdens = denoteType(x) flatMap (t => staticFieldScores(t,f) flatMap {
+        case f: EnumConstantItem => single(EnumConstantExp(f))
+        case f: StaticFieldItem => single(StaticFieldExp(f))
+      })
+      // Now, x is an expression
+      val edens = denoteExp(x) flatMap (e => fieldScores(typeOf(e),f) flatMap {
+        case f: EnumConstantItem => single(EnumConstantExp(f))
+        case f: StaticFieldItem => single(StaticFieldExp(f))
+        case f: FieldItem => single(FieldExp(e,f))
+      })
+      tdens++edens
+    }
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
     case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
@@ -168,7 +224,7 @@ object Semantics {
           case Some((_,ts)) => single(ApplyExp(f,ts,xl))
         }}
       }
-      def index(f: Exp, ft: ArrayType): Scored[Exp] = {
+      def index(f: Exp, ft: Type): Scored[Exp] = {
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
           case ArrayType(t) => hasDims(t,d-1)
           case _ => false
@@ -182,14 +238,9 @@ object Semantics {
           for (xl <- product(filtered)) yield xl.foldLeft(f)(IndexExp)
         }
       }
-      denote(f) flatMap {
-        case a: Exp => typeOf(a) match {
-          case t: ArrayType => index(a,t)
-          case _ => fail(show(f)+": not an array")
-        }
-        case c: Callable => call(c)
-        case _ => fail(show(f)+": neither callable nor an array")
-      }
+      val adens = denoteArray(f) flatMap (a => index(a,typeOf(a)))
+      val cdens = denoteCallable(f) flatMap call
+      adens ++ cdens
     }
 
     case UnaryAExp(op,x) => denoteExp(x) flatMap {
@@ -204,7 +255,7 @@ object Semantics {
       else fail("${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
     }}
 
-    case CastAExp(t,x) => product(denote(t),denoteExp(x)) flatMap {case (t,x) => {
+    case CastAExp(t,x) => product(denoteType(t),denoteExp(x)) flatMap {case (t,x) => {
       val tx = typeOf(x)
       if (castsTo(tx,t)) single(CastExp(t,x))
       else fail("${show(e)}: can't cast ${show(tx)} to ${show(t)}")
@@ -232,13 +283,7 @@ object Semantics {
     case ArrayAExp(xs,a) =>
       for (is <- product(xs.list map denoteExp))
         yield ArrayExp(condTypes(is map typeOf),is)
-  }
-
-  def denoteExp(n: AExp)(implicit env: Env): Scored[Exp] =
-    denote(n) flatMap {
-      case e: Exp => single(e)
-      case d => fail("${show(n)}: ${show(d)} isn't an expression")
-    }
+}
 
   // Expressions with type restrictions
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
@@ -283,15 +328,12 @@ object Semantics {
       case HoleAStmt() => single((env,HoleStmt))
       case VarAStmt(mod,t,ds) =>
         if (mod.nonEmpty) notImplemented
-        else denote(t)(env).flatMap(t => {
+        else denoteType(t)(env).flatMap(t => {
           def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
             case None => single(None)
             case Some(e) => denoteExp(e)(env) flatMap {e =>
               if (assignsTo(typeOf(e),t)) single(Some(e))
-              else {
-                implicit val imp = env // Make env available for show
-                fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
-              }
+              else fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
             }
           }
           def define(env: Env, ds: List[AVarDecl]): Scored[(Env,List[VarDecl])] = ds match {
