@@ -374,15 +374,17 @@ object Semantics {
         else fail(s"${show(s)}: type $t is not throwable")
       }
       case SyncAStmt(e,b) => notImplemented
-      case IfAStmt(c,x) => productWith(denoteBool(c),denoteScoped(x))((c,x) => (env,IfStmt(c,x)))
-      case IfElseAStmt(c,x,y) => productWith(denoteBool(c),denoteScoped(x),denoteScoped(y))((c,x,y) =>
-        (env,IfElseStmt(c,x,y)))
-      case WhileAStmt(c,s,flip) => productWith(denoteBool(c),denoteScoped(s))((c,s) => (env,WhileStmt(xor(flip,c),s)))
-      case DoAStmt(s,c,flip) => productWith(denoteScoped(s),denoteBool(c))((s,c) => (env,DoStmt(s,xor(flip,c))))
-      case ForAStmt(i,c,u,s) => denoteStmts(i)(env) flatMap {case (inside,i) =>
-        productWith(thread(c)(denoteBool(_)(inside)),thread(u)(denoteExp(_)(inside)),denoteScoped(s)(inside)){(c,u,s) =>
+      case IfAStmt(c,x) => product(denoteBool(c),denoteScoped(x)(env)) map {case (c,(env,x)) => (env,IfStmt(c,x))}
+      case IfElseAStmt(c,x,y) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>
+        denoteScoped(y)(env) map {case (env,y) => (env,IfElseStmt(c,x,y))}}
+      case WhileAStmt(c,s,flip) => product(denoteBool(c),denoteScoped(s)(env)) map {case (c,(env,s)) =>
+        (env,WhileStmt(xor(flip,c),s))}
+      case DoAStmt(s,c,flip) => product(denoteScoped(s)(env),denoteBool(c)) map {case ((env,s),c) =>
+        (env,DoStmt(s,xor(flip,c)))}
+      case ForAStmt(i,c,u,s) => denoteStmts(i)(env.pushScope) flatMap {case (env,i) =>
+        product(thread(c)(denoteBool(_)(env)),thread(u)(denoteExp(_)(env)),denoteScoped(s)(env)) map {case (c,u,(env,s)) =>
           // Sanitize initializer into valid Java
-          (env, i match {
+          (env.popScope, i match {
             case List(i:VarStmt) => ForStmt(i,c,u,s)
             case i => allSome(i map {case ExpStmt(e) => Some(e); case _ => None}) match {
               case Some(es) => ForStmt(ForExps(es),c,u,s)
@@ -407,9 +409,9 @@ object Semantics {
                   val ne = dimensions(te)
                   if (ne >= n) single(te)
                   else fail(s"$hole: expected $n array dimensions, got type ${show(te)} with $ne")
-              }) flatMap (t => env.newVariable(v,t) flatMap {case (inside,v) => denoteScoped(s)(inside) map (s =>
-                (env,ForeachStmt(t,v,e,s))
-              )})
+              }) flatMap (t => env.pushScope.newVariable(v,t) flatMap {case (env,v) => denoteStmt(s)(env) map {case (env,s) =>
+                (env.popScope,ForeachStmt(t,v,e,s))
+              }})
           }
         }
       }
@@ -424,10 +426,12 @@ object Semantics {
     case Some(_) => notImplemented
   }
 
-  // A statement whose environment is discarded
-  def denoteScoped(s: AStmt)(implicit env: Env): Scored[Stmt] = denoteStmt(s)(env) map (_._2)
-  def denoteScoped(s: List[AStmt])(implicit env: Env): Scored[List[Stmt]] = denoteStmts(s)(env) map (_._2)
-
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt)
+
+  // Statement whose environment is discarded
+  def denoteScoped(s: AStmt)(env: Env): Scored[(Env,Stmt)] =
+    denoteStmt(s)(env.pushScope) map {case (env,s) => (env.popScope,s)}
+  def denoteScoped(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
+    denoteStmts(s)(env.pushScope) map {case (env,s) => (env.popScope,s)}
 }

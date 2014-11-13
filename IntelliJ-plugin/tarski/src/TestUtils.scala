@@ -22,6 +22,7 @@ object TestUtils {
   // Denotation implicit conversions
   implicit def toExp(i: Int): Exp = IntLit(i,i.toString)
   implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
+  implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString)
   implicit def toExp(x: LocalVariableItem): Exp = LocalVariableExp(x)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
   implicit def toExps(e: Exp): List[Exp] = List(e)

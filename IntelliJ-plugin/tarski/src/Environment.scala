@@ -22,19 +22,18 @@ object Environment {
     assert(place == Base.LocalPkg || allthings.contains(place))
     val things = allthings.filterNot( _.isInstanceOf[NoLookupItem] )
 
-    // add objects (while filling environment)
+    // Add objects (while filling environment)
     def addObjects(xs: List[NamedItem], is: Map[NamedItem,Int]): Env = {
       // TODO: this is quadratic time
       // TODO: filter identical things (like java.lang.String)
       Env(allthings ++ xs, inScope ++ is, place)
     }
 
-    // makes all items local with priority 1 (for tests)
-    def makeAllLocal: Env = {
-      Env(allthings, things.map( i => (i,1)).toMap)
-    }
+    // Make all items local with priority 1 (for tests)
+    def makeAllLocal: Env =
+      Env(allthings, things.map(i => (i,1)).toMap)
 
-    // add local objects (they all appear in inScope with priority 1)
+    // Add local objects (they all appear in inScope with priority 1)
     def addLocalObjects(xs: List[NamedItem]): Env = {
       Env(allthings ++ xs, inScope ++ xs.map((_,1)).toMap, place)
     }
@@ -78,7 +77,7 @@ object Environment {
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
 
-    // fragile, only use for tests
+    // Fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {
       things collect { case x: LocalVariableItem if x.name == name => x } match {
         case List(x) => x
@@ -87,9 +86,17 @@ object Environment {
       }
     }
 
-    // check if an item is in scope and not shadowed by another item
+    // Check if an item is in scope and not shadowed by another item
     def itemInScope(i: NamedItem): Boolean =
       inScope.contains(i) && !inScope.exists { case (ii,p) => p < inScope.get(i).get && i.name == ii.name }
+
+    // Enter a new block scope
+    def pushScope: Env =
+      Env(allthings, inScope map { case (i,n) => (i,n+1) }, place)
+
+    // Leave a block scope
+    def popScope: Env =
+      Env(allthings, inScope collect { case (i,n) if n>1 => (i,n-1) }, place)
   }
 
   // Fuzzy Query interface

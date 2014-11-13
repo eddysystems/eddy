@@ -35,7 +35,9 @@ class TestDen {
   def testDen[A](input: String, best: A)(implicit env: Env, c: A => List[Stmt]): Unit =
     testHelper(input, env => best)
   def testDen[A](input: String, x: Name, best: Local => A)(implicit env: Env, c: A => List[Stmt]): Unit =
-    testHelper(input, env => best(env.exactLocal("x")))
+    testHelper(input, env => best(env.exactLocal(x)))
+  def testDen[A](input: String, x: Name, y: Name, best: (Local,Local) => A)(implicit env: Env, c: A => List[Stmt]): Unit =
+    testHelper(input, env => best(env.exactLocal(x),env.exactLocal(y)))
 
   def testOnlyDenotation(input: String, best: Env => List[Stmt])(implicit env: Env) = {
     val fixes = fix(lex(input).filterNot(isSpace))
@@ -347,4 +349,10 @@ class TestDen {
   @Test def foreverHole() = testDen("for (;;)", ForStmt(Nil,None,Nil,HoleStmt))
   @Test def forSimple()   = testDen("for (x=7;true;x++)", "x", x =>
     ForStmt(VarStmt(IntType,(x,7)),Some(t),UnaryExp(PostIncOp(),x),HoleStmt))
+  @Test def forTwo()      = testDen("for (x=7,y=8.1;true;)", "x", "y", (x,y) =>
+    BlockStmt(List(VarStmt(IntType,(x,7)),
+                   VarStmt(DoubleType,(y,8.1)),
+                   ForStmt(Nil,Some(t),Nil,HoleStmt))))
+  @Test def foreach()     = testDen("for (x : 1,2)", "x", x =>
+    ForeachStmt(IntType,x,ArrayExp(IntType,List(1,2)),HoleStmt))
 }
