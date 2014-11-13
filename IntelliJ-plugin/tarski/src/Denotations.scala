@@ -33,9 +33,10 @@ object Denotations {
 
   // Statements
   sealed abstract class Stmt extends Den
+  sealed trait ForInit
   case object EmptyStmt extends Stmt
   case object HoleStmt extends Stmt
-  case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt
+  case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt with ForInit
   case class ExpStmt(e: Exp) extends Stmt
   case class BlockStmt(b: List[Stmt]) extends Stmt
   case class AssertStmt(c: Exp, m: Option[Exp]) extends Stmt
@@ -47,6 +48,9 @@ object Denotations {
   case class IfElseStmt(c: Exp, t: Stmt, f: Stmt) extends Stmt
   case class WhileStmt(c: Exp, s: Stmt) extends Stmt
   case class DoStmt(s: Stmt, c: Exp) extends Stmt
+  case class ForStmt(i: ForInit, c: Option[Exp], u: List[Exp], s: Stmt) extends Stmt
+  case class ForExps(i: List[Exp]) extends ForInit
+  case class ForeachStmt(t: Type, v: LocalVariableItem, e: Exp, s: Stmt) extends Stmt
 
   // It's all expressions from here
   sealed abstract class Exp extends Den

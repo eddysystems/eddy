@@ -12,6 +12,7 @@ Ident Name
   IdentTok { $1.name }
   ThenTok  { "then" }
   UntilTok { "until" }
+  InTok    { "in" }
 
 // Modifiers
 Mod Mod
@@ -59,6 +60,9 @@ List2[a] KList[a]
 Juxts0[a] List[a]
   ""                             { Nil }
   Juxts1[a]                      { $1 }
+Commas0[a] List[a]
+  ""                             { Nil }
+  Commas1[a]                     { $1 }
 
 // Dims
 IdentDims (Name,Int)
@@ -122,18 +126,15 @@ Stmt AStmt
 MaybeStmt AStmt
   ""                                                         { HoleAStmt() }
   Stmt                                                       { $1 }
-WhileUntil Boolean
-  WhileTok                                                   { false }
-  UntilTok                                                   { true }
 StmtHelper AStmt
   StmtHelperBS                                               { $1 }
-  IfTok LParenTok ExpAssign RParenTok Option[ThenTok]        { IfAStmt($3,HoleAStmt()) }
-  IfTok ExpAssignNP                                          { IfAStmt($2,HoleAStmt()) }
-  IfTok ExpAssignNP ThenTok                                  { IfAStmt($2,HoleAStmt()) }
-  IfTok LParenTok ExpAssign RParenTok Option[ThenTok] MaybeStmt ElseTok  { IfElseAStmt($3,$6,HoleAStmt()) }
+  IfTok MaybeParenExp Option[ThenTok]                        { IfAStmt($2,HoleAStmt()) }
+  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok           { IfElseAStmt($2,$4,HoleAStmt()) }
   IfTok ExpAssignNP ThenTok MaybeStmt ElseTok                { IfElseAStmt($2,$4,HoleAStmt()) }
-  WhileUntil LParenTok ExpAssign RParenTok Option[DoTok]     { WhileAStmt($3,HoleAStmt(),$1) }
-  WhileUntil ExpAssignNP Option[DoTok]                       { WhileAStmt($2,HoleAStmt(),$1) }
+  WhileUntil MaybeParenExp Option[DoTok]                     { WhileAStmt($2,HoleAStmt(),$1) }
+  ForTok LParenTok ForInfo RParenTok                         { $3(HoleAStmt()) }
+  ForTok ForInfo                                             { $2(HoleAStmt()) }
+  SynchronizedTok MaybeParenExp                              { SyncAStmt($2,HoleAStmt()) }
 StmtHelperBS AStmt
   Juxts0[Mod] Type List1[VarDecl]                            { VarAStmt($1,$2,$3) }
   Block                                                      { BlockAStmt($1) }
@@ -145,25 +146,38 @@ StmtHelperBS AStmt
   ReturnTok Option[ExpJuxt]                                  { ReturnAStmt($2) }
   ThrowTok ExpJuxt                                           { ThrowAStmt($2) }
   // LabelStmt
-  IfTok LParenTok ExpAssign RParenTok Option[ThenTok] Stmt   { IfAStmt($3,$6) }
+  IfTok ParenExp Option[ThenTok] Stmt                        { IfAStmt($2,$4) }
   IfTok ExpAssignNP ThenTok Stmt                             { IfAStmt($2,$4) }
   IfTok ExpAssignNP                                          { IfAStmt($2,EmptyAStmt()) }
   IfTok ExpAssignNP                                          { IfElseAStmt($2,EmptyAStmt(),HoleAStmt()) }
-  IfTok LParenTok ExpAssign RParenTok Option[ThenTok] MaybeStmt ElseTok Stmt  { IfElseAStmt($3,$6,$8) }
+  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok Stmt      { IfElseAStmt($2,$4,$6) }
   IfTok ExpAssignNP ThenTok MaybeStmt ElseTok Stmt           { IfElseAStmt($2,$4,$6) }
-  WhileUntil LParenTok ExpAssign RParenTok Option[DoTok] Stmt { WhileAStmt($3,$6,$1) }
+  WhileUntil ParenExp Option[DoTok] Stmt                     { WhileAStmt($2,$4,$1) }
   WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($2,$4,$1) }
   WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt(),$1) }
-  DoTok MaybeStmt WhileUntil LParenTok ExpAssign RParenTok   { DoAStmt($2,$5,$3) }
-  DoTok MaybeStmt WhileUntil ExpAssignNP                     { DoAStmt($2,$4,$3) }
-  // For
-  // Switch
-  // Do
-  SynchronizedTok ExpJuxt Block      { SyncAStmt($2,$3) } // Parens handled inside ExpJuxt
+  DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($2,$4,$3) }
+  ForTok LParenTok ForInfo RParenTok Stmt                    { $3($5) }
+  ForTok ForInfo DoTok Stmt                                  { $2($4) }
+  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2,BlockAStmt($3)) }
   // Try
+  // Switch
 VarDecl (Name,Int,Option[AExp])
   IdentDims                      { ($1._1,$1._2,None) }
   IdentDims EqTok ExpCommas      { ($1._1,$1._2,Some($3)) }
+WhileUntil Boolean
+  WhileTok                                                   { false }
+  UntilTok                                                   { true }
+ForInfo AStmt=>AStmt
+  Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { (s: AStmt) => ForAStmt($1,$3,$5,s) }
+  Option[Type] IdentDims ForeachSep ExpAssign                                   { (s: AStmt) => ForeachAStmt($1,$2._1,$2._2,$4,s) }
+ForeachSep Unit
+  ColonTok                                                   { () }
+  InTok                                                      { () }
+ParenExp AExp
+  LParenTok ExpAssign RParenTok                              { $2 }
+MaybeParenExp AExp
+  ExpAssignNP                                                { $1 }
+  ParenExp                                                   { $1 }
 
 // Expressions, lowest to highest precedence
 // Suffixes: NJ is no juxtaposition, NC is no commas, NA is no args, NP is no parens (or commas)

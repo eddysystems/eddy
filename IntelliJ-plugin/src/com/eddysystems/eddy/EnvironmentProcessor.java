@@ -156,7 +156,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     } else {
       container = Tarski.localPkg();
     }
-    TypeItem item = cls.isInterface() ? new InterfaceItem(cls.getName(),container,params,interfaces)
+    TypeItem item = cls.isInterface() ? new NormalInterfaceItem(cls.getName(),container,params,interfaces)
                   : cls.isEnum()      ? new EnumItem(cls.getName(),container,interfaces)
                                       : new NormalClassItem(cls.getName(),container,params,base,interfaces);
     envitems.put(cls,item);

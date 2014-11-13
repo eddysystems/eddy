@@ -93,7 +93,8 @@ object Pretty {
   def tokens[A](x: A)(implicit p: Pretty[A]): Tokens = p(x)._2
 
   // Pretty printing utilities
-  def parens[A](x: A)(implicit p: Pretty[A]) = LParenTok() :: tokens(x) ::: List(RParenTok())
+  def parens[A](x: A)(implicit p: Pretty[A]): Tokens = parens(tokens(x))
+  def parens(ts: Tokens): Tokens = LParenTok() :: ts ::: List(RParenTok())
   def typeBracket[A](x: A)(implicit p: Pretty[A]) = LtTok() :: tokens(x) ::: List(GtTok())
   def parensIf[A](x: A, prec: Int)(implicit p: Pretty[A]) = {
     val (f,ts) = p(x)
@@ -110,6 +111,12 @@ object Pretty {
   def prettyDims[A](x: A, n: Dims)(implicit p: Pretty[A]): (Fixity,Tokens) = {
     if (n == 0) pretty(x)
     else fix(ApplyFix, left(_,x) ::: List.fill(n)(List(LBrackTok(),RBrackTok())).flatten)
+  }
+
+  // Options
+  implicit def prettyOption[A](x: Option[A])(implicit p: Pretty[A]): (Fixity,Tokens) = x match {
+    case None => Nil
+    case Some(x) => p(x)
   }
 
   // Lists
@@ -255,6 +262,10 @@ object Pretty {
       case IfElseAStmt(c,x,y) => (SemiFix, IfTok() :: parens(c) ::: tokens(x) ::: ElseTok() :: tokens(y))
       case WhileAStmt(c,s,flip) => (SemiFix, whileUntil(flip) :: parens(c) ::: tokens(s))
       case DoAStmt(s,c,flip) => (SemiFix, DoTok() :: tokens(s) ::: whileUntil(flip) :: parens(c) ::: List(SemiTok()))
+      case ForAStmt(i,c,u,s) => (SemiFix, ForTok() :: parens(
+        tokens(i) ::: tokens(c) ::: SemiTok() :: tokens(CommaList(u))) ::: tokens(s))
+      case ForeachAStmt(t,v,n,e,s) => (SemiFix, ForTok() :: parens(
+        tokens(t) ::: prettyDims(v,n)._2 ::: ColonTok() :: tokens(e)) ::: tokens(s))
     }
   }
   def whileUntil(flip: Boolean): Token = (if (flip) UntilTok else WhileTok)()
@@ -425,11 +436,19 @@ object Pretty {
     case IfElseStmt(c,x,y) => (SemiFix, IfTok() :: parens(c) ::: tokens(x) ::: ElseTok() :: tokens(y))
     case WhileStmt(c,x) => (SemiFix, WhileTok() :: parens(c) ::: tokens(x))
     case DoStmt(x,c) => (SemiFix, DoTok() :: tokens(x) ::: WhileTok() :: parens(c) ::: List(SemiTok()))
+    case ForStmt(i,c,u,s) => (SemiFix, ForTok() :: parens(
+      tokens(i) ::: tokens(c) ::: SemiTok() :: tokens(CommaList(u))) ::: tokens(s))
+    case ForeachStmt(t,v,e,s) => (SemiFix, ForTok() :: parens(
+      tokens(t) ::: tokens(v) ::: ColonTok() :: tokens(e)) ::: tokens(s))
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyVar(v: (LocalVariableItem,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
     case (x,n,None) => prettyDims(x,n)
     case (x,n,Some(i)) => fix(AssignFix, prettyDims(x,n)._2 ::: EqTok() :: right(_,i)(prettyInit))
+  }
+  implicit def prettyForInit(i: ForInit)(implicit env: Env): (Fixity,Tokens) = i match {
+    case v: VarStmt => prettyStmt(v)
+    case ForExps(es) => (SemiFix, tokens(CommaList(es)) ::: List(SemiTok()))
   }
   implicit def prettyCallable(c: Callable)(implicit env: Env): (Fixity,Tokens) = c match {
     case MethodDen(x,f) => fix(FieldFix,left(_,x) ::: DotTok() :: tokens(f))

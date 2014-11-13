@@ -50,8 +50,13 @@ object Items {
     def arity: Int = params.size
   }
   sealed abstract class RefTypeItem(name: Name) extends TypeItem(name) with scala.Serializable
-  case class InterfaceItem(override val name: Name, container: NamedItem, params: List[TypeParamItem] = Nil,
-                           bases: List[InterfaceType] = Nil) extends RefTypeItem(name) with PlaceItem
+  abstract class InterfaceItem(override val name: Name) extends RefTypeItem(name) with PlaceItem {
+    def container: NamedItem
+    def params: List[TypeParamItem]
+    def bases: List[InterfaceType]
+  }
+  case class NormalInterfaceItem(override val name: Name, container: NamedItem, params: List[TypeParamItem] = Nil,
+                                 bases: List[InterfaceType] = Nil) extends InterfaceItem(name)
   sealed abstract class ClassOrObjectItem(override val name: Name) extends RefTypeItem(name)
   case object ObjectItem extends ClassOrObjectItem("Object") {
     def container = JavaLangPkg

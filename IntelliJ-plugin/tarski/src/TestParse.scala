@@ -45,7 +45,7 @@ class TestParse {
   }
 
   def testAST(s: String, ss: List[AStmt]*): Unit = {
-    val asts = ParseEddy.parse(lex(s).filterNot(isSpace))
+    val asts = ParseEddy.parse(lex(s).filterNot(isSpace).map(fake))
     for (e <- ss if !asts.contains(e)) {
       println()
     }
@@ -76,4 +76,11 @@ class TestParse {
   @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(t,h,h))
   @Test def whileBare()   = testAST("while true;", WhileAStmt(t,e,false))
   @Test def doWhileBare() = testAST("do; while true", DoAStmt(e,t,false))
+  @Test def whileHole()   = testAST("while true", WhileAStmt(t,h,false), WhileAStmt(t,e,false))
+  @Test def untilHole()   = testAST("until true", WhileAStmt(t,h,true), WhileAStmt(t,e,true),
+                                                  ApplyAExp("until",JuxtList(List(BoolALit(true))),NoAround))
+  @Test def forever()     = testAST("for (;;);", ForAStmt(Nil,None,Nil,EmptyAStmt()))
+  @Test def foreverHole() = testAST("for (;;)", ForAStmt(Nil,None,Nil,HoleAStmt()))
+  @Test def forSimple()   = testAST("for (x=7;true;x++)",
+    ForAStmt(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp(),"x"),HoleAStmt()))
 }

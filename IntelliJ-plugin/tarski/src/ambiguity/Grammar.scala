@@ -204,7 +204,7 @@ object Grammar {
     val prods = mutable.Map[Symbol,Set[Prod]]()
 
     // Split "prod { action }" into prod,action
-    def splitProd(words: List[String]): Prod = words.reverse match {
+    def splitProd(line: String, words: List[String]): Prod = words.reverse match {
       case "}" :: ws => {
         def search(depth: Int, words: List[String], action: List[String]): Prod =
           words match {
@@ -223,7 +223,7 @@ object Grammar {
           }
         search(1,ws,Nil)
       }
-      case _ => throw new RuntimeException("production line must end with }")
+      case _ => throw new RuntimeException(s"production line must end with }: $line")
     }
 
     // Parse file line by line
@@ -251,7 +251,7 @@ object Grammar {
           scope match {
             case None => throw new RuntimeException("indented line before scope")
             case Some(s) =>
-              val (p,action) = splitProd(words)
+              val (p,action) = splitProd(line,words)
               val prod = p match {
                 case List("\"\"") => Nil
                 case w => w

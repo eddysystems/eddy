@@ -12,17 +12,19 @@ object Base {
   val LocalPkg = PackageItem("","")
 
   // Basic interfaces and classes
-  val CloneableItem = InterfaceItem("Cloneable",JavaLangPkg)
-  val SerializableItem = InterfaceItem("Serializable",JavaIoPkg)
-  val CharSequenceItem = InterfaceItem("CharSequence",JavaLangPkg)
-  private val T = TypeParamItem("T")
-  val ComparableItem   = InterfaceItem("Comparable",JavaLangPkg,List(T))
+  val CloneableItem = NormalInterfaceItem("Cloneable",JavaLangPkg)
+  val SerializableItem = NormalInterfaceItem("Serializable",JavaIoPkg)
+  val CharSequenceItem = NormalInterfaceItem("CharSequence",JavaLangPkg)
+  val ComparableItem = {
+    val T = TypeParamItem("T")
+    NormalInterfaceItem("Comparable",JavaLangPkg,List(T))
+  }
   private def comparable(t: RefType) = GenericInterfaceType(ComparableItem,List(t))
   private def comparable(c: ClassItem) = GenericInterfaceType(ComparableItem,List(SimpleClassType(c)))
 
   // Class Enum
-  private val E = TypeParamItem("E")
   object EnumBaseItem extends ClassItem("Enum") {
+    private val E = TypeParamItem("E")
     def container = JavaLangPkg
     def params = List(E)
     def base = ObjectType
@@ -39,6 +41,14 @@ object Base {
   object ThrowableItem extends SimpleClassItem("Throwable") {
     def base = ObjectType
     def implements = Nil
+  }
+
+  // Iterable
+  object IterableItem extends InterfaceItem("Iterable") {
+    private val T = TypeParamItem("T")
+    def container = JavaLangPkg
+    def params = List(T)
+    def bases = Nil
   }
 
   // Class String
@@ -83,6 +93,6 @@ object Base {
     EnumBaseItem,ThrowableItem,StringItem,BooleanItem,CharacterItem,
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
     // Interfaces
-    CloneableItem,SerializableItem,CharSequenceItem,ComparableItem
+    CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem
   ))
 }

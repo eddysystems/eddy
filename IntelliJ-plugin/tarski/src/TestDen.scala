@@ -81,23 +81,23 @@ class TestDen {
 
   @Test
   def variableStmt() =
-    testDen("x = 1", "x", x => VarStmt(IntType, List((x,0,Some(toExp(1))))))
+    testDen("x = 1", "x", x => VarStmt(IntType,(x,1)))
 
   @Test
   def arrayVariableStmtCurly() =
-    testDen("x = {1,2,3,4}", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
+    testDen("x = {1,2,3,4}", "x", x => VarStmt(ArrayType(IntType),(x,ArrayExp(IntType,List(1,2,3,4)))))
 
   @Test
   def arrayVariableStmtParen() =
-    testDen("x = (1,2,3,4)", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
+    testDen("x = (1,2,3,4)", "x", x => VarStmt(ArrayType(IntType),(x,ArrayExp(IntType,List(1,2,3,4)))))
 
   @Test
   def arrayVariableStmtBare() =
-    testDen("x = 1,2,3,4", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
+    testDen("x = 1,2,3,4", "x", x => VarStmt(ArrayType(IntType),(x,ArrayExp(IntType,List(1,2,3,4)))))
 
   @Test
   def arrayVariableStmtBrack() =
-    testDen("x = [1,2,3,4]", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
+    testDen("x = [1,2,3,4]", "x", x => VarStmt(ArrayType(IntType),(x,ArrayExp(IntType,List(1,2,3,4)))))
 
   @Test
   def arrayLiteralAssign(): Unit = {
@@ -117,7 +117,7 @@ class TestDen {
   @Test
   def makeAndSet() =
     testDen("x = 1; x = 2", "x", x =>
-      List(VarStmt(IntType, List((x,0,Some(toExp(1))))),
+      List(VarStmt(IntType,(x,1)),
            ExpStmt(AssignExp(None,x,2))))
 
   @Test
@@ -176,7 +176,7 @@ class TestDen {
   @Test
   def cons(): Unit = {
     implicit val env = localEnvWithBase(Nil)
-    testDen("x = Object()", "x", x => VarStmt(ObjectType,List((x,0,Some(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
+    testDen("x = Object()", "x", x => VarStmt(ObjectType,(x,ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))
   }
 
   @Test
@@ -186,7 +186,7 @@ class TestDen {
     val AC = ConstructorItem(A,Nil,List(ParamType(T)))
     implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))
     testDen("x = A(Object())", "x", x => VarStmt(GenericClassType(A,List(ObjectType)),
-      List((x,0,Some(ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))))
+      (x,ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
   }
 
   @Test
@@ -195,11 +195,11 @@ class TestDen {
 
   @Test
   def varArrayInit() =
-    testDen("int x[] = {1,2,3}", "x", x => List(VarStmt(IntType,List((x,1,Some(ArrayExp(IntType,List(1,2,3))))))))
+    testDen("int x[] = {1,2,3}", "x", x => VarStmt(IntType,List((x,1,Some(ArrayExp(IntType,List(1,2,3)))))))
 
   @Test
   def nullInit() =
-    testDen("x = null", "x", x => List(VarStmt(ObjectType,List((x,0,Some(NullLit))))))
+    testDen("x = null", "x", x => VarStmt(ObjectType,(x,NullLit)))
 
   @Test
   def inheritanceShadowing(): Unit = {
@@ -306,10 +306,10 @@ class TestDen {
   */
 
   @Test
-  def byteLiteral() = testDen("byte x = 3", "x", x => VarStmt(ByteType,List((x,0,Some(ByteLit(3,"3"))))))
+  def byteLiteral() = testDen("byte x = 3", "x", x => VarStmt(ByteType,(x,ByteLit(3,"3"))))
 
   @Test
-  def intLiteral() = testDen("int x = 3", "x", x => VarStmt(IntType,List((x,0,Some(IntLit(3,"3"))))))
+  def intLiteral() = testDen("int x = 3", "x", x => VarStmt(IntType,(x,IntLit(3,"3"))))
 
   @Test
   def parens() = testDen("(1)", ParenExp(1))
@@ -341,4 +341,10 @@ class TestDen {
   @Test def doWhileBare()     = testDen("do; while true", DoStmt(e,t))
   @Test def doWhileHoleBare() = testDen("do while true", DoStmt(h,t))
   @Test def doUntil()         = testDen("do until true", DoStmt(h,f))
+
+  // For
+  @Test def forever()     = testDen("for (;;);", ForStmt(Nil,None,Nil,EmptyStmt))
+  @Test def foreverHole() = testDen("for (;;)", ForStmt(Nil,None,Nil,HoleStmt))
+  @Test def forSimple()   = testDen("for (x=7;true;x++)", "x", x =>
+    ForStmt(VarStmt(IntType,(x,7)),Some(t),UnaryExp(PostIncOp(),x),HoleStmt))
 }

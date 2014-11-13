@@ -74,6 +74,7 @@ object Tokens {
   sealed abstract class FakeToken extends FixedToken
   case class ThenTok() extends FakeToken
   case class UntilTok() extends FakeToken
+  case class InTok() extends FakeToken
 
   // Literals: 3.10
   case class IntLitTok(v: String) extends Token
@@ -206,6 +207,7 @@ object Tokens {
     // Fake keywords
     case ThenTok() => "then"
     case UntilTok() => "until"
+    case InTok() => "in"
     // Literals
     case IntLitTok(v) => v
     case LongLitTok(v) => v
@@ -283,6 +285,7 @@ object Tokens {
     case IdentTok(s) => s match {
       case "then" => ThenTok()
       case "until" => UntilTok()
+      case "in" => InTok()
       case _ => t
     }
     case _ => t

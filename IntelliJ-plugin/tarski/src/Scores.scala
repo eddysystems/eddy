@@ -104,12 +104,6 @@ object Scores {
     case _ => Good(xs.map((Prob(.5),_)))
   }
 
-  // Score combinators
-  def option[A,B](x: Option[A])(f: A => Scored[B]): Scored[Option[B]] = x match {
-    case None => single(None)
-    case Some(x) => f(x) map (Some(_))
-  }
-
   // a and b are assumed independent
   def product[A,B](a: Scored[A], b: => Scored[B]): Scored[(A,B)] = a match {
     case Bad(e) => Bad(e)
@@ -145,8 +139,16 @@ object Scores {
       }
     }
   }
+  def product[A,B,C,D](a: Scored[A], b: => Scored[B], c: => Scored[C], d: => Scored[D]): Scored[(A,B,C,D)] =
+    productWith(product(a,b),product(c,d))((ab,cd) => (ab._1,ab._2,cd._1,cd._2))
+  def productWith[A,B,C,D,T](a: Scored[A], b: => Scored[B], c: => Scored[C], d: => Scored[D])(f: (A,B,C,D) => T): Scored[T] =
+    productWith(product(a,b),product(c,d))((ab,cd) => f(ab._1,ab._2,cd._1,cd._2))
 
   // xs are assumed independent
+  def product[A](xs: Option[Scored[A]]): Scored[Option[A]] = xs match {
+    case None => single(None)
+    case Some(x) => x map (Some(_))
+  }
   def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
     case Nil => single(Nil)
     case sx :: sxs => productWith(sx,product(sxs))(_::_)
@@ -159,4 +161,8 @@ object Scores {
       productFoldLeft(ex)(fs) map {case (exs,xs) =>
         (exs,x::xs)}}
   }
+
+  // thread is map followed by product
+  def thread[A,B](xs: Option[A])(f: A => Scored[B]): Scored[Option[B]] = product(xs map f)
+  def thread[A,B](xs: List[A])  (f: A => Scored[B]): Scored[List[B]]   = product(xs map f)
 }

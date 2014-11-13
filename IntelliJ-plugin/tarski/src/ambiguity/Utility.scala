@@ -30,6 +30,15 @@ object Utility {
     if (x eq fx) x else fixRef(fx)(f)
   }
 
+  def allSome[A](xs: List[Option[A]]): Option[List[A]] = xs match {
+    case Nil => Some(Nil)
+    case None::_ => None
+    case Some(x)::xs => allSome(xs) match {
+      case None => None
+      case Some(xs) => Some(x::xs)
+    }
+  }
+
   // Memoize the fixpoint of a recursive function
   def fixpoint[A,B](base: B, f: (A => B, A) => B): A => B = {
     val done = smutable.Map[A,B]()

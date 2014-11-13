@@ -29,9 +29,11 @@ object Types {
   sealed abstract class ClassOrObjectType extends RefType
   sealed trait ClassOrInterfaceType extends RefType {
     def d: TypeItem
+    def args: List[RefType]
   }
   sealed trait SimpleClassOrInterface extends RefType with SimpleType with ClassOrInterfaceType {
     def d: TypeItem
+    def args = Nil
   }
   sealed trait GenericType extends RefType with ClassOrInterfaceType {
     def d: TypeItem
@@ -279,8 +281,38 @@ object Types {
     case lo: ClassItem => isSubitem(lo.base,hi) || lo.implements.exists(isSubitem(_,hi))
   })
 
-  // Is a type throwable
+  // If lo <: hi, extract the type parameters
+  def subItemParams(lo: Type, hi: RefTypeItem): Option[List[RefType]] = lo match {
+    case NullType => None // null can be anything, but we don't know what
+    case VoidType|_:PrimType|_:ErrorType => None
+    case t:RefType => subItemParams(t,hi)
+  }
+  def subItemParams(lo: RefType, hi: RefTypeItem): Option[List[RefType]] = {
+    def any(los: List[RefType]): Option[List[RefType]] = los match {
+      case Nil => None
+      case lo::los => subItemParams(lo,hi) orElse any(los)
+    }
+    lo match {
+      case ObjectType => None
+      case ArrayType(_) => None // TODO: Actually, arrays are Cloneable and Serializable
+      case lo:ClassOrInterfaceType if lo.d==hi => Some(lo.args)
+      case lo:ClassType => subItemParams(lo.base,hi) orElse any(lo.implements)
+      case lo:InterfaceType => any(lo.bases)
+    }
+  }
+
+  // Is a type throwable?
   def isThrowable(t: Type): Boolean = isSubitem(t,ThrowableItem)
+
+  // Is a type iterable or an array?  If so, what does it contain?
+  def isIterable(i: Type): Option[Type] = i match {
+    case ArrayType(t) => Some(t)
+    case _ => subItemParams(i,IterableItem) match {
+      case None => None
+      case Some(List(t)) => Some(t)
+      case _ => throw new RuntimeException("arity mismatch")
+    }
+  }
 
   // Properties of reference types
   def isFinal(t: ClassType): Boolean =

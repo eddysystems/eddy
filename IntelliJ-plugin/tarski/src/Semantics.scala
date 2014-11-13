@@ -8,9 +8,10 @@ import Environment._
 import Items._
 import Denotations._
 import Scores._
+import tarski.Base.IterableItem
 import tarski.Tokens._
 import Pretty._
-import ambiguity.Utility.notImplemented
+import ambiguity.Utility._
 
 object Semantics {
   /*
@@ -358,11 +359,11 @@ object Semantics {
         exps.map((env,_)) ++ stmts
       }
       case BlockAStmt(b) => denoteStmts(b)(env) map {case (e,ss) => (e,BlockStmt(ss))}
-      case AssertAStmt(c,m) => productWith(denoteBool(c),option(m)(denoteNonVoid)){case (c,m) =>
+      case AssertAStmt(c,m) => productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
         (env,AssertStmt(c,m))}
       case BreakAStmt(lab) => denoteLabel(lab,(env,BreakStmt))
       case ContinueAStmt(lab) => denoteLabel(lab,(env,ContinueStmt))
-      case ReturnAStmt(e) => product(returnType,option(e)(denoteExp(_))) flatMap {case (r,e) =>
+      case ReturnAStmt(e) => product(returnType,thread(e)(denoteExp(_))) flatMap {case (r,e) =>
         val t = typeOf(e)
         if (assignsTo(t,r)) single((env,ReturnStmt(e)))
         else fail(s"${show(s)}: type ${show(t)} incompatible with return type ${show(r)}")
@@ -378,6 +379,40 @@ object Semantics {
         (env,IfElseStmt(c,x,y)))
       case WhileAStmt(c,s,flip) => productWith(denoteBool(c),denoteScoped(s))((c,s) => (env,WhileStmt(xor(flip,c),s)))
       case DoAStmt(s,c,flip) => productWith(denoteScoped(s),denoteBool(c))((s,c) => (env,DoStmt(s,xor(flip,c))))
+      case ForAStmt(i,c,u,s) => denoteStmts(i)(env) flatMap {case (inside,i) =>
+        productWith(thread(c)(denoteBool(_)(inside)),thread(u)(denoteExp(_)(inside)),denoteScoped(s)(inside)){(c,u,s) =>
+          // Sanitize initializer into valid Java
+          (env, i match {
+            case List(i:VarStmt) => ForStmt(i,c,u,s)
+            case i => allSome(i map {case ExpStmt(e) => Some(e); case _ => None}) match {
+              case Some(es) => ForStmt(ForExps(es),c,u,s)
+              case None => BlockStmt(i:::List(ForStmt(ForExps(Nil),c,u,s)))
+            }
+          })
+        }
+      }
+      case ForeachAStmt(t,v,n,e,s) => {
+        def hole = show(ForeachAStmt(t,v,n,e,HoleAStmt()))
+        product(thread(t)(denoteType(_)),denoteExp(e)) flatMap {case (t,e) =>
+          val tc = typeOf(e)
+          isIterable(tc) match {
+            case None => fail(s"${show(e)}: type ${show(tc)} is not Iterable or an Array")
+            case Some(te) =>
+              (t match {
+                case Some(t) =>
+                  val ta = arrays(t,n)
+                  if (assignsTo(te,ta)) single(ta)
+                  else fail(s"$hole: can't assign ${show(te)} to ${show(ta)}")
+                case None =>
+                  val ne = dimensions(te)
+                  if (ne >= n) single(te)
+                  else fail(s"$hole: expected $n array dimensions, got type ${show(te)} with $ne")
+              }) flatMap (t => env.newVariable(v,t) flatMap {case (inside,v) => denoteScoped(s)(inside) map (s =>
+                (env,ForeachStmt(t,v,e,s))
+              )})
+          }
+        }
+      }
     }
   }
 
@@ -391,6 +426,7 @@ object Semantics {
 
   // A statement whose environment is discarded
   def denoteScoped(s: AStmt)(implicit env: Env): Scored[Stmt] = denoteStmt(s)(env) map (_._2)
+  def denoteScoped(s: List[AStmt])(implicit env: Env): Scored[List[Stmt]] = denoteStmts(s)(env) map (_._2)
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt)
