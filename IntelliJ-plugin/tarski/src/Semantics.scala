@@ -188,7 +188,7 @@ object Semantics {
   def denoteExp(e: AExp)(implicit env: Env): Scored[Exp] = e match {
     case NameAExp(n) => valueScores(n) flatMap denoteValue
     case x: ALit => denoteLit(x)
-    case ParenAExp(x) => denoteExp(x)
+    case ParenAExp(x) => denoteExp(x) map ParenExp
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
