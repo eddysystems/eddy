@@ -65,6 +65,11 @@ object AST {
   case class ReturnAStmt(e: Option[AExp]) extends AStmt
   case class ThrowAStmt(e: AExp) extends AStmt
   case class SyncAStmt(e: AExp, b: Block) extends AStmt
+  case class IfAStmt(cond: AExp, t: AStmt) extends AStmt
+  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt) extends AStmt
+  case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean) extends AStmt
+  case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean) extends AStmt
+  case class HoleAStmt() extends AStmt
 
   sealed abstract class AExp
   case class NameAExp(name: Name) extends AExp

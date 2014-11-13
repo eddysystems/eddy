@@ -33,10 +33,20 @@ object Denotations {
 
   // Statements
   sealed abstract class Stmt extends Den
-  case class EmptyStmt() extends Stmt
+  case object EmptyStmt extends Stmt
+  case object HoleStmt extends Stmt
   case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt
   case class ExpStmt(e: Exp) extends Stmt
   case class BlockStmt(b: List[Stmt]) extends Stmt
+  case class AssertStmt(c: Exp, m: Option[Exp]) extends Stmt
+  case object BreakStmt extends Stmt    // TODO: optional label
+  case object ContinueStmt extends Stmt // TODO: optional label
+  case class ReturnStmt(e: Option[Exp]) extends Stmt
+  case class ThrowStmt(e: Exp) extends Stmt
+  case class IfStmt(c: Exp, t: Stmt) extends Stmt
+  case class IfElseStmt(c: Exp, t: Stmt, f: Stmt) extends Stmt
+  case class WhileStmt(c: Exp, s: Stmt) extends Stmt
+  case class DoStmt(s: Stmt, c: Exp) extends Stmt
 
   // It's all expressions from here
   sealed abstract class Exp extends Den
@@ -115,5 +125,10 @@ object Denotations {
     // Arrays
     case ArrayExp(t,_) => ArrayType(t)
     case EmptyArrayExp(t,is) => is.foldLeft(t)((t,i) => ArrayType(t))
+  }
+
+  def typeOf(e: Option[Exp]): Type = e match {
+    case None => VoidType
+    case Some(e) => typeOf(e)
   }
 }

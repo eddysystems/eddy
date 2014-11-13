@@ -19,21 +19,23 @@ import tarski.TestUtils._
 import ambiguity.Utility._
 
 class TestDen {
+  // Default to an empty local environment
+  implicit val env = localEnv(Nil)
 
-  def testDen(input: String, best: Env => List[Stmt])(implicit env: Env): Unit = {
-    val fixes = fix(lex(input).filterNot(isSpace))
+  def testHelper[A](input: String, best: Env => A)(implicit env: Env, convert: A => List[Stmt]): Unit = {
+    val fixes = fix(lex(input))
     //println(fixes)
     fixes.best match {
       case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
-      case Right((env,s)) => assertEquals(best(env),s)
+      case Right((env,s)) => assertEquals(convert(best(env)),s)
     }
   }
 
-  def testDen(input: String, best: ExpStmt)(implicit env: Env): Unit =
-    testDen(input, env => List(best))
-
-  def testDen(input: String, best: Exp)(implicit env: Env): Unit =
-    testDen(input, ExpStmt(best))
+  type Local = LocalVariableItem
+  def testDen[A](input: String, best: A)(implicit env: Env, c: A => List[Stmt]): Unit =
+    testHelper(input, env => best)
+  def testDen[A](input: String, x: Name, best: Local => A)(implicit env: Env, c: A => List[Stmt]): Unit =
+    testHelper(input, env => best(env.exactLocal("x")))
 
   def testOnlyDenotation(input: String, best: Env => List[Stmt])(implicit env: Env) = {
     val fixes = fix(lex(input).filterNot(isSpace))
@@ -78,38 +80,24 @@ class TestDen {
   }
 
   @Test
-  def variableStmt(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("x = 1", env => List(VarStmt(IntType, List((env.exactLocal("x"),0,Some(toExp(1)))))))
-  }
+  def variableStmt() =
+    testDen("x = 1", "x", x => VarStmt(IntType, List((x,0,Some(toExp(1))))))
 
   @Test
-  def arrayVariableStmtCurly(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("x = {1,2,3,4}", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
-      Some(ArrayExp(IntType,List(1,2,3,4))))))))
-  }
+  def arrayVariableStmtCurly() =
+    testDen("x = {1,2,3,4}", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
 
   @Test
-  def arrayVariableStmtParen(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("x = (1,2,3,4)", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
-      Some(ArrayExp(IntType,List(1,2,3,4))))))))
-  }
+  def arrayVariableStmtParen() =
+    testDen("x = (1,2,3,4)", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
 
   @Test
-  def arrayVariableStmtBare(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("x = 1,2,3,4", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
-      Some(ArrayExp(IntType,List(1,2,3,4))))))))
-  }
+  def arrayVariableStmtBare() =
+    testDen("x = 1,2,3,4", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
 
   @Test
-  def arrayVariableStmtBrack(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("x = [1,2,3,4]", env => List(VarStmt(ArrayType(IntType), List((env.exactLocal("x"),0,
-      Some(ArrayExp(IntType,List(1,2,3,4))))))))
-  }
+  def arrayVariableStmtBrack() =
+    testDen("x = [1,2,3,4]", "x", x => VarStmt(ArrayType(IntType), List((x,0,Some(ArrayExp(IntType,List(1,2,3,4)))))))
 
   @Test
   def arrayLiteralAssign(): Unit = {
@@ -127,14 +115,10 @@ class TestDen {
   }
 
   @Test
-  def makeAndSet(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("x = 1; x = 2", env => {
-      val x = env.exactLocal("x")
+  def makeAndSet() =
+    testDen("x = 1; x = 2", "x", x =>
       List(VarStmt(IntType, List((x,0,Some(toExp(1))))),
-           ExpStmt(AssignExp(None,x,2)))
-    })
-  }
+           ExpStmt(AssignExp(None,x,2))))
 
   @Test
   def indexExp(): Unit = {
@@ -185,15 +169,14 @@ class TestDen {
     val x = LocalVariableItem("x",ArrayType(DoubleType))
     val y = LocalVariableItem("y",ArrayType(DoubleType))
     implicit val env = Env(List(main,f,x,y), Map((main,2),(f,2),(x,1),(y,1)), f)
-    testDen("y = f(x)", env => Nil)
+    testDen("y = f(x)", Nil)
     notImplemented
   }
 
   @Test
   def cons(): Unit = {
     implicit val env = localEnvWithBase(Nil)
-    testDen("x = Object()", env => List(VarStmt(ObjectType,
-      List((env.exactLocal("x"),0,Some(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))
+    testDen("x = Object()", "x", x => VarStmt(ObjectType,List((x,0,Some(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
   }
 
   @Test
@@ -202,29 +185,21 @@ class TestDen {
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,Nil,List(ParamType(T)))
     implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))
-    testDen("x = A(Object())", env => List(VarStmt(GenericClassType(A,List(ObjectType)),
-      List((env.exactLocal("x"),0,Some(ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil)))))))))
+    testDen("x = A(Object())", "x", x => VarStmt(GenericClassType(A,List(ObjectType)),
+      List((x,0,Some(ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))))
   }
 
   @Test
-  def varArray(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("int x[]", env => List(VarStmt(IntType,List((env.exactLocal("x"),1,None)))))
-  }
+  def varArray() =
+    testDen("int x[]", "x", x => VarStmt(IntType,List((x,1,None))))
 
   @Test
-  def varArrayInit(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("int x[] = {1,2,3}", env =>
-      List(VarStmt(IntType,List((env.exactLocal("x"),1,Some(ArrayExp(IntType,List(1,2,3))))))))
-  }
+  def varArrayInit() =
+    testDen("int x[] = {1,2,3}", "x", x => List(VarStmt(IntType,List((x,1,Some(ArrayExp(IntType,List(1,2,3))))))))
 
   @Test
-  def nullInit(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("x = null", env =>
-      List(VarStmt(ObjectType,List((env.exactLocal("x"),0,Some(NullLit))))))
-  }
+  def nullInit() =
+    testDen("x = null", "x", x => List(VarStmt(ObjectType,List((x,0,Some(NullLit))))))
 
   @Test
   def inheritanceShadowing(): Unit = {
@@ -331,14 +306,39 @@ class TestDen {
   */
 
   @Test
-  def byteLiteral(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("byte x = 3", env => List(VarStmt(ByteType,List((env.exactLocal("x"),0,Some(ByteLit(3,"3")))))))
-  }
+  def byteLiteral() = testDen("byte x = 3", "x", x => VarStmt(ByteType,List((x,0,Some(ByteLit(3,"3"))))))
 
   @Test
-  def intLiteral(): Unit = {
-    implicit val env = localEnv(Nil)
-    testDen("int x = 3", env => List(VarStmt(IntType,List((env.exactLocal("x"),0,Some(IntLit(3,"3")))))))
-  }
+  def intLiteral() = testDen("int x = 3", "x", x => VarStmt(IntType,List((x,0,Some(IntLit(3,"3"))))))
+
+  @Test
+  def parens() = testDen("(1)", ParenExp(1))
+
+  // If statements
+  val t = BooleanLit(true)
+  val f = UnaryExp(NotOp(),t)
+  val e = EmptyStmt
+  val h = HoleStmt
+  @Test def ifStmt()       = testDen("if (true);", IfStmt(t,e))
+  @Test def ifHole()       = testDen("if (true)", IfStmt(t,h))
+  @Test def ifBare()       = testDen("if true;", IfStmt(t,e))
+  @Test def ifBareHole()   = testDen("if true", IfStmt(t,h))
+  @Test def ifThen()       = testDen("if true then;", IfStmt(t,e))
+  @Test def ifThenHole()   = testDen("if true then", IfStmt(t,h))
+  @Test def ifThenParens() = testDen("if (true) then", IfStmt(t,h))
+  @Test def ifElse()       = testDen("if (true) 1 else 2", IfElseStmt(t,1,2))
+  @Test def ifElseHole()   = testDen("if (true) else", IfElseStmt(t,h,h))
+  @Test def ifThenElse()   = testDen("if true then 1 else 2", IfElseStmt(t,1,2))
+
+  // While and do
+  @Test def whileStmt()       = testDen("while (true);", WhileStmt(t,e))
+  @Test def whileHole()       = testDen("while (true)", WhileStmt(t,h))
+  @Test def whileBare()       = testDen("while true;", WhileStmt(t,e))
+  @Test def whileBareHole()   = testDen("while true", WhileStmt(t,h))
+  @Test def untilHole()       = testDen("until true", WhileStmt(f,h))
+  @Test def doWhile()         = testDen("do; while (true)", DoStmt(e,t))
+  @Test def doWhileHole()     = testDen("do while (true)", DoStmt(h,t))
+  @Test def doWhileBare()     = testDen("do; while true", DoStmt(e,t))
+  @Test def doWhileHoleBare() = testDen("do while true", DoStmt(h,t))
+  @Test def doUntil()         = testDen("do until true", DoStmt(h,f))
 }

@@ -19,6 +19,8 @@ object Base {
   val ComparableItem   = InterfaceItem("Comparable",JavaLangPkg,List(T))
   private def comparable(t: RefType) = GenericInterfaceType(ComparableItem,List(t))
   private def comparable(c: ClassItem) = GenericInterfaceType(ComparableItem,List(SimpleClassType(c)))
+
+  // Class Enum
   private val E = TypeParamItem("E")
   object EnumBaseItem extends ClassItem("Enum") {
     def container = JavaLangPkg
@@ -26,14 +28,26 @@ object Base {
     def base = ObjectType
     def implements = List(SerializableType,comparable(ParamType(E)))
   }
+
+  // Simple classes
   sealed abstract class SimpleClassItem(override val name: Name) extends ClassItem(name) {
     override def container = JavaLangPkg
     override def params = Nil
   }
+
+  // Throwable
+  object ThrowableItem extends SimpleClassItem("Throwable") {
+    def base = ObjectType
+    def implements = Nil
+  }
+
+  // Class String
   object StringItem extends SimpleClassItem("String") {
     def base = ObjectType
     def implements = List(comparable(this),SimpleInterfaceType(CharSequenceItem),SerializableType)
   }
+
+  // Reference wrappers around primitive types
   object BooleanItem extends SimpleClassItem("Boolean") {
     def base = ObjectType
     def implements = List(comparable(this),SerializableType)
@@ -66,7 +80,7 @@ object Base {
     JavaLangPkg,JavaIoPkg,LocalPkg,
     // Classes
     ObjectItem,ObjectConsItem,
-    EnumBaseItem,StringItem,BooleanItem,CharacterItem,
+    EnumBaseItem,ThrowableItem,StringItem,BooleanItem,CharacterItem,
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
     // Interfaces
     CloneableItem,SerializableItem,CharSequenceItem,ComparableItem

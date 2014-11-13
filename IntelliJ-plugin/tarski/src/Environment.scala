@@ -15,7 +15,9 @@ object Environment {
   /**
    * The environment used for name resolution
    */
-  case class Env(allthings: List[NamedItem], inScope: Map[NamedItem,Int] = Map[NamedItem,Int](), place: NamedItem = Base.LocalPkg) extends scala.Serializable {
+  case class Env(allthings: List[NamedItem],
+                 inScope: Map[NamedItem,Int] = Map(),
+                 place: PlaceItem = Base.LocalPkg) extends scala.Serializable {
 
     assert(place == Base.LocalPkg || allthings.contains(place))
     val things = allthings.filterNot( _.isInstanceOf[NoLookupItem] )
@@ -37,7 +39,7 @@ object Environment {
       Env(allthings ++ xs, inScope ++ xs.map((_,1)).toMap, place)
     }
 
-    def move(newPlace: NamedItem): Env = {
+    def move(newPlace: PlaceItem): Env = {
       assert(allthings.contains(newPlace))
       Env(allthings, inScope, newPlace)
     }
@@ -88,7 +90,6 @@ object Environment {
     // check if an item is in scope and not shadowed by another item
     def itemInScope(i: NamedItem): Boolean =
       inScope.contains(i) && !inScope.exists { case (ii,p) => p < inScope.get(i).get && i.name == ii.name }
-
   }
 
   // Fuzzy Query interface
@@ -177,6 +178,19 @@ object Environment {
   def annotationScores(name: String)(implicit env: Env): Scored[AnnotationItem] =
     simple(env.things.collect({case a: AnnotationItem if a.name==name => a}),
            "Annotation @$name not found")
+
+  // The return type of our ambient function
+  def returnType(implicit env: Env): Scored[Type] = {
+    def die(scope: String) = fail(s"Can't return from $scope scope")
+    env.place match {
+      case m: MethodItem => single(m.retVal)
+      case m: StaticMethodItem => single(m.retVal)
+      case c: ConstructorItem => single(VoidType)
+      case _:PackageItem => die("package")
+      case _:ClassItem => die("class")
+      case _:InterfaceItem => die("interface")
+    }
+  }
 
   def envToFile(env: Env, name: String): Unit = {
     val os = new FileOutputStream(name)

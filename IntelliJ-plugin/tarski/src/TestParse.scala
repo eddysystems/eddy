@@ -53,20 +53,27 @@ class TestParse {
   }
 
   @Test
-  def nestApply(): Unit = {
+  def nestApply() =
     testAST("x = A(Object())",
       AssignAExp(None,"x",ApplyAExp("A",SingleList(ApplyAExp("Object",EmptyList)))),
       AssignAExp(None,"x",ApplyAExp("A",JuxtList(List("Object",ArrayAExp(EmptyList,ParenAround))))))
-  }
 
   @Test
-  def primTypes(): Unit = {
+  def primTypes() =
     for (t <- VoidAType() :: List(ByteType,ShortType,IntType,LongType,FloatType,DoubleType,CharType).map(PrimAType(_)))
       testAST(show(t)+" x",VarAStmt(Nil,t,SingleList(("x",0,None))))
-  }
 
   @Test
-  def varArray(): Unit = {
+  def varArray() =
     testAST("int x[]",VarAStmt(Nil,IntType,SingleList(("x",1,None))))
-  }
+
+  // Compound statements
+  val t = BoolALit(true)
+  val e = EmptyAStmt()
+  val h = HoleAStmt()
+  @Test def ifStmt()      = testAST("if (true);",IfAStmt(t,e))
+  @Test def ifBare()      = testAST("if true;",IfAStmt(t,e),IfElseAStmt(t,e,h))
+  @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(t,h,h))
+  @Test def whileBare()   = testAST("while true;", WhileAStmt(t,e,false))
+  @Test def doWhileBare() = testAST("do; while true", DoAStmt(e,t,false))
 }

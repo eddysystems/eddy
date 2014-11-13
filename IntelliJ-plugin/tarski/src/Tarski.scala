@@ -11,7 +11,7 @@ import tarski.Pretty._
 import scala.collection.JavaConverters._
 
 object Tarski {
-  def environment(values: java.util.Collection[NamedItem], inScope: java.util.Map[NamedItem,Integer], place: NamedItem): Env = {
+  def environment(values: java.util.Collection[NamedItem], inScope: java.util.Map[NamedItem,Integer], place: PlaceItem): Env = {
     Base.baseEnv.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue)).move(place)
   }
 
@@ -42,8 +42,9 @@ object Tarski {
     show(tokens(ss.asScala.toList))
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
-    println("parsing " + show(tokens))
-    val asts = ParseEddy.parse(tokens.filterNot(isSpace))
+    val clean = tokens.filterNot(isSpace).map(fake)
+    println("parsing " + show(clean))
+    val asts = ParseEddy.parse(clean)
     if (asts.isEmpty)
       println("  no asts")
 

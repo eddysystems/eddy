@@ -8,9 +8,6 @@ object Items {
   // A language item, given to us by someone who knows about the surrounding code
   sealed abstract class Item
 
-  // Anything with this type will never be looked up (mainly, errors)
-  sealed trait NoLookupItem
-
   sealed abstract class NamedItem(val name: Name) extends Item {
     // Need no-arg constructor for serialization
     def this() = { this("") }
@@ -20,6 +17,12 @@ object Items {
 
     override def toString: String = qualifiedName
   }
+
+  // Anything with this type will never be looked up (mainly, errors)
+  sealed trait NoLookupItem extends NamedItem
+
+  // Something which we can be inside
+  sealed trait PlaceItem extends NamedItem
 
   // Type parameters
   case class TypeParamItem(override val name: String)
@@ -34,10 +37,10 @@ object Items {
 
   // A method or constructor
   sealed abstract class CallableItem(name: Name, val tparams: List[TypeParamItem], val params: List[Type])
-    extends NamedItem(name) with scala.Serializable
+    extends NamedItem(name) with PlaceItem with scala.Serializable
 
   // Miscellaneous
-  case class PackageItem(override val name: Name, qualifiedName: Name) extends NamedItem(name) with scala.Serializable
+  case class PackageItem(override val name: Name, qualifiedName: Name) extends NamedItem(name) with PlaceItem with scala.Serializable
   case class AnnotationItem(override val name: Name, qualifiedName: Name) extends NamedItem(name) with scala.Serializable
 
   // Classes and interfaces
@@ -47,13 +50,13 @@ object Items {
   }
   sealed abstract class RefTypeItem(name: Name) extends TypeItem(name) with scala.Serializable
   case class InterfaceItem(override val name: Name, container: NamedItem, params: List[TypeParamItem] = Nil,
-                           bases: List[InterfaceType] = Nil) extends RefTypeItem(name)
+                           bases: List[InterfaceType] = Nil) extends RefTypeItem(name) with PlaceItem
   sealed abstract class ClassOrObjectItem(override val name: Name) extends RefTypeItem(name)
   case object ObjectItem extends ClassOrObjectItem("Object") {
     def container = JavaLangPkg
     def params = Nil
   }
-  abstract class ClassItem(override val name: Name) extends ClassOrObjectItem(name) { // Inherited from in Base, so not sealed
+  abstract class ClassItem(override val name: Name) extends ClassOrObjectItem(name) with PlaceItem { // Inherited from in Base, so not sealed
     def container: NamedItem
     def params: List[TypeParamItem]
     def base: ClassOrObjectType

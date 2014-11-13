@@ -240,17 +240,24 @@ object Pretty {
       (SemiFix, key() :: (x map (tokens(_)) getOrElse Nil) ::: List(SemiTok()))
     s match {
       case EmptyAStmt() => (SemiFix,List(SemiTok()))
+      case HoleAStmt() => (HighestFix,List(HoleTok()))
       case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: tokens(v))
       case BlockAStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
       case ExpAStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
-      case AssertAStmt(c,m) => notImplemented
-      case BreakAStmt(l)    => key(BreakTok,l)
+      case AssertAStmt(c,None) => (SemiFix, AssertTok() :: tokens(c) ::: List(SemiTok()))
+      case AssertAStmt(c,Some(m)) => (SemiFix, AssertTok() :: tokens(c) ::: ColonTok() :: tokens(m) ::: List(SemiTok()))
+      case BreakAStmt(l) => key(BreakTok,l)
       case ContinueAStmt(l) => key(ContinueTok,l)
-      case ReturnAStmt(e)   => key(ReturnTok,e)
-      case ThrowAStmt(e)    => key(ThrowTok,Some(e))
+      case ReturnAStmt(e) => key(ReturnTok,e)
+      case ThrowAStmt(e) => key(ThrowTok,Some(e))
       case SyncAStmt(e,b) => notImplemented
+      case IfAStmt(c,x) => (SemiFix, IfTok() :: parens(c) ::: tokens(x))
+      case IfElseAStmt(c,x,y) => (SemiFix, IfTok() :: parens(c) ::: tokens(x) ::: ElseTok() :: tokens(y))
+      case WhileAStmt(c,s,flip) => (SemiFix, whileUntil(flip) :: parens(c) ::: tokens(s))
+      case DoAStmt(s,c,flip) => (SemiFix, DoTok() :: tokens(s) ::: whileUntil(flip) :: parens(c) ::: List(SemiTok()))
     }
   }
+  def whileUntil(flip: Boolean): Token = (if (flip) UntilTok else WhileTok)()
   implicit def prettyAStmts(ss: List[AStmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyAVar(d: AVarDecl): (Fixity,Tokens) = d match {
     case (x,n,None) => prettyDims(x,n)
@@ -402,10 +409,22 @@ object Pretty {
   def prettyArrayExp(xs: List[Exp])(implicit env: Env): (Fixity,Tokens) =
     (HighestFix, LCurlyTok() :: tokens(CommaList(xs))(prettyList(_)(prettyInit)) ::: List(RCurlyTok()))
   implicit def prettyStmt(s: Stmt)(implicit env: Env): (Fixity,Tokens) = s match {
-    case EmptyStmt() => (SemiFix, List(SemiTok()))
+    case EmptyStmt => (SemiFix, List(SemiTok()))
+    case HoleStmt => (HighestFix, List(HoleTok()))
     case VarStmt(t,vs) => (SemiFix, tokens(t) ::: tokens(CommaList(vs)) ::: List(SemiTok()))
     case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok()))
     case BlockStmt(b) => (HighestFix, LCurlyTok() :: tokens(b) ::: List(RCurlyTok()))
+    case AssertStmt(c,None) => (SemiFix, AssertTok() :: tokens(c) ::: List(SemiTok()))
+    case AssertStmt(c,Some(m)) => (SemiFix, AssertTok() :: tokens(c) ::: ColonTok() :: tokens(m) ::: List(SemiTok()))
+    case BreakStmt => (SemiFix, List(BreakTok(),SemiTok()))
+    case ContinueStmt => (SemiFix, List(ContinueTok(),SemiTok()))
+    case ReturnStmt(None) => (SemiFix, List(ReturnTok(),SemiTok()))
+    case ReturnStmt(Some(e)) => (SemiFix, ReturnTok() :: tokens(e) ::: List(SemiTok()))
+    case ThrowStmt(e) => (SemiFix, ThrowTok() :: tokens(e) ::: List(SemiTok()))
+    case IfStmt(c,x) => (SemiFix, IfTok() :: parens(c) ::: tokens(x))
+    case IfElseStmt(c,x,y) => (SemiFix, IfTok() :: parens(c) ::: tokens(x) ::: ElseTok() :: tokens(y))
+    case WhileStmt(c,x) => (SemiFix, WhileTok() :: parens(c) ::: tokens(x))
+    case DoStmt(x,c) => (SemiFix, DoTok() :: tokens(x) ::: WhileTok() :: parens(c) ::: List(SemiTok()))
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyVar(v: (LocalVariableItem,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {

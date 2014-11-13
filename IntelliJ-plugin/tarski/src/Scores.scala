@@ -104,6 +104,12 @@ object Scores {
     case _ => Good(xs.map((Prob(.5),_)))
   }
 
+  // Score combinators
+  def option[A,B](x: Option[A])(f: A => Scored[B]): Scored[Option[B]] = x match {
+    case None => single(None)
+    case Some(x) => f(x) map (Some(_))
+  }
+
   // a and b are assumed independent
   def product[A,B](a: Scored[A], b: => Scored[B]): Scored[(A,B)] = a match {
     case Bad(e) => Bad(e)
@@ -122,11 +128,21 @@ object Scores {
       }
     }
   }
-  def productWith[A,B,C](a: Scored[A], b: => Scored[B])(f: (A,B) => C): Scored[C] = a match {
+  def productWith[A,B,T](a: Scored[A], b: => Scored[B])(f: (A,B) => T): Scored[T] = a match {
     case Bad(e) => Bad(e)
     case Good(as) => b match {
       case Bad(e) => Bad(e)
       case Good(bs) => Good(for ((sa,a) <- as; (sb,b) <- bs) yield (sa*sb,f(a,b)))
+    }
+  }
+  def productWith[A,B,C,T](a: Scored[A], b: => Scored[B], c: => Scored[C])(f: (A,B,C) => T): Scored[T] = a match {
+    case Bad(e) => Bad(e)
+    case Good(as) => b match {
+      case Bad(e) => Bad(e)
+      case Good(bs) => c match {
+        case Bad(e) => Bad(e)
+        case Good(cs) => Good(for ((sa,a) <- as; (sb,b) <- bs; (sc,c) <- cs) yield (sa*sb*sc,f(a,b,c)))
+      }
     }
   }
 

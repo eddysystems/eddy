@@ -279,6 +279,9 @@ object Types {
     case lo: ClassItem => isSubitem(lo.base,hi) || lo.implements.exists(isSubitem(_,hi))
   })
 
+  // Is a type throwable
+  def isThrowable(t: Type): Boolean = isSubitem(t,ThrowableItem)
+
   // Properties of reference types
   def isFinal(t: ClassType): Boolean =
     throw new RuntimeException("Not implemented")

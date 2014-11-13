@@ -29,6 +29,12 @@ object TestUtils {
   implicit def toType(c: ClassItem): SimpleClassType = { assert(c.params.isEmpty); SimpleClassType(c) }
   implicit def toType(i: InterfaceItem): SimpleInterfaceType = { assert(i.params.isEmpty); SimpleInterfaceType(i) }
 
+  // Statement implicit conversions
+  implicit def toStmt(e: Exp): Stmt = ExpStmt(e)
+  implicit def toStmt[A](x: A)(implicit to: A => Exp): Stmt = ExpStmt(to(x))
+  implicit def toStmts(e: Exp): List[Stmt] = List(ExpStmt(e))
+  implicit def toStmts(s: Stmt): List[Stmt] = List(s)
+
   def assertIn[A](x: A, xs: Set[A]): Unit =
     if (!xs.contains(x))
       throw new AssertionError("assertIn failed:\nx  = "+x+"xs = "+xs.mkString("\n     "))

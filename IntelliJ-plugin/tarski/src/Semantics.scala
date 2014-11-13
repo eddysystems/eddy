@@ -210,14 +210,9 @@ object Semantics {
       else fail("${show(e)}: can't cast ${show(tx)} to ${show(t)}")
     }}
 
-    case CondAExp(c,x,y) => {
-      val cc = denoteExp(c) flatMap {c =>
-        if (isToBoolean(typeOf(c))) single(c)
-        else fail("${show(c)}: can't convert to boolean")
-      }
-      product(cc,denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
+    case CondAExp(c,x,y) =>
+      product(denoteBool(c),denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
         CondExp(c,x,y,condType(typeOf(x),typeOf(y)))}
-    }
 
     case AssignAExp(op,x,y) => {
       val xx = denoteExp(x) flatMap {x =>
@@ -245,6 +240,17 @@ object Semantics {
       case d => fail("${show(n)}: ${show(d)} isn't an expression")
     }
 
+  // Expressions with type restrictions
+  def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
+    val t = typeOf(e)
+    if (isToBoolean(t)) single(e)
+    else fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
+  }
+  def denoteNonVoid(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
+    if (typeOf(e) != VoidType) single(e)
+    else fail(s"${show(n)}: expected non-void expression")
+  }
+
   def isVariable(e: Exp): Boolean = e match {
     // in java, we can only assign to actual variables, never to values returned by functions or expressions.
     // TODO: implement final, private, protected
@@ -270,50 +276,79 @@ object Semantics {
   }
 
   // Statements
-  def denoteStmt(s: AStmt)(env: Env): Scored[(Env,Stmt)] = s match {
-    case EmptyAStmt() => single((env,EmptyStmt()))
-    case VarAStmt(mod,t,ds) =>
-      if (mod.nonEmpty) notImplemented
-      else denote(t)(env).flatMap(t => {
-        def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
-          case None => single(None)
-          case Some(e) => denoteExp(e)(env) flatMap {e =>
-            if (assignsTo(typeOf(e),t)) single(Some(e))
-            else {
-              implicit val imp = env // Make env available for show
-              fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
+  def denoteStmt(s: AStmt)(env: Env): Scored[(Env,Stmt)] = {
+    implicit val imp = env
+    s match {
+      case EmptyAStmt() => single((env,EmptyStmt))
+      case HoleAStmt() => single((env,HoleStmt))
+      case VarAStmt(mod,t,ds) =>
+        if (mod.nonEmpty) notImplemented
+        else denote(t)(env).flatMap(t => {
+          def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
+            case None => single(None)
+            case Some(e) => denoteExp(e)(env) flatMap {e =>
+              if (assignsTo(typeOf(e),t)) single(Some(e))
+              else {
+                implicit val imp = env // Make env available for show
+                fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
+              }
             }
           }
+          def define(env: Env, ds: List[AVarDecl]): Scored[(Env,List[VarDecl])] = ds match {
+            case Nil => single((env,Nil))
+            case (v,k,i)::ds =>
+              val tk = arrays(t,k)
+              product(env.newVariable(v,tk),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
+                define(env,ds) map {case (env,ds) => (env,(v,k,i)::ds)}}
+          }
+          val st = safe(t)
+          define(env,ds.list) map {case (env,ds) => (env,VarStmt(st,ds))}
+        })
+      case ExpAStmt(e) => {
+        val exps = denoteExp(e) map ExpStmt
+        val stmts = e match {
+          case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => {
+            val t = safe(typeOf(y))
+            env.newVariable(x,t) map {case (env,x) => (env,VarStmt(t,List((x,0,Some(y)))))}
+          }}
+          case _ => fail(show(e)+": expression doesn't look like a statement")
         }
-        def define(env: Env, ds: List[AVarDecl]): Scored[(Env,List[VarDecl])] = ds match {
-          case Nil => single((env,Nil))
-          case (v,k,i)::ds =>
-            val tk = arrays(t,k)
-            product(env.newVariable(v,tk),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
-              define(env,ds) map {case (env,ds) => (env,(v,k,i)::ds)}}
-        }
-        val st = safe(t)
-        define(env,ds.list) map {case (env,ds) => (env,VarStmt(st,ds))}
-      })
-    case ExpAStmt(e) => {
-      val exps = denoteExp(e)(env) map ExpStmt
-      val stmts = e match {
-        case AssignAExp(None,NameAExp(x),y) => denoteExp(y)(env) flatMap {y => {
-          val t = safe(typeOf(y))
-          env.newVariable(x,t) map {case (env,x) => (env,VarStmt(t,List((x,0,Some(y)))))}
-        }}
-        case _ => fail(show(e)+": expression doesn't look like a statement")
+        exps.map((env,_)) ++ stmts
       }
-      exps.map((env,_)) ++ stmts
+      case BlockAStmt(b) => denoteStmts(b)(env) map {case (e,ss) => (e,BlockStmt(ss))}
+      case AssertAStmt(c,m) => productWith(denoteBool(c),option(m)(denoteNonVoid)){case (c,m) =>
+        (env,AssertStmt(c,m))}
+      case BreakAStmt(lab) => denoteLabel(lab,(env,BreakStmt))
+      case ContinueAStmt(lab) => denoteLabel(lab,(env,ContinueStmt))
+      case ReturnAStmt(e) => product(returnType,option(e)(denoteExp(_))) flatMap {case (r,e) =>
+        val t = typeOf(e)
+        if (assignsTo(t,r)) single((env,ReturnStmt(e)))
+        else fail(s"${show(s)}: type ${show(t)} incompatible with return type ${show(r)}")
+      }
+      case ThrowAStmt(e) => denoteExp(e) flatMap {e =>
+        val t = typeOf(e)
+        if (isThrowable(t)) single((env,ThrowStmt(e)))
+        else fail(s"${show(s)}: type $t is not throwable")
+      }
+      case SyncAStmt(e,b) => notImplemented
+      case IfAStmt(c,x) => productWith(denoteBool(c),denoteScoped(x))((c,x) => (env,IfStmt(c,x)))
+      case IfElseAStmt(c,x,y) => productWith(denoteBool(c),denoteScoped(x),denoteScoped(y))((c,x,y) =>
+        (env,IfElseStmt(c,x,y)))
+      case WhileAStmt(c,s,flip) => productWith(denoteBool(c),denoteScoped(s))((c,s) => (env,WhileStmt(xor(flip,c),s)))
+      case DoAStmt(s,c,flip) => productWith(denoteScoped(s),denoteBool(c))((s,c) => (env,DoStmt(s,xor(flip,c))))
     }
-    case BlockAStmt(b) => denoteStmts(b)(env) map {case (e,ss) => (e,BlockStmt(ss))}
-    case AssertAStmt(cond: AExp, msg: Option[AExp]) => notImplemented
-    case BreakAStmt(label: Option[Name]) => notImplemented
-    case ContinueAStmt(label: Option[Name]) => notImplemented
-    case ReturnAStmt(e: Option[AExp]) => notImplemented
-    case ThrowAStmt(e: AExp) => notImplemented
-    case SyncAStmt(e: AExp, b: Block) => notImplemented
   }
+
+  def xor(x: Boolean, y: Exp): Exp =
+    if (x) UnaryExp(NotOp(),y) else y
+
+  def denoteLabel[A](lab: Option[Name], x: => A): Scored[A] = lab match {
+    case None => single(x)
+    case Some(_) => notImplemented
+  }
+
+  // A statement whose environment is discarded
+  def denoteScoped(s: AStmt)(implicit env: Env): Scored[Stmt] = denoteStmt(s)(env) map (_._2)
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt)

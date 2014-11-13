@@ -7,6 +7,9 @@ object Tokens {
   sealed abstract class Token
   sealed abstract class FixedToken extends Token // Always the same string
 
+  // Holes in the grammar
+  case class HoleTok() extends Token
+
   // Identifiers
   case class IdentTok(name: String) extends Token
 
@@ -66,6 +69,11 @@ object Tokens {
   case class VoidTok() extends FixedToken
   case class VolatileTok() extends FixedToken
   case class WhileTok() extends FixedToken
+
+  // Fake keywords.  These are not actual Java reserved words, but they are used in the grammar.
+  sealed abstract class FakeToken extends FixedToken
+  case class ThenTok() extends FakeToken
+  case class UntilTok() extends FakeToken
 
   // Literals: 3.10
   case class IntLitTok(v: String) extends Token
@@ -139,6 +147,7 @@ object Tokens {
   }
 
   def show(t: Token): String = t match {
+    case HoleTok() => ""
     case IdentTok(s) => s
     case WhitespaceTok(s) => s
     case EOLCommentTok(s) => s
@@ -194,6 +203,9 @@ object Tokens {
     case VoidTok() => "void"
     case VolatileTok() => "volatile"
     case WhileTok() => "while"
+    // Fake keywords
+    case ThenTok() => "then"
+    case UntilTok() => "until"
     // Literals
     case IntLitTok(v) => v
     case LongLitTok(v) => v
@@ -265,4 +277,14 @@ object Tokens {
 
   def show[A](x: A)(implicit p: Pretty[A]): String =
     show(tokens(x))
+
+  // Turn matching identifiers into fake keywords
+  def fake(t: Token): Token = t match {
+    case IdentTok(s) => s match {
+      case "then" => ThenTok()
+      case "until" => UntilTok()
+      case _ => t
+    }
+    case _ => t
+  }
 }

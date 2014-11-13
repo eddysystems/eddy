@@ -365,7 +365,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     List<NamedItem> items = new ArrayList<NamedItem>(envitems.values());
 
     // find out which element we are inside (method, class or interface, or package)
-    NamedItem placeItem = null;
+    PlaceItem placeItem = null;
     // walk straight up until we see a method, class, or package
     PsiElement place = this.place;
     while (place != null) {
@@ -383,7 +383,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         assert envitems.containsKey(place);
         if (placeItem == null)
-          placeItem = envitems.get(place);
+          placeItem = (PlaceItem)envitems.get(place);
       } else if (place instanceof PsiJavaFile) {
         PsiPackage pkg = getPackage((PsiJavaFile)place);
         if (pkg == null) {
@@ -393,7 +393,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         } else {
           assert envitems.containsKey(pkg);
           if (placeItem == null)
-            placeItem = envitems.get(pkg);
+            placeItem = (PlaceItem)envitems.get(pkg);
         }
         break;
       }
