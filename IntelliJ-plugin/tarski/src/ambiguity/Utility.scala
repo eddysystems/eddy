@@ -1,5 +1,5 @@
 package ambiguity
-import scala.collection.{mutable => smutable}
+import scala.collection.mutable
 
 object Utility {
   def notImplemented[A]: A = throw new NotImplementedError("not implemented.")
@@ -41,9 +41,9 @@ object Utility {
 
   // Memoize the fixpoint of a recursive function
   def fixpoint[A,B](base: B, f: (A => B, A) => B): A => B = {
-    val done = smutable.Map[A,B]()
-    val next = smutable.Map[A,B]()
-    val active = smutable.Set[A]()
+    val done = mutable.Map[A,B]()
+    val next = mutable.Map[A,B]()
+    val active = mutable.Set[A]()
     var changed = false
     def fix(a: A): B = {
       done get a match {
