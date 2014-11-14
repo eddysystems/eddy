@@ -96,7 +96,13 @@ object Scores {
 
   // Score constructors
   def fail[A](error: String): Scored[A] = Bad(OneError(error))
-  def single[A](x: A): Scored[A] = Good(List((Prob(1),x)))
+  def single[A](x: A): Scored[A] = Good(List((Prob(1.0),x)))
+  def single[A](x: A, p: Prob): Scored[A] = Good(List((p,x)))
+
+  def bias[A](s: Scored[A], b: Prob): Scored[A] = s match {
+    case Bad(_) => s
+    case Good(g) => Good(g.map( { case (p,a) => (p*b,a) } ))
+  }
 
   // TODO: This one is nonsense, and needs to go.
   def simple[A](xs: List[A], error: => String): Scored[A] = xs match {

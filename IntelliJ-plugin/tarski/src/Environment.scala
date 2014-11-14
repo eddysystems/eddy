@@ -5,7 +5,6 @@ import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutp
 import ambiguity.Utility.notImplemented
 import Scores._
 import tarski.AST.Name
-import tarski.Denotations.Exp
 import tarski.Items._
 import tarski.Types._
 import tarski.Tokens.show

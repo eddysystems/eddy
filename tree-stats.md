@@ -40,7 +40,7 @@ see as input, distorted appropriately by f.  We assume f is given
 recursively by
 
   fl : AL -> Dist(BL)
-  forall c in AC, fc : Dist(Skel(B,arity(c)))
+  fc : AC -> Dist(Skel(B,N))
 
   f(Leaf(x)) = Leaf(fl(x))
   f(c(xk)) = fc(independent f(xk))
@@ -61,14 +61,19 @@ Consider b in B.  If b = Leaf(x), we know that b = Leaf(fl(a)), so
   g(Leaf(x)) = Leaf(gl(x))
   gl : BL -> (R,AL)
 
+Given b and a skeleton s, subs is a function returning the subtrees of b 
+corresponding to the holes in s:
+
+  subs: B x Skel(B,n) -> B^n
+
 Otherwise, we first ask which constructors c in AC could have generated
 b based on the top level structure of b.  For each such c, we have
 
-  p(c,i),sk(c,i) = fc(i)
-  sk(c,i)(b(c,i,k)) = b                 # Skeleton pattern match
-  p(c,i,k),a(c,i,k) = g(b(c,i,k))       # Recursion correct because...
-  a(c,i) = c(a(c,i,k))
-  p(c,i) = p(fc(i)) * prod(k) p(c,i,k)  # ...p(c,i) is increasing in p(c,i,k)
+  ps(c,i),sk(c,i) = fc(i)               # distribution of skeletons (partial b) generating c
+  b(c,i,k) = subs(b,sk(c,i))            # find subtrees of b matching the skeleton holes
+  p(c,i,k),a(c,i,k) = g(b(c,i,k))       # get best interpretation of lower levels
+  a(c,i) = c(a(c,i,k))                  #
+  p(c,i) = ps(c,i) * prod(k) p(c,i,k)   # ...p(c,i) is increasing in p(c,i,k)
 
 which defines
 

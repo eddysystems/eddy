@@ -478,7 +478,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
   @Override
   public boolean shouldProcess(DeclarationKind kind) {
-    return kind == DeclarationKind.CLASS ||
+    return
+      kind == DeclarationKind.CLASS ||
       kind == DeclarationKind.FIELD ||
       kind == DeclarationKind.METHOD ||
       kind == DeclarationKind.VARIABLE ||
