@@ -67,6 +67,12 @@ class TestParse {
   def varArray() =
     testAST("int x[]",VarAStmt(Nil,IntType,SingleList(("x",1,None))))
 
+  // Precedence
+  def add(x: AExp, y: AExp) = BinaryAExp(AddOp(),x,y)
+  def mul(x: AExp, y: AExp) = BinaryAExp(MulOp(),x,y)
+  @Test def addMul() = testAST("1 + 2 * 3", add(1,mul(2,3)))
+  @Test def mulAdd() = testAST("1 * 2 + 3", add(mul(1,2),3))
+
   // Compound statements
   val t = BoolALit(true)
   val e = EmptyAStmt()

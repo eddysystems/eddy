@@ -182,7 +182,6 @@ object Pretty {
       case GtOp() => f(RelFix,GtTok)
       case LeOp() => f(RelFix,LeTok)
       case GeOp() => f(RelFix,GeTok)
-      case InstanceofOp() => f(RelFix,InstanceofTok)
       case EqOp() => f(EqFix,EqEqTok)
       case NeOp() => f(EqFix,NeTok)
       case AndOp() => f(AndFix,AndTok)

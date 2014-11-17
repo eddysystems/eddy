@@ -155,7 +155,6 @@ object Types {
     case MulOp()|DivOp()|ModOp()|AddOp()|SubOp() => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield promote(n0,n1)
     case LShiftOp()|RShiftOp()|UnsignedRShiftOp() => for (n0 <- toIntegral(t0); _ <- toIntegral(t1)) yield promote(n0)
     case LtOp()|GtOp()|LeOp()|GeOp() => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield BooleanType
-    case InstanceofOp() => throw new RuntimeException("instanceof is special since the RHS is a type")
     case EqOp()|NeOp() => ((t0,t1) match {
         case (BooleanType,_) if isToBoolean(t1) => true
         case (_,BooleanType) if isToBoolean(t0) => true
