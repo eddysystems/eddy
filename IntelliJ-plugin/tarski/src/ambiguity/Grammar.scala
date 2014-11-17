@@ -16,7 +16,7 @@ object Grammar {
                      types: Map[Symbol,Type],
                      prods: Map[Symbol,Set[Prod]]) {
     val nullable: Set[Symbol] = {
-      val f = fixpoint(false, (f: Symbol => Boolean, s: Symbol) =>
+      lazy val f: Symbol => Boolean = fixpoint(false, s =>
         prods.contains(s) && prods(s).exists(_._1.forall(f)))
       prods.keySet.filter(f)
     }

@@ -39,52 +39,95 @@ object Utility {
     }
   }
 
-  // Memoize the fixpoint of a recursive function
-  def fixpoint[A,B](base: B, f: (A => B, A) => B): A => B = {
+  // Memoize the fixpoint of a recursive function.  Usage:
+  //   lazy val f = fixpoint(base, a => b) // where b refers to f
+  def fixpoint[A,B](base: B, f: A => B): A => B = {
     val done = mutable.Map[A,B]()
     val next = mutable.Map[A,B]()
     val active = mutable.Set[A]()
     var changed = false
-    def fix(a: A): B = {
-      done get a match {
-        case Some(b) => b
-        case None => next get a match {
-          case None =>
-            changed = true
-            active += a
-            next(a) = base
-            val b = f(fix,a)
-            if (b != base)
-              next(a) = b
+    var outer = true
+    def fix(a: A): B = done.getOrElse(a, {
+      def inner = next get a match {
+        case None =>
+          changed = true
+          active += a
+          next(a) = base
+          val b = f(a)
+          if (b != base)
+            next(a) = b
+          b
+        case Some(b) =>
+          if (active contains a)
             b
-          case Some(b) =>
-            if (active contains a)
-              b
-            else {
-              active += a
-              val c = f(fix,a)
-              if (b != c) {
-                changed = true
-                next(a) = c
-              }
-              c
+          else {
+            active += a
+            val c = f(a)
+            if (b != c) {
+              changed = true
+              next(a) = c
             }
+            c
+          }
+      }
+      if (!outer) inner
+      else {
+        outer = false
+        def loop: B = {
+          val b = inner
+          if (changed) {
+            changed = false
+            active.clear()
+            loop
+          } else {
+            outer = true
+            done ++= next
+            next.clear()
+            active.clear()
+            b
+          }
         }
+        loop
       }
-    }
-    def outer(a: A): B = {
-      val b = fix(a)
-      if (changed) {
-        changed = false
-        active.clear()
-        outer(a)
-      } else {
-        done ++= next
-        next.clear()
-        active.clear()
-        b
-      }
-    }
-    outer
+    })
+    fix
+  }
+  def fixpoint[A,B,C](base: C, f: (A,B) => C): (A,B) => C = {
+    lazy val g: ((A,B)) => C = fixpoint(base, x => f(x._1,x._2))
+    (a,b) => g((a,b))
+  }
+
+  // Memoization.  Usage:
+  //   val f = memoize(a => b)      // b doesn't depend on f
+  //   lazy val f = memoize(a => b) // b depends on f, but with laziness on all cycles
+  def memoize[A,B](f: A => B): A => B = {
+    val cache = mutable.Map[A,B]()
+    def mem(a: A): B = cache.getOrElse(a,{
+      val b = f(a)
+      cache(a) = b
+      b
+    })
+    mem
+  }
+  def memoize[A,B,C](f: (A,B) => C): (A,B) => C = {
+    val cache = mutable.Map[(A,B),C]()
+    def mem(a: A, b: B): C = cache.getOrElse((a,b),{
+      val c = f(a,b)
+      cache((a,b)) = c
+      c
+    })
+    mem
+  }
+
+  // Write to a file.  From http://stackoverflow.com/questions/4604237/how-to-write-to-a-file-in-scala
+  def writeTo(f: java.io.File)(op: java.io.PrintWriter => Unit) {
+    val p = new java.io.PrintWriter(f)
+    try { op(p) } finally { p.close() }
+  }
+
+  // Create and then destroy a temporary file
+  def withTemp[A](prefix: String, suffix: String, delete: Boolean = true)(f: java.io.File => A): A = {
+    val file = java.io.File.createTempFile(prefix,suffix)
+    try { f(file) } finally { if (delete) file.delete }
   }
 }
