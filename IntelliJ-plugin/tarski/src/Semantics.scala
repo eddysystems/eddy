@@ -11,7 +11,7 @@ import Scores._
 import ambiguity.Utility._
 import Tokens._
 import Pretty._
-import ambiguity.Utility.notImplemented
+import ambiguity.Utility._
 
 object Semantics {
   /*
@@ -283,10 +283,16 @@ object Semantics {
     if (typeOf(e) != VoidType) single(e, Probabilities.nonVoidExp)
     else fail(s"${show(n)}: expected non-void expression")
   }
-  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {
-    case a if typeOf(a).isInstanceOf[ArrayType] => single(a, Probabilities.arrayTypeExp)
-    case d => fail(show(d) + " is not an array")
-  }
+  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e => {
+    val t = typeOf(e)
+    if (t.isInstanceOf[ArrayType]) single(e, Probabilities.arrayTypeExp)
+    else fail(s"${show(e)} has non-array type ${show(t)}")
+  }}
+  def denoteRef(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e => {
+    val t = typeOf(e)
+    if (t.isInstanceOf[RefType]) single(e, Probabilities.refExp)
+    else fail(s"${show(e)} has non-reference type ${show(t)}")
+  }}
   def denoteVariable(e: AExp)(implicit env: Env): Scored[Exp] = {
     denoteExp(e) flatMap { x =>
       if (isVariable(x)) single(x, Probabilities.variableExp)
@@ -373,7 +379,8 @@ object Semantics {
         if (isThrowable(t)) single((env,ThrowStmt(e)), Probabilities.throwStmt)
         else fail(s"${show(s)}: type $t is not throwable")
       }
-      case SyncAStmt(e,b) => notImplemented
+      case SyncAStmt(e,b) => product(denoteRef(e),denoteScoped(b)(env)) flatMap {
+        case (e,(env,b)) => single((env,SyncStmt(e,b)), Probabilities.syncStmt) }
       case IfAStmt(c,x) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {
         case (c,(env,x)) => single((env,IfStmt(c,x)), Probabilities.ifStmt) }
       case IfElseAStmt(c,x,y) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>

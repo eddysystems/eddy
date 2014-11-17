@@ -355,4 +355,7 @@ class TestDen {
                    ForStmt(Nil,Some(t),Nil,HoleStmt))))
   @Test def foreach()     = testDen("for (x : 1,2)", "x", x =>
     ForeachStmt(IntType,x,ArrayExp(IntType,List(1,2)),HoleStmt))
+
+  // Synchronized
+  @Test def sync() = testDen("synchronized null", SyncStmt(NullLit,HoleStmt))
 }

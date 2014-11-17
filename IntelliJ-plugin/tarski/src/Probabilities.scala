@@ -91,6 +91,9 @@ object Probabilities {
   // denoteArray(AExp)
   val arrayTypeExp = passThrough
 
+  // denoteRef(AExp)
+  val refExp = passThrough
+
   // denoteVariable(AExp)
   val variableExp = passThrough
 
@@ -110,6 +113,7 @@ object Probabilities {
   val continueStmt = base
   val returnStmt = base
   val throwStmt = base // should depend on type of thing thrown
+  val syncStmt = base
   val ifStmt = base
   val ifElseStmt = base
   val whileStmt = base
