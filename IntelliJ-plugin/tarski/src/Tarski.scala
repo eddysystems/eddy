@@ -56,7 +56,7 @@ object Tarski {
       throw new RuntimeException("duplicated ast")
 
     // Determine meaning(s)
-    simple(uasts.toList,"Parse failed") flatMap { root => {
+    multiple(uasts.toList map { (Prob(1.0), _) }, "Parse failed") flatMap { root => {
       println("  ast: " + show(Pretty.tokens(root)))
       //println("  ast: " + root)
       println("  meanings: ")

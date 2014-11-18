@@ -96,18 +96,15 @@ object Scores {
 
   // Score constructors
   def fail[A](error: String): Scored[A] = Bad(OneError(error))
-  def single[A](x: A): Scored[A] = Good(List((Prob(1.0),x)))
   def single[A](x: A, p: Prob): Scored[A] = Good(List((p,x)))
+  def multiple[A](xs: List[(Prob,A)], error: => String): Scored[A] = xs filter { case (Prob(p),a) => p > 0.0 } match {
+    case Nil => Bad(OneError(error))
+    case _ => Good(xs)
+  }
 
   def bias[A](s: Scored[A], b: Prob): Scored[A] = s match {
     case Bad(_) => s
     case Good(g) => Good(g.map( { case (p,a) => (p*b,a) } ))
-  }
-
-  // TODO: This one is nonsense, and needs to go.
-  def simple[A](xs: List[A], error: => String): Scored[A] = xs match {
-    case Nil => Bad(OneError(error))
-    case _ => Good(xs.map((Prob(.5),_)))
   }
 
   // a and b are assumed independent
@@ -152,20 +149,18 @@ object Scores {
 
   // xs are assumed independent
   def product[A](xs: Option[Scored[A]]): Scored[Option[A]] = xs match {
-    case None => single(None)
+    case None => single(None, Prob(1.0))
     case Some(x) => x map (Some(_))
   }
   def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
-    case Nil => single(Nil)
+    case Nil => single(Nil, Prob(1.0))
     case sx :: sxs => productWith(sx,product(sxs))(_::_)
   }
 
   def productFoldLeft[A,E](e: E)(fs: List[E => Scored[(E,A)]]): Scored[(E,List[A])] = fs match {
-    case Nil => single((e,Nil))
+    case Nil => single((e,Nil), Prob(1.0))
     case f :: fs =>
-      f(e) flatMap {case (ex,x) =>
-      productFoldLeft(ex)(fs) map {case (exs,xs) =>
-        (exs,x::xs)}}
+      f(e) flatMap {case (ex,x) => productFoldLeft(ex)(fs) map {case (exs,xs) => (exs,x::xs)}}
   }
 
   // thread is map followed by product

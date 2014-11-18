@@ -13,14 +13,13 @@ import tarski.Environment.Env
 import tarski.Base._
 import tarski.Items._
 import tarski.Lexer._
-import tarski.Tokens._
-import tarski.Types._
+import tarski.Types.{toType => _,_}
 import tarski.TestUtils._
 import ambiguity.Utility._
 
 class TestDen {
   // Default to an empty local environment
-  implicit val env = localEnv(Nil)
+  implicit val env = localEnvWithBase(Nil)
 
   def testHelper[A](input: String, best: Env => A)(implicit env: Env, convert: A => List[Stmt]): Unit = {
     val fixes = fix(lex(input))
@@ -40,10 +39,18 @@ class TestDen {
     testHelper(input, env => best(env.exactLocal(x),env.exactLocal(y)))
 
   def testOnlyDenotation(input: String, best: Env => List[Stmt])(implicit env: Env) = {
-    val fixes = fix(lex(input).filterNot(isSpace))
+    val fixes = fix(lex(input))
     assertEquals(fixes.all.right.get.length, 1)
     val (env2,stmt) = fixes.best.right.get
     assertEquals(stmt, best(env2))
+  }
+
+  def testNotDenotation(input: String, notthis: List[Stmt])(implicit env: Env): Unit = {
+    val fixes = fix(lex(input))
+    if (fixes.best.isLeft)
+      return
+    else
+      assertFalse(fixes.all.right.get exists { case (p,(e,ds)) => ds == notthis } )
   }
 
   // makes an env with a class X and a method void X.f(), which we are inside of
@@ -355,4 +362,17 @@ class TestDen {
                    ForStmt(Nil,Some(t),Nil,HoleStmt))))
   @Test def foreach()     = testDen("for (x : 1,2)", "x", x =>
     ForeachStmt(IntType,x,ArrayExp(IntType,List(1,2)),HoleStmt))
+
+  @Test def sideEffects() = {
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val Xcons = ConstructorItem(X,Nil,Nil)
+    val T = NormalClassItem("T", X, Nil, ObjectType, Nil)
+    val M = NormalClassItem("M", LocalPkg, Nil, ObjectType, Nil)
+    val f = MethodItem("f", M, Nil, VoidType, Nil)
+    val t = LocalVariableItem("t", ObjectType)
+
+    implicit val env = Env(List(X,Xcons,T,M,f), Map((t,1),(f,2),(M,2),(X,3)), f)
+    // not allowed to simply discard the possible side effects in the X constructor.
+    testNotDenotation("((X()).T)t;", List(ExpStmt(CastExp(toType(T),LocalVariableExp(t)))))
+  }
 }

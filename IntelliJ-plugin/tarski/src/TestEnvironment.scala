@@ -35,4 +35,11 @@ class TestEnvironment {
     assertEquals(tokens(ThisExp(tY)), List(ThisTok()))
   }
 
+  @Test
+  def levenshteinDistance(): Unit = {
+    val meant = "isInstanceOf"
+    val typed = "isInstnaceof"
+    val d = StringMatching.levenshteinDistance(meant, typed)
+    println(s"Levenshtein Distance $meant -> $typed = $d")
+  }
 }

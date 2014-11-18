@@ -208,6 +208,8 @@ object Types {
     if (vs.isEmpty) t
     else substituteAny(t)((vs,ts).zipped.toMap)
 
+  def toType(i: PrimTypeItem): Type = i.t
+
   // Turn a TypeItem into a type
   // TODO: Handle generics
   def toType(i: TypeItem, ts: List[RefType]): Type = {
@@ -554,7 +556,7 @@ object Types {
   // Make sure a type can be written in Java
   def safe(t: Type): Type = t match {
     case r: RefType => safe(r)
-    case VoidType => notImplemented
+    case VoidType => SimpleClassType(VoidItem)
     case _:PrimType => t
   }
   def safe(t: RefType): RefType = t match {
