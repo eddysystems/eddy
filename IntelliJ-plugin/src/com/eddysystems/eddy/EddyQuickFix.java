@@ -81,11 +81,10 @@ public class EddyQuickFix extends BaseElementAtCaretIntentionAction implements H
 
   @Override
   public boolean isAvailable(@NotNull Project project, Editor editor, @NotNull PsiElement element) {
-    // TODO: only available if we actually have something
     if (editor.getCaretModel().getCaretCount() != 1)
       return false;
 
-    return true;
+    return eddy.foundSomethingUseful();
   }
 
   @Override
@@ -97,8 +96,7 @@ public class EddyQuickFix extends BaseElementAtCaretIntentionAction implements H
   public void invoke(@NotNull Project project, Editor editor, @NotNull PsiElement element) throws IncorrectOperationException {
     ApplicationManager.getApplication().invokeLater(new Runnable() {
       @Override public void run() {
-        // TODO: do the replacing
-        System.out.println("executing run in EddyQuickFix invoke.");
+        createEddyAction().execute();
       }
     });
   }

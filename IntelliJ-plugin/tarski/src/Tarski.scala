@@ -11,8 +11,8 @@ import tarski.Pretty._
 import scala.collection.JavaConverters._
 
 object Tarski {
-  def environment(values: java.util.Collection[NamedItem], inScope: java.util.Map[NamedItem,Integer], place: PlaceItem): Env = {
-    Base.baseEnv.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue)).move(place)
+  def environment(values: java.util.Collection[NamedItem], inScope: java.util.Map[NamedItem,Integer], place: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: java.util.List[String] = Nil.asJava): Env = {
+    Base.baseEnv.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue)).move(place, inside_breakable, inside_continuable, labels.asScala.toList)
   }
 
   def localPkg(): PackageItem = Base.LocalPkg
@@ -56,7 +56,7 @@ object Tarski {
       throw new RuntimeException("duplicated ast")
 
     // Determine meaning(s)
-    simple(uasts.toList,"Parse failed") flatMap { root => {
+    multiple(uasts.toList map { (Prob(1.0), _) }, "Parse failed") flatMap { root => {
       println("  ast: " + show(Pretty.tokens(root)))
       //println("  ast: " + root)
       println("  meanings: ")

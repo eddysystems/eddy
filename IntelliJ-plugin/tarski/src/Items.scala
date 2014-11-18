@@ -3,6 +3,8 @@ package tarski
 import tarski.AST._
 import tarski.Types._
 import tarski.Base.{JavaLangPkg,EnumBaseItem}
+import tarski.Pretty.pretty
+import tarski.Tokens.show
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
@@ -13,7 +15,7 @@ object Items {
     def this() = { this("") }
 
     // used for name matching
-    def qualifiedName: Name // TODO: need to be Option[String] for objects without them
+    def qualifiedName: Name // TODO: needs to be Option[String] for objects without them
 
     override def toString: String = qualifiedName
   }
@@ -46,6 +48,10 @@ object Items {
   // Miscellaneous
   case class PackageItem(override val name: Name, qualifiedName: Name) extends NamedItem(name) with PlaceItem with scala.Serializable
   case class AnnotationItem(override val name: Name, qualifiedName: Name) extends NamedItem(name) with scala.Serializable
+
+  case class PrimTypeItem(t: SimpleType) extends NamedItem( if (t.isInstanceOf[PrimType]) show(pretty(t.asInstanceOf[PrimType])) else { assert(t == VoidType); "void" } ) with scala.Serializable {
+    def qualifiedName = name
+  }
 
   // Classes and interfaces
   sealed abstract class TypeItem(name: Name) extends NamedItem(name) with Member with scala.Serializable {

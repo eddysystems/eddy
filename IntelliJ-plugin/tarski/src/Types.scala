@@ -209,6 +209,8 @@ object Types {
     if (vs.isEmpty) t
     else substituteAny(t)((vs,ts).zipped.toMap)
 
+  def toType(i: PrimTypeItem): Type = i.t
+
   // Turn a TypeItem into a type
   // TODO: Handle generics
   def toType(i: TypeItem, ts: List[RefType]): Type = {
@@ -563,17 +565,40 @@ object Types {
   }
 
   // Make sure a type can be written in Java
-  def safe(t: Type): Type = t match {
+  def safe(t: Type): Option[Type] = t match {
     case r: RefType => safe(r)
-    case VoidType => throw new RuntimeException("safe: invalid void type")
-    case _:PrimType|VoidType => t
+    case VoidType => None
+    case _:PrimType => Some(t)
   }
-  def safe(t: RefType): RefType = t match {
-    case NullType => ObjectType
-    case ObjectType|ErrorType(_)|SimpleInterfaceType(_)|SimpleClassType(_)|ParamType(_) => t
-    case GenericInterfaceType(d,ts) => GenericInterfaceType(d,ts map safe)
-    case GenericClassType(d,ts) => GenericClassType(d,ts map safe)
-    case IntersectType(ts) => IntersectType(ts map safe)
-    case ArrayType(t) => ArrayType(safe(t))
+
+  def safe(t: RefType): Option[RefType] = t match {
+    case NullType => Some(ObjectType)
+    case ObjectType|ErrorType(_)|SimpleInterfaceType(_)|SimpleClassType(_)|ParamType(_) => Some(t)
+    case GenericInterfaceType(d,ts) => {
+      val sts = ts map safe
+      if (sts exists { x=>x.isDefined })
+        None
+      else
+        Some(GenericInterfaceType(d,sts.map(x => x.get)))
+    }
+    case GenericClassType(d,ts) => {
+      val sts = ts map safe
+      if (sts exists { x=>x.isEmpty})
+        None
+      else
+        Some(GenericClassType(d,sts.map(x => x.get)))
+    }
+    case IntersectType(ts) => {
+      val sts = ts map safe
+      if (sts exists { x=>x.isEmpty })
+        None
+      else
+        Some(IntersectType(sts.map(x => x.get)))
+    }
+    case ArrayType(t) => safe(t) match {
+      case Some(t) => Some(ArrayType(t))
+      case None => None
+    }
   }
 }
+

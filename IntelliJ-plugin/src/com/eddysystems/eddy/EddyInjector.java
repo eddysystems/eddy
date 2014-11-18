@@ -80,7 +80,5 @@ public class EddyInjector implements FileEditorManagerListener {
   @Override
   public void selectionChanged(@NotNull FileEditorManagerEvent fileEditorManagerEvent) {
     //logger.debug("selection changed");
-
-    // TODO: disable popup on old editor (if active), enable popup on new editor (if needed)?
   }
 }
