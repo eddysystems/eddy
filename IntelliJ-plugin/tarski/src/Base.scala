@@ -57,6 +57,12 @@ object Base {
     def implements = List(comparable(this),SimpleInterfaceType(CharSequenceItem),SerializableType)
   }
 
+  // java.lang.Void
+  object VoidItem extends SimpleClassItem("Void") {
+    def base = ObjectType
+    def implements = Nil
+  }
+
   // Reference wrappers around primitive types
   object BooleanItem extends SimpleClassItem("Boolean") {
     def base = ObjectType
@@ -81,6 +87,16 @@ object Base {
   object FloatItem   extends NumberClassItem("Float")
   object DoubleItem  extends NumberClassItem("Double")
 
+  object ubVoidItem    extends PrimTypeItem(VoidType)
+  object ubBooleanItem extends PrimTypeItem(BooleanType)
+  object ubByteItem    extends PrimTypeItem(ByteType)
+  object ubShortItem   extends PrimTypeItem(ShortType)
+  object ubIntItem     extends PrimTypeItem(IntType)
+  object ubLongItem    extends PrimTypeItem(LongType)
+  object ubFloatItem   extends PrimTypeItem(FloatType)
+  object ubDoubleItem  extends PrimTypeItem(DoubleType)
+  object ubCharItem    extends PrimTypeItem(CharType)
+  
   // Basic callables for test use
   val ObjectConsItem = ConstructorItem(ObjectItem,Nil,Nil)
 
@@ -88,8 +104,10 @@ object Base {
   val baseEnv = Env(List(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
+    // basic types
+    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem,
     // Classes
-    ObjectItem,ObjectConsItem,
+    ObjectItem,ObjectConsItem,VoidItem,
     EnumBaseItem,ThrowableItem,StringItem,BooleanItem,CharacterItem,
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
     // Interfaces
