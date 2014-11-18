@@ -574,14 +574,14 @@ object Types {
     }
     case GenericClassType(d,ts) => {
       val sts = ts map safe
-      if (sts exists { x=>x.isDefined })
+      if (sts exists { x=>x.isEmpty})
         None
       else
         Some(GenericClassType(d,sts.map(x => x.get)))
     }
     case IntersectType(ts) => {
       val sts = ts map safe
-      if (sts exists { x=>x.isDefined })
+      if (sts exists { x=>x.isEmpty })
         None
       else
         Some(IntersectType(sts.map(x => x.get)))

@@ -374,7 +374,7 @@ object Semantics {
         val stmts = e match {
           case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => safe(typeOf(y)) match {
             case Some(t) => env.newVariable(x,t) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
-            case None => fail(s"expression $y does not return anything usable")
+            case None => fail(s"expression $y does not return anything usable (${typeOf(y)})")
           }}
           case _ => fail(show(e)+": expression doesn't look like a statement")
         }
@@ -398,7 +398,7 @@ object Semantics {
         else fail(s"${show(s)}: type $t is not throwable")
       }
       case SyncAStmt(e,b) => product(denoteRef(e),denoteScoped(b)(env)) flatMap {
-        case (e,(env,b)) => single((env,SyncStmt(e,b)), Probabilities.syncStmt) }
+        case (e,(env,b)) => single((env,SyncStmt(e,b)), Pr.syncStmt) }
       case IfAStmt(c,x) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {
         case (c,(env,x)) => single((env,IfStmt(c,x)), Pr.ifStmt) }
       case IfElseAStmt(c,x,y) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>

@@ -18,6 +18,9 @@ object Environment {
                  inScope: Map[NamedItem,Int] = Map(),
                  place: PlaceItem = Base.LocalPkg) extends scala.Serializable {
 
+    // minimum probability before an object is considered a match for a query
+    val minimumProbability = Prob(.01)
+
     assert(place == Base.LocalPkg || allthings.contains(place))
     val things = allthings.filterNot( _.isInstanceOf[NoLookupItem] )
 
@@ -105,6 +108,7 @@ object Environment {
       val t = x match {
         case x:TypeItem => toType(x,Nil)
         case x:PrimTypeItem => toType(x)
+        case _ => throw new RuntimeException("unreachable")
       }
       // TODO other things that influence probability:
       // - kind (Primitive Types are more likely, java.lang types are more likely)
@@ -116,7 +120,7 @@ object Environment {
               else Pr.typoProbability(x.name,name)
       (p,t)
     }
-    multiple(env.things collect { case x: TypeItem => prob(x); case x: PrimTypeItem => prob(x) }, s"Type $name not found")
+    multiple(env.things collect { case x: TypeItem => prob(x); case x: PrimTypeItem => prob(x) } filter { case (p,_) => p > env.minimumProbability }, s"Type $name not found")
   }
 
   // What could it be, given it's a callable?
@@ -125,7 +129,7 @@ object Environment {
       val p = if (x.name==name) Pr.exactCallable
               else Pr.typoProbability(x.name,name)
       (p,x)
-    }}, s"Callable $name not found")
+    }} filter { case (p,_) => p > env.minimumProbability }, s"Callable $name not found")
 
   // What could this be, we know it's a value
   def valueScores(name: String)(implicit env: Env): Scored[Value] =
@@ -133,20 +137,20 @@ object Environment {
       val p = if (x.name==name) Pr.exactValue
               else Pr.typoProbability(x.name,name)
       (p,x)
-    }}, s"Value $name not found")
+    }} filter { case (p,_) => p > env.minimumProbability }, s"Value $name not found")
 
   def objectsOfType(name: String, t: Type)(implicit env: Env): Scored[Value] =
     multiple(env.things collect { case i: Value if isSubtype(i.ourType,t) => {
       val p = if (i.name==name) Pr.exactValueOfType
               else Pr.typoProbability(i.name,name)
       (p,i)
-    }}, s"Value $name of type ${show(t)} not found")
+    }} filter { case (p,_) => p > env.minimumProbability }, s"Value $name of type ${show(t)} not found")
 
   // Same as objectsOfType, but without type arguments
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
     multiple(env.things collect { case i: Value if isSubitem(i.ourType,t) => {
       (Pr.objectOfItem,i)
-    }}, s"Value of item ${show(t)} not found")
+    }} filter { case (p,_) => p > env.minimumProbability }, s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {
@@ -200,7 +204,7 @@ object Environment {
       val p = if (f.name==name) Pr.exactCallableField
               else Pr.typoProbability(f.name,name)
       (p,f)
-    }}, s"Type ${show(t)} has no callable field $name")
+    }} filter { case (p,_) => p > env.minimumProbability }, s"Type ${show(t)} has no callable field $name")
 
   // What could this name be, assuming it is a member of the given type?
   def fieldScores(t: Type, name: String)(implicit env: Env): Scored[Value with Member] =
@@ -208,7 +212,7 @@ object Environment {
       val p = if (f.name==name) Pr.exactField
               else Pr.typoProbability(f.name,name)
       (p,f)
-    }}, s"Type ${show(t)} has no field $name")
+    }} filter { case (p,_) => p > env.minimumProbability }, s"Type ${show(t)} has no field $name")
 
   // what could this be, assuming it's a static member of the given type?
   def staticFieldScores(t: Type, name: String)(implicit env: Env): Scored[StaticValue with Member] =
@@ -223,7 +227,7 @@ object Environment {
                 else Pr.typoProbability(f.name,name)
         (p,f)
       }
-    }, s"Type ${show(t)} has no static field $name")
+    } filter { case (p,_) => p > env.minimumProbability }, s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?
   // TODO: Handle generics
@@ -233,7 +237,7 @@ object Environment {
       val p = if (f.name==name) Pr.exactTypeField
               else Pr.typoProbability(f.name,name)
       (p,t)
-    }}, s"Type ${show(t)} has no type field $name")
+    }} filter { case (p,_) => p > env.minimumProbability }, s"Type ${show(t)} has no type field $name")
 
   // The return type of our ambient function
   def returnType(implicit env: Env): Scored[Type] = {

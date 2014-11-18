@@ -174,6 +174,7 @@ object Pr {
   val continueStmt = base
   val returnStmt = base
   val throwStmt = base // should depend on type of thing thrown
+  val syncStmt = base // should depend on the variable used to synchronize
   val ifStmt = base
   val ifElseStmt = base
   val whileStmt = base
