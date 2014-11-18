@@ -223,7 +223,7 @@ object Types {
     }
   }
 
-  // if a type has an associated item, return it
+  // If a type has an associated item, return it
   def toItem(t: RefType): Option[TypeItem] = t match {
     case c: ClassType => Some(c.d)
     case i: InterfaceType => Some(i.d)
@@ -241,28 +241,32 @@ object Types {
 
   // Is lo a subtype of hi?
   def isSubtype(lo: Type, hi: Type): Boolean = lo == hi || isProperSubtype(lo,hi)
+  def isSubtype(lo: RefType, hi: RefType): Boolean = lo == hi || isProperSubtype(lo,hi)
   def isProperSubtype(lo: Type, hi: Type): Boolean = (lo,hi) match {
+    case (lo: RefType, hi: RefType) => isProperSubtype(lo,hi)
+    case _ => false // Non-reference types aren't part of inheritance
+  }
+  def isProperSubtype(lo: RefType, hi: RefType): Boolean = (lo,hi) match {
     case _ if lo==hi => false // Not proper
-    case (NullType,_: RefType) => true // null can be anything
-    case (_: RefType, ObjectType) => true // Every ref is Object, even interfaces and enums!
-
-    // Primitive types are not part of inheritance
-    case (_,_:PrimType)|(_:PrimType,_) => false
+    case (NullType,_) => true // null can be anything
+    case (_,ObjectType) => true // Every ref is Object, even interfaces and enums!
+    case (ObjectType,_) => false // Object is not a proper subtype of anything
 
     // Array types are covariant
-    case (ArrayType(l), ArrayType(h)) => isProperSubtype(l, h)
+    case (ArrayType(l),ArrayType(h)) => isProperSubtype(l,h)
     // Otherwise, arrays are not a subtype of anything (except ObjectType, above), and there can be no subtypes of arrays
     // TODO: Actually, arrays are Cloneable and Serializable
-    case (ArrayType(_), _)|(_, ArrayType(_)) => false
+    case (ArrayType(_),_)|(_, ArrayType(_)) => false
 
     // lo is a proper subtype of hi if its superclass is a subtype of hi, or it implements (a subinterface of) hi
-    case (lo:InterfaceType, hi:InterfaceType) => lo.bases exists (isSubtype(_,hi))
-    case (lo:ClassType, hi:ClassType) => isSubtype(lo.base,hi)
-    case (lo:ClassType, hi:InterfaceType) => implements(lo,hi)
+    case (lo:InterfaceType,hi:InterfaceType) => lo.bases exists (isSubtype(_,hi))
+    case (lo:ClassType,hi:ClassType) => isSubtype(lo.base,hi)
+    case (lo:ClassType,hi:InterfaceType) => implements(lo,hi)
     case (_:InterfaceType,_:ClassType) => false
 
-    // leftover RefTypes are not subtypes of anything
-    case (_:RefType, _)|(_,_:RefType) => false
+    // Type variables are subtypes of their bounds, but supertypes only of themselves or other type variables
+    case (ParamType(v),_) => isSubtype(v.base,hi) || v.implements.exists(isSubtype(_,hi))
+    case (_,ParamType(_)) => false
   }
 
   // Same as above, but for items (types without their type arguments)
@@ -404,7 +408,6 @@ object Types {
   // Whether from can be explicitly cast to to
   def castsTo(from: Type, to: Type): Boolean = from==to || ((from,to) match {
     case (_:ErrorType,_)|(_,_:ErrorType) => false
-    case (_:ParamType,_)|(_,_:ParamType) => notImplemented // TODO: Handle type parameters correctly
     case (VoidType,_) => false
     case (_,VoidType) => true
     case (f:PrimType,t:PrimType) => (f==BooleanType)==(t==BooleanType)
@@ -479,8 +482,8 @@ object Types {
       case (x:NumType,Some(y:NumType)) => promote(x,y)
     }
     (x,y) match {
-      case (_:ErrorType,_)|(_,_:ErrorType) => notImplemented
-      case (_:ParamType,_)|(_,_:ParamType) => notImplemented
+      case (x:ErrorType,_) => x // Propagate error types for simplicity
+      case (_,y:ErrorType) => y
       case (VoidType,_)|(_,VoidType) => VoidType
       case (x:PrimType,y:PrimType) => pp(x,y)
       case (x:PrimType,y:RefType) => pr(x,y)
@@ -553,8 +556,8 @@ object Types {
   // Make sure a type can be written in Java
   def safe(t: Type): Type = t match {
     case r: RefType => safe(r)
-    case VoidType => notImplemented
-    case _:PrimType => t
+    case VoidType => throw new RuntimeException("safe: invalid void type")
+    case _:PrimType|VoidType => t
   }
   def safe(t: RefType): RefType = t match {
     case NullType => ObjectType

@@ -25,7 +25,10 @@ object Items {
   sealed trait PlaceItem extends NamedItem
 
   // Type parameters
-  case class TypeParamItem(override val name: String)
+
+  case class TypeParamItem(override val name: String,
+                           base: ClassOrObjectType = ObjectType,
+                           implements: List[InterfaceType] = Nil)
     extends NamedItem(name) with NoLookupItem with scala.Serializable {
     def qualifiedName = name
   }
