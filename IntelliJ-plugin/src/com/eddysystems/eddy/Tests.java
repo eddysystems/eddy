@@ -13,6 +13,7 @@ class V {
 class X extends Z {
   int x;
   static final Integer q = 0;
+  static int blah() { return 1; }
 }
 
 class S extends V {
@@ -21,10 +22,16 @@ class S extends V {
   class Y extends X {
     int x;
 
+    public X getX() {
+      return this;
+    }
+
     public void t() {
       int x = 1;
 
       int a[];
+
+      x = (getX()).blah();
 
       x *= 2; // local
       this.x *= 2; // Y.x

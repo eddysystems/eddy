@@ -369,6 +369,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // walk straight up until we see a method, class, or package
     PsiElement place = this.place;
     while (place != null) {
+      // TODO: remember all loops up to the first method/class
+      // TODO: scan the current method for labels
+
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         // add special items this for each class we're inside of, with same shadowing priority as the class itself
         assert envitems.containsKey(place);
