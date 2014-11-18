@@ -310,7 +310,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       NamedItem icls = addClassToEnvMap(envitems, cls);
       localItems.put(icls,scls.shadowingPriority);
 
-      // TODO: register everything that is below this class (some of which may already be in the env map)
       // if these items don't already exist, they can never shadow things
       for (PsiField f : cls.getFields()) {
         addFieldToEnvMap(envitems, f);
@@ -366,14 +365,33 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     // find out which element we are inside (method, class or interface, or package)
     PlaceItem placeItem = null;
+    boolean inside_continuable = false;
+    boolean inside_breakable = false;
+    List<String> labels = new SmartList<String>();
     // walk straight up until we see a method, class, or package
     PsiElement place = this.place;
     while (place != null) {
-      // TODO: remember all loops up to the first method/class
-      // TODO: scan the current method for labels
+      // scan the current method for labels, loops, and switch statements
+      if (placeItem != null) {
+        if (place instanceof PsiLabeledStatement) {
+          // found a label
+          logger.info("found a labeled statement: " + place + ", label: " + ((PsiLabeledStatement) place).getLabelIdentifier());
+          labels.add(((PsiLabeledStatement) place).getLabelIdentifier().getText());
+        }
 
+        if (place instanceof PsiSwitchStatement) {
+          logger.info("inside switch statement: " + place);
+          inside_breakable = true;
+        }
+        if (place instanceof PsiLoopStatement) {
+          logger.info("inside loop statement: " + place);
+          inside_breakable = true;
+          inside_continuable = true;
+        }
+      }
+
+      // add special "this" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
-        // add special items this for each class we're inside of, with same shadowing priority as the class itself
         assert envitems.containsKey(place);
         ClassItem c = (ClassItem)envitems.get(place);
         assert localItems.containsKey(c);
@@ -418,7 +436,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     */
 
-    return Tarski.environment(items, localItems, placeItem);
+    return Tarski.environment(items, localItems, placeItem, inside_breakable, inside_continuable, labels);
   }
 
   private String qualifiedName(PsiElement elem) {

@@ -23,6 +23,15 @@ class S extends V {
     int x;
 
     public X getX() {
+      for_label:
+      for (int i = 0; i < 10; ++i) {
+        switch_label:
+        switch (i) {
+          case 3: break switch_label;
+          case 6: break for_label;
+        }
+      }
+
       return this;
     }
 
