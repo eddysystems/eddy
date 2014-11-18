@@ -156,55 +156,55 @@ object Pretty {
 
   // Operators
   def isPrefix(op: UnaryOp): Boolean = op match {
-    case PreDecOp()|PreIncOp()|PosOp()|NegOp()|CompOp()|NotOp() => true
-    case PostDecOp()|PostIncOp() => false
+    case PreDecOp|PreIncOp|PosOp|NegOp|CompOp|NotOp => true
+    case PostDecOp|PostIncOp => false
   }
   def token(op: UnaryOp): Token = op match {
-    case PreDecOp()|PostDecOp() => MinusMinusTok()
-    case PreIncOp()|PostIncOp() => PlusPlusTok()
-    case PosOp() => PlusTok()
-    case NegOp() => MinusTok()
-    case CompOp() => CompTok()
-    case NotOp() => NotTok()
+    case PreDecOp|PostDecOp => MinusMinusTok()
+    case PreIncOp|PostIncOp => PlusPlusTok()
+    case PosOp => PlusTok()
+    case NegOp => MinusTok()
+    case CompOp => CompTok()
+    case NotOp => NotTok()
   }
   implicit def prettyBinary(op: BinaryOp): (Fixity,Tokens) = {
     def f(s: Fixity, t: () => Token) = (s,List(t()))
     op match {
-      case MulOp() => f(MulFix,MulTok)
-      case DivOp() => f(MulFix,DivTok)
-      case ModOp() => f(MulFix,ModTok)
-      case AddOp() => f(AddFix,PlusTok)
-      case SubOp() => f(AddFix,MinusTok)
-      case LShiftOp() => f(ShiftFix,LShiftTok)
-      case RShiftOp() => f(ShiftFix,RShiftTok)
-      case UnsignedRShiftOp() => f(ShiftFix,UnsignedRShiftTok)
-      case LtOp() => f(RelFix,LtTok)
-      case GtOp() => f(RelFix,GtTok)
-      case LeOp() => f(RelFix,LeTok)
-      case GeOp() => f(RelFix,GeTok)
-      case EqOp() => f(EqFix,EqEqTok)
-      case NeOp() => f(EqFix,NeTok)
-      case AndOp() => f(AndFix,AndTok)
-      case XorOp() => f(XorFix,XorTok)
-      case OrOp() => f(OrFix,OrTok)
-      case AndAndOp() => f(AndAndFix,AndAndTok)
-      case OrOrOp() => f(OrOrFix,OrOrTok)
+      case MulOp => f(MulFix,MulTok)
+      case DivOp => f(MulFix,DivTok)
+      case ModOp => f(MulFix,ModTok)
+      case AddOp => f(AddFix,PlusTok)
+      case SubOp => f(AddFix,MinusTok)
+      case LShiftOp => f(ShiftFix,LShiftTok)
+      case RShiftOp => f(ShiftFix,RShiftTok)
+      case UnsignedRShiftOp => f(ShiftFix,UnsignedRShiftTok)
+      case LtOp => f(RelFix,LtTok)
+      case GtOp => f(RelFix,GtTok)
+      case LeOp => f(RelFix,LeTok)
+      case GeOp => f(RelFix,GeTok)
+      case EqOp => f(EqFix,EqEqTok)
+      case NeOp => f(EqFix,NeTok)
+      case AndOp => f(AndFix,AndTok)
+      case XorOp => f(XorFix,XorTok)
+      case OrOp => f(OrFix,OrTok)
+      case AndAndOp => f(AndAndFix,AndAndTok)
+      case OrOrOp => f(OrOrFix,OrOrTok)
     }
   }
   def token(op: Option[AssignOp]): Token = op match {
     case None => EqTok()
     case Some(op) => op match {
-      case MulOp() => MulEqTok()
-      case DivOp() => DivEqTok()
-      case ModOp() => ModEqTok()
-      case AddOp() => PlusEqTok()
-      case SubOp() => MinusEqTok()
-      case LShiftOp() => LShiftEqTok()
-      case RShiftOp() => RShiftEqTok()
-      case UnsignedRShiftOp() => UnsignedRShiftEqTok()
-      case AndOp() => AndEqTok()
-      case XorOp() => XorEqTok()
-      case OrOp() => OrEqTok()
+      case MulOp => MulEqTok()
+      case DivOp => DivEqTok()
+      case ModOp => ModEqTok()
+      case AddOp => PlusEqTok()
+      case SubOp => MinusEqTok()
+      case LShiftOp => LShiftEqTok()
+      case RShiftOp => RShiftEqTok()
+      case UnsignedRShiftOp => UnsignedRShiftEqTok()
+      case AndOp => AndEqTok()
+      case XorOp => XorEqTok()
+      case OrOp => OrEqTok()
   }}
 
   // AST expressions

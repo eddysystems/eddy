@@ -2,7 +2,6 @@ package tarski
 
 import tarski.AST._
 import tarski.Denotations._
-import tarski.Pretty._
 
 import scala.language.implicitConversions
 import org.testng.annotations.Test
@@ -161,7 +160,7 @@ class TestDen {
   def indexOpExp(): Unit = {
     val x = LocalVariableItem("x", ArrayType(CharType))
     implicit val env = localEnv(List(x))
-    testDen("""x[4] *= '\n'""", AssignExp(Some(MulOp()), IndexExp(x,4), '\n'))
+    testDen("""x[4] *= '\n'""", AssignExp(Some(MulOp), IndexExp(x,4), '\n'))
   }
 
   @Test
@@ -308,7 +307,7 @@ class TestDen {
   */
 
   @Test
-  def byteLiteral() = testDen("byte x = 3", "x", x => VarStmt(ByteType,(x,ByteLit(3,"3"))))
+  def byteLiteral() = testDen("byte x = 3", "x", x => VarStmt(ByteType,(x,IntLit(3,"3"))))
 
   @Test
   def intLiteral() = testDen("int x = 3", "x", x => VarStmt(IntType,(x,IntLit(3,"3"))))
@@ -318,7 +317,7 @@ class TestDen {
 
   // If statements
   val t = BooleanLit(true)
-  val f = UnaryExp(NotOp(),t)
+  val f = UnaryExp(NotOp,t)
   val e = EmptyStmt
   val h = HoleStmt
   @Test def ifStmt()       = testDen("if (true);", IfStmt(t,e))
@@ -348,7 +347,7 @@ class TestDen {
   @Test def forever()     = testDen("for (;;);", ForStmt(Nil,None,Nil,EmptyStmt))
   @Test def foreverHole() = testDen("for (;;)", ForStmt(Nil,None,Nil,HoleStmt))
   @Test def forSimple()   = testDen("for (x=7;true;x++)", "x", x =>
-    ForStmt(VarStmt(IntType,(x,7)),Some(t),UnaryExp(PostIncOp(),x),HoleStmt))
+    ForStmt(VarStmt(IntType,(x,7)),Some(t),UnaryExp(PostIncOp,x),HoleStmt))
   @Test def forTwo()      = testDen("for (x=7,y=8.1;true;)", "x", "y", (x,y) =>
     BlockStmt(List(VarStmt(IntType,(x,7)),
                    VarStmt(DoubleType,(y,8.1)),

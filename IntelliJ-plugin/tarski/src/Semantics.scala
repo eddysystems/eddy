@@ -341,7 +341,7 @@ object Semantics {
           def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
             case None => single(None, Probabilities.varInitNone)
             case Some(e) => denoteExp(e)(env) flatMap {e =>
-              if (assignsTo(typeOf(e),t)) single(Some(e), Probabilities.varInit)
+              if (assignsTo(e,t)) single(Some(e), Probabilities.varInit)
               else fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
             }
           }
@@ -375,7 +375,7 @@ object Semantics {
       case ContinueAStmt(lab) => denoteLabel(lab,(env,ContinueStmt)).flatMap( single(_, Probabilities.continueStmt))
       case ReturnAStmt(e) => product(returnType,thread(e)(denoteExp)) flatMap {case (r,e) =>
         val t = typeOf(e)
-        if (assignsTo(t,r)) single((env,ReturnStmt(e)), Probabilities.returnStmt)
+        if (assignsTo(e,r)) single((env,ReturnStmt(e)), Probabilities.returnStmt)
         else fail(s"${show(s)}: type ${show(t)} incompatible with return type ${show(r)}")
       }
       case ThrowAStmt(e) => denoteExp(e) flatMap {e =>
@@ -415,7 +415,7 @@ object Semantics {
               (t match {
                 case Some(t) =>
                   val ta = arrays(t,n)
-                  if (assignsTo(te,ta)) single(ta, Probabilities.forEachArray)
+                  if (typeAssignsTo(te,ta)) single(ta, Probabilities.forEachArray)
                   else fail(s"$hole: can't assign ${show(te)} to ${show(ta)}")
                 case None =>
                   val ne = dimensions(te)
@@ -431,7 +431,7 @@ object Semantics {
   }
 
   def xor(x: Boolean, y: Exp): Exp =
-    if (x) UnaryExp(NotOp(),y) else y
+    if (x) UnaryExp(NotOp,y) else y
 
   def denoteLabel[A](lab: Option[Name], x: => A): Scored[A] = lab match {
     case None => single(x, Probabilities.labelNone)

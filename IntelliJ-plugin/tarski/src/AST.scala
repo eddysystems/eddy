@@ -103,34 +103,34 @@ object AST {
 
   sealed abstract class UnaryOp
   sealed abstract class ImpOp extends UnaryOp
-  case class PreDecOp() extends ImpOp
-  case class PreIncOp() extends ImpOp
-  case class PostDecOp() extends ImpOp
-  case class PostIncOp() extends ImpOp
-  case class PosOp() extends UnaryOp
-  case class NegOp() extends UnaryOp
-  case class CompOp() extends UnaryOp
-  case class NotOp() extends UnaryOp
+  case object PreDecOp extends ImpOp
+  case object PreIncOp extends ImpOp
+  case object PostDecOp extends ImpOp
+  case object PostIncOp extends ImpOp
+  case object PosOp extends UnaryOp
+  case object NegOp extends UnaryOp
+  case object CompOp extends UnaryOp
+  case object NotOp extends UnaryOp
 
   sealed abstract class BinaryOp
   sealed abstract class AssignOp extends BinaryOp
-  case class MulOp() extends AssignOp
-  case class DivOp() extends AssignOp
-  case class ModOp() extends AssignOp
-  case class AddOp() extends AssignOp
-  case class SubOp() extends AssignOp
-  case class LShiftOp() extends AssignOp
-  case class RShiftOp() extends AssignOp
-  case class UnsignedRShiftOp() extends AssignOp
-  case class LtOp() extends BinaryOp
-  case class GtOp() extends BinaryOp
-  case class LeOp() extends BinaryOp
-  case class GeOp() extends BinaryOp
-  case class EqOp() extends BinaryOp
-  case class NeOp() extends BinaryOp
-  case class AndOp() extends AssignOp
-  case class XorOp() extends AssignOp
-  case class OrOp() extends AssignOp
-  case class AndAndOp() extends BinaryOp
-  case class OrOrOp() extends BinaryOp
+  case object MulOp extends AssignOp
+  case object DivOp extends AssignOp
+  case object ModOp extends AssignOp
+  case object AddOp extends AssignOp
+  case object SubOp extends AssignOp
+  case object LShiftOp extends AssignOp
+  case object RShiftOp extends AssignOp
+  case object UnsignedRShiftOp extends AssignOp
+  case object LtOp extends BinaryOp
+  case object GtOp extends BinaryOp
+  case object LeOp extends BinaryOp
+  case object GeOp extends BinaryOp
+  case object EqOp extends BinaryOp
+  case object NeOp extends BinaryOp
+  case object AndOp extends AssignOp
+  case object XorOp extends AssignOp
+  case object OrOp extends AssignOp
+  case object AndAndOp extends BinaryOp
+  case object OrOrOp extends BinaryOp
 }

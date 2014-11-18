@@ -3,6 +3,8 @@ package tarski
 import tarski.AST._
 import tarski.Items._
 import tarski.Base._
+import tarski.Denotations.{Exp,typeOf}
+import tarski.Constants.constantFits
 import ambiguity.Utility._
 
 // Properties of types according to the Java spec, without extra intelligence
@@ -146,16 +148,16 @@ object Types {
 
   // Types of unary and binary expressions
   def unaryType(op: UnaryOp, t: Type): Option[Type] = op match {
-    case PosOp()|NegOp()|PreIncOp()|PreDecOp()|PostIncOp()|PostDecOp() => toNumeric(t) map promote
-    case CompOp() => toIntegral(t) map promote
-    case NotOp() => toBoolean(t)
+    case PosOp|NegOp|PreIncOp|PreDecOp|PostIncOp|PostDecOp => toNumeric(t) map promote
+    case CompOp => toIntegral(t) map promote
+    case NotOp => toBoolean(t)
   }
   def binaryType(op: BinaryOp, t0: Type, t1: Type): Option[Type] = op match {
-    case AddOp() if t0==StringType || t1==StringType => Some(StringType)
-    case MulOp()|DivOp()|ModOp()|AddOp()|SubOp() => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield promote(n0,n1)
-    case LShiftOp()|RShiftOp()|UnsignedRShiftOp() => for (n0 <- toIntegral(t0); _ <- toIntegral(t1)) yield promote(n0)
-    case LtOp()|GtOp()|LeOp()|GeOp() => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield BooleanType
-    case EqOp()|NeOp() => ((t0,t1) match {
+    case AddOp if t0==StringType || t1==StringType => Some(StringType)
+    case MulOp|DivOp|ModOp|AddOp|SubOp => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield promote(n0,n1)
+    case LShiftOp|RShiftOp|UnsignedRShiftOp => for (n0 <- toIntegral(t0); _ <- toIntegral(t1)) yield promote(n0)
+    case LtOp|GtOp|LeOp|GeOp => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield BooleanType
+    case EqOp|NeOp => ((t0,t1) match {
         case (BooleanType,_) if isToBoolean(t1) => true
         case (_,BooleanType) if isToBoolean(t0) => true
         case (_:PrimType,_) if isToNumeric(t1) => true
@@ -165,12 +167,12 @@ object Types {
         case true => Some(BooleanType)
         case false => None
       }
-    case AndOp()|XorOp()|XorOp() => (unbox(t0),unbox(t1)) match {
+    case AndOp|XorOp|XorOp => (unbox(t0),unbox(t1)) match {
       case (Some(BooleanType),Some(BooleanType)) => Some(BooleanType)
       case (Some(i0),Some(i1)) if isIntegral(i0) && isIntegral(i1) => Some(promote(i0,i1))
       case _ => None
     }
-    case AndAndOp()|OrOrOp() => for (b <- toBoolean(t0); _ <- toBoolean(t1)) yield b
+    case AndAndOp|OrOrOp => for (b <- toBoolean(t0); _ <- toBoolean(t1)) yield b
   }
 
   // TODO: Probably eliminate
@@ -374,15 +376,22 @@ object Types {
 
   // Assignment contexts: 5.2
   // TODO: Handle unchecked conversions
-  // TODO: Handle constant expression narrowing conversions
-  def assignsTo(from: Type, to: Type): Boolean = (from,to) match {
-    case _ if from==to => true
-    case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
-    case (f: RefType, t: RefType) => widensRefTo(f,t)
-    case (f: PrimType, t: RefType) => widensRefTo(box(f),t)
-    case (f: RefType, t: PrimType) => unbox(f) match {
-      case Some(fp) => widensPrimTo(fp,t)
-      case None => false
+  def assignsTo(e: Exp, to: Type): Boolean =
+    typeAssignsTo(typeOf(e),to) || (unbox(to) exists (constantFits(e,_)))
+  def assignsTo(e: Option[Exp], to: Type): Boolean = e match {
+    case None => to==VoidType
+    case Some(e) => assignsTo(e,to)
+  }
+  def typeAssignsTo(from: Type, to: Type): Boolean = {
+    (from,to) match {
+      case _ if from==to => true
+      case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
+      case (f: RefType, t: RefType) => widensRefTo(f,t)
+      case (f: PrimType, t: RefType) => widensRefTo(box(f),t)
+      case (f: RefType, t: PrimType) => unbox(f) match {
+        case Some(fp) => widensPrimTo(fp,t)
+        case None => false
+      }
     }
   }
 
@@ -503,7 +512,7 @@ object Types {
   // Is t0 op= t1 valid?
   def assignOpType(op: Option[AssignOp], t0: Type, t1: Type): Option[Type] = op match {
     case Some(op) => binaryType(op,t0,t1) filter (castsTo(_,t0))
-    case None => if (assignsTo(t1,t0)) Some(t0) else None
+    case None => if (typeAssignsTo(t1,t0)) Some(t0) else None
   }
 
   // Convenience functions for arrays
