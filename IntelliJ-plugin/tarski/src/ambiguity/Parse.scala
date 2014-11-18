@@ -4,46 +4,6 @@ import ambiguity.Utility._
 import scala.collection.mutable
 
 object Parse {
-  /*
-  def parse(G: Grammar, action: String => Action, input: Array[Tok]): List[Result] = {
-    val nons = G.prods.keys.toList
-
-    // Parse using dumb bottom up dynamic programming
-    // parses(lo,hi,non): [value]
-    val parses = mutable.Map[(Int,Int,Symbol),List[Any]]()
-    val n = input.length
-    // Fill in tokens
-    for (lo <- 0 until n) {
-      val (t,v) = input(lo)
-      parses((lo,lo+1,t)) = List(v)
-    }
-    // Fill in nonterminals
-    for (len <- 0 to n;
-         lo <- 0 to n;
-         non <- nons;
-         (prod,act) <- G.prods(non)) {
-      val hi = lo+len
-      val a = action(act)
-      parses((lo,hi,non)) = prod match {
-        case Nil =>
-          if (len==0)
-            List(a(Nil))
-          else Nil
-        case List(s) =>
-          parses((lo,hi,s)).map(x => a(List(x)))
-        case List(s0,s1) =>
-          (for (mid <- lo to hi;
-               p0 <- parses((lo,mid,s0));
-               p1 <- parses((mid,hi,s1)))
-            yield a(List(p0,p1))).toList
-      }
-    }
-
-    // Extract results
-    parses((0,n,G.start))
-  }
-  */
-
   // Code generation combinators
   type Code = List[String]
   def indent(c: Code) = c.map("  "+_)

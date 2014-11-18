@@ -51,6 +51,7 @@ object Denotations {
   case class ForStmt(i: ForInit, c: Option[Exp], u: List[Exp], s: Stmt) extends Stmt
   case class ForExps(i: List[Exp]) extends ForInit
   case class ForeachStmt(t: Type, v: LocalVariableItem, e: Exp, s: Stmt) extends Stmt
+  case class SyncStmt(e: Exp, s: Stmt) extends Stmt
 
   // It's all expressions from here
   sealed abstract class Exp extends Den

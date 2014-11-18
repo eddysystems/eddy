@@ -152,6 +152,9 @@ object Pr {
   // denoteArray(AExp)
   val arrayTypeExp = passThrough
 
+  // denoteRef
+  val refExp = passThrough
+
   // denoteVariable(AExp)
   val variableExp = passThrough
 

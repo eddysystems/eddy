@@ -16,7 +16,7 @@ object Grammar {
                      types: Map[Symbol,Type],
                      prods: Map[Symbol,Set[Prod]]) {
     val nullable: Set[Symbol] = {
-      val f = fixpoint(false, (f: Symbol => Boolean, s: Symbol) =>
+      lazy val f: Symbol => Boolean = fixpoint(false, s =>
         prods.contains(s) && prods(s).exists(_._1.forall(f)))
       prods.keySet.filter(f)
     }
@@ -80,7 +80,7 @@ object Grammar {
 
   def complete(G: Grammar): Grammar = {
     // Find the generic symbols
-    val pat = """(\w+)\[(\w+)\]""".r
+    val pat = """^(\w+)\[([\w\[\]]+)\]$""".r
     val generics = (for ((n,ps) <- G.prods if n.contains('[')) yield {
       n match {
         case pat(g,v) => (g,v)
@@ -91,14 +91,16 @@ object Grammar {
     // Close the start
     val types = mutable.Map[Symbol,Type]()
     val prods = mutable.Map[Symbol,Set[Prod]]()
+    def ty(s: Symbol): Type = types.getOrElse(s,G.ty(s))
     def close(s: Symbol): Symbol = s match {
-      case pat(g,t) =>
+      case pat(g,to) =>
+        val t = close(to)
         var n = s"${g}_$t"
         if (!types.contains(n)) {
           val v = generics(g)
           def sub(u: Symbol, rep: String) = s"\\b$v\\b".r.replaceAllIn(u,rep)
           var ss = s"$g[$v]"
-          types(n) = sub(G.types(ss),G.ty(t))
+          types(n) = sub(G.types(ss),ty(t))
           prods(n) = G.prods(ss).map {case (p,a) => (p.map(u => close(sub(u,t))),a)}
         }
         n
@@ -202,6 +204,7 @@ object Grammar {
     var scope: Option[Symbol] = None
     val types = mutable.Map[Symbol,Type]()
     val prods = mutable.Map[Symbol,Set[Prod]]()
+    val aliases = mutable.Map[Symbol,Symbol]()
 
     // Split "prod { action }" into prod,action
     def splitProd(line: String, words: List[String]): Prod = words.reverse match {
@@ -241,6 +244,10 @@ object Grammar {
                 case "preamble" => preamble = t :: preamble
                 case "start" => start = Some(t)
                 case "token" => token = Some(t)
+                case "alias" => ty match {
+                  case List(from,to) => aliases(from) = to
+                  case _ => throw new RuntimeException(s"bad alias: '$line'")
+                }
                 case _ =>
                   types(s) = t
                   scope = Some(s)
@@ -266,12 +273,20 @@ object Grammar {
       case Some(s) => s
     }
 
+    // Remove aliases from a production
+    def unaliasSym(s: Symbol): Symbol = aliases.foldLeft(s)((s,av) => {
+      val (a,v) = av
+      if (s==a) v
+      else s.replaceAllLiterally(s"[$a]",s"[$v]")
+    })
+    def unaliasProd(p: Prod): Prod = (p._1 map unaliasSym,p._2)
+
     // Nearly done!
     Grammar(unpack(name,"missing name"),
             preamble.reverse,
             unpack(start,"at least one nonterminal required"),
             unpack(token,"token type required"),
             types.toMap,
-            prods.toMap)
+            prods.toMap.mapValues(_ map unaliasProd))
   }
 }

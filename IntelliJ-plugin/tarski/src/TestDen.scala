@@ -375,4 +375,7 @@ class TestDen {
     // not allowed to simply discard the possible side effects in the X constructor.
     testNotDenotation("((X()).T)t;", List(ExpStmt(CastExp(toType(T),LocalVariableExp(t)))))
   }
+
+  // Synchronized
+  @Test def sync() = testDen("synchronized null", SyncStmt(NullLit,HoleStmt))
 }

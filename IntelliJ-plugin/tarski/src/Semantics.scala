@@ -11,7 +11,7 @@ import Scores._
 import ambiguity.Utility._
 import tarski.Tokens._
 import Pretty._
-import ambiguity.Utility.notImplemented
+import ambiguity.Utility._
 
 object Semantics {
   /*
@@ -90,6 +90,7 @@ object Semantics {
     case CondAExp(c,x,y) => fail("expressions are not types") // TODO: translate to if statement somehow
     case AssignAExp(op,x,y) => fail("expressions are not types")
     case ArrayAExp(xs,a) => fail("expressions are not types")
+    case InstanceofAExp(_,_) => fail("expressions are not types")
   }
 
   // Are we contained in the given type, or in something contained in the given type?
@@ -185,6 +186,7 @@ object Semantics {
     case CondAExp(c,x,y) => fail("expressions are not callable") // TODO: of course, this should be callable if the two options are
     case AssignAExp(op,x,y) => fail("expressions are not callable")
     case ArrayAExp(xs,a) => fail("expressions are not callable")
+    case InstanceofAExp(_,_) => fail("expressions are not callable")
   }
 
   def denoteExp(e: AExp)(implicit env: Env): Scored[Exp] = e match {
@@ -282,7 +284,9 @@ object Semantics {
     case ArrayAExp(xs,a) =>
       bias({for (is <- product(xs.list map denoteExp))
              yield ArrayExp(condTypes(is map typeOf),is)}, Pr.arrayExp)
-}
+
+    case InstanceofAExp(x,t) => notImplemented
+  }
 
   // Expressions with type restrictions
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
@@ -294,10 +298,16 @@ object Semantics {
     if (typeOf(e) != VoidType) single(e, Pr.nonVoidExp)
     else fail(s"${show(n)}: expected non-void expression")
   }
-  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {
-    case a if typeOf(a).isInstanceOf[ArrayType] => single(a, Pr.arrayTypeExp)
-    case d => fail(show(d) + " is not an array")
-  }
+  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e => {
+    val t = typeOf(e)
+    if (t.isInstanceOf[ArrayType]) single(e, Pr.arrayTypeExp)
+    else fail(s"${show(e)} has non-array type ${show(t)}")
+  }}
+  def denoteRef(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e => {
+    val t = typeOf(e)
+    if (t.isInstanceOf[RefType]) single(e, Pr.refExp)
+    else fail(s"${show(e)} has non-reference type ${show(t)}")
+  }}
   def denoteVariable(e: AExp)(implicit env: Env): Scored[Exp] = {
     denoteExp(e) flatMap { x =>
       if (isVariable(x)) single(x, Pr.variableExp)
@@ -354,14 +364,17 @@ object Semantics {
                 define(env,ds) flatMap {case (env,ds) => single((env,(v,k,i)::ds), Pr.varDecl)}}
           }
           val st = safe(t)
-          define(env,ds.list) flatMap {case (env,ds) => single((env,VarStmt(st,ds)), Pr.varStmt) }
+          if (st.isDefined)
+            define(env,ds.list) flatMap {case (env,ds) => single((env,VarStmt(st.get,ds)), Pr.varStmt) }
+          else
+            fail(s"cannot make variables of type $t.")
         })
       case ExpAStmt(e) => {
         val exps = denoteExp(e) flatMap { e => single((env,ExpStmt(e)), Pr.expStmt) }
         val stmts = e match {
-          case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => {
-            val t = safe(typeOf(y))
-            env.newVariable(x,t) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
+          case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => safe(typeOf(y)) match {
+            case Some(t) => env.newVariable(x,t) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
+            case None => fail(s"expression $y does not return anything usable")
           }}
           case _ => fail(show(e)+": expression doesn't look like a statement")
         }
@@ -384,7 +397,8 @@ object Semantics {
         if (isThrowable(t)) single((env,ThrowStmt(e)), Pr.throwStmt)
         else fail(s"${show(s)}: type $t is not throwable")
       }
-      case SyncAStmt(e,b) => notImplemented
+      case SyncAStmt(e,b) => product(denoteRef(e),denoteScoped(b)(env)) flatMap {
+        case (e,(env,b)) => single((env,SyncStmt(e,b)), Probabilities.syncStmt) }
       case IfAStmt(c,x) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {
         case (c,(env,x)) => single((env,IfStmt(c,x)), Pr.ifStmt) }
       case IfElseAStmt(c,x,y) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>

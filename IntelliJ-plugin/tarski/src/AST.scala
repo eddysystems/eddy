@@ -89,6 +89,7 @@ object AST {
   case class CondAExp(cond: AExp, t: AExp, f: AExp) extends AExp
   case class AssignAExp(op: Option[AssignOp], left: AExp, right: AExp) extends AExp
   case class ArrayAExp(e: KList[AExp], a: Around) extends AExp
+  case class InstanceofAExp(e: AExp, t: AType) extends AExp
 
   sealed abstract class ALit extends AExp
   case class IntALit(v: String) extends ALit
@@ -125,7 +126,6 @@ object AST {
   case class GtOp() extends BinaryOp
   case class LeOp() extends BinaryOp
   case class GeOp() extends BinaryOp
-  case class InstanceofOp() extends BinaryOp
   case class EqOp() extends BinaryOp
   case class NeOp() extends BinaryOp
   case class AndOp() extends AssignOp

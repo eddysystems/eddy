@@ -155,7 +155,6 @@ object Types {
     case MulOp()|DivOp()|ModOp()|AddOp()|SubOp() => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield promote(n0,n1)
     case LShiftOp()|RShiftOp()|UnsignedRShiftOp() => for (n0 <- toIntegral(t0); _ <- toIntegral(t1)) yield promote(n0)
     case LtOp()|GtOp()|LeOp()|GeOp() => for (n0 <- toNumeric(t0); n1 <- toNumeric(t1)) yield BooleanType
-    case InstanceofOp() => throw new RuntimeException("instanceof is special since the RHS is a type")
     case EqOp()|NeOp() => ((t0,t1) match {
         case (BooleanType,_) if isToBoolean(t1) => true
         case (_,BooleanType) if isToBoolean(t0) => true
@@ -226,7 +225,7 @@ object Types {
     }
   }
 
-  // if a type has an associated item, return it
+  // If a type has an associated item, return it
   def toItem(t: RefType): Option[TypeItem] = t match {
     case c: ClassType => Some(c.d)
     case i: InterfaceType => Some(i.d)
@@ -244,28 +243,32 @@ object Types {
 
   // Is lo a subtype of hi?
   def isSubtype(lo: Type, hi: Type): Boolean = lo == hi || isProperSubtype(lo,hi)
+  def isSubtype(lo: RefType, hi: RefType): Boolean = lo == hi || isProperSubtype(lo,hi)
   def isProperSubtype(lo: Type, hi: Type): Boolean = (lo,hi) match {
+    case (lo: RefType, hi: RefType) => isProperSubtype(lo,hi)
+    case _ => false // Non-reference types aren't part of inheritance
+  }
+  def isProperSubtype(lo: RefType, hi: RefType): Boolean = (lo,hi) match {
     case _ if lo==hi => false // Not proper
-    case (NullType,_: RefType) => true // null can be anything
-    case (_: RefType, ObjectType) => true // Every ref is Object, even interfaces and enums!
-
-    // Primitive types are not part of inheritance
-    case (_,_:PrimType)|(_:PrimType,_) => false
+    case (NullType,_) => true // null can be anything
+    case (_,ObjectType) => true // Every ref is Object, even interfaces and enums!
+    case (ObjectType,_) => false // Object is not a proper subtype of anything
 
     // Array types are covariant
-    case (ArrayType(l), ArrayType(h)) => isProperSubtype(l, h)
+    case (ArrayType(l),ArrayType(h)) => isProperSubtype(l,h)
     // Otherwise, arrays are not a subtype of anything (except ObjectType, above), and there can be no subtypes of arrays
     // TODO: Actually, arrays are Cloneable and Serializable
-    case (ArrayType(_), _)|(_, ArrayType(_)) => false
+    case (ArrayType(_),_)|(_, ArrayType(_)) => false
 
     // lo is a proper subtype of hi if its superclass is a subtype of hi, or it implements (a subinterface of) hi
-    case (lo:InterfaceType, hi:InterfaceType) => lo.bases exists (isSubtype(_,hi))
-    case (lo:ClassType, hi:ClassType) => isSubtype(lo.base,hi)
-    case (lo:ClassType, hi:InterfaceType) => implements(lo,hi)
+    case (lo:InterfaceType,hi:InterfaceType) => lo.bases exists (isSubtype(_,hi))
+    case (lo:ClassType,hi:ClassType) => isSubtype(lo.base,hi)
+    case (lo:ClassType,hi:InterfaceType) => implements(lo,hi)
     case (_:InterfaceType,_:ClassType) => false
 
-    // leftover RefTypes are not subtypes of anything
-    case (_:RefType, _)|(_,_:RefType) => false
+    // Type variables are subtypes of their bounds, but supertypes only of themselves or other type variables
+    case (ParamType(v),_) => isSubtype(v.base,hi) || v.implements.exists(isSubtype(_,hi))
+    case (_,ParamType(_)) => false
   }
 
   // Same as above, but for items (types without their type arguments)
@@ -407,7 +410,6 @@ object Types {
   // Whether from can be explicitly cast to to
   def castsTo(from: Type, to: Type): Boolean = from==to || ((from,to) match {
     case (_:ErrorType,_)|(_,_:ErrorType) => false
-    case (_:ParamType,_)|(_,_:ParamType) => notImplemented // TODO: Handle type parameters correctly
     case (VoidType,_) => false
     case (_,VoidType) => true
     case (f:PrimType,t:PrimType) => (f==BooleanType)==(t==BooleanType)
@@ -482,8 +484,8 @@ object Types {
       case (x:NumType,Some(y:NumType)) => promote(x,y)
     }
     (x,y) match {
-      case (_:ErrorType,_)|(_,_:ErrorType) => notImplemented
-      case (_:ParamType,_)|(_,_:ParamType) => notImplemented
+      case (x:ErrorType,_) => x // Propagate error types for simplicity
+      case (_,y:ErrorType) => y
       case (VoidType,_)|(_,VoidType) => VoidType
       case (x:PrimType,y:PrimType) => pp(x,y)
       case (x:PrimType,y:RefType) => pr(x,y)
@@ -554,17 +556,40 @@ object Types {
   }
 
   // Make sure a type can be written in Java
-  def safe(t: Type): Type = t match {
+  def safe(t: Type): Option[Type] = t match {
     case r: RefType => safe(r)
-    case VoidType => SimpleClassType(VoidItem)
-    case _:PrimType => t
+    case VoidType => None
+    case _:PrimType => Some(t)
   }
-  def safe(t: RefType): RefType = t match {
-    case NullType => ObjectType
-    case ObjectType|ErrorType(_)|SimpleInterfaceType(_)|SimpleClassType(_)|ParamType(_) => t
-    case GenericInterfaceType(d,ts) => GenericInterfaceType(d,ts map safe)
-    case GenericClassType(d,ts) => GenericClassType(d,ts map safe)
-    case IntersectType(ts) => IntersectType(ts map safe)
-    case ArrayType(t) => ArrayType(safe(t))
+
+  def safe(t: RefType): Option[RefType] = t match {
+    case NullType => Some(ObjectType)
+    case ObjectType|ErrorType(_)|SimpleInterfaceType(_)|SimpleClassType(_)|ParamType(_) => Some(t)
+    case GenericInterfaceType(d,ts) => {
+      val sts = ts map safe
+      if (sts exists { x=>x.isDefined })
+        None
+      else
+        Some(GenericInterfaceType(d,sts.map(x => x.get)))
+    }
+    case GenericClassType(d,ts) => {
+      val sts = ts map safe
+      if (sts exists { x=>x.isDefined })
+        None
+      else
+        Some(GenericClassType(d,sts.map(x => x.get)))
+    }
+    case IntersectType(ts) => {
+      val sts = ts map safe
+      if (sts exists { x=>x.isDefined })
+        None
+      else
+        Some(IntersectType(sts.map(x => x.get)))
+    }
+    case ArrayType(t) => safe(t) match {
+      case Some(t) => Some(ArrayType(t))
+      case None => None
+    }
   }
 }
+

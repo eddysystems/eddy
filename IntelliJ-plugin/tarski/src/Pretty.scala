@@ -182,7 +182,6 @@ object Pretty {
       case GtOp() => f(RelFix,GtTok)
       case LeOp() => f(RelFix,LeTok)
       case GeOp() => f(RelFix,GeTok)
-      case InstanceofOp() => f(RelFix,InstanceofTok)
       case EqOp() => f(EqFix,EqEqTok)
       case NeOp() => f(EqFix,NeTok)
       case AndOp() => f(AndFix,AndTok)
@@ -257,7 +256,7 @@ object Pretty {
       case ContinueAStmt(l) => key(ContinueTok,l)
       case ReturnAStmt(e) => key(ReturnTok,e)
       case ThrowAStmt(e) => key(ThrowTok,Some(e))
-      case SyncAStmt(e,b) => notImplemented
+      case SyncAStmt(e,b) => (SemiFix, SynchronizedTok() :: parens(e) ::: tokens(b))
       case IfAStmt(c,x) => (SemiFix, IfTok() :: parens(c) ::: tokens(x))
       case IfElseAStmt(c,x,y) => (SemiFix, IfTok() :: parens(c) ::: tokens(x) ::: ElseTok() :: tokens(y))
       case WhileAStmt(c,s,flip) => (SemiFix, whileUntil(flip) :: parens(c) ::: tokens(s))
@@ -440,6 +439,7 @@ object Pretty {
       tokens(i) ::: tokens(c) ::: SemiTok() :: tokens(CommaList(u))) ::: tokens(s))
     case ForeachStmt(t,v,e,s) => (SemiFix, ForTok() :: parens(
       tokens(t) ::: tokens(v) ::: ColonTok() :: tokens(e)) ::: tokens(s))
+    case SyncStmt(e,s) => (SemiFix, SynchronizedTok() :: parens(e) ::: tokens(s))
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyVar(v: (LocalVariableItem,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
