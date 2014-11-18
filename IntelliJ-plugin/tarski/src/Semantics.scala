@@ -14,17 +14,6 @@ import Pretty._
 import ambiguity.Utility._
 
 object Semantics {
-  /*
-  // TODO: Add back bias?
-  // Bias score for a AST tree node (given an instance), given the environment
-  def bias(node: Node)(implicit env: JavaEnvironment): Score = node match {
-    case _ => ZeroScore
-  }
-  def withBias[A](n: Node, ds: Scored[A]): Scored[A] = {
-    println("      scores for " + n + ": " + ds)
-    ds
-  }
-  */
 
   // Literals
   def denoteLit(x: ALit): Scored[Lit] = {
@@ -151,7 +140,6 @@ object Semantics {
     // x is either a type or an expression, f is a method, static method, or constructor
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // first, the ones where x is a type
-      // TODO: penalize field expressions that are unnecessarily qualified?
       val tdens: Scored[Callable] = for {t <- denoteType(x)
                                          fi <- callableFieldScores(t,f)
                                          r <- (t,fi) match {
