@@ -134,8 +134,8 @@ object Pr {
   val staticFieldExpWithObject = Prob(.8)
   val enumFieldExpWithObject = Prob(.6) // enum {BLAH} x; x.BLAH ... really?
   val fieldExp = base
-  def callExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.ParenAround && list.isInstanceOf[CommaList[AST.AExp]]) base else Prob(.8)
-  def indexCallExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.ParenAround && list.isInstanceOf[CommaList[AST.AExp]] && list.list.size == 1) base else Prob(.8)
+  def callExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.ParenAround && (list.list.size < 2 || list.isInstanceOf[CommaList[AST.AExp]])) base else Prob(.8)
+  def indexCallExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.BrackAround && list.list.size == 1) base else Prob(.8)
   val unaryExp = base // should be a function of operator and types
   val binaryExp = base // should be a function of operator and types
   val castExp = base // should be a function of from/to types
