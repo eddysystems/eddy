@@ -88,6 +88,7 @@ object Semantics {
     case CondAExp(c,x,y) => fail("expressions are not types") // TODO: translate to if statement somehow
     case AssignAExp(op,x,y) => fail("expressions are not types")
     case ArrayAExp(xs,a) => fail("expressions are not types")
+    case InstanceofAExp(_,_) => fail("expressions are not types")
   }
 
   // Are we contained in the given type, or in something contained in the given type?
@@ -175,6 +176,7 @@ object Semantics {
     case CondAExp(c,x,y) => fail("expressions are not callable") // TODO: of course, this should be callable if the two options are
     case AssignAExp(op,x,y) => fail("expressions are not callable")
     case ArrayAExp(xs,a) => fail("expressions are not callable")
+    case InstanceofAExp(_,_) => fail("expressions are not callable")
   }
 
   def denoteExp(e: AExp)(implicit env: Env): Scored[Exp] = e match {
@@ -271,7 +273,9 @@ object Semantics {
     case ArrayAExp(xs,a) =>
       bias({for (is <- product(xs.list map denoteExp))
              yield ArrayExp(condTypes(is map typeOf),is)}, Probabilities.arrayExp)
-}
+
+    case InstanceofAExp(x,t) => notImplemented
+  }
 
   // Expressions with type restrictions
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
