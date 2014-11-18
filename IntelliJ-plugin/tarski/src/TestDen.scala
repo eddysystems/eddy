@@ -50,7 +50,8 @@ class TestDen {
     if (fixes.best.isLeft)
       return
     else
-      assertFalse(fixes.all.right.get exists { case (p,(e,ds)) => ds == notthis } )
+      assertFalse(s"denotation $notthis discards side effecs of X()",
+                  fixes.all.right.get exists { case (p,(e,ds)) => ds == notthis } )
   }
 
   // makes an env with a class X and a method void X.f(), which we are inside of
@@ -63,7 +64,7 @@ class TestDen {
   def localEnvWithBase(locals: List[NamedItem]): Env = {
     val X = NormalClassItem("X", LocalPkg, Nil)
     val f = MethodItem("f", X, Nil, VoidType, Nil)
-    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[NamedItem,Int]).move(f)
+    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[NamedItem,Int]).move(f,inside_breakable=false,inside_continuable=false,Nil)
   }
 
   @Test
@@ -366,14 +367,11 @@ class TestDen {
   @Test def sideEffects() = {
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
     val Xcons = ConstructorItem(X,Nil,Nil)
-    val T = NormalClassItem("T", X, Nil, ObjectType, Nil)
-    val M = NormalClassItem("M", LocalPkg, Nil, ObjectType, Nil)
-    val f = MethodItem("f", M, Nil, VoidType, Nil)
-    val t = LocalVariableItem("t", ObjectType)
+    val f = StaticMethodItem("f", X, Nil, VoidType, Nil)
 
-    implicit val env = Env(List(X,Xcons,T,M,f), Map((t,1),(f,2),(M,2),(X,3)), f)
+    implicit val env = Env(List(X,Xcons,f), Map((f,2),(X,3)), f)
     // not allowed to simply discard the possible side effects in the X constructor.
-    testNotDenotation("((X()).T)t;", List(ExpStmt(CastExp(toType(T),LocalVariableExp(t)))))
+    testNotDenotation("(X()).f();", List(ExpStmt(ApplyExp(StaticMethodDen(f),Nil,Nil))))
   }
 
   // Synchronized
