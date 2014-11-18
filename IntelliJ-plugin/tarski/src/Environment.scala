@@ -16,7 +16,10 @@ object Environment {
    */
   case class Env(allthings: List[NamedItem],
                  inScope: Map[NamedItem,Int] = Map(),
-                 place: PlaceItem = Base.LocalPkg) extends scala.Serializable {
+                 place: PlaceItem = Base.LocalPkg,
+                 inside_breakable: Boolean = false,
+                 inside_continuable: Boolean = false,
+                 labels: List[String] = Nil) extends scala.Serializable {
 
     // minimum probability before an object is considered a match for a query
     val minimumProbability = Prob(.01)
@@ -40,9 +43,9 @@ object Environment {
       Env(allthings ++ xs, inScope ++ xs.map((_,1)).toMap, place)
     }
 
-    def move(newPlace: PlaceItem): Env = {
+    def move(newPlace: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: List[String]): Env = {
       assert(allthings.contains(newPlace))
-      Env(allthings, inScope, newPlace)
+      Env(allthings, inScope, newPlace, inside_breakable, inside_continuable, labels)
     }
 
     def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] = place match {
