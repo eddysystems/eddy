@@ -95,7 +95,9 @@ class TestParse {
   @Test def forSimple()   = testAST("for (x=7;true;x++)",
     ForAStmt(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp,"x"),HoleAStmt()))
 
-  @Test def staticMethodOfObject() = testASTPossible("(X()).f();", ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"), EmptyList, ParenAround)), None, "f"), EmptyList, ParenAround)))
+  @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
+    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
 
-  @Test def parenCompletion() = testASTPossible("((X()).f();", ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"), EmptyList, ParenAround)), None, "f"), EmptyList, ParenAround)))
+  @Test def mismatchedParens() = testASTPossible("((X()).f();",
+    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
 }

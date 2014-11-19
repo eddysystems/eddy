@@ -356,9 +356,8 @@ object Constants {
       case _ => error
     })))
     case ParenExp(e) => toCon(e)
-    // Definitely not constant
-    case ParameterExp(_)|LocalFieldExp(_)|FieldExp(_,_)|ThisExp(_)|SuperExp(_)|AssignExp(_,_,_)
-        |ApplyExp(_,_,_)|IndexExp(_,_)|ArrayExp(_,_)|EmptyArrayExp(_,_) => NotCon
+    // Everything else is definitely nonconstant
+    case _ => NotCon
   }
 
   // Is a narrowing conversion safe?

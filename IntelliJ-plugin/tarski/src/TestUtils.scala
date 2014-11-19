@@ -29,8 +29,7 @@ object TestUtils {
 
   // Type implicit conversions
   implicit def toType(v: TypeParamItem): ParamType = ParamType(v)
-  implicit def toType(c: ClassItem): SimpleClassType = { assert(c.params.isEmpty); SimpleClassType(c) }
-  implicit def toType(i: InterfaceItem): SimpleInterfaceType = { assert(i.params.isEmpty); SimpleInterfaceType(i) }
+  implicit def toType(c: ClassItem): ClassType = c.simple
 
   // Statement implicit conversions
   implicit def toStmt(e: Exp): Stmt = ExpStmt(e)
@@ -46,7 +45,7 @@ object TestUtils {
 
   def assertIn[A](x: A, xs: Set[A]): Unit =
     if (!xs.contains(x))
-      throw new AssertionError("assertIn failed:\nx  = "+x+"xs = "+xs.mkString("\n     "))
+      throw new AssertionError("assertIn failed:\nx  = "+x+"\nxs = "+xs.mkString("\n     "))
 
   def assertSetsEqual[A](exp: Traversable[A], got: Traversable[A]): Unit = {
     def s(n: Name, xs: Set[A]) = f"\n$n%-7s = ${xs.mkString("\n          ")}"

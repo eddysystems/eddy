@@ -2,7 +2,7 @@ package tarski
 
 import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
 
-import ambiguity.Utility.notImplemented
+import ambiguity.Utility._
 import Scores._
 import tarski.AST.Name
 import tarski.Items._
@@ -63,21 +63,13 @@ object Environment {
     def newField(name: String, t: Type): Scored[(Env,Value)] = place match {
       case c: ClassItem =>
         // if there's already a member of the same name (for our place)
-        if (inScope.exists( { case (m: Member,_) => m.container == place && m.name == name; case _ => false } ))
+        if (inScope.exists( { case (m: Member,_) => m.parent == place && m.name == name; case _ => false } ))
           fail(s"Invalid new field $name: a member with this name already exists.")
         else {
-          // TODO: modifiers
-          val x = FieldItem(name, t, c)
-          single((addObjects(List(x), Map((x,0))),x), Pr.newField)
-        }
-      case c: InterfaceItem =>
-        // if there's already a member of the same name (for our place)
-        if (inScope.exists( { case (m: Member,_) => m.container == place && m.name == name; case _ => false } ))
-          fail(s"Invalid new field $name: a member with this name already exists.")
-        else {
-          // TODO: modifiers
-          val x = StaticFieldItem(name, t, c)
-          single((addObjects(List(x), Map((x,0))),x), Pr.newStaticField)
+          val isStatic = !c.isClass // TODO: Do this right
+          val x = if (isStatic) StaticFieldItem(name,t,c) else FieldItem(name,t,c)
+          val p = if (isStatic) Pr.newStaticField else Pr.newField
+          single((addObjects(List(x),Map((x,0))),x),p)
         }
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
@@ -107,23 +99,19 @@ object Environment {
   // What could this name be, assuming it is a type?
   // TODO: Handle generics
   def typeScores(name: String)(implicit env: Env): Scored[Type] = {
-    def prob(x: NamedItem): (Prob,Type) = {
-      val t = x match {
-        case x:TypeItem => toType(x,Nil)
-        case x:PrimTypeItem => toType(x)
-        case _ => throw new RuntimeException("unreachable")
-      }
+    def prob(t: TypeItem): (Prob,Type) = {
       // TODO other things that influence probability:
       // - kind (Primitive Types are more likely, java.lang types are more likely)
       // - things that are in scope are more likely
       // - things that are almost in scope are more likely (declared in package from which other symbols are imported)
       // - things that appear often in this file/class/function are more likely
       // - things that are declared close by are more likely
-      val p = if (x.name == name) Pr.exactType
-              else Pr.typoProbability(x.name,name)
-      (p,t)
+      val p = if (t.name == name) Pr.exactType
+              else Pr.typoProbability(t.name,name)
+      (p,t.raw)
     }
-    multiple(env.things collect { case x: TypeItem => prob(x); case x: PrimTypeItem => prob(x) } filter { case (p,_) => p > env.minimumProbability }, s"Type $name not found")
+    multiple(env.things collect { case x: TypeItem => prob(x) }
+                        filter { case (p,_) => p > env.minimumProbability }, s"Type $name not found")
   }
 
   // What could it be, given it's a callable?
@@ -142,57 +130,45 @@ object Environment {
       (p,x)
     }} filter { case (p,_) => p > env.minimumProbability }, s"Value $name not found")
 
-  def objectsOfType(name: String, t: Type)(implicit env: Env): Scored[Value] =
-    multiple(env.things collect { case i: Value if isSubtype(i.ourType,t) => {
-      val p = if (i.name==name) Pr.exactValueOfType
-              else Pr.typoProbability(i.name,name)
-      (p,i)
-    }} filter { case (p,_) => p > env.minimumProbability }, s"Value $name of type ${show(t)} not found")
-
   // Same as objectsOfType, but without type arguments
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
-    multiple(env.things collect { case i: Value if isSubitem(i.ourType,t) => {
+    multiple(env.things collect { case i: Value if isSubitem(i.item,t) => {
       (Pr.objectOfItem,i)
     }} filter { case (p,_) => p > env.minimumProbability }, s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {
-    case m: ClassMember => {
-      val d = m.container
-      def itemHas(t: TypeItem): Boolean = d == t || (t match {
-        case ObjectItem => false
-        case t: InterfaceItem => t.bases exists typeHas
-        case t: ClassItem => typeHas(t.base) || t.implements.exists(typeHas)
-      })
-      def typeHas(t: RefType): Boolean = t match {
-        case t: InterfaceType => itemHas(t.d)
-        case t: ClassType => itemHas(t.d)
-        case ArrayType(_) => false // TODO: Arrays have lengths
-        case ObjectType => itemHas(ObjectItem)
-        case NullType|ErrorType(_)|ParamType(_) => false
-        case IntersectType(ts) => ts exists typeHas
-      }
-      t match {
-        case t: RefType => typeHas(t)
-        case _ => false
-      }
+    case f: ClassMember => {
+      val p = f.parent
+      supers(t) exists (_.item == p)
     }
     case _ => false
   }
 
-  // does an item declare a member of the given name
+  // Assuming a member belongs to a type, what is its fully applied type?
+  def typeIn(f: TypeItem, t: Type): Type = f match {
+    case f: ClassMember => {
+      def p = f.parent
+      collectOne(supers(t)){
+        case t:ClassType if t.item==p => substitute(f.inside)(t.env)
+      }.getOrElse(throw new RuntimeException("typeIn didn't find parent"))
+    }
+    case _ => throw new RuntimeException("typeIn didn't find parent")
+  }
+
+  // Does an item declare a member of the given name
   def declaresName(i: NamedItem, name: Name)(implicit env: Env): Boolean = {
-    env.things.exists({ case f: Member if f.container == i && f.name == name => true; case _ => false })
+    env.things.exists({ case f: Member if f.parent == i && f.name == name => true; case _ => false })
   }
 
   def shadowedInSubType(i: Member, t: RefType)(implicit env: Env): Boolean = {
-    i.container match {
+    i.parent match {
       case c: RefTypeItem => {
         assert(isSubitem(t,c))
-        toItem(t) match {
-          case Some(ti) if c == ti => false
-          case Some(ti: ClassItem) => declaresName(ti, i.name) || shadowedInSubType(i, ti.base)
-          case None => false
+        t.item match {
+          case t if c == t => false
+          case t: ClassItem => declaresName(t, i.name) || shadowedInSubType(i, t.base)
+          case _ => false
         }
       }
       case PackageItem(_,_) => false // member of package, no subtypes of packages, we're safe
@@ -233,13 +209,12 @@ object Environment {
     } filter { case (p,_) => p > env.minimumProbability }, s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?
-  // TODO: Handle generics
   def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =
     multiple(env.things collect { case f: TypeItem if memberIn(f,t) => {
-      val t = toType(f,Nil)
+      val ft = typeIn(f,t)
       val p = if (f.name==name) Pr.exactTypeField
               else Pr.typoProbability(f.name,name)
-      (p,t)
+      (p,ft)
     }} filter { case (p,_) => p > env.minimumProbability }, s"Type ${show(t)} has no type field $name")
 
   // The return type of our ambient function
@@ -250,8 +225,7 @@ object Environment {
       case m: StaticMethodItem => single(m.retVal, Pr.certain)
       case c: ConstructorItem => single(VoidType, Pr.certain)
       case _:PackageItem => die("package")
-      case _:ClassItem => die("class")
-      case _:InterfaceItem => die("interface")
+      case _:ClassItem => die("class or interface")
     }
   }
 

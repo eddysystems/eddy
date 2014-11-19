@@ -134,7 +134,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // TODO: Handle generics
     PsiClass scls = cls.getSuperClass();
     assert scls != null;
-    ClassOrObjectType base = (ClassOrObjectType)tarski.Tarski.toType(addClassToEnvMap(envitems, scls));
+    ClassType base = (ClassType)tarski.Tarski.toType(addClassToEnvMap(envitems, scls));
 
     // Type parameters
     // TODO: Handle generics
@@ -142,20 +142,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     scala.collection.immutable.List<TypeParamItem> params = JavaConversions.asScalaBuffer(j_params).toList();
 
     // Interfaces
-    ArrayList<InterfaceType> j_interfaces = new ArrayList<InterfaceType>();
+    ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
     for (PsiClass i : cls.getInterfaces()) {
       // TODO: Handle generics
-      j_interfaces.add(new SimpleInterfaceType((InterfaceItem)addClassToEnvMap(envitems,i)));
+      j_interfaces.add(((ClassItem)addClassToEnvMap(envitems,i)).simple());
     }
-    scala.collection.immutable.List<InterfaceType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
+    scala.collection.immutable.List<ClassType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
 
     PsiElement celem = containing(cls);
-    NamedItem container;
-    if (celem != null) {
-      container = addContainerToEnvMap(envitems,celem);
-    } else {
-      container = Tarski.localPkg();
-    }
+    ParentItem container = celem != null ? (ParentItem)addContainerToEnvMap(envitems,celem) : Tarski.localPkg();
     TypeItem item = cls.isInterface() ? new NormalInterfaceItem(cls.getName(),container,params,interfaces)
                   : cls.isEnum()      ? new EnumItem(cls.getName(),container,interfaces)
                                       : new NormalClassItem(cls.getName(),container,params,base,interfaces);
@@ -175,17 +170,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (!envitems.containsKey(cls)) {
       addClassToEnvMap(envitems, cls);
     }
-    TypeItem clsitem = (TypeItem)envitems.get(cls);
+    ClassItem clsitem = (ClassItem)envitems.get(cls);
     scala.collection.immutable.List<TypeParamItem> tparams = scala.collection.JavaConversions.asScalaBuffer(
       new ArrayList<TypeParamItem>()).toList();
     CallableItem mitem;
 
     if (method.isConstructor()) {
-      assert clsitem instanceof ClassOrObjectItem;
       // TODO: varargs
       // TODO: get type parameters
       // TODO: what to do with parameters depending on type parameters and bounded types and such?
-      mitem = new ConstructorItem((ClassOrObjectItem)clsitem, tparams, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+      mitem = new ConstructorItem(clsitem, tparams, scala.collection.JavaConversions.asScalaBuffer(params).toList());
     } else {
       // TODO: varargs
       // TODO: get type parameters
@@ -220,7 +214,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         // return new TypeParamType(...);
       } else if (tcls.isInterface()) {
         // TODO: Handle generics
-        return new SimpleInterfaceType((InterfaceItem)addClassToEnvMap(envitems,tcls));
+        return ((ClassItem)addClassToEnvMap(envitems,tcls)).simple();
       } else {
         // TODO: Handle generics
         return tarski.Tarski.toType(addClassToEnvMap(envitems,tcls));
@@ -245,10 +239,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiClass cls = f.getContainingClass();
     assert cls != null;
     Type t = convertType(envitems,f.getType());
-    RefTypeItem c = (RefTypeItem)envitems.get(cls);
-    Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(), (EnumItem)c) :
+    ClassItem c = (ClassItem)envitems.get(cls);
+    Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(),(EnumItem)c) :
               (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c)
-                                                         : new FieldItem(f.getName(),t,(ClassItem)c));
+                                                         : new FieldItem(f.getName(),t,c));
     envitems.put(f, v);
     return v;
   }

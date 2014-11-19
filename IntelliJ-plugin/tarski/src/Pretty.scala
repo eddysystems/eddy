@@ -307,24 +307,25 @@ object Pretty {
 
   // Denotations
   implicit def prettyNamedItem(i: NamedItem)(implicit env: Env): (Fixity,Tokens) = {
-    def staticRelativeName(i: NamedItem with Member) =
-      if (env.itemInScope(i)) pretty(i.name) else (FieldFix, tokens(i.container) ::: DotTok() :: tokens(i.name))
+    def relative(i: NamedItem with Member) =
+      if (env.itemInScope(i)) pretty(i.name) else (FieldFix, tokens(i.parent) ::: DotTok() :: tokens(i.name))
 
     i match {
-      // types
-      case i: TypeItem => staticRelativeName(i)
+      // Types
+      case i: RefTypeItem => relative(i)
 
-      // static members
-      case i: EnumConstantItem => staticRelativeName(i)
-      case i: StaticFieldItem => staticRelativeName(i)
-      case i: StaticMethodItem => staticRelativeName(i)
+      // Static members
+      case i: EnumConstantItem => relative(i)
+      case i: StaticFieldItem => relative(i)
+      case i: StaticMethodItem => relative(i)
 
-      // non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)
+      // Non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)
       case i: NamedItem => pretty(i.name)
     }
   }
 
-  implicit def prettyPrimType(t: PrimType): (Fixity,Tokens) = (HighestFix, List((t match {
+  implicit def prettyLangType(t: LangType): (Fixity,Tokens) = (HighestFix, List((t match {
+    case VoidType    => VoidTok
     case BooleanType => BooleanTok
     case ByteType    => ByteTok
     case ShortType   => ShortTok
@@ -335,19 +336,26 @@ object Pretty {
     case CharType    => CharTok
   })()))
   implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = {
-    def gen(d: NamedItem, ts: List[Type]) = (ApplyFix, tokens(d) ::: LtTok() :: tokens(CommaList(ts)) ::: List(GtTok()))
+    def cls(t: ClassType): (Fixity,Tokens) = {
+      val ts = if (t.args.isEmpty) pretty(t.item)
+               else (ApplyFix, tokens(t.item) ::: LtTok() :: tokens(CommaList(t.args)) ::: List(GtTok()))
+      if (env.itemInScope(t.item) && t.item.parent.inside==t.parent) ts
+      else {
+        val pp = t.parent match {
+          case p:PackageItem => pretty(p)
+          case t:ClassType => cls(t)
+        }
+        (FieldFix, pp._2 ::: DotTok() :: ts._2)
+      }
+    }
     t match {
-      // Primitive types
-      case VoidType    => (HighestFix, List(VoidTok()))
-      case t: PrimType => prettyPrimType(t)
+      // Primitive types and void
+      case t: LangType => prettyLangType(t)
       // Reference types
       case NullType => pretty("nulltype")
       case ObjectType => pretty("Object")
       case ErrorType(n) => pretty(n)
-      case SimpleInterfaceType(d) => pretty(d)
-      case SimpleClassType(d) => pretty(d)
-      case GenericInterfaceType(d,ts) => gen(d,ts)
-      case GenericClassType(d,ts) => gen(d,ts)
+      case t:ClassType => cls(t)
       case ParamType(x) => pretty(x)
       case IntersectType(ts) => pretty(AndList(ts.toList))
       case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok(),RBrackTok()))
@@ -384,7 +392,7 @@ object Pretty {
         case MethodDen(x,f) => left(FieldFix,x) ::: DotTok() :: t ::: tokens(f.name)
         case LocalMethodDen(f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
         case StaticMethodDen(f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
-        case NewDen(c) => NewTok() :: t ::: tokens(c.container) // TODO: ts splits into two lists in different places
+        case NewDen(c) => NewTok() :: t ::: tokens(c.parent) // TODO: ts splits into two lists in different places
         case ForwardDen(c) => ThisTok() :: t
       }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
     }

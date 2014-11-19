@@ -12,7 +12,7 @@ import tarski.Environment.Env
 import tarski.Base._
 import tarski.Items._
 import tarski.Lexer._
-import tarski.Types.{toType => _,_}
+import tarski.Types._
 import tarski.TestUtils._
 import ambiguity.Utility._
 
@@ -37,20 +37,20 @@ class TestDen {
   def testDen[A](input: String, x: Name, y: Name, best: (Local,Local) => A)(implicit env: Env, c: A => List[Stmt]): Unit =
     testHelper(input, env => best(env.exactLocal(x),env.exactLocal(y)))
 
-  def testOnlyDenotation(input: String, best: Env => List[Stmt])(implicit env: Env) = {
+  def testOnlyDen(input: String, best: Env => List[Stmt])(implicit env: Env) = {
     val fixes = fix(lex(input))
     assertEquals(fixes.all.right.get.length, 1)
     val (env2,stmt) = fixes.best.right.get
     assertEquals(stmt, best(env2))
   }
 
-  def testNotDenotation(input: String, notthis: List[Stmt])(implicit env: Env): Unit = {
-    val fixes = fix(lex(input))
-    if (fixes.best.isLeft)
-      return
-    else
-      assertFalse(s"denotation $notthis discards side effecs of X()",
-                  fixes.all.right.get exists { case (p,(e,ds)) => ds == notthis } )
+  def testNotDen(input: String, avoid: List[Stmt])(implicit env: Env): Unit = {
+    fix(lex(input)).all match {
+      case Left(_) => ()
+      case Right(fs) =>
+        assertFalse(s"denotation $avoid discards side effects of X()",
+                    fs exists { case (p,(e,ds)) => ds==avoid })
+    }
   }
 
   // makes an env with a class X and a method void X.f(), which we are inside of
@@ -194,7 +194,7 @@ class TestDen {
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,Nil,List(ParamType(T)))
     implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))
-    testDen("x = A(Object())", "x", x => VarStmt(GenericClassType(A,List(ObjectType)),
+    testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
       (x,ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
   }
 
@@ -234,16 +234,16 @@ class TestDen {
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
-    val Xf = FieldItem("f", SimpleClassType(Q), X)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, SimpleClassType(X), Nil)
-    val Yf = FieldItem("f", SimpleClassType(R), Y)
+    val Xf = FieldItem("f", Q.simple, X)
+    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil)
+    val Yf = FieldItem("f", R.simple, Y)
 
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
-    val m = MethodItem("m", Z, Nil, VoidType, List(SimpleClassType(Q)))
-    val y = LocalVariableItem("y", SimpleClassType(Y))
+    val m = MethodItem("m", Z, Nil, VoidType, List(Q.simple))
+    val y = LocalVariableItem("y", Y.simple)
     implicit val env = Env(List(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
 
-    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(CastExp(SimpleClassType(X), y), Xf))))
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(CastExp(X.simple,y),Xf))))
   }
 
   @Test
@@ -268,11 +268,11 @@ class TestDen {
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
-    val Xf = FieldItem("f", SimpleClassType(Q), X)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, SimpleClassType(X), Nil)
-    val Yf = FieldItem("f", SimpleClassType(R), Y)
+    val Xf = FieldItem("f", Q.simple, X)
+    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil)
+    val Yf = FieldItem("f", R.simple, Y)
 
-    val m = MethodItem("m", Y, Nil, VoidType, List(SimpleClassType(Q)))
+    val m = MethodItem("m", Y, Nil, VoidType, List(Q.simple))
     val tY = ThisItem(Y)
     implicit val env = Env(List(X,Y,Xf,Yf,m,tY), Map((tY,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
@@ -365,12 +365,12 @@ class TestDen {
 
   @Test def sideEffects() = {
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
-    val Xcons = ConstructorItem(X,Nil,Nil)
-    val f = StaticMethodItem("f", X, Nil, VoidType, Nil)
+    val cons = ConstructorItem(X,Nil,Nil)
+    val f = StaticMethodItem("f",X,Nil,VoidType,Nil)
 
-    implicit val env = Env(List(X,Xcons,f), Map((f,2),(X,3)), f)
-    // not allowed to simply discard the possible side effects in the X constructor.
-    testNotDenotation("(X()).f();", List(ExpStmt(ApplyExp(StaticMethodDen(f),Nil,Nil))))
+    implicit val env = Env(List(X,cons,f),Map((f,2),(X,3)),f)
+    // We are not allowed to discard the possible side effects in the X constructor.
+    testNotDen("(X()).f();", List(ExpStmt(ApplyExp(StaticMethodDen(f),Nil,Nil))))
   }
 
   // Synchronized

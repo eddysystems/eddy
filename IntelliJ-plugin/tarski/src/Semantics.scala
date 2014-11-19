@@ -84,32 +84,30 @@ object Semantics {
 
   // Are we contained in the given type, or in something contained in the given type?
   def containedIn(i: NamedItem, t: TypeItem): Boolean = i match {
-    case f: Member => f.container == t || containedIn(f.container,t)
+    case f: Member => f.parent == t || containedIn(f.parent,t)
     case _ => false
   }
 
-  def denoteField[ItemKind <: NamedItem with ClassMember,FieldDen <: Den](i: ItemKind, Combinator: (Exp,ItemKind) => FieldDen,
-                                                          superFieldProb: (Probs[Exp], TypeItem, ItemKind) => Prob,
-                                                          shadowedFieldProb: (Probs[Exp], Exp, TypeItem, ItemKind) => Prob,
-                                                          fieldProb: (Probs[Exp], Exp, ItemKind) => Prob)(implicit env: Env): Scored[FieldDen] = {
-    val c = i.container
+  def denoteField[ItemKind <: NamedItem with ClassMember,FieldDen <: Den]
+                 (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
+                  superFieldProb: (Probs[Exp],TypeItem,ItemKind) => Prob,
+                  shadowedFieldProb: (Probs[Exp],Exp,TypeItem,ItemKind) => Prob,
+                  fieldProb: (Probs[Exp],Exp,ItemKind) => Prob)(implicit env: Env): Scored[FieldDen] = {
+    val c: TypeItem = i.parent
     val objs = objectsOfItem(c) flatMap { x =>
-      if (containedIn(x,i.container))
-        fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
-      else {
-        denoteValue(x)
-      }
+      if (containedIn(x,c)) fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
+      else denoteValue(x)
     }
 
     objs flatMap { xd => {
       val vprobs = objs.all.right.get
       if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
         xd match {
-          case ThisExp(ThisItem(tt:ClassItem)) if toItem(tt.base) == Some(c) => single(Combinator(SuperExp(ThisItem(tt)),i), superFieldProb(vprobs, c, i))
-          case _ => single(Combinator(CastExp(toType(c,Nil),xd),i), shadowedFieldProb(vprobs, xd,c,i))
+          case ThisExp(ThisItem(tt:ClassItem)) if tt.base.item == c => single(combine(SuperExp(ThisItem(tt)),i), superFieldProb(vprobs, c, i))
+          case _ => single(combine(CastExp(c.raw,xd),i), shadowedFieldProb(vprobs, xd,c,i))
         }
       } else {
-        single(Combinator(xd,i), fieldProb(vprobs, xd, i))
+        single(combine(xd,i), fieldProb(vprobs, xd, i))
       }
     }}
   }
