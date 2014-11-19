@@ -6,8 +6,15 @@ class Z {
   int x;
 }
 
+class A extends Z {
+
+}
+
 class V {
   int x;
+
+  void f() {
+  }
 }
 
 class X extends Z {

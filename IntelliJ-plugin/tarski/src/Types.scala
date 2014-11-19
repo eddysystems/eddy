@@ -525,35 +525,44 @@ object Types {
     def tparams: List[TypeParamItem]
     def params: List[Type]
 
-    def isGeneric: Boolean = !tparams.isEmpty
+    def isGeneric: Boolean = tparams.nonEmpty
     def arity: Int = params.size
   }
-  def resolve[F <: Signature](fs: List[F], ts: List[Type]): Option[(F,List[RefType])] = {
+  // given argument types ts, which signatures are still usable? ts is allowed to be shorter than f.params,
+  // all signatures still possible after matching the prefix are returned.
+  def resolveOptions[F <: Signature](fs: List[F], ts: List[Type]): List[(F,List[RefType])] = {
     val n = ts.size
     // TODO: Handle access restrictions (public, private, protected) and scoping
     // TODO: Handle variable arity
-    def potentiallyCompatible(f: F): Boolean = f.arity == n && {
+    def potentiallyCompatible(f: F): Boolean = f.arity >= n && {
       (f.params,ts).zipped forall {case (p,t) => true}} // TODO: Handle poly expression constraints
     def compatible(f: F, form: Inference.Form, context: (Type,Type) => Boolean): Option[List[RefType]] =
       if (!f.isGeneric)
-        if ((f.params,ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
+        if ((f.params.slice(0,ts.size),ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
         else None
-      else Inference.infer(f.tparams,f.params,ts)(form)
-    def strictCompatible(f: F): Option[List[RefType]] = compatible(f,Inference.strictBounds,strictInvokeContext)
-    def looseCompatible (f: F): Option[List[RefType]] = compatible(f,Inference.looseBounds ,looseInvokeContext)
-    def mostSpecific(fs: List[(F,List[RefType])]): Option[(F,List[RefType])] = fs match {
-      case Nil => None
-      case List(f) => Some(f)
-      case _ => notImplemented
-    }
-    // Pick function
+      else Inference.infer(f.tparams,f.params.slice(0,ts.size),ts)(form)
+    def strictCompatible(f: F): Option[List[RefType]] = compatible(f,Inference.strictBounds, strictInvokeContext)
+    def looseCompatible (f: F): Option[List[RefType]] = compatible(f,Inference.looseBounds , looseInvokeContext)
+    // narrow down candidates
     val potential = fs filter potentiallyCompatible
     val applies = potential flatMap (f => strictCompatible(f).map((f,_)).toList) match {
       case Nil => potential flatMap (f =>  looseCompatible(f).map((f,_)).toList)
       case fs => fs
     }
-    mostSpecific(applies)
+    applies
   }
+
+  // resolve an overloaded function
+  def resolve[F <: Signature](fs: List[F], ts: List[Type]): Option[(F,List[RefType])] = {
+    def mostSpecific(fs: List[(F,List[RefType])]): Option[(F,List[RefType])] = fs match {
+      case Nil => None
+      case List(f) => Some(f)
+      case _ => notImplemented // TODO: more inference
+    }
+    // Pick function
+    mostSpecific(resolveOptions(fs, ts))
+  }
+
 
   // Make sure a type can be written in Java
   def safe(t: Type): Option[Type] = t match {
