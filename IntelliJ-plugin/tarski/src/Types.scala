@@ -41,7 +41,7 @@ object Types {
   // TODO: If the def is A.L, but L is really defined in the base class B of A, actual = B.
   trait Parent {
     def item: ParentItem
-    def env: Cenv
+    def env: Tenv
     def isRaw: Boolean
     def isSimple: Boolean
   }
@@ -119,8 +119,8 @@ object Types {
   }
 
   // Type environments
-  type Tenv = Map[TypeParamItem,RefType]
-  type Cenv = Map[TypeParamItem,Option[RefType]] // None means the type variable is "raw" and therefore unknown
+  // None means the type variable is "raw" and therefore unknown.
+  type Tenv = Map[TypeParamItem,Option[RefType]]
 
   // Basic reference types
   def basicType(i: ClassItem) = SimpleClassType(i,JavaLangPkg)
@@ -230,18 +230,18 @@ object Types {
   def binaryLegal(op: BinaryOp, t0: Type, t1: Type) = binaryType(op,t0,t1).isDefined
 
   // Does a type contain no raw variable?  I.e., is every type variable known?
-  def known(v: TypeParamItem)(implicit env: Cenv): Boolean = env.get(v) match {
+  def known(v: TypeParamItem)(implicit env: Tenv): Boolean = env.get(v) match {
     case Some(None) => false
     case _ => true
   }
-  def known(t: Type)(implicit cenv: Cenv): Boolean = t match {
+  def known(t: Type)(implicit cenv: Tenv): Boolean = t match {
     case ParamType(v) => known(v)
     case t:ClassType => t.args.forall(known) && known(t.parent)
     case ArrayType(t) => known(t)
     case IntersectType(xs) => xs forall known
     case ObjectType|_:LangType|NullType|_:ErrorType => true
   }
-  def known(t: Parent)(implicit env: Cenv): Boolean = t match {
+  def known(t: Parent)(implicit env: Tenv): Boolean = t match {
     case _:PackageItem => true
     case t:ClassType => t.args.forall(known) && known(t.parent)
   }
@@ -249,7 +249,7 @@ object Types {
   // Substitute type parameters in a type.
   // Substitution is intentionally *not* recursive.  Each type parameter is substituted once and only once.
   // I believe this will make recursive generic function callers easier to handle.
-  def substitute(t: RefType)(implicit env: Cenv): RefType = t match {
+  def substitute(t: RefType)(implicit env: Tenv): RefType = t match {
     case t:ClassType => substitute(t)
     case ParamType(v) => env.get(v) match {
       case None => t
@@ -260,11 +260,11 @@ object Types {
     case IntersectType(xs) => IntersectType(xs map substitute)
     case ObjectType|_:ErrorType|NullType|ArrayType(VoidType|_:PrimType) => t
   }
-  def substitute(p: Parent)(implicit env: Cenv): Parent = p match {
+  def substitute(p: Parent)(implicit env: Tenv): Parent = p match {
     case p:PackageItem => p
     case p:ClassType => substitute(p)
   }
-  def substitute(t: ClassType)(implicit env: Cenv): ClassType = t match {
+  def substitute(t: ClassType)(implicit env: Tenv): ClassType = t match {
     case ObjectType => t
     case SimpleClassType(i,p) => SimpleClassType(i,substitute(p))
     case RawClassType(i,p) => RawClassType(i,substitute(p))
@@ -274,7 +274,7 @@ object Types {
       else RawClassType(i,ps)
     }
   }
-  def substitute(t: Type)(implicit env: Cenv): Type = t match {
+  def substitute(t: Type)(implicit env: Tenv): Type = t match {
     case t: RefType => substitute(t)
     case _ => t
   }
