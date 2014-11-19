@@ -2,7 +2,7 @@ package tarski
 
 import tarski.AST.CommaList
 import tarski.Scores.{Probs, Scored, Prob}
-import tarski.Denotations.{Exp,typeOf}
+import tarski.Denotations.{Callable, Exp, typeOf}
 import tarski.Items._
 import tarski.Types.Type
 
@@ -49,6 +49,16 @@ object Pr {
     else
       // TODO: make this probability higher if there's only one option in values with high likelihood?
       Prob(.3)
+  }
+
+  val argPosErrorRate = .2
+
+  def swapArgs[A](meant: List[A], typed: List[A]): Prob = {
+    def c(f: Float)(a:Seq[A], i:Int, b:Seq[A], j:Int): Float = f
+    val d = StringMatching.editDistance(meant, typed, c(1.0f), c(1.0f), c(1.0f), c(.5f))
+    val e = meant.length*argPosErrorRate
+    // probability we make d errors when typing meant.length arguments
+    Prob(poissonPDF(e,math.ceil(d).toInt))
   }
 
   // TODO: many of these should be functions of the parts that go into the tree node they represent
@@ -134,6 +144,7 @@ object Pr {
   val staticFieldExpWithObject = Prob(.8)
   val enumFieldExpWithObject = Prob(.6) // enum {BLAH} x; x.BLAH ... really?
   val fieldExp = base
+  def permuteArgs(f: Callable, typedargs: List[Exp], permutedargs: List[Exp]) = swapArgs(permutedargs, typedargs)
   def callExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.ParenAround && (list.list.size < 2 || list.isInstanceOf[CommaList[AST.AExp]])) base else Prob(.8)
   def indexCallExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.BrackAround && list.list.size == 1) base else Prob(.8)
   val unaryExp = base // should be a function of operator and types
@@ -145,6 +156,7 @@ object Pr {
 
   // denoteBool(AExp)
   val boolExp = passThrough
+  def insertComparison(t: Type): Prob = Prob(.6) // how likely is it that someone forgot a comparison to obtain a bool (depending on type).
 
   // denoteNonVoid(AExp)
   val nonVoidExp = passThrough
@@ -190,7 +202,6 @@ object Pr {
 
   // denoteStmts
   val stmtList = passThrough
-
 
   // Environment
   val newVariable = certain
