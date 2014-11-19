@@ -65,7 +65,7 @@ object Tarski {
         case Left(e) => println(e.prefixed("    error: "))
         case Right(all) =>
           for ((s,(e,d)) <- all)
-            println(s"    $s: $d")
+            println(s"    $s: \t${show(d)} \t($d)")
       }
       ds
     }}
