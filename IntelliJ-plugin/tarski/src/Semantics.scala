@@ -8,9 +8,8 @@ import Environment._
 import Items._
 import Denotations._
 import Scores._
-import ambiguity.Utility._
 import tarski.Tokens._
-import Pretty._
+import tarski.Pretty._
 import ambiguity.Utility._
 
 object Semantics {
@@ -209,13 +208,7 @@ object Semantics {
       val xsl = xsn.list map denoteExp
       val n = xsl.size
       def call(f: Callable): Scored[Exp] = {
-        val fn = f.params.size
-        if (fn != n) fail(show(f)+s": expected $fn arguments (${show(CommaList(f.params))}), got $n ($xsn)")
-        else product(xsl) flatMap { xl => resolve(List(f),xl map typeOf) match {
-          case None => fail(show(f)+": params "+show(tokensSig(f))
-                            +" don't match arguments "+show(CommaList(xl))+" with types "+show(CommaList(xl map typeOf)))
-          case Some((_,ts)) => single(ApplyExp(f,ts,xl), Pr.callExp(xsn, around))
-        }}
+        product(xsl) flatMap { xl => bias(ArgMatching.fiddleArgs(f, xl), Pr.callExp(xsn, around)) }
       }
       def index(f: Exp, ft: Type): Scored[Exp] = {
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
@@ -279,8 +272,13 @@ object Semantics {
   // Expressions with type restrictions
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     val t = typeOf(e)
-    if (isToBoolean(t)) single(e, Pr.boolExp)
-    else fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
+    (t,toBoolean(t),toNumeric(t)) match {
+      case (_,Some(_),_) => single(e, Pr.boolExp)
+      case (_,None,Some(_)) => single(BinaryExp(NeOp(), e, IntLit(0, "0")), Pr.insertComparison(t))
+      // TODO: all sequences should probably check whether they're empty (or null)
+      case (_:RefType,_,_) => single(BinaryExp(NeOp(), e, NullLit), Pr.insertComparison(t))
+      case _ => fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
+    }
   }
   def denoteNonVoid(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     if (typeOf(e) != VoidType) single(e, Pr.nonVoidExp)
@@ -372,9 +370,13 @@ object Semantics {
       case AssertAStmt(c,m) => productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
         (env,AssertStmt(c,m))}.flatMap( single(_, Pr.assertStmt) )
 
-      // TODO: make sure we are inside a loop/switch statement before allowing this
-      case BreakAStmt(lab) => denoteLabel(lab,(env,BreakStmt)).flatMap( single(_, Pr.breakStmt))
-      case ContinueAStmt(lab) => denoteLabel(lab,(env,ContinueStmt)).flatMap( single(_, Pr.continueStmt))
+      // TODO: make sure the labels are valid
+      case BreakAStmt(lab) =>
+        if (env.inside_breakable) denoteLabel(lab,(env,BreakStmt)).flatMap( single(_, Pr.breakStmt))
+        else fail("cannot break outside of a loop or switch statement.")
+      case ContinueAStmt(lab) =>
+        if (env.inside_continuable) denoteLabel(lab,(env,ContinueStmt)).flatMap( single(_, Pr.continueStmt))
+        else fail("cannot break outside of a loop")
       case ReturnAStmt(e) => product(returnType,thread(e)(denoteExp)) flatMap {case (r,e) =>
         val t = typeOf(e)
         if (assignsTo(t,r)) single((env,ReturnStmt(e)), Pr.returnStmt)
