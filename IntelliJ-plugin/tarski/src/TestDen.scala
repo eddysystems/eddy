@@ -2,7 +2,6 @@ package tarski
 
 import tarski.AST._
 import tarski.Denotations._
-import tarski.Pretty._
 
 import scala.language.implicitConversions
 import org.testng.annotations.Test
@@ -376,4 +375,23 @@ class TestDen {
 
   // Synchronized
   @Test def sync() = testDen("synchronized null", SyncStmt(NullLit,HoleStmt))
+
+  // inserting a cast to bool
+  @Test def insertIntComparison() = testDen("if 1 then;", IfStmt(BinaryExp(NeOp(),1,0), e))
+  @Test def insertRefTypeComparison() = {
+    val o = LocalVariableItem("o", ObjectType);
+    implicit val env = localEnvWithBase(List(o))
+    testDen("if o then;", IfStmt(BinaryExp(NeOp(),o,NullLit), e))
+  }
+
+  @Test def shuffleArgs() = {
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val f = StaticMethodItem("f", X, Nil, VoidType, List(SimpleClassType(X), DoubleType, StringType, BooleanType))
+    val x = LocalVariableItem("x", SimpleClassType(X))
+    val d = LocalVariableItem("d", DoubleType)
+    val s = LocalVariableItem("s", StringType)
+    val b = LocalVariableItem("b", BooleanType)
+    implicit val env = Env(List(X,f), Map((X,3),(f,2)), f).addLocalObjects(List(x,d,s,b))
+    testDen("f(s, b, d, x)", ApplyExp(StaticMethodDen(f), Nil, List(x,d,s,b)))
+  }
 }
