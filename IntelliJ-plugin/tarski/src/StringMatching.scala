@@ -14,6 +14,7 @@ object StringMatching {
   val replaceAddShiftStroke = 0.5f // a spurious isolated capital letter
   val replaceOmitShiftStroke = 0.5f // a lowercase letter that should've been uppercase in the middle of two uppercase letters
   val extendShift = .3f // shift key held down too long or let go too quickly
+  val swapCostConst = .3f // the cost of swapping two adjacent letters
 
   // not considering case
   def charDistance(c1: Char, c2: Char): Float = {
@@ -78,11 +79,19 @@ object StringMatching {
     replaceShiftCost(cp.isUpper, ct.isUpper, cm.isUpper, cn.isUpper) + charDistance(cm,ct)
   }
 
+  def swapCost(meant: CharSequence, i: Int, typed: CharSequence, j: Int): Float = {
+    // cost for swapping i, i+1 to j, j+1
+    // what would the cost be if we hadn't swapped?
+    val unswapped: CharSequence = meant.subSequence(0,i) + meant.charAt(i+1).toString + meant.charAt(i).toString + meant.subSequence(i+2,meant.length)
+    swapCostConst + replaceCost(unswapped, i, typed, j) + replaceCost(unswapped, i+1, typed, j+1)
+  }
+
   // user intends to write meant, how likely is it he wrote to typed? Return is a cost: lower is more likely
   def levenshteinDistance(meant: CharSequence, typed: CharSequence,
                           insertCost: (CharSequence, Int, CharSequence, Int) => Float = insertCost,
                           deleteCost: (CharSequence, Int, CharSequence, Int) => Float = deleteCost,
-                          replaceCost: (CharSequence, Int, CharSequence, Int) => Float = replaceCost): Float = {
+                          replaceCost: (CharSequence, Int, CharSequence, Int) => Float = replaceCost,
+                          swapCost: (CharSequence, Int, CharSequence, Int) => Float = swapCost): Float = {
     // d(i,j) is cost to obtain the first i character of s having used the first j characters of t
     val d = ArrayBuffer.fill(meant.length + 1, typed.length + 1)(0.0f)
 
@@ -103,10 +112,53 @@ object StringMatching {
       d(i)(j) = List(d(i-1)(j) + deleteCost(meant, i-1, typed, j-1), // omit a character of what we intended to write
                      d(i)(j-1) + insertCost(meant, i-1, typed, j-1), // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
                      d(i-1)(j-1) + replaceCost(meant, i-1, typed, j-1) // type a character (maybe getting it wrong)
-                    ).min
+                     ).min
+      // swapped two characters?
+      if (i > 1 && j > 1)
+        d(i)(j) = List(d(i)(j),
+                       d(i-2)(j-2) + swapCost(meant, i-2, typed, j-2)
+                       ).min
 
-      // TODO: two subsequent replace actions (which swap two characters), or three subsequent replace actions
-      // (which permute three characters) should have much lower cost, especially if the letters scrambled are on opposite
+      // TODO: three subsequent replace actions are cheaper especially if the letters scrambled are on opposite
+      // sides of the keyboard (synchronization between hands is hard)
+    }
+
+    d(meant.length)(typed.length)
+  }
+
+  def editDistance[A](meant: Seq[A], typed: Seq[A],
+                      insertCost: (Seq[A], Int, Seq[A], Int) => Float,
+                      deleteCost: (Seq[A], Int, Seq[A], Int) => Float,
+                      replaceCost: (Seq[A], Int, Seq[A], Int) => Float,
+                      swapCost: (Seq[A], Int, Seq[A], Int) => Float): Float = {
+    // d(i,j) is cost to obtain the first i character of s having used the first j characters of t
+    val d = ArrayBuffer.fill(meant.length + 1, typed.length + 1)(0.0f)
+
+    // fill first column (moving down equals deletion of a character in from
+    for (i <- 1 to meant.length) {
+      d(i)(0) = d(i-1)(0) + deleteCost(meant, i-1, Nil, 0)
+    }
+
+    // fill first row (moving right equals inserting a character into to
+    for (i <- 1 to typed.length) {
+      d(0)(i) = d(0)(i-1) + insertCost(meant, 0, typed, i-1)
+    }
+
+    // fill the rest
+    for (i <- 1 to meant.length;
+         j <- 1 to typed.length) {
+      // we're mentally at character i of what we intended to write, and we have already written j characters
+      d(i)(j) = List(d(i-1)(j) + deleteCost(meant, i-1, typed, j-1), // omit a character of what we intended to write
+                     d(i)(j-1) + insertCost(meant, i-1, typed, j-1), // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
+                     d(i-1)(j-1) + replaceCost(meant, i-1, typed, j-1) // type a character (maybe getting it wrong)
+                     ).min
+      // swapped two characters?
+      if (i > 1 && j > 1)
+        d(i)(j) = List(d(i)(j),
+                       d(i-2)(j-2) + swapCost(meant, i-2, typed, j-2)
+                       ).min
+
+      // TODO: three subsequent replace actions are cheaper especially if the letters scrambled are on opposite
       // sides of the keyboard (synchronization between hands is hard)
     }
 
