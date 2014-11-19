@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Items.TypeParamItem
+import tarski.Items.{PackageItem, TypeParamItem}
 import tarski.Types._
 
 // TODO: Handle infinite types correctly.  Some useful examples are here:
@@ -31,14 +31,14 @@ object Inference {
 
   // TODO: Not sure what I'm actually supposed to do if occurs checks fail
   def occurs(s: Var, t: RefType): Boolean = t match {
-    case _:SimpleType => false
-    case t:GenericType => t.args exists (occurs(s,_))
+    case t:ClassType => t.args exists (occurs(s,_))
     case ArrayType(t) => t match {
-      case _:SimpleType => false
       case t:RefType => occurs(s,t)
+      case _ => false
     }
     case IntersectType(ts) => ts exists (occurs(s,_))
     case ParamType(t) => s == t
+    case NullType|_:ErrorType => false
   }
 
   // Is an inference variable fixed yet?
@@ -49,23 +49,23 @@ object Inference {
 
   // All inference variables mentioned in a type
   def vars(bs: Bounds, t: RefType): Set[Var] = t match {
-    case _:SimpleType => Set()
-    case t:GenericType => t.args.toSet flatMap ((a: RefType) => vars(bs,a))
+    case t:ClassType => t.args.toSet flatMap ((a: RefType) => vars(bs,a))
     case ArrayType(t) => t match {
-      case _:SimpleType => Set()
       case t:RefType => vars(bs,t)
+      case _ => Set()
     }
     case IntersectType(ts) => ts flatMap (vars(bs,_))
     case ParamType(v) => Set(v)
+    case NullType|_:ErrorType => Set()
   }
 
   // Incorporate bounds: 18.3
   def matchSupers(bs: Bounds, s: RefType, t: RefType): Option[Bounds] = {
-    val sg = supers(s).toList collect {case g:GenericType => g}
-    val tg = supers(t).toList collect {case g:GenericType => g}
+    val sg = supers(s).toList collect {case g:GenericClassType => g}
+    val tg = supers(t).toList collect {case g:GenericClassType => g}
     log(s"matchSupers: bs $bs, s $s, t $t, sg $sg, tg $tg")
     forms(bs,sg)((bs,sg) => forms(bs,tg)((bs,tg) =>
-      if (sg.d == tg.d) forms(bs,sg.args,tg.args)(equalForm)
+      if (sg.item == tg.item) forms(bs,sg.args,tg.args)(equalForm)
       else Some(bs)))
   }
   def incorporateSub(bs: Bounds, s: Var, t: RefType): Option[Bounds] = bs(s) match {
@@ -96,7 +96,7 @@ object Inference {
       if (occurs(s,t))
         throw new NotImplementedError("not sure what to do about occurs checks")
       else {
-        implicit val tenv = Map(s -> t)
+        implicit val env = Map(s -> Some(t))
         val bs2 = bs+((s,Fixed(t)))
         def sub(bs: Bounds, ub: (Var,Bound)): Option[Bounds] = {
           val (u,b) = ub
@@ -114,11 +114,15 @@ object Inference {
 
   // Does t contain any inference variables?
   def isProper(bs: Bounds, t: Type): Boolean = t match {
-    case _: SimpleType => true
-    case g: GenericType => g.args forall (isProper(bs,_))
+    case t:ClassType => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent)
     case ArrayType(t) => isProper(bs,t)
     case IntersectType(ts) => ts forall (isProper(bs,_))
     case ParamType(v) => !bs.contains(v)
+    case NullType|_:ErrorType|_:LangType => true
+  }
+  def isProper(bs: Bounds, t: Parent): Boolean = t match {
+    case _:PackageItem => true
+    case t:ClassType => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent)
   }
 
   // Turn a compatibility constraint s -> t into bounds: 18.2.2
@@ -145,11 +149,11 @@ object Inference {
       case (_,NullType) => fail(s"subForm: $s !<: nulltype")
       case (ParamType(s),t) if bs contains s => incorporateSub(bs,s,t)
       case (s,ParamType(t)) if bs contains t => incorporateSub(bs,s,t)
-      case (s,t:GenericType) => supers(s)
-        .collect({case ss: GenericType if ss.d == t.d => ss})
+      case (s,t:GenericClassType) => supers(s)
+        .collect({case ss: GenericClassType if ss.parent == t.parent => ss})
         .headOption
         .flatMap(ss => forms(bs,ss.args,t.args)(containForm))
-      case (s,(_:ClassOrObjectType|_:InterfaceType)) =>
+      case (s,_:ClassType) =>
         if (supers(s) contains t) Some(bs) else fail(s"subForm: supers($s) lacks $t")
       case (s,ArrayType(t)) => s match {
         case ArrayType(s) => (s,t) match {
@@ -178,10 +182,8 @@ object Inference {
     else (s,t) match {
       case (ParamType(s),t) if bs contains s => incorporateEqual(bs,s,t)
       case (s,ParamType(t)) if bs contains t => incorporateEqual(bs,t,s)
-      case (s:SimpleClassOrInterface,t:SimpleClassOrInterface) =>
-        if (s.d == t.d) Some(bs) else fail(s"equalForm: simple ${s.d} != ${t.d}")
-      case (s:GenericType,t:GenericType) =>
-        if (s.d == t.d) forms(bs,s.args,t.args)(equalForm) else fail(s"equalForm: generic ${s.d} != ${t.d}")
+      case (s:GenericClassType,t:GenericClassType) =>
+        if (s.parent == t.parent) forms(bs,s.args,t.args)(equalForm) else fail(s"equalForm: class ${s.parent} != ${t.parent}")
       case (ArrayType(s),ArrayType(t)) => equalFormArbitrary(bs,s,t)
       case _ => fail(s"equalForm: skipping $s, $t") // IntersectType intentionally skipped as per spec
     }
@@ -224,14 +226,14 @@ object Inference {
   // TODO: This probably needs to change for infinite types
   def extract(bs: Bounds, ps: List[Var]): List[RefType] = {
     def clean(t: RefType): Boolean = t match {
-      case _:SimpleType => true
-      case t:GenericType => t.args forall clean
+      case t:ClassType => t.args forall clean
       case ParamType(v) => !bs.contains(v)
       case IntersectType(ts) => ts forall clean
       case ArrayType(t) => t match {
         case t: RefType => clean(t)
         case _ => true
       }
+      case NullType|_:ErrorType => true
     }
     ps.map(v => bs(v) match {
       case Fixed(t) => assert(clean(t)); t

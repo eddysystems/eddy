@@ -83,32 +83,30 @@ object Semantics {
 
   // Are we contained in the given type, or in something contained in the given type?
   def containedIn(i: NamedItem, t: TypeItem): Boolean = i match {
-    case f: Member => f.container == t || containedIn(f.container,t)
+    case f: Member => f.parent == t || containedIn(f.parent,t)
     case _ => false
   }
 
-  def denoteField[ItemKind <: NamedItem with ClassMember,FieldDen <: Den](i: ItemKind, Combinator: (Exp,ItemKind) => FieldDen,
-                                                          superFieldProb: (Probs[Exp], TypeItem, ItemKind) => Prob,
-                                                          shadowedFieldProb: (Probs[Exp], Exp, TypeItem, ItemKind) => Prob,
-                                                          fieldProb: (Probs[Exp], Exp, ItemKind) => Prob)(implicit env: Env): Scored[FieldDen] = {
-    val c = i.container
+  def denoteField[ItemKind <: NamedItem with ClassMember,FieldDen <: Den]
+                 (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
+                  superFieldProb: (Probs[Exp],TypeItem,ItemKind) => Prob,
+                  shadowedFieldProb: (Probs[Exp],Exp,TypeItem,ItemKind) => Prob,
+                  fieldProb: (Probs[Exp],Exp,ItemKind) => Prob)(implicit env: Env): Scored[FieldDen] = {
+    val c: TypeItem = i.parent
     val objs = objectsOfItem(c) flatMap { x =>
-      if (containedIn(x,i.container))
-        fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
-      else {
-        denoteValue(x)
-      }
+      if (containedIn(x,c)) fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
+      else denoteValue(x)
     }
 
     objs flatMap { xd => {
       val vprobs = objs.all.right.get
       if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
         xd match {
-          case ThisExp(ThisItem(tt:ClassItem)) if toItem(tt.base) == Some(c) => single(Combinator(SuperExp(ThisItem(tt)),i), superFieldProb(vprobs, c, i))
-          case _ => single(Combinator(CastExp(toType(c,Nil),xd),i), shadowedFieldProb(vprobs, xd,c,i))
+          case ThisExp(ThisItem(tt:ClassItem)) if tt.base.item == c => single(combine(SuperExp(ThisItem(tt)),i), superFieldProb(vprobs, c, i))
+          case _ => single(combine(CastExp(c.raw,xd),i), shadowedFieldProb(vprobs, xd,c,i))
         }
       } else {
-        single(Combinator(xd,i), fieldProb(vprobs, xd, i))
+        single(combine(xd,i), fieldProb(vprobs, xd, i))
       }
     }}
   }
@@ -338,7 +336,7 @@ object Semantics {
           def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
             case None => single(None, Pr.varInitNone)
             case Some(e) => denoteExp(e)(env) flatMap {e =>
-              if (assignsTo(typeOf(e),t)) single(Some(e), Pr.varInit)
+              if (assignsTo(e,t)) single(Some(e), Pr.varInit)
               else fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
             }
           }
@@ -379,7 +377,7 @@ object Semantics {
         else fail("cannot break outside of a loop")
       case ReturnAStmt(e) => product(returnType,thread(e)(denoteExp)) flatMap {case (r,e) =>
         val t = typeOf(e)
-        if (assignsTo(t,r)) single((env,ReturnStmt(e)), Pr.returnStmt)
+        if (assignsTo(e,r)) single((env,ReturnStmt(e)), Pr.returnStmt)
         else fail(s"${show(s)}: type ${show(t)} incompatible with return type ${show(r)}")
       }
       case ThrowAStmt(e) => denoteExp(e) flatMap {e =>
@@ -419,7 +417,7 @@ object Semantics {
               (t match {
                 case Some(t) =>
                   val ta = arrays(t,n)
-                  if (assignsTo(te,ta)) single(ta, Pr.forEachArray)
+                  if (typeAssignsTo(te,ta)) single(ta, Pr.forEachArray)
                   else fail(s"$hole: can't assign ${show(te)} to ${show(ta)}")
                 case None =>
                   val ne = dimensions(te)
@@ -435,7 +433,7 @@ object Semantics {
   }
 
   def xor(x: Boolean, y: Exp): Exp =
-    if (x) UnaryExp(NotOp(),y) else y
+    if (x) UnaryExp(NotOp,y) else y
 
   def denoteLabel[A](lab: Option[Name], x: => A): Scored[A] = lab match {
     case None => single(x, Pr.labelNone)

@@ -33,8 +33,8 @@ class TestParse {
   @Test
   def pretty(): Unit = {
     def check(s: String, e: AExp) = assertEquals(s,show(tokens(e)))
-    def add(x: AExp, y: AExp) = BinaryAExp(AddOp(),x,y)
-    def mul(x: AExp, y: AExp) = BinaryAExp(MulOp(),x,y)
+    def add(x: AExp, y: AExp) = BinaryAExp(AddOp,x,y)
+    def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,x,y)
 
     check("1 + 2 + 3",     add(add(1,2),3))
     check("1 + ( 2 + 3 )", add(1,add(2,3)))
@@ -73,8 +73,8 @@ class TestParse {
     testAST("int x[]",VarAStmt(Nil,IntType,SingleList(("x",1,None))))
 
   // Precedence
-  def add(x: AExp, y: AExp) = BinaryAExp(AddOp(),x,y)
-  def mul(x: AExp, y: AExp) = BinaryAExp(MulOp(),x,y)
+  def add(x: AExp, y: AExp) = BinaryAExp(AddOp,x,y)
+  def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,x,y)
   @Test def addMul() = testAST("1 + 2 * 3", add(1,mul(2,3)))
   @Test def mulAdd() = testAST("1 * 2 + 3", add(mul(1,2),3))
 
@@ -93,9 +93,11 @@ class TestParse {
   @Test def forever()     = testAST("for (;;);", ForAStmt(Nil,None,Nil,EmptyAStmt()))
   @Test def foreverHole() = testAST("for (;;)", ForAStmt(Nil,None,Nil,HoleAStmt()))
   @Test def forSimple()   = testAST("for (x=7;true;x++)",
-    ForAStmt(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp(),"x"),HoleAStmt()))
+    ForAStmt(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp,"x"),HoleAStmt()))
 
-  @Test def staticMethodOfObject() = testASTPossible("(X()).f();", ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"), EmptyList, ParenAround)), None, "f"), EmptyList, ParenAround)))
+  @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
+    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
 
-  @Test def parenCompletion() = testASTPossible("((X()).f();", ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"), EmptyList, ParenAround)), None, "f"), EmptyList, ParenAround)))
+  @Test def mismatchedParens() = testASTPossible("((X()).f();",
+    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
 }

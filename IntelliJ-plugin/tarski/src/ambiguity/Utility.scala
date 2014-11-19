@@ -38,6 +38,14 @@ object Utility {
       case Some(xs) => Some(x::xs)
     }
   }
+  def allSome[A](xs: Set[Option[A]]): Option[Set[A]] = allSome(xs.toList) map (_.toSet)
+
+  def collectOne[A,B](xs: List[A])(f: PartialFunction[A,B]): Option[B] = xs match {
+    case Nil => None
+    case x::_ if f.isDefinedAt(x) => Some(f(x))
+    case _::xs => collectOne(xs)(f)
+  }
+  def collectOne[A,B](xs: Set[A])(f: PartialFunction[A,B]): Option[B] = collectOne(xs.toList)(f)
 
   // Memoize the fixpoint of a recursive function.  Usage:
   //   lazy val f = fixpoint(base, a => b) // where b refers to f

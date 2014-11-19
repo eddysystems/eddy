@@ -3,6 +3,7 @@ package tarski
 import tarski.AST.{AssignOp, BinaryOp, UnaryOp}
 import tarski.Items._
 import tarski.Types._
+import ambiguity.Utility._
 
 object Denotations {
 
@@ -24,7 +25,7 @@ object Denotations {
   case class StaticMethodDen(override val f: StaticMethodItem) extends NonNewCallable
   case class ForwardDen(override val f: ConstructorItem) extends NonNewCallable
   case class NewDen(override val f: ConstructorItem) extends Callable {
-    def tparams = f.container.params ++ f.tparams
+    def tparams = f.parent.params ++ f.tparams // TODO: May need to recursively include higher parent parameters
     def params = f.params
   }
 
@@ -101,10 +102,10 @@ object Denotations {
     case CharLit(_,_) => CharType
     case NullLit => NullType
     // Names
-    case ParameterExp(i) => i.ourType
-    case LocalVariableExp(i) => i.ourType
-    case EnumConstantExp(i) => i.ourType
-    case ThisExp(t) => t.ourType
+    case ParameterExp(i) => i.ty
+    case LocalVariableExp(i) => i.ty
+    case EnumConstantExp(i) => i.ty
+    case ThisExp(t) => t.ty
     case SuperExp(ThisItem(c:NormalClassItem)) => c.base
     case SuperExp(_) => throw new RuntimeException("type error")
     case CastExp(t,_) => t
@@ -116,12 +117,18 @@ object Denotations {
       case MethodDen(_,f)     => substitute(f.tparams,ts,f.retVal)
       case LocalMethodDen(f)  => substitute(f.tparams,ts,f.retVal)
       case StaticMethodDen(f) => substitute(f.tparams,ts,f.retVal)
-      case NewDen(c) => toType(c.container,ts.take(c.container.arity))
+      case NewDen(c) => c.parent.generic(ts.take(c.parent.arity),c.parent.parent.simple)
       case ForwardDen(_) => VoidType
     }
-    case FieldExp(_,f) => f.ourType
-    case LocalFieldExp(f) => f.ourType
-    case StaticFieldExp(f) => f.ourType
+    case FieldExp(x,f) => {
+      val t = typeOf(x)
+      val fp = f.parent
+      collectOne(supers(t)){
+        case t:ClassType if t.item==fp => substitute(f.ty)(t.env)
+      }.getOrElse(throw new RuntimeException(s"Field $f not found in $t"))
+    }
+    case LocalFieldExp(f) => f.ty
+    case StaticFieldExp(f) => f.ty
     case IndexExp(e,i) => typeOf(e) match {
       case ArrayType(t) => t
       case _ => throw new RuntimeException("type error")

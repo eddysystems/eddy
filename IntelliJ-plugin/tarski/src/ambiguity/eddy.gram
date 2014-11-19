@@ -206,44 +206,44 @@ ExpCond[a] AExp
   ExpOrOr[EJ] QuestionTok ExpAssign ColonTok ExpCond[EJ]    { CondAExp($1,$3,$5) }
 ExpOrOr[a] AExp
   ExpAndAnd[a]                                              { $1 }
-  ExpOrOr[EJ] OrOrTok ExpAndAnd[EJ]                         { BinaryAExp(OrOrOp(),$1,$3) }
+  ExpOrOr[EJ] OrOrTok ExpAndAnd[EJ]                         { BinaryAExp(OrOrOp,$1,$3) }
 ExpAndAnd[a] AExp
   ExpOr[a]                                                  { $1 }
-  ExpAndAnd[EJ] AndAndTok ExpOr[EJ]                         { BinaryAExp(AndAndOp(),$1,$3) }
+  ExpAndAnd[EJ] AndAndTok ExpOr[EJ]                         { BinaryAExp(AndAndOp,$1,$3) }
 ExpOr[a] AExp
   ExpXor[a]                                                 { $1 }
-  ExpOr[EJ] OrTok ExpXor[EJ]                                { BinaryAExp(OrOp(),$1,$3) }
+  ExpOr[EJ] OrTok ExpXor[EJ]                                { BinaryAExp(OrOp,$1,$3) }
 ExpXor[a] AExp
   ExpAnd[a]                                                 { $1 }
-  ExpXor[EJ] XorTok ExpAnd[EJ]                              { BinaryAExp(XorOp(),$1,$3) }
+  ExpXor[EJ] XorTok ExpAnd[EJ]                              { BinaryAExp(XorOp,$1,$3) }
 ExpAnd[a] AExp
   ExpEq[a]                                                  { $1 }
-  ExpAnd[EJ] AndTok ExpEq[EJ]                               { BinaryAExp(AndOp(),$1,$3) }
+  ExpAnd[EJ] AndTok ExpEq[EJ]                               { BinaryAExp(AndOp,$1,$3) }
 ExpEq[a] AExp
   ExpRel[a]                                                 { $1 }
-  ExpEq[EJ] EqEqTok ExpRel[EJ]                              { BinaryAExp(EqOp(),$1,$3) }
-  ExpEq[EJ] NeTok ExpRel[EJ]                                { BinaryAExp(NeOp(),$1,$3) }
+  ExpEq[EJ] EqEqTok ExpRel[EJ]                              { BinaryAExp(EqOp,$1,$3) }
+  ExpEq[EJ] NeTok ExpRel[EJ]                                { BinaryAExp(NeOp,$1,$3) }
 ExpRel[a] AExp
   ExpShift[a]                                               { $1 }
-  ExpRel[EJ] LtTok ExpShift[EJ]                             { BinaryAExp(LtOp(),$1,$3) }
-  ExpRel[EJ] GtTok ExpShift[EJ]                             { BinaryAExp(GtOp(),$1,$3) }
-  ExpRel[EJ] LeTok ExpShift[EJ]                             { BinaryAExp(LeOp(),$1,$3) }
-  ExpRel[EJ] GeTok ExpShift[EJ]                             { BinaryAExp(GeOp(),$1,$3) }
+  ExpRel[EJ] LtTok ExpShift[EJ]                             { BinaryAExp(LtOp,$1,$3) }
+  ExpRel[EJ] GtTok ExpShift[EJ]                             { BinaryAExp(GtOp,$1,$3) }
+  ExpRel[EJ] LeTok ExpShift[EJ]                             { BinaryAExp(LeOp,$1,$3) }
+  ExpRel[EJ] GeTok ExpShift[EJ]                             { BinaryAExp(GeOp,$1,$3) }
   ExpRel[EJ] InstanceofTok Type                             { InstanceofAExp($1,$3) }
 ExpShift[a] AExp
   ExpAdd[a]                                                 { $1 }
-  ExpShift[EJ] LShiftTok ExpAdd[EJ]                         { BinaryAExp(LShiftOp(),$1,$3) }
-  ExpShift[EJ] RShiftTok ExpAdd[EJ]                         { BinaryAExp(RShiftOp(),$1,$3) }
-  ExpShift[EJ] UnsignedRShiftTok ExpAdd[EJ]                 { BinaryAExp(UnsignedRShiftOp(),$1,$3) }
+  ExpShift[EJ] LShiftTok ExpAdd[EJ]                         { BinaryAExp(LShiftOp,$1,$3) }
+  ExpShift[EJ] RShiftTok ExpAdd[EJ]                         { BinaryAExp(RShiftOp,$1,$3) }
+  ExpShift[EJ] UnsignedRShiftTok ExpAdd[EJ]                 { BinaryAExp(UnsignedRShiftOp,$1,$3) }
 ExpAdd[a] AExp
   ExpMul[a]                                                 { $1 }
-  ExpAdd[EJ] PlusTok ExpMul[a]                              { BinaryAExp(AddOp(),$1,$3) }
-  ExpAdd[EJ] MinusTok ExpMul[a]                             { BinaryAExp(SubOp(),$1,$3) }
+  ExpAdd[EJ] PlusTok ExpMul[a]                              { BinaryAExp(AddOp,$1,$3) }
+  ExpAdd[EJ] MinusTok ExpMul[a]                             { BinaryAExp(SubOp,$1,$3) }
 ExpMul[a] AExp
   ExpUnary[a]                                               { $1 }
-  ExpMul[EJ] MulTok ExpUnary[a]                             { BinaryAExp(MulOp(),$1,$3) }
-  ExpMul[EJ] DivTok ExpUnary[a]                             { BinaryAExp(DivOp(),$1,$3) }
-  ExpMul[EJ] ModTok ExpUnary[a]                             { BinaryAExp(ModOp(),$1,$3) }
+  ExpMul[EJ] MulTok ExpUnary[a]                             { BinaryAExp(MulOp,$1,$3) }
+  ExpMul[EJ] DivTok ExpUnary[a]                             { BinaryAExp(DivOp,$1,$3) }
+  ExpMul[EJ] ModTok ExpUnary[a]                             { BinaryAExp(ModOp,$1,$3) }
 ExpUnary[a] AExp
   a                                                         { $1 }
   ExpUnary[EJ] PostOp                                       { UnaryAExp($2,$1) }
@@ -310,27 +310,27 @@ Lit ALit
   NullLitTok    { NullALit() }
 
 PostOp UnaryOp
-  PlusPlusTok    { PostIncOp() }
-  MinusMinusTok  { PostDecOp() }
+  PlusPlusTok    { PostIncOp }
+  MinusMinusTok  { PostDecOp }
 
 PreOp UnaryOp
-  PlusPlusTok    { PreIncOp() }
-  MinusMinusTok  { PreDecOp() }
-  PlusTok        { PosOp() }
-  MinusTok       { NegOp() }
-  CompTok        { CompOp() }
-  NotTok         { NotOp() }
+  PlusPlusTok    { PreIncOp }
+  MinusMinusTok  { PreDecOp }
+  PlusTok        { PosOp }
+  MinusTok       { NegOp }
+  CompTok        { CompOp }
+  NotTok         { NotOp }
 
 AssignOp Option[AssignOp]
   EqTok                { None }
-  MulEqTok             { Some(MulOp()) }
-  DivEqTok             { Some(DivOp()) }
-  ModEqTok             { Some(ModOp()) }
-  PlusEqTok            { Some(AddOp()) }
-  MinusEqTok           { Some(SubOp()) }
-  LShiftEqTok          { Some(LShiftOp()) }
-  RShiftEqTok          { Some(RShiftOp()) }
-  UnsignedRShiftEqTok  { Some(UnsignedRShiftOp()) }
-  AndEqTok             { Some(AndOp()) }
-  XorEqTok             { Some(XorOp()) }
-  OrEqTok              { Some(OrOp()) }
+  MulEqTok             { Some(MulOp) }
+  DivEqTok             { Some(DivOp) }
+  ModEqTok             { Some(ModOp) }
+  PlusEqTok            { Some(AddOp) }
+  MinusEqTok           { Some(SubOp) }
+  LShiftEqTok          { Some(LShiftOp) }
+  RShiftEqTok          { Some(RShiftOp) }
+  UnsignedRShiftEqTok  { Some(UnsignedRShiftOp) }
+  AndEqTok             { Some(AndOp) }
+  XorEqTok             { Some(XorOp) }
+  OrEqTok              { Some(OrOp) }
