@@ -335,7 +335,11 @@ object Pretty {
     case DoubleType  => DoubleTok
     case CharType    => CharTok
   })()))
-  implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = {
+  implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = t match {
+    case t:LangType => prettyLangType(t)
+    case t:RefType => pretty(t)
+  }
+  implicit def prettyRefType(t: RefType)(implicit env: Env): (Fixity,Tokens) = {
     def cls(t: ClassType): (Fixity,Tokens) = {
       val ts = if (t.args.isEmpty) pretty(t.item)
                else (ApplyFix, tokens(t.item) ::: LtTok() :: tokens(CommaList(t.args)) ::: List(GtTok()))
@@ -349,14 +353,19 @@ object Pretty {
       }
     }
     t match {
-      // Primitive types and void
-      case t: LangType => prettyLangType(t)
-      // Reference types
       case NullType => pretty("nulltype")
       case t:ClassType => cls(t)
       case ParamType(x) => pretty(x)
       case IntersectType(ts) => pretty(AndList(ts.toList))
       case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok(),RBrackTok()))
+    }
+  }
+  implicit def prettyTypeArg(t: TypeArg)(implicit env: Env): (Fixity,Tokens) = {
+    def wild(t: RefType, d: () => Token) = fix(WildFix, QuestionTok() :: d() :: right(_,t))
+    t match {
+      case t:RefType => pretty(t)
+      case WildSub(t) => wild(t,ExtendsTok)
+      case WildSuper(t) => wild(t,SuperTok)
     }
   }
   implicit def prettyLit(x: Lit) = (HighestFix, List(x match {

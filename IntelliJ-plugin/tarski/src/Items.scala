@@ -26,7 +26,7 @@ object Items {
   }
 
   // Type parameters
-  case class TypeParamItem(name: String, base: ClassType = ObjectType, implements: List[ClassType] = Nil)
+  case class TypeParamItem(name: String, base: RefType = ObjectType, implements: List[ClassType] = Nil)
     extends TypeItem with NoLookupItem {
     def qualifiedName = None
     def supers = base :: implements
@@ -38,6 +38,12 @@ object Items {
       case Some(None) => false // We're raw, and therefore not known
       case _ => true
     }
+  }
+  private var next = 0
+  def freshTypeParam(base: RefType) = {
+    val full = "T$"+next
+    next += 1
+    TypeParamItem(full,base)
   }
 
   // Packages
@@ -150,6 +156,7 @@ object Items {
     def params = Nil
     def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
   }
+
   case object ArrayItem extends RefTypeItem with NoLookupItem {
     def name = "Array"
     override def qualifiedName = None

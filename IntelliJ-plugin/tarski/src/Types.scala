@@ -108,14 +108,17 @@ object Types {
   }
 
   // Reference types
-  sealed abstract class RefType extends Type {
+  sealed abstract class RefType extends Type with TypeArg {
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
     def raw: RefType
+    def capture = this
   }
+
+  // Class types are either Object, simple, raw, or generic
   sealed abstract class ClassType extends RefType with Parent {
     def item: ClassItem
-    def args: List[RefType]
+    def args: List[TypeArg]
     def parent: Parent
     def base: ClassType = item.base.substitute(env)
     def implements: List[ClassType] = item.implements map (_.substitute(env))
@@ -160,8 +163,8 @@ object Types {
     def safe = parent.safe map (RawType(item,_))
     def raw = this
   }
-  case class GenericType(item: ClassItem, args: List[RefType], parent: Parent) extends ClassType {
-    def env = (item.params,args).zipped.foldLeft(parent.env)((env,p) => env+((p._1,Some(p._2))))
+  case class GenericType(item: ClassItem, args: List[TypeArg], parent: Parent) extends ClassType {
+    def env() = (item.params,args).zipped.foldLeft(parent.env)((env,p) => env+((p._1,Some(p._2.capture()))))
     def isRaw = parent.isRaw
     def isSimple = false
     def known(implicit env: Tenv) = args.forall(_.known) && parent.known
@@ -173,6 +176,30 @@ object Types {
     def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield GenericType(item,a,p)
     def raw = RawType(item,parent.raw)
   }
+
+  // Type arguments are either reference types or wildcards.  4.5.1
+  sealed trait TypeArg { // Inherited by RefType and Wildcard
+    def capture(): RefType // Capture conversion: the identity for RefType, and a fresh variable for wildcards.  5.1.10
+    def known(implicit env: Tenv): Boolean
+    def substitute(implicit env: Tenv): TypeArg
+    def safe: Option[TypeArg]
+  }
+  sealed trait Wildcard extends TypeArg {
+    val t: RefType
+    def known(implicit env: Tenv) = t.known
+  }
+  case class WildSub(t: RefType) extends Wildcard {
+    def capture() = ParamType(freshTypeParam(t))
+    def substitute(implicit env: Tenv) = WildSub(t.substitute)
+    def safe = t.safe map WildSub
+  }
+  case class WildSuper(t: RefType) extends Wildcard {
+    def capture() = notImplemented
+    def substitute(implicit env: Tenv) = WildSuper(t.substitute)
+    def safe = t.safe map WildSuper
+  }
+
+  // Nonclass reference types: null, type variables, intersection types, and arrays
   case object NullType extends RefType {
     def item = NoTypeItem
     def supers = Nil
@@ -287,8 +314,8 @@ object Types {
   def isSubitem(lo: Type, hi: TypeItem): Boolean = isSubitem(lo.item,hi)
   def isSubitem(lo: TypeItem, hi: TypeItem): Boolean = lo==hi || lo.supers.exists(isSubitem(_,hi))
 
-  // If lo <: hi, extract the type parameters
-  def subItemParams(lo: Type, hi: TypeItem): Option[List[RefType]] =
+  // If lo <: hi, extract the type arguments
+  def subItemParams(lo: Type, hi: TypeItem): Option[List[TypeArg]] =
     collectOne(supers(lo)){ case t:ClassType if t.item==hi => t.args }
 
   // Is a type throwable?
@@ -299,7 +326,7 @@ object Types {
     case ArrayType(t) => Some(t)
     case _ => subItemParams(i,IterableItem) match {
       case None => None
-      case Some(List(t)) => Some(t)
+      case Some(List(t)) => Some(t.capture())
       case _ => throw new RuntimeException("arity mismatch")
     }
   }
@@ -343,13 +370,9 @@ object Types {
   }
   def unboxesTo(from: Type, to: PrimType): Boolean = from==to.box
 
-  // Generic-related conversions: 5.1.9, 5.1.10
+  // Unchecked conversions: 5.1.9
   def uncheckedConvertsTo(from: Type, to: Type): Boolean = from==to.raw
   def widensRefUncheckedTo(from: RefType, to: RefType): Boolean = widensRefTo(from,to) || widensRefTo(from,to.raw)
-  def captureConvertsTo(from: Type, to: Type): Boolean = {
-    // TODO
-    false
-  }
 
   // Assignment contexts: 5.2
   def assignsTo(e: Exp, to: Type): Boolean =
