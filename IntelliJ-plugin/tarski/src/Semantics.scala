@@ -272,9 +272,9 @@ object Semantics {
     val t = typeOf(e)
     (t,toBoolean(t),toNumeric(t)) match {
       case (_,Some(_),_) => single(e, Pr.boolExp)
-      case (_,None,Some(_)) => single(BinaryExp(NeOp(), e, IntLit(0, "0")), Pr.insertComparison(t))
+      case (_,None,Some(_)) => single(BinaryExp(NeOp, e, IntLit(0, "0")), Pr.insertComparison(t))
       // TODO: all sequences should probably check whether they're empty (or null)
-      case (_:RefType,_,_) => single(BinaryExp(NeOp(), e, NullLit), Pr.insertComparison(t))
+      case (_:RefType,_,_) => single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
       case _ => fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
     }
   }

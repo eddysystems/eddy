@@ -377,17 +377,17 @@ class TestDen {
   @Test def sync() = testDen("synchronized null", SyncStmt(NullLit,HoleStmt))
 
   // inserting a cast to bool
-  @Test def insertIntComparison() = testDen("if 1 then;", IfStmt(BinaryExp(NeOp(),1,0), e))
+  @Test def insertIntComparison() = testDen("if 1 then;", IfStmt(BinaryExp(NeOp,1,0), e))
   @Test def insertRefTypeComparison() = {
-    val o = LocalVariableItem("o", ObjectType);
+    val o = LocalVariableItem("o", ObjectType)
     implicit val env = localEnvWithBase(List(o))
-    testDen("if o then;", IfStmt(BinaryExp(NeOp(),o,NullLit), e))
+    testDen("if o then;", IfStmt(BinaryExp(NeOp,o,NullLit), e))
   }
 
   @Test def shuffleArgs() = {
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
-    val f = StaticMethodItem("f", X, Nil, VoidType, List(SimpleClassType(X), DoubleType, StringType, BooleanType))
-    val x = LocalVariableItem("x", SimpleClassType(X))
+    val f = StaticMethodItem("f", X, Nil, VoidType, List(X.simple, DoubleType, StringType, BooleanType))
+    val x = LocalVariableItem("x", X.simple)
     val d = LocalVariableItem("d", DoubleType)
     val s = LocalVariableItem("s", StringType)
     val b = LocalVariableItem("b", BooleanType)
