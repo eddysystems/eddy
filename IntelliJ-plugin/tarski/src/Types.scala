@@ -33,6 +33,9 @@ object Types {
 
     // Make sure a type can be written safely in Java (converts nulltype to Object)
     def safe: Option[Type]
+
+    // If we're generic, become raw
+    def raw: Type
   }
   sealed abstract class LangType extends Type { // Primitive or void
     def item = LangTypeItem(this)
@@ -42,6 +45,7 @@ object Types {
     def known(implicit env: Tenv) = true
     def substitute(implicit env: Tenv): this.type = this
     def safe = Some(this)
+    def raw = this
   }
   case object VoidType extends LangType
 
@@ -90,6 +94,7 @@ object Types {
     def known(implicit env: Tenv): Boolean
     def substitute(implicit env: Tenv): Parent
     def safe: Option[Parent]
+    def raw: Parent // If we're generic, become raw
   }
   trait PackageParent extends Parent { // Exists so that we can seal Parent
     def item: PackageItem
@@ -99,12 +104,14 @@ object Types {
     def known(implicit env: Tenv) = true
     def substitute(implicit env: Tenv): this.type = this
     def safe = Some(this)
+    def raw = this
   }
 
   // Reference types
   sealed abstract class RefType extends Type {
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
+    def raw: RefType
   }
   sealed abstract class ClassType extends RefType with Parent {
     def item: ClassItem
@@ -116,6 +123,7 @@ object Types {
     def isFinal: Boolean = notImplemented
     def substitute(implicit env: Tenv): ClassType
     def safe: Option[ClassType]
+    def raw: ClassType
   }
   case object ObjectType extends ClassType {
     def item = ObjectItem
@@ -129,6 +137,7 @@ object Types {
     def known(implicit env: Tenv) = true
     def substitute(implicit env: Tenv): this.type = this
     def safe = Some(this)
+    def raw = this
   }
   case class SimpleType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
@@ -139,6 +148,7 @@ object Types {
     def known(implicit env: Tenv) = parent.known
     def substitute(implicit env: Tenv) = SimpleType(item,parent.substitute)
     def safe = parent.safe map (SimpleType(item,_))
+    def raw = SimpleType(item,parent.raw)
   }
   case class RawType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
@@ -148,6 +158,7 @@ object Types {
     def known(implicit env: Tenv) = parent.known
     def substitute(implicit env: Tenv) = RawType(item,parent.substitute)
     def safe = parent.safe map (RawType(item,_))
+    def raw = this
   }
   case class GenericType(item: ClassItem, args: List[RefType], parent: Parent) extends ClassType {
     def env = (item.params,args).zipped.foldLeft(parent.env)((env,p) => env+((p._1,Some(p._2))))
@@ -160,6 +171,7 @@ object Types {
       else RawType(item,p)
     }
     def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield GenericType(item,a,p)
+    def raw = RawType(item,parent.raw)
   }
   case object NullType extends RefType {
     def item = NoTypeItem
@@ -169,6 +181,7 @@ object Types {
     def known(implicit env: Tenv) = true
     def substitute(implicit env: Tenv): this.type = this
     def safe = Some(ObjectType) // nulltype becomes Object
+    def raw = this
   }
   case class ParamType(v: TypeParamItem) extends RefType {
     def item = v
@@ -182,6 +195,7 @@ object Types {
       case Some(None) => throw new RuntimeException("raw variable encountered in substitute")
     }
     def safe = Some(this)
+    def raw = throw new RuntimeException("should never happen")
   }
   case class IntersectType(ts: Set[RefType]) extends RefType {
     def item = NoTypeItem
@@ -191,6 +205,7 @@ object Types {
     def known(implicit env: Tenv) = ts forall (_.known)
     def substitute(implicit env: Tenv) = IntersectType(ts map (_.substitute))
     def safe = allSome(ts map (_.safe)) map IntersectType
+    def raw = IntersectType(ts map (_.raw))
   }
   case class ArrayType(t: Type) extends RefType {
     def item = ArrayItem
@@ -203,6 +218,7 @@ object Types {
     def known(implicit env: Tenv) = t.known
     def substitute(implicit env: Tenv) = ArrayType(t.substitute)
     def safe = t.safe map ArrayType
+    def raw = ArrayType(t.raw)
   }
 
   // Type environments
@@ -328,28 +344,25 @@ object Types {
   def unboxesTo(from: Type, to: PrimType): Boolean = from==to.box
 
   // Generic-related conversions: 5.1.9, 5.1.10
-  def uncheckedConvertsTo(from: Type, to: Type): Boolean = {
-    // TODO
-    false
-  }
+  def uncheckedConvertsTo(from: Type, to: Type): Boolean = from==to.raw
+  def widensRefUncheckedTo(from: RefType, to: RefType): Boolean = widensRefTo(from,to) || widensRefTo(from,to.raw)
   def captureConvertsTo(from: Type, to: Type): Boolean = {
     // TODO
     false
   }
 
   // Assignment contexts: 5.2
-  // TODO: Handle unchecked conversions
   def assignsTo(e: Exp, to: Type): Boolean =
-    typeAssignsTo(typeOf(e),to) || (to.unbox exists (constantFits(e,_)))
+    assignsTo(typeOf(e),to) || (to.unbox exists (constantFits(e,_)))
   def assignsTo(e: Option[Exp], to: Type): Boolean = e match {
     case None => to==VoidType
     case Some(e) => assignsTo(e,to)
   }
-  def typeAssignsTo(from: Type, to: Type): Boolean = {
+  def assignsTo(from: Type, to: Type): Boolean = {
     (from,to) match {
       case _ if from==to => true
       case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
-      case (f: RefType, t: RefType) => widensRefTo(f,t)
+      case (f: RefType, t: RefType) => widensRefUncheckedTo(f,t)
       case (f: PrimType, t: RefType) => widensRefTo(f.box,t)
       case (f: RefType, t: PrimType) => f.unbox match {
         case Some(fp) => widensPrimTo(fp,t)
@@ -359,7 +372,6 @@ object Types {
   }
 
   // Invocation contexts: 5.3
-  // TODO: Handle unchecked conversions
   def strictInvokeContext(from: Type, to: Type): Boolean = (from,to) match {
     case _ if from==to => true
     case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
@@ -369,7 +381,7 @@ object Types {
   def looseInvokeContext(from: Type, to: Type): Boolean = (from,to) match {
     case _ if from==to => true
     case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
-    case (f: RefType, t: RefType) => widensRefTo(f,t)
+    case (f: RefType, t: RefType) => widensRefUncheckedTo(f,t)
     case (f: PrimType, t: RefType) => widensRefTo(f.box,t)
     case (f: RefType, t: PrimType) => f.unbox match {
       case Some(fp) => widensPrimTo(fp,t)
@@ -473,7 +485,7 @@ object Types {
   // Is t0 op= t1 valid?
   def assignOpType(op: Option[AssignOp], t0: Type, t1: Type): Option[Type] = op match {
     case Some(op) => binaryType(op,t0,t1) filter (castsTo(_,t0))
-    case None => if (typeAssignsTo(t1,t0)) Some(t0) else None
+    case None => if (assignsTo(t1,t0)) Some(t0) else None
   }
 
   // Convenience functions for arrays

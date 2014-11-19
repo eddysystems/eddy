@@ -45,7 +45,6 @@ object Items {
     def item = this
     def qualifiedName = Some(qualified)
     def inside = this
-    def raw = this
     def simple = this
   }
 

@@ -414,7 +414,7 @@ object Semantics {
               (t match {
                 case Some(t) =>
                   val ta = arrays(t,n)
-                  if (typeAssignsTo(te,ta)) single(ta, Pr.forEachArray)
+                  if (assignsTo(te,ta)) single(ta, Pr.forEachArray)
                   else fail(s"$hole: can't assign ${show(te)} to ${show(ta)}")
                 case None =>
                   val ne = dimensions(te)
