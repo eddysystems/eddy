@@ -306,8 +306,8 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyNamedItem(i: NamedItem)(implicit env: Env): (Fixity,Tokens) = {
-    def relative(i: NamedItem with Member) =
+  implicit def prettyNamedItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
+    def relative(i: Item with Member) =
       if (env.itemInScope(i)) pretty(i.name) else (FieldFix, tokens(i.parent) ::: DotTok() :: tokens(i.name))
 
     i match {
@@ -320,7 +320,7 @@ object Pretty {
       case i: StaticMethodItem => relative(i)
 
       // Non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)
-      case i: NamedItem => pretty(i.name)
+      case i: Item => pretty(i.name)
     }
   }
 
@@ -342,7 +342,7 @@ object Pretty {
       if (env.itemInScope(t.item) && t.item.parent.inside==t.parent) ts
       else {
         val pp = t.parent match {
-          case p:PackageItem => pretty(p)
+          case p:PackageParent => pretty(p.item)
           case t:ClassType => cls(t)
         }
         (FieldFix, pp._2 ::: DotTok() :: ts._2)
@@ -353,8 +353,6 @@ object Pretty {
       case t: LangType => prettyLangType(t)
       // Reference types
       case NullType => pretty("nulltype")
-      case ObjectType => pretty("Object")
-      case ErrorType(n) => pretty(n)
       case t:ClassType => cls(t)
       case ParamType(x) => pretty(x)
       case IntersectType(ts) => pretty(AndList(ts.toList))
@@ -464,11 +462,5 @@ object Pretty {
     case StaticMethodDen(f) => pretty(f)
     case NewDen(f) => (ApplyFix,NewTok() :: tokens(f))
     case ForwardDen(f) => (HighestFix,List(ThisTok()))
-  }
-  implicit def prettyDen(d: Den)(implicit env: Env): (Fixity,Tokens) = d match {
-    case TypeDen(t) => prettyType(t)
-    case c: Callable => prettyCallable(c)
-    case s: Stmt => prettyStmt(s)
-    case e: Exp => prettyExp(e)
   }
 }

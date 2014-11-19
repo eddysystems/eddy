@@ -6,14 +6,8 @@ import tarski.Types._
 import ambiguity.Utility._
 
 object Denotations {
-
-  sealed abstract class Den
-
-  // Types
-  case class TypeDen(item: Type) extends Den
-
   // Callables
-  sealed abstract class Callable extends Den with Signature {
+  sealed abstract class Callable extends Signature {
     val f: CallableItem
   }
   sealed abstract class NonNewCallable extends Callable {
@@ -33,7 +27,7 @@ object Denotations {
   type VarDecl = (LocalVariableItem,Dims,Option[Exp]) // name,dims,init
 
   // Statements
-  sealed abstract class Stmt extends Den
+  sealed abstract class Stmt
   sealed trait ForInit
   case object EmptyStmt extends Stmt
   case object HoleStmt extends Stmt
@@ -55,7 +49,7 @@ object Denotations {
   case class SyncStmt(e: Exp, s: Stmt) extends Stmt
 
   // It's all expressions from here
-  sealed abstract class Exp extends Den
+  sealed abstract class Exp
 
   sealed abstract class Lit extends Exp
   case class ByteLit(b: Byte, text: String) extends Lit
@@ -105,7 +99,7 @@ object Denotations {
     case ParameterExp(i) => i.ty
     case LocalVariableExp(i) => i.ty
     case EnumConstantExp(i) => i.ty
-    case ThisExp(t) => t.ty
+    case ThisExp(t) => t.inside
     case SuperExp(ThisItem(c:NormalClassItem)) => c.base
     case SuperExp(_) => throw new RuntimeException("type error")
     case CastExp(t,_) => t
@@ -124,10 +118,10 @@ object Denotations {
       val t = typeOf(x)
       val fp = f.parent
       collectOne(supers(t)){
-        case t:ClassType if t.item==fp => substitute(f.ty)(t.env)
+        case t:ClassType if t.item==fp => f.inside.substitute(t.env)
       }.getOrElse(throw new RuntimeException(s"Field $f not found in $t"))
     }
-    case LocalFieldExp(f) => f.ty
+    case LocalFieldExp(f) => f.inside
     case StaticFieldExp(f) => f.ty
     case IndexExp(e,i) => typeOf(e) match {
       case ArrayType(t) => t

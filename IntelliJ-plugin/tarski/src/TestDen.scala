@@ -54,16 +54,16 @@ class TestDen {
   }
 
   // makes an env with a class X and a method void X.f(), which we are inside of
-  def localEnv(locals: List[NamedItem]): Env = {
+  def localEnv(locals: List[Item]): Env = {
     val X = NormalClassItem("X", LocalPkg, Nil)
     val f = MethodItem("f", X, Nil, VoidType, Nil)
-    Env(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[NamedItem,Int], f)
+    Env(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
   }
 
-  def localEnvWithBase(locals: List[NamedItem]): Env = {
+  def localEnvWithBase(locals: List[Item]): Env = {
     val X = NormalClassItem("X", LocalPkg, Nil)
     val f = MethodItem("f", X, Nil, VoidType, Nil)
-    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[NamedItem,Int]).move(f,inside_breakable=false,inside_continuable=false,Nil)
+    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int]).move(f,inside_breakable=false,inside_continuable=false,Nil)
   }
 
   @Test

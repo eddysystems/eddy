@@ -49,7 +49,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   // if the PSI referenced here changes, this map becomes useless (we can check with PsiElement.isValid())
   static final Object global_envitems_lock = new Object();
   static boolean global_envitems_ready = false;
-  static Map<PsiElement, NamedItem> global_envitems = null;
+  static Map<PsiElement, Item> global_envitems = null;
 
   // things that are in scope (not all these are accessible! things may be private, or not static while we are)
   private final List<ShadowElement<PsiPackage>> packages = new SmartList<ShadowElement<PsiPackage>>();
@@ -102,7 +102,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     throw new RuntimeException("unexpected container of " + cls + ": " + parent);
   }
 
-  private NamedItem addContainerToEnvMap(Map<PsiElement, NamedItem> envitems, PsiElement elem) {
+  private Item addContainerToEnvMap(Map<PsiElement, Item> envitems, PsiElement elem) {
     // local classes
     if (elem instanceof PsiMethod)
       return addMethodToEnvMap(envitems, (PsiMethod)elem);
@@ -120,7 +120,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return null;
   }
 
-  private TypeParamItem addTypeParameterToEnvMap(Map<PsiElement, NamedItem> envitems, PsiTypeParameter p) {
+  private TypeParamItem addTypeParameterToEnvMap(Map<PsiElement,Item> envitems, PsiTypeParameter p) {
     if (envitems.containsKey(p))
       return (TypeParamItem)envitems.get(p);
 
@@ -144,7 +144,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return ti;
   }
 
-  private TypeItem addClassToEnvMap(Map<PsiElement, NamedItem> envitems, PsiClass cls) {
+  private TypeItem addClassToEnvMap(Map<PsiElement,Item> envitems, PsiClass cls) {
     if (envitems.containsKey(cls))
       return (TypeItem)envitems.get(cls);
 
@@ -182,7 +182,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return item;
   }
 
-  private CallableItem addMethodToEnvMap(Map<PsiElement,NamedItem> envitems, PsiMethod method) {
+  private CallableItem addMethodToEnvMap(Map<PsiElement,Item> envitems, PsiMethod method) {
     // get type parameters
     List<TypeParamItem> jtparams = new ArrayList<TypeParamItem>();
     for (PsiTypeParameter tp : method.getTypeParameters()) {
@@ -225,7 +225,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return mitem;
   }
 
-  private Type convertType(Map<PsiElement,NamedItem> envitems, PsiType t) {
+  private Type convertType(Map<PsiElement, Item> envitems, PsiType t) {
     // TODO: Handle modifiers
     if (t instanceof PsiArrayType)
       return new ArrayType(convertType(envitems,((PsiArrayType)t).getComponentType()));
@@ -259,7 +259,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     throw new RuntimeException("Unknown type: " + t.getCanonicalText());
   }
 
-  private Value addFieldToEnvMap(Map<PsiElement, NamedItem> envitems, PsiField f) {
+  private Value addFieldToEnvMap(Map<PsiElement, Item> envitems, PsiField f) {
     if (envitems.containsKey(f))
       return (Value)envitems.get(f);
 
@@ -274,21 +274,21 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return v;
   }
 
-  private Map<PsiElement, NamedItem> getGlobalEnvItems() {
+  private Map<PsiElement, Item> getGlobalEnvItems() {
     if (global_envitems_ready) {
-      HashMap<PsiElement, NamedItem> newmap = new HashMap<PsiElement, NamedItem>();
+      HashMap<PsiElement, Item> newmap = new HashMap<PsiElement, Item>();
       newmap.putAll(global_envitems);
       return newmap;
     } else
-      return new HashMap<PsiElement, NamedItem>();
+      return new HashMap<PsiElement, Item>();
   }
 
-  private void updateGlobalEnvItems(Map<PsiElement, NamedItem> envitems) {
+  private void updateGlobalEnvItems(Map<PsiElement, Item> envitems) {
     // only the first one to call this function gets through
     boolean first = false;
     synchronized (global_envitems_lock) {
       if (global_envitems == null) {
-        global_envitems = new HashMap<PsiElement, NamedItem>();
+        global_envitems = new HashMap<PsiElement, Item>();
         first = true;
       }
     }
@@ -309,14 +309,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
    * Make the IntelliJ-independent class that is used by the tarksi engine to look up possible names
    */
   public Env getJavaEnvironment() {
-    Map<PsiElement, NamedItem> envitems = getGlobalEnvItems();
-    Map<NamedItem, Integer> localItems = new HashMap<NamedItem, Integer>();
+    Map<PsiElement, Item> envitems = getGlobalEnvItems();
+    Map<Item, Integer> localItems = new HashMap<Item, Integer>();
 
     // register locally visible items (each item will register things it contains, inherits from, etc.)
 
     for (ShadowElement<PsiPackage> spkg : packages) {
       final PsiPackage pkg = spkg.e;
-      NamedItem ipkg = addContainerToEnvMap(envitems, pkg);
+      Item ipkg = addContainerToEnvMap(envitems, pkg);
 
       localItems.put(ipkg,spkg.shadowingPriority);
 
@@ -328,7 +328,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
         // TODO: get type parameters etc
-      NamedItem icls = addClassToEnvMap(envitems, cls);
+      Item icls = addClassToEnvMap(envitems, cls);
       localItems.put(icls,scls.shadowingPriority);
 
       // if these items don't already exist, they can never shadow things
@@ -352,7 +352,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // register methods (also register types used in this method)
     for (ShadowElement<PsiMethod> smethod : methods) {
       final PsiMethod method = smethod.e;
-      NamedItem imethod = addMethodToEnvMap(envitems,method);
+      Item imethod = addMethodToEnvMap(envitems,method);
       localItems.put(imethod,smethod.shadowingPriority);
 
       // TODO: local classes may go here
@@ -362,12 +362,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiVariable> svar : variables) {
       final PsiVariable var = svar.e;
       if (var instanceof PsiField) {
-        NamedItem ivar = addFieldToEnvMap(envitems,(PsiField)var);
+        Item ivar = addFieldToEnvMap(envitems,(PsiField)var);
         localItems.put(ivar,svar.shadowingPriority);
       } else {
         assert !envitems.containsKey(var);
         Type t = convertType(envitems,var.getType());
-        NamedItem i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
+        Item i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
                     : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
                     : null;
         if (i == null)
@@ -382,7 +382,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // update the global map if needed
     updateGlobalEnvItems(envitems);
 
-    List<NamedItem> items = new ArrayList<NamedItem>(envitems.values());
+    List<Item> items = new ArrayList<Item>(envitems.values());
 
     // find out which element we are inside (method, class or interface, or package)
     PlaceItem placeItem = null;

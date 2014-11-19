@@ -13,7 +13,6 @@ import tarski.Pretty._
 import ambiguity.Utility._
 
 object Semantics {
-
   // Literals
   def denoteLit(x: ALit): Scored[Lit] = {
     def under(v: String): String = v.replaceAllLiterally("_","")
@@ -82,12 +81,12 @@ object Semantics {
   }
 
   // Are we contained in the given type, or in something contained in the given type?
-  def containedIn(i: NamedItem, t: TypeItem): Boolean = i match {
+  def containedIn(i: Item, t: TypeItem): Boolean = i match {
     case f: Member => f.parent == t || containedIn(f.parent,t)
     case _ => false
   }
 
-  def denoteField[ItemKind <: NamedItem with ClassMember,FieldDen <: Den]
+  def denoteField[ItemKind <: Item with ClassMember,FieldDen]
                  (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
                   superFieldProb: (Probs[Exp],TypeItem,ItemKind) => Prob,
                   shadowedFieldProb: (Probs[Exp],Exp,TypeItem,ItemKind) => Prob,
@@ -215,8 +214,8 @@ object Semantics {
         })
         if (!hasDims(ft,n)) fail(show(e)+s": expected >= $n dimensions, got ${dimensions(ft)}")
         else {
-          val filtered = xsl map (_ flatMap {x => unbox(typeOf(x)) match {
-            case Some(p: PrimType) if promote(p) == IntType => single(x, Pr.indexCallExp(xsn, around))
+          val filtered = xsl map (_ flatMap {x => typeOf(x).unboxIntegral match {
+            case Some(p) if promote(p) == IntType => single(x, Pr.indexCallExp(xsn, around))
             case _ => fail(s"Index ${show(x)} doesn't convert to int")
           }})
           for (xl <- product(filtered)) yield xl.foldLeft(f)(IndexExp)
@@ -270,13 +269,11 @@ object Semantics {
   // Expressions with type restrictions
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     val t = typeOf(e)
-    (t,toBoolean(t),toNumeric(t)) match {
-      case (_,Some(_),_) => single(e, Pr.boolExp)
-      case (_,None,Some(_)) => single(BinaryExp(NeOp, e, IntLit(0, "0")), Pr.insertComparison(t))
-      // TODO: all sequences should probably check whether they're empty (or null)
-      case (_:RefType,_,_) => single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
-      case _ => fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
-    }
+    if (t.unboxesToBoolean) single(e, Pr.boolExp)
+    else if (t.unboxesToNumeric) single(BinaryExp(NeOp, e, IntLit(0, "0")), Pr.insertComparison(t))
+    // TODO: all sequences should probably check whether they're empty (or null)
+    else if (t.isInstanceOf[RefType]) single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
+    else fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
   }
   def denoteNonVoid(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     if (typeOf(e) != VoidType) single(e, Pr.nonVoidExp)
@@ -347,7 +344,7 @@ object Semantics {
               product(env.newVariable(v,tk),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
                 define(env,ds) flatMap {case (env,ds) => single((env,(v,k,i)::ds), Pr.varDecl)}}
           }
-          val st = safe(t)
+          val st = t.safe
           if (st.isDefined)
             define(env,ds.list) flatMap {case (env,ds) => single((env,VarStmt(st.get,ds)), Pr.varStmt) }
           else
@@ -356,7 +353,7 @@ object Semantics {
       case ExpAStmt(e) => {
         val exps = denoteExp(e) flatMap { e => single((env,ExpStmt(e)), Pr.expStmt) }
         val stmts = e match {
-          case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => safe(typeOf(y)) match {
+          case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => typeOf(y).safe match {
             case Some(t) => env.newVariable(x,t) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
             case None => fail(s"expression $y does not return anything usable (${typeOf(y)})")
           }}

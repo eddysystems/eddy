@@ -38,7 +38,7 @@ object Inference {
     }
     case IntersectType(ts) => ts exists (occurs(s,_))
     case ParamType(t) => s == t
-    case NullType|_:ErrorType => false
+    case NullType => false
   }
 
   // Is an inference variable fixed yet?
@@ -56,13 +56,13 @@ object Inference {
     }
     case IntersectType(ts) => ts flatMap (vars(bs,_))
     case ParamType(v) => Set(v)
-    case NullType|_:ErrorType => Set()
+    case NullType => Set()
   }
 
   // Incorporate bounds: 18.3
   def matchSupers(bs: Bounds, s: RefType, t: RefType): Option[Bounds] = {
-    val sg = supers(s).toList collect {case g:GenericClassType => g}
-    val tg = supers(t).toList collect {case g:GenericClassType => g}
+    val sg = supers(s).toList collect {case g:GenericType => g}
+    val tg = supers(t).toList collect {case g:GenericType => g}
     log(s"matchSupers: bs $bs, s $s, t $t, sg $sg, tg $tg")
     forms(bs,sg)((bs,sg) => forms(bs,tg)((bs,tg) =>
       if (sg.item == tg.item) forms(bs,sg.args,tg.args)(equalForm)
@@ -101,9 +101,9 @@ object Inference {
         def sub(bs: Bounds, ub: (Var,Bound)): Option[Bounds] = {
           val (u,b) = ub
           b match {
-            case Fixed(v) => incorporateEqual(bs,u,substitute(v))
-            case Bounded(lo,hi) => forms(bs,lo.toList)((bs,t) => incorporateSub(bs,substitute(t),u))
-              .flatMap(forms(_ ,hi.toList)((bs,t) => incorporateSub(bs,u,substitute(t))))
+            case Fixed(v) => incorporateEqual(bs,u,v.substitute)
+            case Bounded(lo,hi) => forms(bs,lo.toList)((bs,t) => incorporateSub(bs,t.substitute,u))
+              .flatMap(forms(_ ,hi.toList)((bs,t) => incorporateSub(bs,u,t.substitute)))
           }
         }
         forms(bs2,bs2.toList)(sub)
@@ -118,10 +118,10 @@ object Inference {
     case ArrayType(t) => isProper(bs,t)
     case IntersectType(ts) => ts forall (isProper(bs,_))
     case ParamType(v) => !bs.contains(v)
-    case NullType|_:ErrorType|_:LangType => true
+    case NullType|_:LangType => true
   }
   def isProper(bs: Bounds, t: Parent): Boolean = t match {
-    case _:PackageItem => true
+    case _:PackageParent => true
     case t:ClassType => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent)
   }
 
@@ -132,8 +132,8 @@ object Inference {
       if (looseInvokeContext(s,t)) Some(bs) else fail(s"compatForm: proper $s -> $t invalid")
     else (s,t) match {
       case (VoidType,_)|(_,VoidType) => fail("compatForm: void invalid")
-      case (s:PrimType,t) => compatForm(bs,box(s),t)
-      case (s:RefType,t:PrimType) => equalForm(bs,s,box(t))
+      case (s:PrimType,t) => compatForm(bs,s.box,t)
+      case (s:RefType,t:PrimType) => equalForm(bs,s,t.box)
       // TODO: Handle raw type cases (bullets 4 and 5 in 18.2.2)
       case (s:RefType,t:RefType) => subForm(bs,s,t)
     }
@@ -149,8 +149,8 @@ object Inference {
       case (_,NullType) => fail(s"subForm: $s !<: nulltype")
       case (ParamType(s),t) if bs contains s => incorporateSub(bs,s,t)
       case (s,ParamType(t)) if bs contains t => incorporateSub(bs,s,t)
-      case (s,t:GenericClassType) => supers(s)
-        .collect({case ss: GenericClassType if ss.parent == t.parent => ss})
+      case (s,t:GenericType) => supers(s)
+        .collect({case ss: GenericType if ss.parent == t.parent => ss})
         .headOption
         .flatMap(ss => forms(bs,ss.args,t.args)(containForm))
       case (s,_:ClassType) =>
@@ -182,7 +182,7 @@ object Inference {
     else (s,t) match {
       case (ParamType(s),t) if bs contains s => incorporateEqual(bs,s,t)
       case (s,ParamType(t)) if bs contains t => incorporateEqual(bs,t,s)
-      case (s:GenericClassType,t:GenericClassType) =>
+      case (s:GenericType,t:GenericType) =>
         if (s.parent == t.parent) forms(bs,s.args,t.args)(equalForm) else fail(s"equalForm: class ${s.parent} != ${t.parent}")
       case (ArrayType(s),ArrayType(t)) => equalFormArbitrary(bs,s,t)
       case _ => fail(s"equalForm: skipping $s, $t") // IntersectType intentionally skipped as per spec
@@ -233,7 +233,7 @@ object Inference {
         case t: RefType => clean(t)
         case _ => true
       }
-      case NullType|_:ErrorType => true
+      case NullType => true
     }
     ps.map(v => bs(v) match {
       case Fixed(t) => assert(clean(t)); t

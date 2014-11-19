@@ -14,8 +14,8 @@ object Environment {
   /**
    * The environment used for name resolution
    */
-  case class Env(allthings: List[NamedItem],
-                 inScope: Map[NamedItem,Int] = Map(),
+  case class Env(allthings: List[Item],
+                 inScope: Map[Item,Int] = Map(),
                  place: PlaceItem = Base.LocalPkg,
                  inside_breakable: Boolean = false,
                  inside_continuable: Boolean = false,
@@ -28,7 +28,7 @@ object Environment {
     val things = allthings.filterNot( _.isInstanceOf[NoLookupItem] )
 
     // Add objects (while filling environment)
-    def addObjects(xs: List[NamedItem], is: Map[NamedItem,Int]): Env = {
+    def addObjects(xs: List[Item], is: Map[Item,Int]): Env = {
       // TODO: this is quadratic time
       // TODO: filter identical things (like java.lang.String)
       Env(allthings ++ xs, inScope ++ is, place)
@@ -39,7 +39,7 @@ object Environment {
       Env(allthings, things.map(i => (i,1)).toMap)
 
     // Add local objects (they all appear in inScope with priority 1)
-    def addLocalObjects(xs: List[NamedItem]): Env = {
+    def addLocalObjects(xs: List[Item]): Env = {
       Env(allthings ++ xs, inScope ++ xs.map((_,1)).toMap, place)
     }
 
@@ -84,7 +84,7 @@ object Environment {
     }
 
     // Check if an item is in scope and not shadowed by another item
-    def itemInScope(i: NamedItem): Boolean =
+    def itemInScope(i: Item): Boolean =
       inScope.contains(i) && !inScope.exists { case (ii,p) => p < inScope.get(i).get && i.name == ii.name }
 
     // Enter a new block scope
@@ -150,14 +150,14 @@ object Environment {
     case f: ClassMember => {
       def p = f.parent
       collectOne(supers(t)){
-        case t:ClassType if t.item==p => substitute(f.inside)(t.env)
+        case t:ClassType if t.item==p => f.inside.substitute(t.env)
       }.getOrElse(throw new RuntimeException("typeIn didn't find parent"))
     }
     case _ => throw new RuntimeException("typeIn didn't find parent")
   }
 
   // Does an item declare a member of the given name
-  def declaresName(i: NamedItem, name: Name)(implicit env: Env): Boolean = {
+  def declaresName(i: Item, name: Name)(implicit env: Env): Boolean = {
     env.things.exists({ case f: Member if f.parent == i && f.name == name => true; case _ => false })
   }
 
@@ -171,7 +171,7 @@ object Environment {
           case _ => false
         }
       }
-      case PackageItem(_,_) => false // member of package, no subtypes of packages, we're safe
+      case _:PackageItem => false // member of package, no subtypes of packages, we're safe
       case v: Value => throw new RuntimeException(s"container of $i cannot be a value: $v")
       case _ => notImplemented // TODO: there can be local classes in methods
     }

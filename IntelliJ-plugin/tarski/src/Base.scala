@@ -19,7 +19,7 @@ object Base {
     val T = TypeParamItem("T")
     NormalInterfaceItem("Comparable",JavaLangPkg,List(T))
   }
-  private def comparable(t: RefType): ClassType = GenericClassType(ComparableItem,List(t),JavaLangPkg)
+  private def comparable(t: RefType): ClassType = GenericType(ComparableItem,List(t),JavaLangPkg)
 
   // Class Enum
   object EnumBaseItem extends ClassItem {
@@ -76,27 +76,37 @@ object Base {
     def name = "Boolean"
     def base = ObjectType
     def implements = List(comparable(inside),SerializableType)
+    override def unbox = Some(BooleanType)
+    override def unboxesToBoolean = true
   }
   object CharacterItem extends SimpleClassItem {
     def name = "Character"
     def base = ObjectType
     def implements = List(comparable(inside),SerializableType)
+    override def unbox = Some(CharType)
+    override def unboxNumeric = Some(CharType)
+    override def unboxIntegral = Some(CharType)
   }
   object NumberItem extends SimpleClassItem {
     def name = "Number"
     def base = ObjectType
     def implements = List(SerializableType)
   }
-  sealed abstract class NumberClassItem(val name: Name) extends SimpleClassItem {
+  sealed abstract class NumberClassItem(val name: Name, val ty: NumType) extends SimpleClassItem {
     def base = NumberItem.simple
     def implements = List(comparable(inside),SerializableType)
+    override def unbox = Some(ty)
+    override def unboxNumeric = Some(ty)
   }
-  object ByteItem    extends NumberClassItem("Byte")
-  object ShortItem   extends NumberClassItem("Short")
-  object IntegerItem extends NumberClassItem("Integer")
-  object LongItem    extends NumberClassItem("Long")
-  object FloatItem   extends NumberClassItem("Float")
-  object DoubleItem  extends NumberClassItem("Double")
+  sealed abstract class IntegralClassItem(name: Name, override val ty: IntegralType) extends NumberClassItem(name,ty) {
+    override def unboxIntegral = Some(ty)
+  }
+  object ByteItem    extends NumberClassItem("Byte",ByteType)
+  object ShortItem   extends NumberClassItem("Short",ShortType)
+  object IntegerItem extends NumberClassItem("Integer",IntType)
+  object LongItem    extends NumberClassItem("Long",LongType)
+  object FloatItem   extends NumberClassItem("Float",FloatType)
+  object DoubleItem  extends NumberClassItem("Double",DoubleType)
 
   object ubVoidItem    extends LangTypeItem(VoidType)
   object ubBooleanItem extends LangTypeItem(BooleanType)

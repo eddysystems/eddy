@@ -27,19 +27,19 @@ class TestInfer {
   def simpleObject() = testInfer(T -> ObjectType)(T)(ObjectType)
 
   @Test
-  def simpleInteger() = testInfer(T -> IntRefType)(T)(IntRefType)
+  def simpleInteger() = testInfer(T -> IntType.box)(T)(IntType.box)
 
   @Test
-  def simpleInt() = testInfer(T -> IntRefType)(T)(IntType)
+  def simpleInt() = testInfer(T -> IntType.box)(T)(IntType)
 
   @Test
-  def lubIntegerFloat() = testInfer(T -> NumberItem)(T,T)(IntRefType,FloatRefType)
+  def lubIntegerFloat() = testInfer(T -> NumberItem)(T,T)(IntType.box,FloatType.box)
 
   @Test
-  def lubIntFloat() = testInfer(T -> NumberItem)(T,T)(IntType,FloatRefType)
+  def lubIntFloat() = testInfer(T -> NumberItem)(T,T)(IntType,FloatType.box)
 
   @Test
-  def intFail() = testInferFail()(IntRefType)(NumberItem)
+  def intFail() = testInferFail()(IntType.box)(NumberItem)
 
   @Test
   def simpleNull() = testInfer(T -> ObjectType)(T)(NullType)
