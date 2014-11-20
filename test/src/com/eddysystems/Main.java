@@ -4,6 +4,11 @@ package com.eddysystems;
 import java.util.Base64;
 import java.util.Map;
 
+class A<E,F> {
+}
+
+class B extends A<Integer,Float> {
+}
 
 public class Main {
 
