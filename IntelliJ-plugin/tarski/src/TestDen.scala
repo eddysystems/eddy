@@ -190,7 +190,7 @@ class TestDen {
 
   @Test
   def genericConsObject(): Unit = {
-    val T = TypeParamItem("T")
+    val T = new TypeParamItem("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,Nil,List(ParamType(T)))
     implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))

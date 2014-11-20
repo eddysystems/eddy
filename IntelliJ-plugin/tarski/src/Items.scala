@@ -1,5 +1,6 @@
 package tarski
 
+import org.jetbrains.annotations.TestOnly
 import tarski.AST._
 import tarski.Types._
 import tarski.Base.{JavaLangPkg,EnumBaseItem,SerializableItem,CloneableItem}
@@ -26,8 +27,10 @@ object Items {
   }
 
   // Type parameters
-  case class TypeParamItem(name: String, base: ClassType = ObjectType, implements: List[ClassType] = Nil)
-    extends TypeItem with NoLookupItem {
+  class TypeParamItem(val name: String) extends TypeItem with NoLookupItem {
+    def base: ClassType = ObjectType
+    def implements: List[ClassType] = Nil
+
     def qualifiedName = None
     def supers = base :: implements
     def simple = ParamType(this)
@@ -78,6 +81,7 @@ object Items {
   abstract class ClassItem extends RefTypeItem with ParentItem {
     def parent: ParentItem
     def isClass: Boolean // true for class, false for interface
+    def isEnum: Boolean // true for descendants of Enum<E>
     def base: ClassType
     def implements: List[ClassType]
     def supers = base :: implements
@@ -99,7 +103,7 @@ object Items {
     // Convert to a type valid anywhere, bailing if type parameters are required
     def simple: SimpleType =
       if (arity == 0) SimpleType(this,parent.inside)
-      else throw new RuntimeException("class isn't simple")
+      else throw new RuntimeException(s"class $name isn't simple (has args $params)")
 
     // Convert to a simple or raw type (valid anywhere)
     def raw: ClassType = {
@@ -117,13 +121,45 @@ object Items {
       if (arity == 0) SimpleType(this,par)
       else GenericType(this,args,par)
     }
+
+    @TestOnly
     def generic(args: List[RefType]): ClassType = generic(args,parent.simple)
+  }
+
+  class ClassItemMaker(val name: Name, val parent: ParentItem, var params: List[TypeParamItem], val isClass: Boolean, val isEnum: Boolean) extends ClassItem {
+    // these can be filled in later
+    var base: ClassType = ObjectType
+    var implements: List[ClassType] = Nil
+    var done: Boolean = false
+
+    override def generic(args: List[RefType], par: Parent): ClassType = if (done) super.generic(args, par) else inside
+
+    def set(base: ClassType, implements: List[ClassType]): Unit = {
+      this.base=base
+      this.implements = implements
+      this.done = true
+    }
+  }
+
+  class TypeParamItemMaker(name: Name) extends TypeParamItem(name) {
+    var _base: ClassType = ObjectType
+    var _implements: List[ClassType] = Nil
+    override def base = _base
+    override def implements = _implements
+    var done: Boolean = false
+
+    def set(base: ClassType, implements: List[ClassType]): Unit = {
+      _base=base
+      _implements = implements
+      this.done = true
+    }
   }
 
   case object ObjectItem extends ClassItem {
     def name = "Object"
     def parent = JavaLangPkg
     def isClass = true
+    def isEnum = false
     def params = Nil
     override def base = throw new RuntimeException("Object has no base")
     def implements = Nil
@@ -136,20 +172,30 @@ object Items {
       ObjectType
     }
   }
+
+  @TestOnly
   case class NormalInterfaceItem(name: Name, parent: ParentItem, params: List[TypeParamItem] = Nil,
                                  implements: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
     def isClass = false
+    def isEnum = false
   }
+
+  @TestOnly
   case class NormalClassItem(name: Name, parent: ParentItem, params: List[TypeParamItem],
                              base: ClassType = ObjectType, implements: List[ClassType] = Nil) extends ClassItem {
     def isClass = true
+    def isEnum = false
   }
+
+  @TestOnly
   case class EnumItem(name: Name, parent: ParentItem, implements: List[ClassType]) extends ClassItem {
     def isClass = true
+    def isEnum = true
     def params = Nil
     def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
   }
+
   case object ArrayItem extends RefTypeItem with NoLookupItem {
     def name = "Array"
     override def qualifiedName = None

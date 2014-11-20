@@ -9,10 +9,10 @@ import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
-import org.apache.commons.lang.NotImplementedException;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.NotImplementedError;
 import scala.collection.JavaConversions;
 import tarski.Environment.Env;
 import tarski.Items.*;
@@ -124,6 +124,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (envitems.containsKey(p))
       return (TypeParamItem)envitems.get(p);
 
+    // Add maker here to break recursion
+    TypeParamItemMaker ti = new TypeParamItemMaker(p.getName());
+    envitems.put(p,ti);
+
     PsiClassType[] extended = p.getExtendsList().getReferencedTypes();
     List<ClassType> etypes = new SmartList<ClassType>();
     for (PsiClassType e : extended) {
@@ -133,14 +137,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       assert !extended[i].resolve().isInterface();
     }
 
-    TypeParamItem ti;
-
     if (etypes.isEmpty())
-      ti = new TypeParamItem(p.getName(), ObjectType$.MODULE$, JavaConversions.asScalaBuffer(etypes).toList());
+      ti.set(ObjectType$.MODULE$, JavaConversions.asScalaBuffer(etypes).toList());
     else
-      ti = new TypeParamItem(p.getName(), etypes.get(0), JavaConversions.asScalaBuffer(etypes.subList(1,etypes.size())).toList());
+      ti.set(etypes.get(0), JavaConversions.asScalaBuffer(etypes.subList(1,etypes.size())).toList());
 
-    envitems.put(p, ti);
     return ti;
   }
 
@@ -148,41 +149,55 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (envitems.containsKey(cls))
       return (TypeItem)envitems.get(cls);
 
+    if (cls instanceof PsiTypeParameter)
+      return addTypeParameterToEnvMap(envitems, (PsiTypeParameter)cls);
+
     // java.lang.Object is special
     if (cls.getQualifiedName() != null && cls.getQualifiedName().equals("java.lang.Object")) {
       envitems.put(cls, ObjectItem$.MODULE$);
       return ObjectItem$.MODULE$;
     }
 
+    PsiElement celem = containing(cls);
+    ParentItem container = celem != null ? (ParentItem)addContainerToEnvMap(envitems,celem) : Tarski.localPkg();
+
+    // Type parameters
+    ArrayList<TypeParamItem> j_params = new ArrayList<TypeParamItem>();
+    for (PsiTypeParameter tp: cls.getTypeParameters()) {
+      j_params.add(addTypeParameterToEnvMap(envitems, tp));
+    }
+    scala.collection.immutable.List<TypeParamItem> params = JavaConversions.asScalaBuffer(j_params).toList();
+
+    // maybe we just added ourselves by adding the container or the type parameters
+    if (envitems.containsKey(cls))
+      return (TypeItem)envitems.get(cls);
+
+    ClassItemMaker ci = new ClassItemMaker(cls.getName(), container, params, !cls.isInterface(), cls.isEnum());
+    envitems.put(cls,ci);
+
     // Base
     // TODO: Handle generics
     PsiClass scls = cls.getSuperClass();
     assert scls != null;
-    ClassType base = (ClassType)tarski.Tarski.toType(addClassToEnvMap(envitems, scls));
-
-    // Type parameters
-    // TODO: Handle generics
-    ArrayList<TypeParamItem> j_params = new ArrayList<TypeParamItem>();
-    scala.collection.immutable.List<TypeParamItem> params = JavaConversions.asScalaBuffer(j_params).toList();
+    // TODO: get actual type arguments for scls and make generic class
+    ClassType base = (ClassType)addClassToEnvMap(envitems, scls).raw();
 
     // Interfaces
     ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
     for (PsiClass i : cls.getInterfaces()) {
       // TODO: Handle generics
-      j_interfaces.add(((ClassItem)addClassToEnvMap(envitems,i)).simple());
+      j_interfaces.add(((ClassItem)addClassToEnvMap(envitems,i)).raw());
     }
     scala.collection.immutable.List<ClassType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
 
-    PsiElement celem = containing(cls);
-    ParentItem container = celem != null ? (ParentItem)addContainerToEnvMap(envitems,celem) : Tarski.localPkg();
-    TypeItem item = cls.isInterface() ? new NormalInterfaceItem(cls.getName(),container,params,interfaces)
-                  : cls.isEnum()      ? new EnumItem(cls.getName(),container,interfaces)
-                                      : new NormalClassItem(cls.getName(),container,params,base,interfaces);
-    envitems.put(cls,item);
-    return item;
+    ci.set(base, interfaces);
+    return ci;
   }
 
   private CallableItem addMethodToEnvMap(Map<PsiElement,Item> envitems, PsiMethod method) {
+    if (envitems.containsKey(method))
+      return (CallableItem)envitems.get(method);
+
     // get type parameters
     List<TypeParamItem> jtparams = new ArrayList<TypeParamItem>();
     for (PsiTypeParameter tp : method.getTypeParameters()) {
@@ -191,9 +206,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     scala.collection.immutable.List<TypeParamItem> tparams = scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
 
     // get argument types
-    List<Type> params = new SmartList<Type>();
+    List<Type> jparams = new SmartList<Type>();
     for (PsiParameter p : method.getParameterList().getParameters())
-      params.add(convertType(envitems,p.getType()));
+      jparams.add(convertType(envitems,p.getType()));
+    scala.collection.immutable.List<Type> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
     // get class
     PsiClass cls = method.getContainingClass();
@@ -206,19 +222,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     CallableItem mitem;
     if (method.isConstructor()) {
       // TODO: varargs
-      // TODO: get type parameters
-      // TODO: what to do with parameters depending on type parameters and bounded types and such?
-      mitem = new ConstructorItem(clsitem, tparams, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+      mitem = new ConstructorItem(clsitem, tparams, params);
     } else {
       // TODO: varargs
-      // TODO: get type parameters
-      // TODO: what to do with parameters depending on type parameters and bounded types and such?
       Type rtype = convertType(envitems, method.getReturnType());
 
       if (method.hasModifierProperty(PsiModifier.STATIC))
-        mitem = new StaticMethodItem(method.getName(), clsitem, tparams, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new StaticMethodItem(method.getName(), clsitem, tparams, rtype, params);
       else
-        mitem = new MethodItem(method.getName(), clsitem, tparams, rtype, scala.collection.JavaConversions.asScalaBuffer(params).toList());
+        mitem = new MethodItem(method.getName(), clsitem, tparams, rtype, params);
     }
 
     envitems.put(method, mitem);
@@ -230,6 +242,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (t instanceof PsiArrayType)
       return new ArrayType(convertType(envitems,((PsiArrayType)t).getComponentType()));
 
+    if (t instanceof PsiWildcardType) {
+      // TODO: need proper wildcard expressions
+      PsiType bound = ((PsiWildcardType) t).getBound();
+      if (bound != null)
+        return convertType(envitems, bound);
+      else
+        return ObjectType$.MODULE$;
+    }
+
     // classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
     if (t instanceof PsiClassType) {
       PsiClass tcls = ((PsiClassType)t).resolve();
@@ -239,14 +260,35 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         throw new RuntimeException("Cannot resolve " + t);
       } else if (tcls instanceof PsiTypeParameter) {
         return new ParamType(addTypeParameterToEnvMap(envitems, (PsiTypeParameter)tcls));
-      } else if (tcls.isInterface()) {
-        // TODO: Handle generics
-        return ((ClassItem)addClassToEnvMap(envitems,tcls)).simple();
       } else {
-        // TODO: Handle generics
-        return tarski.Tarski.toType(addClassToEnvMap(envitems,tcls));
+        List<RefType> jparams = new SmartList<RefType>();
+        for (PsiType tp : ((PsiClassType)t).getParameters()) {
+          jparams.add((RefType)convertType(envitems, tp));
+        }
+        scala.collection.immutable.List<RefType> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
+
+        logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
+
+        ClassItem item = (ClassItem)addClassToEnvMap(envitems,tcls);
+
+        logger.debug("  item: " + item + ": params " + item.params().mkString("[",",","]"));
+
+        assert params.size() == ((PsiClassType)t).getParameterCount();
+        assert params.nonEmpty() == ((PsiClassType)t).hasParameters();
+
+        if (params.nonEmpty()) {
+          Item container = addContainerToEnvMap(envitems, containing(tcls));
+          assert container instanceof ParentItem;
+          return item.generic(params, ((ParentItem)container).inside());
+        } else if (item.arity() > 0) {
+          // This happens. For instance in java.lang.SecurityManager.getClassContext()
+          return item.raw();
+        } else {
+          return item.simple();
+        }
       }
     }
+
     if (t == PsiType.BOOLEAN) return BooleanType$.MODULE$;
     if (t == PsiType.INT)     return IntType$.MODULE$;
     if (t == PsiType.BYTE)    return ByteType$.MODULE$;
@@ -256,7 +298,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (t == PsiType.LONG)    return LongType$.MODULE$;
     if (t == PsiType.SHORT)   return ShortType$.MODULE$;
     if (t == PsiType.VOID)    return VoidType$.MODULE$;
-    throw new RuntimeException("Unknown type: " + t.getCanonicalText());
+
+    throw new NotImplementedError("Unknown type: " + t.getCanonicalText() + " type " + t.getClass().getCanonicalName());
   }
 
   private Value addFieldToEnvMap(Map<PsiElement, Item> envitems, PsiField f) {
@@ -371,7 +414,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
                     : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
                     : null;
         if (i == null)
-          throw new NotImplementedException("Unknown variable: " + var);
+          throw new scala.NotImplementedError("Unknown variable: " + var);
 
         // actually add to envitems map
         envitems.put(var, i);
