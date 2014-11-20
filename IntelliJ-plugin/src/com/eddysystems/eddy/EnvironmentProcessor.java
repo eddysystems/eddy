@@ -17,6 +17,7 @@ import scala.collection.JavaConversions;
 import tarski.Environment.Env;
 import tarski.Items.*;
 import tarski.Types.*;
+import tarski.Makers.*;
 import tarski.Tarski;
 
 import java.util.ArrayList;
