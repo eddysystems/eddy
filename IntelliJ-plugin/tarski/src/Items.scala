@@ -30,7 +30,6 @@ object Items {
   class TypeParamItem(val name: String) extends TypeItem with NoLookupItem {
     def base: ClassType = ObjectType
     def implements: List[ClassType] = Nil
-
     def qualifiedName = None
     def supers = base :: implements
     def simple = ParamType(this)
@@ -41,6 +40,12 @@ object Items {
       case Some(None) => false // We're raw, and therefore not known
       case _ => true
     }
+  }
+  private var next = 0
+  def freshTypeParam(base: RefType) = {
+    val full = "T$"+next
+    next += 1
+    new TypeParamItem(full,base)
   }
 
   // Packages
@@ -75,7 +80,7 @@ object Items {
     def params: List[TypeParamItem]
     def arity: Int = params.size
     def raw: ClassType
-    def generic(args: List[RefType], parent: Parent): ClassType
+    def generic(args: List[TypeArg], parent: Parent): ClassType
   }
 
   abstract class ClassItem extends RefTypeItem with ParentItem {
@@ -113,7 +118,7 @@ object Items {
     }
 
     // Convert to a type valid anywhere
-    def generic(args: List[RefType], par: Parent): ClassType = {
+    def generic(args: List[TypeArg], par: Parent): ClassType = {
       if (par.item != parent)
         throw new RuntimeException(s"parent mismatch: expected $parent, got $par}")
       if (arity != args.size)
@@ -166,7 +171,7 @@ object Items {
     override def supers = Nil
     override val inside = ObjectType
     override def raw = ObjectType
-    override def generic(args: List[RefType], par: Parent) = {
+    override def generic(args: List[TypeArg], par: Parent) = {
       if (par.item != parent) throw new RuntimeException(s"parent mismatch: expected $parent, got $par}")
       if (args.nonEmpty) throw new RuntimeException("Object takes no arguments")
       ObjectType
@@ -206,7 +211,7 @@ object Items {
     def inside = error
     def raw = error
     def simple = error
-    def generic(args: List[RefType], parent: Parent) = error
+    def generic(args: List[TypeArg], parent: Parent) = error
   }
   case object NoTypeItem extends TypeItem {
     def name = "NoTypeItem"

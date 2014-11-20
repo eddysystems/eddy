@@ -2,6 +2,7 @@ package tarski
 
 import tarski.Items.{PackageItem, TypeParamItem}
 import tarski.Types._
+import ambiguity.Utility._
 
 // TODO: Handle infinite types correctly.  Some useful examples are here:
 // http://stackoverflow.com/questions/3451519/when-does-java-type-inference-produce-an-infinite-type
@@ -17,7 +18,7 @@ object Inference {
 
   // Debugging support
   private def log(s: => String): Unit =
-    if (false) println(s)
+    if (true) println(s)
   private def fail(s: => String): Option[Bounds] = {
     if (false) println("fail: "+s)
     if (false) throw new RuntimeException("fail: "+s)
@@ -30,7 +31,7 @@ object Inference {
     vs.map(v => (v,Bounded(Set(),Set(ObjectType)))).toMap
 
   // TODO: Not sure what I'm actually supposed to do if occurs checks fail
-  def occurs(s: Var, t: RefType): Boolean = t match {
+  def occurs(s: Var, t: TypeArg): Boolean = t match {
     case t:ClassType => t.args exists (occurs(s,_))
     case ArrayType(t) => t match {
       case t:RefType => occurs(s,t)
@@ -38,6 +39,7 @@ object Inference {
     }
     case IntersectType(ts) => ts exists (occurs(s,_))
     case ParamType(t) => s == t
+    case t:Wildcard => occurs(s,t.t)
     case NullType => false
   }
 
@@ -48,14 +50,15 @@ object Inference {
   }
 
   // All inference variables mentioned in a type
-  def vars(bs: Bounds, t: RefType): Set[Var] = t match {
-    case t:ClassType => t.args.toSet flatMap ((a: RefType) => vars(bs,a))
+  def vars(bs: Bounds, t: TypeArg): Set[Var] = t match {
+    case t:ClassType => t.args.toSet flatMap ((a: TypeArg) => vars(bs,a))
     case ArrayType(t) => t match {
       case t:RefType => vars(bs,t)
       case _ => Set()
     }
     case IntersectType(ts) => ts flatMap (vars(bs,_))
     case ParamType(v) => Set(v)
+    case t:Wildcard => vars(bs,t.t)
     case NullType => Set()
   }
 
@@ -113,16 +116,24 @@ object Inference {
   }
 
   // Does t contain any inference variables?
-  def isProper(bs: Bounds, t: Type): Boolean = t match {
+  def isProper(bs: Bounds, t: RefType): Boolean = t match {
     case t:ClassType => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent)
     case ArrayType(t) => isProper(bs,t)
     case IntersectType(ts) => ts forall (isProper(bs,_))
     case ParamType(v) => !bs.contains(v)
-    case NullType|_:LangType => true
+    case NullType => true
+  }
+  def isProper(bs: Bounds, t: Type): Boolean = t match {
+    case t:RefType => isProper(bs,t)
+    case _:LangType => true
   }
   def isProper(bs: Bounds, t: Parent): Boolean = t match {
     case _:PackageParent => true
     case t:ClassType => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent)
+  }
+  def isProper(bs: Bounds, t: TypeArg): Boolean = t match {
+    case t:RefType => isProper(bs,t)
+    case _:Wildcard => false
   }
 
   // Turn a compatibility constraint s -> t into bounds: 18.2.2
@@ -171,10 +182,17 @@ object Inference {
     }
   }
 
-  // Turn a containment constraint s <= t into bounds: 18.2.3
-  // TODO: This function should take "type arguments", not just types
-  def containForm(bs: Bounds, s: RefType, t: RefType): Option[Bounds] =
-    equalForm(bs,s,t)
+  // Turn a containment constraint s <= t into bounds: 18.2.3 (second half)
+  def containForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = (s,t) match {
+    case (s:RefType,   t:RefType) => equalForm(bs,s,t)
+    case (s:Wildcard,  t:RefType) => fail("types do not contain wildcards")
+    case (s:RefType,   WildSub(t)) => subForm(bs,s,t)
+    case (WildSub(s),  WildSub(t)) => subForm(bs,s,t)
+    case (WildSuper(s),WildSub(t)) => equalForm(bs,ObjectType,t)
+    case (s:RefType,   WildSuper(t)) => subForm(bs,t,s)
+    case (WildSuper(s),WildSuper(t)) => subForm(bs,t,s)
+    case (WildSub(s),  WildSuper(t)) => fail("incompatible wildcards")
+  }
 
   def equalForm(bs: Bounds, s: RefType, t: RefType): Option[Bounds] =
     if (isProper(bs,s) && isProper(bs,t))
@@ -184,12 +202,16 @@ object Inference {
       case (s,ParamType(t)) if bs contains t => incorporateEqual(bs,t,s)
       case (s:GenericType,t:GenericType) =>
         if (s.parent == t.parent) forms(bs,s.args,t.args)(equalForm) else fail(s"equalForm: class ${s.parent} != ${t.parent}")
-      case (ArrayType(s),ArrayType(t)) => equalFormArbitrary(bs,s,t)
+      case (ArrayType(s),ArrayType(t)) => equalForm(bs,s,t)
       case _ => fail(s"equalForm: skipping $s, $t") // IntersectType intentionally skipped as per spec
     }
-  def equalFormArbitrary(bs: Bounds, s: Type, t: Type): Option[Bounds] = (s,t) match {
+  def equalForm(bs: Bounds, s: Type, t: Type): Option[Bounds] = (s,t) match {
     case (s:RefType,t:RefType) => equalForm(bs,s,t)
     case (s,t) => if (s == t) Some(bs) else fail(s"equalFormArbitrary: nonref $s != $t")
+  }
+  def equalForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = (s,t) match {
+    case (s:RefType,t:RefType) => equalForm(bs,s,t)
+    case _ => notImplemented
   }
 
   // Resolution: 18.4
@@ -226,7 +248,7 @@ object Inference {
   // TODO: This probably needs to change for infinite types
   def extract(bs: Bounds, ps: List[Var]): List[RefType] = {
     def clean(t: RefType): Boolean = t match {
-      case t:ClassType => t.args forall clean
+      case t:ClassType => t.args forall cleanArg
       case ParamType(v) => !bs.contains(v)
       case IntersectType(ts) => ts forall clean
       case ArrayType(t) => t match {
@@ -234,6 +256,10 @@ object Inference {
         case _ => true
       }
       case NullType => true
+    }
+    def cleanArg(t: TypeArg): Boolean = t match {
+      case t:RefType => clean(t)
+      case _:Wildcard => false
     }
     ps.map(v => bs(v) match {
       case Fixed(t) => assert(clean(t)); t
