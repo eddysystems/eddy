@@ -331,22 +331,27 @@ object Types {
 
   // Capture conversion for generic types with wildcards
   def capture(t: GenericType, base: Tenv): (Tenv,List[RefType]) = {
-    class FreshSubVar(v: TypeVar, t: RefType, env: => Tenv) extends TypeVar {
-      val name = v.name
-      lazy val lo =            v.lo.substitute(env)
-      lazy val hi = glb(List(t,v.hi.substitute(env)))
+    // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
+    class FreshVar(val name: Name) extends TypeVar {
+      var lo: RefType = null
+      var hi: RefType = null
     }
-    class FreshSuperVar(v: TypeVar, t: RefType, env: => Tenv) extends TypeVar {
-      val name = v.name
-      lazy val lo = lub(List(t,v.lo.substitute(env)))
-      lazy val hi =            v.hi.substitute(env)
-    }
-    lazy val vts = (t.item.params,t.args).zipped map { case (v,t) => (v,t match {
+    var fills: List[Tenv => Unit] = Nil
+    val vts = (t.item.params,t.args).zipped map { case (v,t) => (v,t match {
       case t:RefType => t
-      case WildSub(t) => ParamType(new FreshSubVar(v,t,env))
-      case WildSuper(t) => ParamType(new FreshSuperVar(v,t,env))
+      case t:Wildcard => {
+        val f = new FreshVar(v.name)
+        fills = ((env: Tenv) => t match {
+          case WildSub(t)   => f.lo =            v.lo.substitute(env)
+                               f.hi = glb(List(t,v.hi.substitute(env)))
+          case WildSuper(t) => f.lo = lub(List(t,v.lo.substitute(env)))
+                               f.hi =            v.hi.substitute(env)
+        }) :: fills
+        ParamType(f)
+      }
     })}
-    lazy val env: Tenv = base ++ vts.toMap.mapValues(Some(_))
+    val env = base ++ vts.toMap.mapValues(Some(_))
+    for (f <- fills) f(env)
     (env,vts.unzip._2)
   }
 
