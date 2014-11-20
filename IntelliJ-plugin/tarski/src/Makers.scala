@@ -8,7 +8,7 @@ import tarski.Items._
 object Makers {
 
     class ClassItemMaker(val name: Name, val parent: ParentItem, var params: List[TypeVar],
-                       val isClass: Boolean, val isEnum: Boolean) extends ClassItem {
+                         val isClass: Boolean, val isEnum: Boolean, val isFinal: Boolean) extends ClassItem {
     // To be filled in later
     private var _base: ClassType = null
     private var _implements: List[ClassType] = null

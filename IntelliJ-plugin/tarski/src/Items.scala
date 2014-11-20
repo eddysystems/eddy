@@ -92,6 +92,7 @@ object Items {
     def parent: ParentItem
     def isClass: Boolean // true for class, false for interface
     def isEnum: Boolean // true only for descendants of Enum<E>
+    def isFinal: Boolean
     def base: ClassType
     def implements: List[ClassType]
     def supers = base :: implements
@@ -140,6 +141,7 @@ object Items {
     def parent = JavaLangPkg
     def isClass = true
     def isEnum = false
+    def isFinal = false
     def params = Nil
     override def base = throw new RuntimeException("Object has no base")
     def implements = Nil
@@ -158,10 +160,12 @@ object Items {
     def base = ObjectType
     def isClass = false
     def isEnum = false
+    def isFinal = false
   }
 
   case class NormalClassItem(name: Name, parent: ParentItem, params: List[TypeVar],
-                             base: ClassType = ObjectType, implements: List[ClassType] = Nil) extends ClassItem {
+                             base: ClassType = ObjectType, implements: List[ClassType] = Nil,
+                             isFinal: Boolean = false) extends ClassItem {
     def isClass = true
     def isEnum = false
   }
@@ -169,6 +173,7 @@ object Items {
   case class EnumItem(name: Name, parent: ParentItem, implements: List[ClassType]) extends ClassItem {
     def isClass = true
     def isEnum = true
+    def isFinal = true
     def params = Nil
     def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
   }

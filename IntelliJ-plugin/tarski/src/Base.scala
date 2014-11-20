@@ -26,6 +26,7 @@ object Base {
     def name = "Enum"
     def isClass = true
     def isEnum = true
+    def isFinal = false
     private val E = SimpleTypeVar("E")
     def parent = JavaLangPkg
     def params = List(E)
@@ -46,6 +47,7 @@ object Base {
     def name = "Throwable"
     def base = ObjectType
     def implements = Nil
+    def isFinal = false
   }
 
   // Iterable
@@ -58,6 +60,7 @@ object Base {
     def parent = JavaLangPkg
     def params = List(T)
     def implements = Nil
+    def isFinal = false
   }
 
   // Class String
@@ -65,6 +68,7 @@ object Base {
     def name = "String"
     def base = ObjectType
     def implements = List(comparable(inside),CharSequenceItem.simple,SerializableType)
+    def isFinal = true
   }
 
   // java.lang.Void
@@ -72,6 +76,7 @@ object Base {
     def name = "Void"
     def base = ObjectType
     def implements = Nil
+    def isFinal = true
   }
 
   // Reference wrappers around primitive types
@@ -81,6 +86,7 @@ object Base {
     def implements = List(comparable(inside),SerializableType)
     override def unbox = Some(BooleanType)
     override def unboxesToBoolean = true
+    def isFinal = true
   }
   object CharacterItem extends SimpleClassItem {
     def name = "Character"
@@ -89,17 +95,20 @@ object Base {
     override def unbox = Some(CharType)
     override def unboxNumeric = Some(CharType)
     override def unboxIntegral = Some(CharType)
+    def isFinal = true
   }
   object NumberItem extends SimpleClassItem {
     def name = "Number"
     def base = ObjectType
     def implements = List(SerializableType)
+    def isFinal = false
   }
   sealed abstract class NumberClassItem(val name: Name, val ty: NumType) extends SimpleClassItem {
     def base = NumberItem.simple
     def implements = List(comparable(inside),SerializableType)
     override def unbox = Some(ty)
     override def unboxNumeric = Some(ty)
+    def isFinal = true
   }
   sealed abstract class IntegralClassItem(name: Name, override val ty: IntegralType) extends NumberClassItem(name,ty) {
     override def unboxIntegral = Some(ty)

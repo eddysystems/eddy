@@ -173,7 +173,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (envitems.containsKey(cls))
       return (TypeItem)envitems.get(cls);
 
-    ClassItemMaker ci = new ClassItemMaker(cls.getName(), container, params, !cls.isInterface(), cls.isEnum());
+    ClassItemMaker ci = new ClassItemMaker(cls.getName(), container, params, !cls.isInterface(), cls.isEnum(),
+                                           cls.hasModifierProperty(PsiModifier.FINAL));
     envitems.put(cls,ci);
 
     // Base

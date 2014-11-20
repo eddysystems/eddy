@@ -122,7 +122,7 @@ object Types {
     def base: ClassType = item.base.substitute(env)
     def implements: List[ClassType] = item.implements map (_.substitute(env))
     def supers = base :: implements
-    def isFinal: Boolean = notImplemented
+    def isFinal = item.isFinal
     def substitute(implicit env: Tenv): ClassType
     def safe: Option[ClassType]
     def raw: ClassType
@@ -133,7 +133,6 @@ object Types {
     def parent = JavaLangPkg
     def env = Map.empty
     override def supers = Nil
-    override def isFinal = false
     def isRaw = false
     def isSimple = true
     def known(implicit env: Tenv) = true
