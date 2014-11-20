@@ -177,7 +177,7 @@ class TestDen {
 
   @Test
   def genericConsObject(): Unit = {
-    val T = NormalTypeVar("T")
+    val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,Nil,List(ParamType(T)))
     implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))
@@ -383,8 +383,8 @@ class TestDen {
   }
 
   @Test def capture() = {
-    val T = NormalTypeVar("T")
-    val S = NormalTypeVar("S")
+    val T = SimpleTypeVar("T")
+    val S = SimpleTypeVar("S")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val B = NormalClassItem("B",LocalPkg,Nil)
     val F = NormalClassItem("F",LocalPkg,Nil)

@@ -2,8 +2,13 @@ package com.eddysystems.eddy;
 
 import org.testng.annotations.BeforeClass;
 
+class Parent<T> {
+  class Child extends Parent<Parent<Integer>.Child> {}
+}
+
 class Z {
   int x;
+  static Parent<Parent<Integer>.Child>.Child c = null;
 }
 
 class A extends Z {

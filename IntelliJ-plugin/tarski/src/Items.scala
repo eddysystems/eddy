@@ -43,10 +43,14 @@ object Items {
       case _ => true
     }
   }
-  case class NormalTypeVar(name: String, base: RefType = ObjectType, implements: List[ClassType] = Nil) extends TypeVar {
+  case class NormalTypeVar(name: String, base: RefType, implements: List[ClassType]) extends TypeVar {
     override def supers = base :: implements
     def lo = NullType
     def hi = glb(supers)
+  }
+  case class SimpleTypeVar(name: String) extends TypeVar {
+    def lo = NullType
+    def hi = ObjectType
   }
 
   // Packages
@@ -87,6 +91,7 @@ object Items {
   abstract class ClassItem extends RefTypeItem with ParentItem {
     def parent: ParentItem
     def isClass: Boolean // true for class, false for interface
+    def isEnum: Boolean // true only for descendants of Enum<E>
     def base: ClassType
     def implements: List[ClassType]
     def supers = base :: implements
@@ -108,7 +113,7 @@ object Items {
     // Convert to a type valid anywhere, bailing if type parameters are required
     def simple: SimpleType =
       if (arity == 0) SimpleType(this,parent.inside)
-      else throw new RuntimeException("class isn't simple")
+      else throw new RuntimeException(s"class $name isn't simple (has args $params)")
 
     // Convert to a simple or raw type (valid anywhere)
     def raw: ClassType = {
@@ -126,13 +131,49 @@ object Items {
       if (arity == 0) SimpleType(this,par)
       else GenericType(this,args,par)
     }
+
     def generic(args: List[TypeArg]): ClassType = generic(args,parent.simple)
+  }
+
+  class ClassItemMaker(val name: Name, val parent: ParentItem, var params: List[TypeVar],
+                       val isClass: Boolean, val isEnum: Boolean) extends ClassItem {
+    // To be filled in later
+    private var _base: ClassType = null
+    private var _implements: List[ClassType] = null
+
+    // Public interface
+    def base = { assert(_base ne null); _base }
+    def implements = { assert(_base ne null); _implements }
+
+    def set(base: ClassType, implements: List[ClassType]): Unit = {
+      assert(_base eq null)
+      _base = base
+      _implements = implements
+    }
+  }
+
+  class TypeVarMaker(val name: Name) extends TypeVar {
+    // To be filled in later
+    private var _base: ClassType = null
+    private var _implements: List[ClassType] = null
+
+    // Public interface
+    override def supers = { assert(_base != null); _base :: _implements }
+    def lo = NullType
+    def hi = glb(supers)
+
+    def set(base: ClassType, implements: List[ClassType]): Unit = {
+      assert(_base eq null)
+      _base = base
+      _implements = implements
+    }
   }
 
   case object ObjectItem extends ClassItem {
     def name = "Object"
     def parent = JavaLangPkg
     def isClass = true
+    def isEnum = false
     def params = Nil
     override def base = throw new RuntimeException("Object has no base")
     def implements = Nil
@@ -145,17 +186,23 @@ object Items {
       ObjectType
     }
   }
+
   case class NormalInterfaceItem(name: Name, parent: ParentItem, params: List[TypeVar] = Nil,
                                  implements: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
     def isClass = false
+    def isEnum = false
   }
+
   case class NormalClassItem(name: Name, parent: ParentItem, params: List[TypeVar],
                              base: ClassType = ObjectType, implements: List[ClassType] = Nil) extends ClassItem {
     def isClass = true
+    def isEnum = false
   }
+
   case class EnumItem(name: Name, parent: ParentItem, implements: List[ClassType]) extends ClassItem {
     def isClass = true
+    def isEnum = true
     def params = Nil
     def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
   }
