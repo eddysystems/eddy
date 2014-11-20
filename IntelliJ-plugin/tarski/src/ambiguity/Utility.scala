@@ -138,4 +138,13 @@ object Utility {
     val file = java.io.File.createTempFile(prefix,suffix)
     try { f(file) } finally { if (delete) file.delete }
   }
+
+  // Trait for comparison by referential equality
+  trait RefEq extends AnyRef {
+    override def hashCode = System.identityHashCode(this)
+    override def equals(x: Any) = x match {
+      case x:AnyRef => this eq x
+      case _ => false
+    }
+  }
 }

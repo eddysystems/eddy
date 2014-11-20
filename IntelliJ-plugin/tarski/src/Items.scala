@@ -1,5 +1,6 @@
 package tarski
 
+import ambiguity.Utility.RefEq
 import tarski.AST._
 import tarski.Types._
 import tarski.Base.{JavaLangPkg,EnumBaseItem,SerializableItem,CloneableItem}
@@ -25,12 +26,14 @@ object Items {
     def simple: Parent
   }
 
-  // Type parameters
-  class TypeParamItem(val name: String, _base: RefType = ObjectType, _implements: List[ClassType] = Nil) extends TypeItem with NoLookupItem {
-    def base: RefType = _base
-    def implements: List[ClassType] = _implements
+  // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
+  abstract class TypeVar extends TypeItem with NoLookupItem with RefEq {
+    def name: Name
+    def lo: RefType // Lower bound
+    def hi: RefType // Upper bound
+
     def qualifiedName = None
-    def supers = base :: implements
+    def supers = List(lo)
     def simple = ParamType(this)
     def inside = simple
     def raw = simple
@@ -40,11 +43,14 @@ object Items {
       case _ => true
     }
   }
-  private var next = 0
-  def freshTypeParam(base: RefType) = {
-    val full = "T$"+next
-    next += 1
-    new TypeParamItem(full,base)
+  case class NormalTypeVar(name: String, base: RefType, implements: List[ClassType]) extends TypeVar {
+    override def supers = base :: implements
+    def lo = NullType
+    def hi = glb(supers)
+  }
+  case class SimpleTypeVar(name: String) extends TypeVar {
+    def lo = NullType
+    def hi = ObjectType
   }
 
   // Packages
@@ -76,7 +82,7 @@ object Items {
     def simple = t
   }
   sealed abstract class RefTypeItem extends TypeItem with Member {
-    def params: List[TypeParamItem]
+    def params: List[TypeVar]
     def arity: Int = params.size
     def raw: ClassType
     def generic(args: List[TypeArg], parent: Parent): ClassType
@@ -129,35 +135,6 @@ object Items {
     def generic(args: List[TypeArg]): ClassType = generic(args,parent.simple)
   }
 
-  class ClassItemMaker(val name: Name, val parent: ParentItem, var params: List[TypeParamItem], val isClass: Boolean, val isEnum: Boolean) extends ClassItem {
-    // these can be filled in later
-    var base: ClassType = ObjectType
-    var implements: List[ClassType] = Nil
-    var done: Boolean = false
-
-    override def generic(args: List[TypeArg], par: Parent): ClassType = if (done) super.generic(args, par) else inside
-
-    def set(base: ClassType, implements: List[ClassType]): Unit = {
-      this.base=base
-      this.implements = implements
-      this.done = true
-    }
-  }
-
-  class TypeParamItemMaker(name: Name) extends TypeParamItem(name) {
-    var _base: ClassType = ObjectType
-    var _implements: List[ClassType] = Nil
-    override def base = _base
-    override def implements = _implements
-    var done: Boolean = false
-
-    def set(base: ClassType, implements: List[ClassType]): Unit = {
-      _base=base
-      _implements = implements
-      this.done = true
-    }
-  }
-
   case object ObjectItem extends ClassItem {
     def name = "Object"
     def parent = JavaLangPkg
@@ -176,14 +153,14 @@ object Items {
     }
   }
 
-  case class NormalInterfaceItem(name: Name, parent: ParentItem, params: List[TypeParamItem] = Nil,
+  case class NormalInterfaceItem(name: Name, parent: ParentItem, params: List[TypeVar] = Nil,
                                  implements: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
     def isClass = false
     def isEnum = false
   }
 
-  case class NormalClassItem(name: Name, parent: ParentItem, params: List[TypeParamItem],
+  case class NormalClassItem(name: Name, parent: ParentItem, params: List[TypeVar],
                              base: ClassType = ObjectType, implements: List[ClassType] = Nil) extends ClassItem {
     def isClass = true
     def isEnum = false
@@ -262,14 +239,14 @@ object Items {
 
   // Callables
   sealed abstract class CallableItem extends Item with PlaceItem {
-    def tparams: List[TypeParamItem]
+    def tparams: List[TypeVar]
     def params: List[Type]
   }
-  case class MethodItem(name: Name, parent: ClassItem, tparams: List[TypeParamItem], retVal: Type,
+  case class MethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
                         params: List[Type]) extends CallableItem with ClassMember
-  case class StaticMethodItem(name: Name, parent: ClassItem, tparams: List[TypeParamItem], retVal: Type,
+  case class StaticMethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
                               params: List[Type]) extends CallableItem with ClassMember
-  case class ConstructorItem(parent: ClassItem, tparams: List[TypeParamItem], params: List[Type])
+  case class ConstructorItem(parent: ClassItem, tparams: List[TypeVar], params: List[Type])
     extends CallableItem with ClassMember {
     def name = parent.name
   }

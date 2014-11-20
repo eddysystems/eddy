@@ -10,7 +10,7 @@ import tarski.Inference.{Var,Bound,Fixed,Bounded,infer,looseBounds}
 import scala.language.implicitConversions
 
 class TestInfer {
-  def v(s: String): Var = new TypeParamItem(s)
+  def v(s: String): Var = SimpleTypeVar(s)
   val T = v("T")
   implicit def toVarType[A](x: (Var,A))(implicit f: A => RefType): (Var,RefType) = (x._1,f(x._2))
 

@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Items.{PackageItem, TypeParamItem}
+import tarski.Items.{ClassItem, PackageItem, TypeVar}
 import tarski.Types._
 import ambiguity.Utility._
 
@@ -9,16 +9,17 @@ import ambiguity.Utility._
 
 object Inference {
   // Bounds: 18.1.3.  Each of these refers to an ambient type variable s
-  type Var = TypeParamItem
+  type Var = TypeVar
   type Bounds = Map[Var,Bound] // If false is allowed, use Option[Bounds]
   sealed abstract class Bound
   case class Fixed(t: RefType) extends Bound // s == t
   case class Bounded(lo: Set[RefType], hi: Set[RefType]) extends Bound // lo <: s <: hi
-  // TODO: capture and throws
+  case class Capture(vs: List[Var], t: GenericType) // TODO: captures
+  // TODO: throws
 
   // Debugging support
   private def log(s: => String): Unit =
-    if (true) println(s)
+    if (false) println(s)
   private def fail(s: => String): Option[Bounds] = {
     if (false) println("fail: "+s)
     if (false) throw new RuntimeException("fail: "+s)
@@ -100,6 +101,7 @@ object Inference {
         throw new NotImplementedError("not sure what to do about occurs checks")
       else {
         implicit val env = Map(s -> Some(t))
+        log(s"incorporateEqual: fixing $s = $t")
         val bs2 = bs+((s,Fixed(t)))
         def sub(bs: Bounds, ub: (Var,Bound)): Option[Bounds] = {
           val (u,b) = ub
@@ -183,18 +185,22 @@ object Inference {
   }
 
   // Turn a containment constraint s <= t into bounds: 18.2.3 (second half)
-  def containForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = (s,t) match {
-    case (s:RefType,   t:RefType) => equalForm(bs,s,t)
-    case (s:Wildcard,  t:RefType) => fail("types do not contain wildcards")
-    case (s:RefType,   WildSub(t)) => subForm(bs,s,t)
-    case (WildSub(s),  WildSub(t)) => subForm(bs,s,t)
-    case (WildSuper(s),WildSub(t)) => equalForm(bs,ObjectType,t)
-    case (s:RefType,   WildSuper(t)) => subForm(bs,t,s)
-    case (WildSuper(s),WildSuper(t)) => subForm(bs,t,s)
-    case (WildSub(s),  WildSuper(t)) => fail("incompatible wildcards")
+  def containForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = {
+    log(s"containForm: bs $bs, s $s, t $t")
+    (s,t) match {
+      case (s:RefType,   t:RefType) => equalForm(bs,s,t)
+      case (s:Wildcard,  t:RefType) => fail("types do not contain wildcards")
+      case (s:RefType,   WildSub(t)) => subForm(bs,s,t)
+      case (WildSub(s),  WildSub(t)) => subForm(bs,s,t)
+      case (WildSuper(s),WildSub(t)) => equalForm(bs,ObjectType,t)
+      case (s:RefType,   WildSuper(t)) => subForm(bs,t,s)
+      case (WildSuper(s),WildSuper(t)) => subForm(bs,t,s)
+      case (WildSub(s),  WildSuper(t)) => fail("incompatible wildcards")
+    }
   }
 
-  def equalForm(bs: Bounds, s: RefType, t: RefType): Option[Bounds] =
+  def equalForm(bs: Bounds, s: RefType, t: RefType): Option[Bounds] = {
+    log(s"equalForm: bs $bs, s $s, t $t")
     if (isProper(bs,s) && isProper(bs,t))
       if (s == t) Some(bs) else fail(s"equalForm: proper $s != $t")
     else (s,t) match {
@@ -205,9 +211,10 @@ object Inference {
       case (ArrayType(s),ArrayType(t)) => equalForm(bs,s,t)
       case _ => fail(s"equalForm: skipping $s, $t") // IntersectType intentionally skipped as per spec
     }
+  }
   def equalForm(bs: Bounds, s: Type, t: Type): Option[Bounds] = (s,t) match {
     case (s:RefType,t:RefType) => equalForm(bs,s,t)
-    case (s,t) => if (s == t) Some(bs) else fail(s"equalFormArbitrary: nonref $s != $t")
+    case (s,t) => if (s == t) Some(bs) else fail(s"equalForm: nonref $s != $t")
   }
   def equalForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = (s,t) match {
     case (s:RefType,t:RefType) => equalForm(bs,s,t)
@@ -216,7 +223,8 @@ object Inference {
 
   // Resolution: 18.4
   def resolve(bs: Bounds, vs: List[Var]): Option[Bounds] = {
-    // Determine dependencies, without ensure reflexivity or transitivity
+    log(s"resolve: bs $bs, vs $vs")
+    // Determine dependencies, without ensuring reflexivity or transitivity
     val depends = bs mapValues {
       case Fixed(t) => vars(bs,t)
       case Bounded(lo,hi) => (lo++hi).toSet.flatMap((t: RefType) => vars(bs,t)) // TODO: Respect capture constraints

@@ -17,6 +17,7 @@ import scala.collection.JavaConversions;
 import tarski.Environment.Env;
 import tarski.Items.*;
 import tarski.Types.*;
+import tarski.Makers.*;
 import tarski.Tarski;
 
 import java.util.ArrayList;
@@ -120,12 +121,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return null;
   }
 
-  private TypeParamItem addTypeParameterToEnvMap(Map<PsiElement,Item> envitems, PsiTypeParameter p) {
+  private TypeVar addTypeParameterToEnvMap(Map<PsiElement,Item> envitems, PsiTypeParameter p) {
     if (envitems.containsKey(p))
-      return (TypeParamItem)envitems.get(p);
+      return (TypeVar)envitems.get(p);
 
     // Add maker here to break recursion
-    TypeParamItemMaker ti = new TypeParamItemMaker(p.getName());
+    TypeVarMaker ti = new TypeVarMaker(p.getName());
     envitems.put(p,ti);
 
     PsiClassType[] extended = p.getExtendsList().getReferencedTypes();
@@ -162,11 +163,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     ParentItem container = celem != null ? (ParentItem)addContainerToEnvMap(envitems,celem) : Tarski.localPkg();
 
     // Type parameters
-    ArrayList<TypeParamItem> j_params = new ArrayList<TypeParamItem>();
+    ArrayList<TypeVar> j_params = new ArrayList<TypeVar>();
     for (PsiTypeParameter tp: cls.getTypeParameters()) {
       j_params.add(addTypeParameterToEnvMap(envitems, tp));
     }
-    scala.collection.immutable.List<TypeParamItem> params = JavaConversions.asScalaBuffer(j_params).toList();
+    scala.collection.immutable.List<TypeVar> params = JavaConversions.asScalaBuffer(j_params).toList();
 
     // maybe we just added ourselves by adding the container or the type parameters
     if (envitems.containsKey(cls))
@@ -199,11 +200,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       return (CallableItem)envitems.get(method);
 
     // get type parameters
-    List<TypeParamItem> jtparams = new ArrayList<TypeParamItem>();
+    List<TypeVar> jtparams = new ArrayList<TypeVar>();
     for (PsiTypeParameter tp : method.getTypeParameters()) {
       jtparams.add(addTypeParameterToEnvMap(envitems, tp));
     }
-    scala.collection.immutable.List<TypeParamItem> tparams = scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
+    scala.collection.immutable.List<TypeVar> tparams = scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
 
     // get argument types
     List<Type> jparams = new SmartList<Type>();

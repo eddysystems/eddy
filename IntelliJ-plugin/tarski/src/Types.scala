@@ -112,7 +112,6 @@ object Types {
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
     def raw: RefType
-    def capture = this
   }
 
   // Class types are either Object, simple, raw, or generic
@@ -164,7 +163,7 @@ object Types {
     def raw = this
   }
   case class GenericType(item: ClassItem, args: List[TypeArg], parent: Parent) extends ClassType {
-    def env() = (item.params,args).zipped.foldLeft(parent.env)((env,p) => env+((p._1,Some(p._2.capture()))))
+    def env() = capture(this,parent.env)._1
     def isRaw = parent.isRaw
     def isSimple = false
     def known(implicit env: Tenv) = args.forall(_.known) && parent.known
@@ -179,7 +178,6 @@ object Types {
 
   // Type arguments are either reference types or wildcards.  4.5.1
   sealed trait TypeArg { // Inherited by RefType and Wildcard
-    def capture(): RefType // Capture conversion: the identity for RefType, and a fresh variable for wildcards.  5.1.10
     def known(implicit env: Tenv): Boolean
     def substitute(implicit env: Tenv): TypeArg
     def safe: Option[TypeArg]
@@ -189,12 +187,10 @@ object Types {
     def known(implicit env: Tenv) = t.known
   }
   case class WildSub(t: RefType = ObjectType) extends Wildcard {
-    def capture() = ParamType(freshTypeParam(t))
     def substitute(implicit env: Tenv) = WildSub(t.substitute)
     def safe = t.safe map WildSub
   }
   case class WildSuper(t: RefType) extends Wildcard {
-    def capture() = notImplemented
     def substitute(implicit env: Tenv) = WildSuper(t.substitute)
     def safe = t.safe map WildSuper
   }
@@ -210,9 +206,9 @@ object Types {
     def safe = Some(ObjectType) // nulltype becomes Object
     def raw = this
   }
-  case class ParamType(v: TypeParamItem) extends RefType {
+  case class ParamType(v: TypeVar) extends RefType {
     def item = v
-    def supers = v.base :: v.implements
+    def supers = v.supers
     def isFinal = false
     def isSimple = false
     def known(implicit env: Tenv) = v.known
@@ -250,7 +246,7 @@ object Types {
 
   // Type environments
   // None means the type variable is "raw" and therefore unknown.
-  type Tenv = Map[TypeParamItem,Option[RefType]]
+  type Tenv = Map[TypeVar,Option[RefType]]
 
   // Basic reference types
   val StringType       = StringItem.simple
@@ -304,7 +300,7 @@ object Types {
 
   // Substitute given tenv as two lists
   // TODO: This is invalid wherever used, since it doesn't take into account parent environments
-  def substitute(vs: List[TypeParamItem], ts: List[RefType], t: Type): Type =
+  def substitute(vs: List[TypeVar], ts: List[RefType], t: Type): Type =
     if (vs.isEmpty) t
     else t.substitute((vs,ts.map(Some(_))).zipped.toMap)
 
@@ -314,9 +310,9 @@ object Types {
   def isSubitem(lo: Type, hi: TypeItem): Boolean = isSubitem(lo.item,hi)
   def isSubitem(lo: TypeItem, hi: TypeItem): Boolean = lo==hi || lo.supers.exists(isSubitem(_,hi))
 
-  // If lo <: hi, extract the type arguments
-  def subItemParams(lo: Type, hi: TypeItem): Option[List[TypeArg]] =
-    collectOne(supers(lo)){ case t:ClassType if t.item==hi => t.args }
+  // If lo <: hi, find the superclass of lo matching hi
+  def subItemType(lo: Type, hi: ClassItem): Option[ClassType] =
+    collectOne(supers(lo)){ case t:ClassType if t.item==hi => t }
 
   // Is a type throwable?
   def isThrowable(t: Type): Boolean = isSubitem(t,ThrowableItem)
@@ -324,11 +320,39 @@ object Types {
   // Is a type iterable or an array?  If so, what does it contain?
   def isIterable(i: Type): Option[Type] = i match {
     case ArrayType(t) => Some(t)
-    case _ => subItemParams(i,IterableItem) match {
-      case None => None
-      case Some(List(t)) => Some(t.capture())
-      case _ => throw new RuntimeException("arity mismatch")
+    case _ => subItemType(i,IterableItem) match {
+      case Some(t:GenericType) => capture(t,Map.empty)._2 match {
+        case List(t) => Some(t)
+        case _ => throw new RuntimeException("arity mismatch")
+      }
+      case _ => None
     }
+  }
+
+  // Capture conversion for generic types with wildcards
+  def capture(t: GenericType, base: Tenv): (Tenv,List[RefType]) = {
+    // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
+    class FreshVar(val name: Name) extends TypeVar {
+      var lo: RefType = null
+      var hi: RefType = null
+    }
+    var fills: List[Tenv => Unit] = Nil
+    val vts = (t.item.params,t.args).zipped map { case (v,t) => (v,t match {
+      case t:RefType => t
+      case t:Wildcard => {
+        val f = new FreshVar(v.name)
+        fills = ((env: Tenv) => t match {
+          case WildSub(t)   => f.lo =            v.lo.substitute(env)
+                               f.hi = glb(List(t,v.hi.substitute(env)))
+          case WildSuper(t) => f.lo = lub(List(t,v.lo.substitute(env)))
+                               f.hi =            v.hi.substitute(env)
+        }) :: fills
+        ParamType(f)
+      }
+    })}
+    val env = base ++ vts.toMap.mapValues(Some(_))
+    for (f <- fills) f(env)
+    (env,vts.unzip._2)
   }
 
   // Widening, narrowing, and widening-and-narrowing primitive conversions: 5.1.2, 5.1.3, 5.1.4
@@ -525,7 +549,7 @@ object Types {
   // Given a list of callables, find the most specific one along with its type parameters
   // TODO: Handle explicit type parameters, possibly by prefiltering fs outside of this function
   trait Signature {
-    def tparams: List[TypeParamItem]
+    def tparams: List[TypeVar]
     def params: List[Type]
 
     def isGeneric: Boolean = tparams.nonEmpty

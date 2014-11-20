@@ -177,7 +177,7 @@ class TestDen {
 
   @Test
   def genericConsObject(): Unit = {
-    val T = new TypeParamItem("T")
+    val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,Nil,List(ParamType(T)))
     implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))
@@ -383,13 +383,16 @@ class TestDen {
   }
 
   @Test def capture() = {
-    val T = new TypeParamItem("T")
-    val S = new TypeParamItem("S")
+    val T = SimpleTypeVar("T")
+    val S = SimpleTypeVar("S")
     val A = NormalClassItem("A",LocalPkg,List(T))
-    val x = LocalVariableItem("x",A.generic(List(WildSub())))
+    val B = NormalClassItem("B",LocalPkg,Nil)
     val F = NormalClassItem("F",LocalPkg,Nil)
     val f = StaticMethodItem("f",F,List(S),VoidType,List(ParamType(S)))
-    implicit val env = localEnv(List(A,x,F,f))
-    testDen("f(x)",ApplyExp(StaticMethodDen(f),List(T),List(x)))
+    for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
+      val x = LocalVariableItem("x",A.generic(List(w)))
+      implicit val env = localEnv(List(A,x,F,f))
+      testDen("f(x)",ApplyExp(StaticMethodDen(f),List(ObjectType),List(x)))
+    }
   }
 }
