@@ -261,11 +261,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       } else if (tcls instanceof PsiTypeParameter) {
         return new ParamType(addTypeParameterToEnvMap(envitems, (PsiTypeParameter)tcls));
       } else {
-        List<RefType> jparams = new SmartList<RefType>();
+        List<TypeArg> jparams = new SmartList<TypeArg>();
         for (PsiType tp : ((PsiClassType)t).getParameters()) {
-          jparams.add((RefType)convertType(envitems, tp));
+          jparams.add((TypeArg)convertType(envitems, tp));
         }
-        scala.collection.immutable.List<RefType> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
+        scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
         logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
 

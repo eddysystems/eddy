@@ -1,6 +1,5 @@
 package tarski
 
-import org.jetbrains.annotations.TestOnly
 import tarski.AST._
 import tarski.Types._
 import tarski.Base.{JavaLangPkg,EnumBaseItem,SerializableItem,CloneableItem}
@@ -27,9 +26,9 @@ object Items {
   }
 
   // Type parameters
-  class TypeParamItem(val name: String) extends TypeItem with NoLookupItem {
-    def base: ClassType = ObjectType
-    def implements: List[ClassType] = Nil
+  class TypeParamItem(val name: String, _base: RefType = ObjectType, _implements: List[ClassType] = Nil) extends TypeItem with NoLookupItem {
+    def base: RefType = _base
+    def implements: List[ClassType] = _implements
     def qualifiedName = None
     def supers = base :: implements
     def simple = ParamType(this)
@@ -86,7 +85,7 @@ object Items {
   abstract class ClassItem extends RefTypeItem with ParentItem {
     def parent: ParentItem
     def isClass: Boolean // true for class, false for interface
-    def isEnum: Boolean // true for descendants of Enum<E>
+    def isEnum: Boolean // true only for descendants of Enum<E>
     def base: ClassType
     def implements: List[ClassType]
     def supers = base :: implements
@@ -127,8 +126,7 @@ object Items {
       else GenericType(this,args,par)
     }
 
-    @TestOnly
-    def generic(args: List[RefType]): ClassType = generic(args,parent.simple)
+    def generic(args: List[TypeArg]): ClassType = generic(args,parent.simple)
   }
 
   class ClassItemMaker(val name: Name, val parent: ParentItem, var params: List[TypeParamItem], val isClass: Boolean, val isEnum: Boolean) extends ClassItem {
@@ -137,7 +135,7 @@ object Items {
     var implements: List[ClassType] = Nil
     var done: Boolean = false
 
-    override def generic(args: List[RefType], par: Parent): ClassType = if (done) super.generic(args, par) else inside
+    override def generic(args: List[TypeArg], par: Parent): ClassType = if (done) super.generic(args, par) else inside
 
     def set(base: ClassType, implements: List[ClassType]): Unit = {
       this.base=base
@@ -178,7 +176,6 @@ object Items {
     }
   }
 
-  @TestOnly
   case class NormalInterfaceItem(name: Name, parent: ParentItem, params: List[TypeParamItem] = Nil,
                                  implements: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
@@ -186,14 +183,12 @@ object Items {
     def isEnum = false
   }
 
-  @TestOnly
   case class NormalClassItem(name: Name, parent: ParentItem, params: List[TypeParamItem],
                              base: ClassType = ObjectType, implements: List[ClassType] = Nil) extends ClassItem {
     def isClass = true
     def isEnum = false
   }
 
-  @TestOnly
   case class EnumItem(name: Name, parent: ParentItem, implements: List[ClassType]) extends ClassItem {
     def isClass = true
     def isEnum = true

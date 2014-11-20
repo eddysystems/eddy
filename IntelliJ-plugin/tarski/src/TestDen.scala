@@ -383,8 +383,8 @@ class TestDen {
   }
 
   @Test def capture() = {
-    val T = TypeParamItem("T")
-    val S = TypeParamItem("S")
+    val T = new TypeParamItem("T")
+    val S = new TypeParamItem("S")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val x = LocalVariableItem("x",A.generic(List(WildSub())))
     val F = NormalClassItem("F",LocalPkg,Nil)

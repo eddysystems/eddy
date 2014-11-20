@@ -25,6 +25,7 @@ object Base {
   object EnumBaseItem extends ClassItem {
     def name = "Enum"
     def isClass = true
+    def isEnum = true
     private val E = new TypeParamItem("E")
     def parent = JavaLangPkg
     def params = List(E)
@@ -37,6 +38,7 @@ object Base {
     override def parent = JavaLangPkg
     override def params = Nil
     def isClass = true
+    def isEnum = false
   }
 
   // Throwable
@@ -50,6 +52,7 @@ object Base {
   object IterableItem extends ClassItem {
     def name = "Iterable"
     def isClass = false
+    def isEnum = false
     def base = ObjectType
     private val T = new TypeParamItem("T")
     def parent = JavaLangPkg
