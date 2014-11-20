@@ -1,5 +1,8 @@
 package tarski
 
+import tarski.Base._
+import tarski.Environment.Env
+
 import scala.language.implicitConversions
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
@@ -37,11 +40,23 @@ object TestUtils {
   implicit def toStmts(e: Exp): List[Stmt] = List(ExpStmt(e))
   implicit def toStmts(s: Stmt): List[Stmt] = List(s)
 
-  // Variable declaractions, for statements, etc.
+  // Variable declarations, for statements, etc.
   implicit def toVarDecl[A](v: (LocalVariableItem,A))(implicit to: A => Exp): VarDecl = (v._1,0,Some(to(v._2)))
   implicit def toVarDecls[A](v: A)(implicit to: A => VarDecl): List[VarDecl] = List(to(v))
   implicit def toForInit(n: List[Nothing]): ForInit = ForExps(Nil)
   implicit def toForInit(e: Exp): ForInit = ForExps(List(e))
+
+    // Make an env with a class X and a method void X.f(), which we are inside of
+  def localEnv(locals: List[Item]): Env = {
+    val X = NormalClassItem("X", LocalPkg, Nil)
+    val f = MethodItem("f", X, Nil, VoidType, Nil)
+    Env(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
+  }
+  def localEnvWithBase(locals: List[Item]): Env = {
+    val X = NormalClassItem("X", LocalPkg, Nil)
+    val f = MethodItem("f", X, Nil, VoidType, Nil)
+    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int]).move(f,inside_breakable=false,inside_continuable=false,Nil)
+  }
 
   def assertIn[A](x: A, xs: Set[A]): Unit =
     if (!xs.contains(x))

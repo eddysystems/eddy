@@ -53,19 +53,6 @@ class TestDen {
     }
   }
 
-  // makes an env with a class X and a method void X.f(), which we are inside of
-  def localEnv(locals: List[Item]): Env = {
-    val X = NormalClassItem("X", LocalPkg, Nil)
-    val f = MethodItem("f", X, Nil, VoidType, Nil)
-    Env(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
-  }
-
-  def localEnvWithBase(locals: List[Item]): Env = {
-    val X = NormalClassItem("X", LocalPkg, Nil)
-    val f = MethodItem("f", X, Nil, VoidType, Nil)
-    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int]).move(f,inside_breakable=false,inside_continuable=false,Nil)
-  }
-
   @Test
   def assignExp(): Unit = {
     val x = LocalVariableItem("x",IntType)
@@ -385,7 +372,7 @@ class TestDen {
   }
 
   @Test def shuffleArgs() = {
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val X = NormalClassItem("X", LocalPkg, Nil)
     val f = StaticMethodItem("f", X, Nil, VoidType, List(X.simple, DoubleType, StringType, BooleanType))
     val x = LocalVariableItem("x", X.simple)
     val d = LocalVariableItem("d", DoubleType)
@@ -393,5 +380,16 @@ class TestDen {
     val b = LocalVariableItem("b", BooleanType)
     implicit val env = Env(List(X,f), Map((X,3),(f,2)), f).addLocalObjects(List(x,d,s,b))
     testDen("f(s, b, d, x)", ApplyExp(StaticMethodDen(f), Nil, List(x,d,s,b)))
+  }
+
+  @Test def capture() = {
+    val T = TypeParamItem("T")
+    val S = TypeParamItem("S")
+    val A = NormalClassItem("A",LocalPkg,List(T))
+    val x = LocalVariableItem("x",A.generic(List(WildSub())))
+    val F = NormalClassItem("F",LocalPkg,Nil)
+    val f = StaticMethodItem("f",F,List(S),VoidType,List(ParamType(S)))
+    implicit val env = localEnv(List(A,x,F,f))
+    testDen("f(x)",ApplyExp(StaticMethodDen(f),List(T),List(x)))
   }
 }

@@ -188,7 +188,7 @@ object Types {
     val t: RefType
     def known(implicit env: Tenv) = t.known
   }
-  case class WildSub(t: RefType) extends Wildcard {
+  case class WildSub(t: RefType = ObjectType) extends Wildcard {
     def capture() = ParamType(freshTypeParam(t))
     def substitute(implicit env: Tenv) = WildSub(t.substitute)
     def safe = t.safe map WildSub

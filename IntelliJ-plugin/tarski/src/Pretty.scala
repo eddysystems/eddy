@@ -306,7 +306,7 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyNamedItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
+  implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
     def relative(i: Item with Member) =
       if (env.itemInScope(i)) pretty(i.name) else (FieldFix, tokens(i.parent) ::: DotTok() :: tokens(i.name))
 

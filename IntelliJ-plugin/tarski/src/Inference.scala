@@ -18,7 +18,7 @@ object Inference {
 
   // Debugging support
   private def log(s: => String): Unit =
-    if (false) println(s)
+    if (true) println(s)
   private def fail(s: => String): Option[Bounds] = {
     if (false) println("fail: "+s)
     if (false) throw new RuntimeException("fail: "+s)
@@ -182,10 +182,16 @@ object Inference {
     }
   }
 
-  // Turn a containment constraint s <= t into bounds: 18.2.3
+  // Turn a containment constraint s <= t into bounds: 18.2.3 (second half)
   def containForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = (s,t) match {
-    case (s:RefType,t:RefType) => equalForm(bs,s,t)
-    case _ => notImplemented // Wildcards
+    case (s:RefType,   t:RefType) => equalForm(bs,s,t)
+    case (s:Wildcard,  t:RefType) => fail("types do not contain wildcards")
+    case (s:RefType,   WildSub(t)) => subForm(bs,s,t)
+    case (WildSub(s),  WildSub(t)) => subForm(bs,s,t)
+    case (WildSuper(s),WildSub(t)) => equalForm(bs,ObjectType,t)
+    case (s:RefType,   WildSuper(t)) => subForm(bs,t,s)
+    case (WildSuper(s),WildSuper(t)) => subForm(bs,t,s)
+    case (WildSub(s),  WildSuper(t)) => fail("incompatible wildcards")
   }
 
   def equalForm(bs: Bounds, s: RefType, t: RefType): Option[Bounds] =
