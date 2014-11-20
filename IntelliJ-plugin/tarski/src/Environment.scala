@@ -14,7 +14,7 @@ object Environment {
   /**
    * The environment used for name resolution
    */
-  case class Env(allthings: List[Item],
+  case class Env(things: List[Item],
                  inScope: Map[Item,Int] = Map(),
                  place: PlaceItem = Base.LocalPkg,
                  inside_breakable: Boolean = false,
@@ -24,28 +24,27 @@ object Environment {
     // minimum probability before an object is considered a match for a query
     val minimumProbability = Prob(.01)
 
-    assert(place == Base.LocalPkg || allthings.contains(place))
-    val things = allthings.filterNot( _.isInstanceOf[NoLookupItem] )
+    assert(place == Base.LocalPkg || things.contains(place))
 
     // Add objects (while filling environment)
     def addObjects(xs: List[Item], is: Map[Item,Int]): Env = {
       // TODO: this is quadratic time
       // TODO: filter identical things (like java.lang.String)
-      Env(allthings ++ xs, inScope ++ is, place)
+      Env(things ++ xs, inScope ++ is, place)
     }
 
     // Make all items local with priority 1 (for tests)
     def makeAllLocal: Env =
-      Env(allthings, things.map(i => (i,1)).toMap)
+      Env(things, things.map(i => (i,1)).toMap)
 
     // Add local objects (they all appear in inScope with priority 1)
     def addLocalObjects(xs: List[Item]): Env = {
-      Env(allthings ++ xs, inScope ++ xs.map((_,1)).toMap, place)
+      Env(things ++ xs, inScope ++ xs.map((_,1)).toMap, place)
     }
 
     def move(newPlace: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: List[String]): Env = {
-      assert(allthings.contains(newPlace))
-      Env(allthings, inScope, newPlace, inside_breakable, inside_continuable, labels)
+      assert(things.contains(newPlace))
+      Env(things, inScope, newPlace, inside_breakable, inside_continuable, labels)
     }
 
     def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] = place match {
@@ -89,11 +88,11 @@ object Environment {
 
     // Enter a new block scope
     def pushScope: Env =
-      Env(allthings, inScope map { case (i,n) => (i,n+1) }, place)
+      Env(things, inScope map { case (i,n) => (i,n+1) }, place)
 
     // Leave a block scope
     def popScope: Env =
-      Env(allthings, inScope collect { case (i,n) if n>1 => (i,n-1) }, place)
+      Env(things, inScope collect { case (i,n) if n>1 => (i,n-1) }, place)
   }
 
   // What could this name be, assuming it is a type?

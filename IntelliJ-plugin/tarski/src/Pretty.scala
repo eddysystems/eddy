@@ -1,13 +1,14 @@
 package tarski
 
 import AST._
-import tarski.Environment.Env
-import tarski.Items._
-import tarski.Types._
-import tarski.Tokens._
-import tarski.Denotations._
+import Environment.Env
+import Items._
+import Base.{LocalPkg,JavaLangPkg}
+import Types._
+import Tokens._
+import Denotations._
+
 import scala.language.implicitConversions
-import ambiguity.Utility._
 import scala.collection.mutable
 
 object Pretty {
@@ -308,7 +309,11 @@ object Pretty {
   // Denotations
   implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
     def relative(i: Item with Member) =
-      if (env.itemInScope(i)) pretty(i.name) else (FieldFix, tokens(i.parent) ::: DotTok() :: tokens(i.name))
+      if (env.itemInScope(i) || i.parent == LocalPkg || i.parent == JavaLangPkg)
+        pretty(i.name) // even if they're not in scope, pretty-print some things using just their name (although this means we have a broken environment)
+      else {
+        (FieldFix, tokens(i.parent) ::: DotTok() :: tokens(i.name))
+      }
 
     i match {
       // Types
@@ -345,11 +350,11 @@ object Pretty {
                else (ApplyFix, tokens(t.item) ::: LtTok() :: tokens(CommaList(t.args)) ::: List(GtTok()))
       if (env.itemInScope(t.item) && t.item.parent.inside==t.parent) ts
       else {
-        val pp = t.parent match {
-          case p:PackageParent => pretty(p.item)
-          case t:ClassType => cls(t)
+        t.parent match {
+          case LocalPkg|JavaLangPkg => ts
+          case p:PackageParent => (FieldFix, tokens(p.item) ::: DotTok() :: ts._2)
+          case t:ClassType => (FieldFix, cls(t)._2 ::: DotTok() :: ts._2)
         }
-        (FieldFix, pp._2 ::: DotTok() :: ts._2)
       }
     }
     t match {

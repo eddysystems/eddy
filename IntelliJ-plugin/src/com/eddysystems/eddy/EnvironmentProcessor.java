@@ -425,7 +425,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // update the global map if needed
     updateGlobalEnvItems(envitems);
 
-    List<Item> items = new ArrayList<Item>(envitems.values());
+    List<Item> items = new ArrayList<Item>();
+    for (Item i : envitems.values())
+      if (!(i instanceof NoLookupItem))
+        items.add(i);
 
     // find out which element we are inside (method, class or interface, or package)
     PlaceItem placeItem = null;

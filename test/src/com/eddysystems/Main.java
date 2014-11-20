@@ -1,10 +1,8 @@
 package com.eddysystems;
 
 
-import java.util.Base64;
-import java.util.Map;
-
 class A<E,F> {
+    x
 }
 
 class B extends A<Integer,Float> {
