@@ -264,8 +264,8 @@ object Pretty {
       case DoAStmt(s,c,flip) => (SemiFix, DoTok() :: tokens(s) ::: whileUntil(flip) :: parens(c) ::: List(SemiTok()))
       case ForAStmt(i,c,u,s) => (SemiFix, ForTok() :: parens(
         tokens(i) ::: tokens(c) ::: SemiTok() :: tokens(CommaList(u))) ::: tokens(s))
-      case ForeachAStmt(t,v,n,e,s) => (SemiFix, ForTok() :: parens(
-        tokens(t) ::: prettyDims(v,n)._2 ::: ColonTok() :: tokens(e)) ::: tokens(s))
+      case ForeachAStmt(m,t,v,n,e,s) => (SemiFix, ForTok() :: parens(
+        m.map(tokens).flatten ::: tokens(t) ::: prettyDims(v,n)._2 ::: ColonTok() :: tokens(e)) ::: tokens(s))
     }
   }
   def whileUntil(flip: Boolean): Token = (if (flip) UntilTok else WhileTok)()
@@ -294,16 +294,16 @@ object Pretty {
   }
   def tokens(m: Mod): Tokens = m match {
     case Annotation(n) => AtTok() :: tokens(n)
-    case Abstract() => List(AbstractTok())
-    case Public() => List(PublicTok())
-    case Protected() => List(ProtectedTok())
-    case Private() => List(PrivateTok())
-    case Static() => List(StaticTok())
-    case Final() => List(FinalTok())
-    case Strictfp() => List(StrictfpTok())
-    case Transient() => List(TransientTok())
-    case Volatile() => List(VolatileTok())
-    case Synchronized() => List(SynchronizedTok())
+    case Abstract => List(AbstractTok())
+    case Public => List(PublicTok())
+    case Protected => List(ProtectedTok())
+    case Private => List(PrivateTok())
+    case Static => List(StaticTok())
+    case Final => List(FinalTok())
+    case Strictfp => List(StrictfpTok())
+    case Transient => List(TransientTok())
+    case Volatile => List(VolatileTok())
+    case Synchronized => List(SynchronizedTok())
   }
 
   // Denotations

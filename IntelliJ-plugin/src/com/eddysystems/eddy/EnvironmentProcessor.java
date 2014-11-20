@@ -312,9 +312,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     assert cls != null;
     Type t = convertType(envitems,f.getType());
     ClassItem c = (ClassItem)envitems.get(cls);
+    boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
     Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(),(EnumItem)c) :
-              (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c)
-                                                         : new FieldItem(f.getName(),t,c));
+              (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c,isFinal)
+                                                         : new FieldItem(f.getName(),t,c,isFinal));
     envitems.put(f, v);
     return v;
   }
@@ -412,9 +413,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       } else {
         assert !envitems.containsKey(var);
         Type t = convertType(envitems,var.getType());
-        Item i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t)
-                    : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t)
-                    : null;
+        boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
+        Item i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t,isFinal)
+               : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t,isFinal)
+               : null;
         if (i == null)
           throw new scala.NotImplementedError("Unknown variable: " + var);
 

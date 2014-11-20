@@ -12,16 +12,16 @@ object AST {
 
   sealed abstract class Mod
   case class Annotation(name: Name) extends Mod
-  case class Abstract() extends Mod
-  case class Public() extends Mod
-  case class Protected() extends Mod
-  case class Private() extends Mod
-  case class Static() extends Mod
-  case class Final() extends Mod
-  case class Strictfp() extends Mod
-  case class Transient() extends Mod
-  case class Volatile() extends Mod
-  case class Synchronized() extends Mod
+  case object Abstract extends Mod
+  case object Public extends Mod
+  case object Protected extends Mod
+  case object Private extends Mod
+  case object Static extends Mod
+  case object Final extends Mod
+  case object Strictfp extends Mod
+  case object Transient extends Mod
+  case object Volatile extends Mod
+  case object Synchronized extends Mod
 
   sealed abstract class Bound
   case class Extends() extends Bound
@@ -56,7 +56,7 @@ object AST {
 
   sealed abstract class AStmt
   case class EmptyAStmt() extends AStmt
-  case class VarAStmt(mod: List[Mod], t: AType, v: KList[AVarDecl]) extends AStmt
+  case class VarAStmt(m: List[Mod], t: AType, v: KList[AVarDecl]) extends AStmt
   case class BlockAStmt(b: Block) extends AStmt
   case class ExpAStmt(e: AExp) extends AStmt
   case class AssertAStmt(cond: AExp, msg: Option[AExp]) extends AStmt
@@ -70,7 +70,7 @@ object AST {
   case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean) extends AStmt
   case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean) extends AStmt
   case class ForAStmt(i: List[AStmt], cond: Option[AExp], u: List[AExp], s: AStmt) extends AStmt
-  case class ForeachAStmt(t: Option[AType], v: Name, n: ADims, e: AExp, s: AStmt) extends AStmt
+  case class ForeachAStmt(m: List[Mod], t: Option[AType], v: Name, n: ADims, e: AExp, s: AStmt) extends AStmt
   case class HoleAStmt() extends AStmt
 
   sealed abstract class AExp

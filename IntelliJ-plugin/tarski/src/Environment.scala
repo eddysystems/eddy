@@ -47,26 +47,25 @@ object Environment {
       Env(things, inScope, newPlace, inside_breakable, inside_continuable, labels)
     }
 
-    def newVariable(name: String, t: Type): Scored[(Env,LocalVariableItem)] = place match {
+    def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)] = place match {
       case c: CallableItem =>
-        if (inScope.exists( { case (LocalVariableItem(iname,_),_) => iname == name; case _ => false } ))
+        if (inScope.exists( { case (v:LocalVariableItem,_) => v.name == name; case _ => false } ))
           fail(s"Invalid new local variable $name: already exists.")
         else {
-          val x = LocalVariableItem(name, t)
+          val x = LocalVariableItem(name,t,isFinal)
           single((addObjects(List(x), Map((x,0))),x), Pr.newVariable)
         }
       case _ => fail("Cannot declare local variables outside of methods or constructors.")
     }
 
-
-    def newField(name: String, t: Type): Scored[(Env,Value)] = place match {
+    def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean): Scored[(Env,Value)] = place match {
       case c: ClassItem =>
         // if there's already a member of the same name (for our place)
         if (inScope.exists( { case (m: Member,_) => m.parent == place && m.name == name; case _ => false } ))
           fail(s"Invalid new field $name: a member with this name already exists.")
         else {
-          val isStatic = !c.isClass // TODO: Do this right
-          val x = if (isStatic) StaticFieldItem(name,t,c) else FieldItem(name,t,c)
+          val x = if (isStatic) StaticFieldItem(name,t,c,isFinal)
+                  else                FieldItem(name,t,c,isFinal)
           val p = if (isStatic) Pr.newStaticField else Pr.newField
           single((addObjects(List(x),Map((x,0))),x),p)
         }

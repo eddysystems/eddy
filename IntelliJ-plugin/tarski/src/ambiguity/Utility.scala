@@ -2,7 +2,8 @@ package ambiguity
 import scala.collection.mutable
 
 object Utility {
-  def notImplemented[A]: A = throw new NotImplementedError("not implemented.")
+  def notImplemented = throw new NotImplementedError("not implemented")
+  def impossible = throw new InternalError("impossible")
 
   def toMapList[A,B](c: Iterable[(A,B)]): Map[A,List[B]] =
     c.groupBy(_._1).mapValues(_.map(_._2).toList)

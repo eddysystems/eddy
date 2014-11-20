@@ -214,6 +214,7 @@ object Items {
   // Values
   sealed abstract class Value extends Item {
     def item: TypeItem // The item of our type
+    def isFinal: Boolean
   }
   sealed abstract class StaticValue extends Value {
     def ty: Type
@@ -230,16 +231,19 @@ object Items {
     def qualifiedName = None
     def item = self
     def inside = self.inside
+    def isFinal = true
   }
-  case class FieldItem(name: Name, inside: Type, parent: ClassItem) extends Value with ClassMember {
+  case class FieldItem(name: Name, inside: Type, parent: ClassItem, isFinal: Boolean) extends Value with ClassMember {
     def item = inside.item
   }
-  case class StaticFieldItem(name: Name, ty: Type, parent: ClassItem) extends StaticValue with ClassMember
-  case class ParameterItem(name: Name, ty: Type) extends LocalValue
-  case class LocalVariableItem(name: Name, ty: Type) extends LocalValue
+  case class StaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean)
+                             extends StaticValue with ClassMember
+  case class ParameterItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
+  case class LocalVariableItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
   case class EnumConstantItem(name: Name, parent: EnumItem) extends StaticValue with ClassMember {
     override def item = parent
     def ty = parent.simple
+    def isFinal = true
   }
 
   // Callables

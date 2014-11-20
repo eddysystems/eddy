@@ -32,6 +32,23 @@ object Semantics {
     }
   }
 
+  // Check for a list of modifiers, and bail if we see any unwanted ones
+  def modifiers(mods: List[Mod], want: List[Mod]): List[Boolean] = {
+    val modSet = mods.toSet
+    val bad = modSet -- want
+    if (bad.nonEmpty) throw new RuntimeException("Unexpected modifiers "+bad.mkString(", "))
+    want map modSet.contains
+  }
+  def modifiers(mods: List[Mod], a: Mod): Boolean = modifiers(mods,List(a)).head
+  def modifiers(mods: List[Mod], a: Mod, b: Mod): (Boolean,Boolean) = modifiers(mods,List(a,b)) match {
+    case List(a,b) => (a,b)
+    case _ => impossible
+  }
+  def modifiers(mods: List[Mod], a: Mod, b: Mod, c: Mod): (Boolean,Boolean,Boolean) = modifiers(mods,List(a,b,c)) match {
+    case List(a,b,c) => (a,b,c)
+    case _ => impossible
+  }
+
   // Types
   def denoteType(n: AType)(implicit env: Env): Scored[Type] = n match {
     case NameAType(n) => typeScores(n)
@@ -292,19 +309,17 @@ object Semantics {
   def denoteVariable(e: AExp)(implicit env: Env): Scored[Exp] = {
     denoteExp(e) flatMap { x =>
       if (isVariable(x)) single(x, Pr.variableExp)
-      else fail("${show(e)}: ${show(x)} cannot be assigned to")
+      else fail(s"${show(e)}: ${show(x)} cannot be assigned to")
     }
   }
 
-
   def isVariable(e: Exp): Boolean = e match {
-    // in java, we can only assign to actual variables, never to values returned by functions or expressions.
-    // TODO: implement final, private, protected
+    // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
     case _: Lit => false
     case ThisExp(_) => false
     case SuperExp(_) => false
-    case ParameterExp(i) => true // TODO: check for final
-    case LocalVariableExp(i) => true // TODO: check for final
+    case ParameterExp(i) => !i.isFinal
+    case LocalVariableExp(i) => !i.isFinal
     case EnumConstantExp(_) => false
     case CastExp(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case UnaryExp(_,_) => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
@@ -312,10 +327,10 @@ object Semantics {
     case AssignExp(_,_,_) => false
     case ParenExp(x) => isVariable(x)
     case ApplyExp(_,_,_) => false
-    case FieldExp(obj, field) => true // TODO: check for final, private, protected
-    case LocalFieldExp(field) => true // TODO: check for final
-    case StaticFieldExp(field) => true // TODO: check for final, private, protected
-    case IndexExp(a, i) => isVariable(a)
+    case FieldExp(_,f) => !f.isFinal
+    case LocalFieldExp(f) => !f.isFinal
+    case StaticFieldExp(f) => !f.isFinal
+    case IndexExp(_,_) => true // Java arrays are always mutable
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
     case ArrayExp(_,_) => false
     case EmptyArrayExp(_,_) => false
@@ -327,9 +342,9 @@ object Semantics {
     s match {
       case EmptyAStmt() => single((env,EmptyStmt), Pr.emptyStmt)
       case HoleAStmt() => single((env,HoleStmt), Pr.holeStmt)
-      case VarAStmt(mod,t,ds) =>
-        if (mod.nonEmpty) notImplemented
-        else denoteType(t)(env).flatMap(t => {
+      case VarAStmt(m,t,ds) =>
+        val isFinal = modifiers(m,Final)
+        denoteType(t)(env).flatMap(t => {
           def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
             case None => single(None, Pr.varInitNone)
             case Some(e) => denoteExp(e)(env) flatMap {e =>
@@ -341,7 +356,7 @@ object Semantics {
             case Nil => single((env,Nil), Pr.varDeclNil)
             case (v,k,i)::ds =>
               val tk = arrays(t,k)
-              product(env.newVariable(v,tk),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
+              product(env.newVariable(v,tk,isFinal),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
                 define(env,ds) flatMap {case (env,ds) => single((env,(v,k,i)::ds), Pr.varDecl)}}
           }
           val st = t.safe
@@ -354,7 +369,7 @@ object Semantics {
         val exps = denoteExp(e) flatMap { e => single((env,ExpStmt(e)), Pr.expStmt) }
         val stmts = e match {
           case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => typeOf(y).safe match {
-            case Some(t) => env.newVariable(x,t) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
+            case Some(t) => env.newVariable(x,t,false) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
             case None => fail(s"expression $y does not return anything usable (${typeOf(y)})")
           }}
           case _ => fail(show(e)+": expression doesn't look like a statement")
@@ -404,8 +419,9 @@ object Semantics {
           }
         }
       }
-      case ForeachAStmt(t,v,n,e,s) => {
-        def hole = show(ForeachAStmt(t,v,n,e,HoleAStmt()))
+      case ForeachAStmt(m,t,v,n,e,s) => {
+        val isFinal = modifiers(m,Final) || t.isEmpty
+        def hole = show(ForeachAStmt(m,t,v,n,e,HoleAStmt()))
         product(thread(t)(denoteType),denoteExp(e)) flatMap {case (t,e) =>
           val tc = typeOf(e)
           isIterable(tc) match {
@@ -420,7 +436,7 @@ object Semantics {
                   val ne = dimensions(te)
                   if (ne >= n) single(te, Pr.forEachArrayNoType)
                   else fail(s"$hole: expected $n array dimensions, got type ${show(te)} with $ne")
-              }) flatMap (t => env.pushScope.newVariable(v,t) flatMap {case (env,v) => denoteStmt(s)(env) map {case (env,s) =>
+              }) flatMap (t => env.pushScope.newVariable(v,t,isFinal) flatMap {case (env,v) => denoteStmt(s)(env) map {case (env,s) =>
                 (env.popScope,ForeachStmt(t,v,e,s))
               }})
           }
