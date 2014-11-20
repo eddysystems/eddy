@@ -31,7 +31,7 @@ object TestUtils {
   implicit def toExps(e: Exp): List[Exp] = List(e)
 
   // Type implicit conversions
-  implicit def toType(v: TypeParamItem): ParamType = ParamType(v)
+  implicit def toType(v: TypeVar): ParamType = ParamType(v)
   implicit def toType(c: ClassItem): ClassType = c.simple
 
   // Statement implicit conversions

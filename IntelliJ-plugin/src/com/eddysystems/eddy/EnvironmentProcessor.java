@@ -120,9 +120,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return null;
   }
 
-  private TypeParamItem addTypeParameterToEnvMap(Map<PsiElement,Item> envitems, PsiTypeParameter p) {
+  private TypeVar addTypeParameterToEnvMap(Map<PsiElement,Item> envitems, PsiTypeParameter p) {
     if (envitems.containsKey(p))
-      return (TypeParamItem)envitems.get(p);
+      return (TypeVar)envitems.get(p);
 
     PsiClassType[] extended = p.getExtendsList().getReferencedTypes();
     List<ClassType> etypes = new SmartList<ClassType>();
@@ -133,12 +133,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       assert !extended[i].resolve().isInterface();
     }
 
-    TypeParamItem ti;
+    TypeVar ti;
 
     if (etypes.isEmpty())
-      ti = new TypeParamItem(p.getName(), ObjectType$.MODULE$, JavaConversions.asScalaBuffer(etypes).toList());
+      ti = new NormalTypeVar(p.getName(), ObjectType$.MODULE$, JavaConversions.asScalaBuffer(etypes).toList());
     else
-      ti = new TypeParamItem(p.getName(), etypes.get(0), JavaConversions.asScalaBuffer(etypes.subList(1,etypes.size())).toList());
+      ti = new NormalTypeVar(p.getName(), etypes.get(0), JavaConversions.asScalaBuffer(etypes.subList(1,etypes.size())).toList());
 
     envitems.put(p, ti);
     return ti;
@@ -162,8 +162,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     // Type parameters
     // TODO: Handle generics
-    ArrayList<TypeParamItem> j_params = new ArrayList<TypeParamItem>();
-    scala.collection.immutable.List<TypeParamItem> params = JavaConversions.asScalaBuffer(j_params).toList();
+    ArrayList<TypeVar> j_params = new ArrayList<TypeVar>();
+    scala.collection.immutable.List<TypeVar> params = JavaConversions.asScalaBuffer(j_params).toList();
 
     // Interfaces
     ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
@@ -184,11 +184,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
   private CallableItem addMethodToEnvMap(Map<PsiElement,Item> envitems, PsiMethod method) {
     // get type parameters
-    List<TypeParamItem> jtparams = new ArrayList<TypeParamItem>();
+    List<TypeVar> jtparams = new ArrayList<TypeVar>();
     for (PsiTypeParameter tp : method.getTypeParameters()) {
       jtparams.add(addTypeParameterToEnvMap(envitems, tp));
     }
-    scala.collection.immutable.List<TypeParamItem> tparams = scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
+    scala.collection.immutable.List<TypeVar> tparams = scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
 
     // get argument types
     List<Type> params = new SmartList<Type>();

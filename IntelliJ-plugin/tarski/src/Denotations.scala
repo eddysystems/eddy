@@ -11,7 +11,7 @@ object Denotations {
     val f: CallableItem
   }
   sealed abstract class NonNewCallable extends Callable {
-    def tparams: List[TypeParamItem] = f.tparams
+    def tparams: List[TypeVar] = f.tparams
     def params: List[Type] = f.params
   }
   case class MethodDen(obj: Exp, override val f: MethodItem) extends NonNewCallable

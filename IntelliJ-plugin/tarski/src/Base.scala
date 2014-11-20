@@ -16,7 +16,7 @@ object Base {
   val SerializableItem = NormalInterfaceItem("Serializable",JavaIoPkg)
   val CharSequenceItem = NormalInterfaceItem("CharSequence",JavaLangPkg)
   val ComparableItem = {
-    val T = TypeParamItem("T")
+    val T = NormalTypeVar("T")
     NormalInterfaceItem("Comparable",JavaLangPkg,List(T))
   }
   private def comparable(t: RefType): ClassType = GenericType(ComparableItem,List(t),JavaLangPkg)
@@ -25,7 +25,7 @@ object Base {
   object EnumBaseItem extends ClassItem {
     def name = "Enum"
     def isClass = true
-    private val E = TypeParamItem("E")
+    private val E = NormalTypeVar("E")
     def parent = JavaLangPkg
     def params = List(E)
     def base = ObjectType
@@ -51,7 +51,7 @@ object Base {
     def name = "Iterable"
     def isClass = false
     def base = ObjectType
-    private val T = TypeParamItem("T")
+    private val T = NormalTypeVar("T")
     def parent = JavaLangPkg
     def params = List(T)
     def implements = Nil

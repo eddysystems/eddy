@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Items.{ClassItem, PackageItem, TypeParamItem}
+import tarski.Items.{ClassItem, PackageItem, TypeVar}
 import tarski.Types._
 import ambiguity.Utility._
 
@@ -9,7 +9,7 @@ import ambiguity.Utility._
 
 object Inference {
   // Bounds: 18.1.3.  Each of these refers to an ambient type variable s
-  type Var = TypeParamItem
+  type Var = TypeVar
   type Bounds = Map[Var,Bound] // If false is allowed, use Option[Bounds]
   sealed abstract class Bound
   case class Fixed(t: RefType) extends Bound // s == t
