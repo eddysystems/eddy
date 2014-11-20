@@ -34,6 +34,7 @@ object Parse {
     def P(s: Symbol): String = s"P_$s"
     def kind(s: Symbol) = if (G.isToken(s)) "t" else if (G.nullable(s)) "n" else "s"
     val debug = true
+    def ifNull(s: Symbol): Option[String] = if (G.nullable(s)) Some(s"P_$s((lo,lo)).head") else None
     var f =
       function("parse", List(("input",s"List[${G.token}]")), s"List[${G.types(G.start)}]",
             "type R = (Int,Int)"
@@ -53,10 +54,9 @@ object Parse {
         ::  "// Parse null productions"
         ::  block("for (lo <- 0 to n)",
               for (non <- nons)
-                yield s"P_$non((lo,lo)) = List(" + G.prods(non).flatMap {case (p,a) => p match {
-                  case Nil => Some(act(a,Nil))
-                  case _ => None
-                }}.mkString(",") + ")"
+                yield s"P_$non((lo,lo)) = List(" + G.prods(non).flatMap {case (p,a) =>
+                  allSome(p map ifNull) map (act(a,_))
+                }.mkString(",") + ")"
             )
         ::: "// Parse nonnull productions"
         ::  block("for (lo <- n to 0 by -1; hi <- lo+1 to n)",
