@@ -9,18 +9,19 @@ import tarski.AST._
 import tarski.Denotations._
 import tarski.Items._
 import tarski.Types._
+import tarski.Tokens._
 
 object TestUtils {
   // AST implicit conversions
   implicit def toAExp(i: Int): AExp = IntALit(i.toString)
   implicit def toAExp(s: String): AExp = NameAExp(s)
+  implicit def toAExp(b: Boolean): AExp = BoolALit(b)
   implicit def toAExps(e: AExp): List[AExp] = List(e)
   implicit def toAStmt(e: AExp): AStmt = ExpAStmt(e)
   implicit def toAStmts(e: AExp): List[AStmt] = List(ExpAStmt(e))
   implicit def toAStmts(s: AStmt): List[AStmt] = List(s)
-
-  // AST type implicit conversions
-  implicit def toAType(t: PrimType): AType = PrimAType(t)
+  implicit def toAExp(t: LangType): AExp = NameAExp(show(t))
+  implicit def toAExps[A](xs: KList[A])(implicit to: A => AExp): KList[AExp] = xs map to
 
   // Denotation implicit conversions
   implicit def toExp(i: Int): Exp = IntLit(i,i.toString)

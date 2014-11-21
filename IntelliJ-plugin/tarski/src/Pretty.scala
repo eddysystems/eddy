@@ -1,6 +1,7 @@
 package tarski
 
 import AST._
+import Operators._
 import Environment.Env
 import Items._
 import Base.{LocalPkg,JavaLangPkg}
@@ -140,21 +141,6 @@ object Pretty {
   // Names
   def tokens(name: Name): Tokens = List(IdentTok(name))
 
-  // AST types
-  implicit def prettyAType(t: AType): (Fixity,Tokens) = t match {
-    case NameAType(n) => prettyName(n)
-    case VoidAType() => (HighestFix, List(VoidTok()))
-    case PrimAType(t) => pretty(t)
-    case ModAType(m,t) => fix(ModFix, tokens(m) ::: right(_,t))
-    case ArrayAType(t) => fix(ApplyFix, left(_,t) ::: List(LBrackTok(),RBrackTok()))
-    case ApplyAType(t,a) => fix(ApplyFix, left(_,t) ::: typeBracket(a))
-    case FieldAType(t,f) => fix(FieldFix, left(_,t) ::: DotTok() :: tokens(f))
-    case WildAType(None) => (HighestFix, List(QuestionTok()))
-    case WildAType(Some((b,t))) => fix(WildFix, QuestionTok() :: token(b) :: right(_,t))
-  }
-  implicit def prettyATypeArgs(t: Option[KList[AType]]): (Fixity,Tokens) =
-    (HighestFix, t map (typeBracket(_)) getOrElse Nil)
-
   // Operators
   def isPrefix(op: UnaryOp): Boolean = op match {
     case PreDecOp|PreIncOp|PosOp|NegOp|CompOp|NotOp => true
@@ -232,9 +218,11 @@ object Pretty {
       fix(s, left(_,e) ::: around(xs,a)._2)
     }
   }
+  implicit def prettyATypeArgs(t: Option[KList[AExp]]): (Fixity,Tokens) =
+    (HighestFix, t map (typeBracket(_)) getOrElse Nil)
   def around[A](xs: KList[A], a: Around)(implicit p: Pretty[A]): (Fixity,Tokens) = (a,xs) match {
     case (NoAround,EmptyList) => throw new RuntimeException("nothing around empty should never happen")
-    case (NoAround,SingleList(_)) => throw new RuntimeException("nothing around single should never happen")
+    case (NoAround,SingleList(x)) => pretty(x)
     case (NoAround,xs) => pretty(xs)
     case (ParenAround,xs) => (HighestFix, LParenTok() :: tokens(xs) ::: List(RParenTok()))
     case (BrackAround,xs) => (HighestFix, LBrackTok() :: tokens(xs) ::: List(RBrackTok()))
@@ -400,10 +388,12 @@ object Pretty {
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,ts,a) => {
       val t = tokensTypeArgs(ts)
+      def method(x: Exp, f: Item) = left(FieldFix,x) ::: DotTok() :: t ::: tokens(f.name)
       (ApplyFix, (f match {
-        case MethodDen(x,f) => left(FieldFix,x) ::: DotTok() :: t ::: tokens(f.name)
+        case MethodDen(x,f) => method(x,f)
         case LocalMethodDen(f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
-        case StaticMethodDen(f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
+        case StaticMethodDen(None,f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
+        case StaticMethodDen(Some(x),f) => method(x,f)
         case NewDen(c) => NewTok() :: t ::: tokens(c.parent) // TODO: ts splits into two lists in different places
         case ForwardDen(c) => ThisTok() :: t
       }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
@@ -470,11 +460,15 @@ object Pretty {
     case v: VarStmt => prettyStmt(v)
     case ForExps(es) => (SemiFix, tokens(CommaList(es)) ::: List(SemiTok()))
   }
-  implicit def prettyCallable(c: Callable)(implicit env: Env): (Fixity,Tokens) = c match {
-    case MethodDen(x,f) => fix(FieldFix,left(_,x) ::: DotTok() :: tokens(f))
-    case LocalMethodDen(f) => pretty(f)
-    case StaticMethodDen(f) => pretty(f)
-    case NewDen(f) => (ApplyFix,NewTok() :: tokens(f))
-    case ForwardDen(f) => (HighestFix,List(ThisTok()))
+  implicit def prettyCallable(c: Callable)(implicit env: Env): (Fixity,Tokens) = {
+    def method(x: Exp, f: Item) = fix(FieldFix,left(_,x) ::: DotTok() :: tokens(f))
+    c match {
+      case MethodDen(x,f) => method(x,f)
+      case LocalMethodDen(f) => pretty(f)
+      case StaticMethodDen(None,f) => pretty(f)
+      case StaticMethodDen(Some(x),f) => method(x,f)
+      case NewDen(f) => (ApplyFix,NewTok() :: tokens(f))
+      case ForwardDen(f) => (HighestFix,List(ThisTok()))
+    }
   }
 }

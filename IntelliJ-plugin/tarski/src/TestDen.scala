@@ -1,6 +1,7 @@
 package tarski
 
 import tarski.AST._
+import tarski.Operators._
 import tarski.Denotations._
 
 import scala.language.implicitConversions
@@ -44,16 +45,7 @@ class TestDen {
     assertEquals(stmt, best(env2))
   }
 
-  def testNotDen(input: String, avoid: List[Stmt])(implicit env: Env) = {
-    fix(lex(input)).all match {
-      case Left(_) => ()
-      case Right(fs) =>
-        assertFalse(s"denotation $avoid discards side effects of X()",
-                    fs exists { case (p,(e,ds)) => ds==avoid })
-    }
-  }
-
-  def testNoDen(input: String)(implicit env: Env) = {
+  def testFail(input: String)(implicit env: Env) = {
     fix(lex(input)).all match {
       case Left(_) => ()
       case Right(fs) => throw new AssertionError(s"excepted no denotations, got $fs")
@@ -74,7 +66,7 @@ class TestDen {
   def assignExpFinal(): Unit = {
     val x = LocalVariableItem("x",IntType,true)
     implicit val env = localEnv(List(x))
-    testNoDen("x = 1")
+    testFail("x = 1")
   }
 
   @Test
@@ -124,7 +116,7 @@ class TestDen {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = StaticMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)))
     implicit val env = Env(List(Main,f), Map((Main,2),(f,2)), f)
-    testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
+    testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(None,f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
   @Test
@@ -368,13 +360,21 @@ class TestDen {
     assertFinal(x); ForeachStmt(IntType,x,ArrayExp(IntType,List(1,2)),HoleStmt) })
 
   @Test def sideEffects() = {
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val X = NormalClassItem("X",LocalPkg,Nil)
     val cons = ConstructorItem(X,Nil,Nil)
     val f = StaticMethodItem("f",X,Nil,VoidType,Nil)
 
     implicit val env = Env(List(X,cons,f),Map((f,2),(X,3)),f)
     // We are not allowed to discard the possible side effects in the X constructor.
-    testNotDen("(X()).f();", List(ExpStmt(ApplyExp(StaticMethodDen(f),Nil,Nil))))
+    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(cons),Nil,Nil)),f),Nil,Nil))))
+  }
+
+  @Test def sideEffectsCons() = {
+    val X = NormalClassItem("X",LocalPkg,Nil)
+    val cons = ConstructorItem(X,Nil,Nil)
+    val Y = NormalClassItem("Y",X,Nil)
+    implicit val env = localEnv(List(X,cons,Y))
+    testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(cons),Nil,Nil)),VarStmt(Y,List((y,0,None)))))
   }
 
   // Synchronized
@@ -396,7 +396,7 @@ class TestDen {
     val s = LocalVariableItem("s",StringType,true)
     val b = LocalVariableItem("b",BooleanType,true)
     implicit val env = Env(List(X,f), Map((X,3),(f,2)), f).addLocalObjects(List(x,d,s,b))
-    testDen("f(s, b, d, x)", ApplyExp(StaticMethodDen(f), Nil, List(x,d,s,b)))
+    testDen("f(s,b,d,x)", ApplyExp(StaticMethodDen(None,f), Nil, List(x,d,s,b)))
   }
 
   @Test def capture() = {
@@ -409,7 +409,7 @@ class TestDen {
     for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
       val x = LocalVariableItem("x",A.generic(List(w)),true)
       implicit val env = localEnv(List(A,x,F,f))
-      testDen("f(x)",ApplyExp(StaticMethodDen(f),List(ObjectType),List(x)))
+      testDen("f(x)",ApplyExp(StaticMethodDen(None,f),List(ObjectType),List(x)))
     }
   }
 }

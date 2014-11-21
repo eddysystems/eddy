@@ -5,6 +5,7 @@ import tarski.Items._
 import tarski.Base._
 import tarski.Denotations.{Exp,typeOf}
 import tarski.Constants.constantFits
+import tarski.Operators._
 import ambiguity.Utility._
 
 // Properties of types according to the Java spec, without extra intelligence

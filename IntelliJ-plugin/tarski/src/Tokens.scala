@@ -280,7 +280,7 @@ object Tokens {
   def show[A](x: A)(implicit p: Pretty[A]): String =
     show(tokens(x))
 
-  // Turn matching identifiers into fake keywords
+  // Turn matching identifiers into fake keywords, and some keywords into identifiers
   def fake(t: Token): Token = t match {
     case IdentTok(s) => s match {
       case "then" => ThenTok()
@@ -288,6 +288,7 @@ object Tokens {
       case "in" => InTok()
       case _ => t
     }
+    case VoidTok()|ByteTok()|ShortTok()|IntTok()|LongTok()|FloatTok()|DoubleTok()|CharTok() => IdentTok(show(t))
     case _ => t
   }
 }

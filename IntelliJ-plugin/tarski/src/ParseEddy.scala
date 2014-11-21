@@ -3,6 +3,7 @@ package tarski
 import tarski.Tokens._
 import tarski.AST._
 import tarski.Types._
+import tarski.Operators._
 
 object ParseEddy {
   def parse(input: List[Token]): List[List[AStmt]] = {
@@ -14,7 +15,6 @@ object ParseEddy {
     val array = input.toArray
     def tok(i: Int) = array(i)
     def P_PlusEqTok(i: Int) = array(i) match { case t: PlusEqTok => List(t); case _ => Nil }
-    def P_LongTok(i: Int) = array(i) match { case t: LongTok => List(t); case _ => Nil }
     def P_OrTok(i: Int) = array(i) match { case t: OrTok => List(t); case _ => Nil }
     def P_SynchronizedTok(i: Int) = array(i) match { case t: SynchronizedTok => List(t); case _ => Nil }
     def P_UntilTok(i: Int) = array(i) match { case t: UntilTok => List(t); case _ => Nil }
@@ -22,7 +22,6 @@ object ParseEddy {
     def P_CommaTok(i: Int) = array(i) match { case t: CommaTok => List(t); case _ => Nil }
     def P_InTok(i: Int) = array(i) match { case t: InTok => List(t); case _ => Nil }
     def P_SuperTok(i: Int) = array(i) match { case t: SuperTok => List(t); case _ => Nil }
-    def P_DoubleTok(i: Int) = array(i) match { case t: DoubleTok => List(t); case _ => Nil }
     def P_CompTok(i: Int) = array(i) match { case t: CompTok => List(t); case _ => Nil }
     def P_AbstractTok(i: Int) = array(i) match { case t: AbstractTok => List(t); case _ => Nil }
     def P_ProtectedTok(i: Int) = array(i) match { case t: ProtectedTok => List(t); case _ => Nil }
@@ -48,8 +47,6 @@ object ParseEddy {
     def P_VolatileTok(i: Int) = array(i) match { case t: VolatileTok => List(t); case _ => Nil }
     def P_RCurlyTok(i: Int) = array(i) match { case t: RCurlyTok => List(t); case _ => Nil }
     def P_NewTok(i: Int) = array(i) match { case t: NewTok => List(t); case _ => Nil }
-    def P_IntTok(i: Int) = array(i) match { case t: IntTok => List(t); case _ => Nil }
-    def P_CharTok(i: Int) = array(i) match { case t: CharTok => List(t); case _ => Nil }
     def P_LCurlyTok(i: Int) = array(i) match { case t: LCurlyTok => List(t); case _ => Nil }
     def P_XorEqTok(i: Int) = array(i) match { case t: XorEqTok => List(t); case _ => Nil }
     def P_EqTok(i: Int) = array(i) match { case t: EqTok => List(t); case _ => Nil }
@@ -57,7 +54,6 @@ object ParseEddy {
     def P_BreakTok(i: Int) = array(i) match { case t: BreakTok => List(t); case _ => Nil }
     def P_LParenTok(i: Int) = array(i) match { case t: LParenTok => List(t); case _ => Nil }
     def P_WhileTok(i: Int) = array(i) match { case t: WhileTok => List(t); case _ => Nil }
-    def P_ByteTok(i: Int) = array(i) match { case t: ByteTok => List(t); case _ => Nil }
     def P_MulTok(i: Int) = array(i) match { case t: MulTok => List(t); case _ => Nil }
     def P_DoTok(i: Int) = array(i) match { case t: DoTok => List(t); case _ => Nil }
     def P_DivTok(i: Int) = array(i) match { case t: DivTok => List(t); case _ => Nil }
@@ -73,13 +69,10 @@ object ParseEddy {
     def P_RParenTok(i: Int) = array(i) match { case t: RParenTok => List(t); case _ => Nil }
     def P_IfTok(i: Int) = array(i) match { case t: IfTok => List(t); case _ => Nil }
     def P_AndEqTok(i: Int) = array(i) match { case t: AndEqTok => List(t); case _ => Nil }
-    def P_ShortTok(i: Int) = array(i) match { case t: ShortTok => List(t); case _ => Nil }
     def P_CharLitTok(i: Int) = array(i) match { case t: CharLitTok => List(t); case _ => Nil }
-    def P_FloatTok(i: Int) = array(i) match { case t: FloatTok => List(t); case _ => Nil }
     def P_MinusEqTok(i: Int) = array(i) match { case t: MinusEqTok => List(t); case _ => Nil }
     def P_ForTok(i: Int) = array(i) match { case t: ForTok => List(t); case _ => Nil }
     def P_GtTok(i: Int) = array(i) match { case t: GtTok => List(t); case _ => Nil }
-    def P_VoidTok(i: Int) = array(i) match { case t: VoidTok => List(t); case _ => Nil }
     def P_BoolLitTok(i: Int) = array(i) match { case t: BoolLitTok => List(t); case _ => Nil }
     def P_StrictfpTok(i: Int) = array(i) match { case t: StrictfpTok => List(t); case _ => Nil }
     def P_EqEqTok(i: Int) = array(i) match { case t: EqEqTok => List(t); case _ => Nil }
@@ -117,11 +110,11 @@ object ParseEddy {
     val P_SemiTok__Stmts = mutable.Map[R,List[(SemiTok,List[AStmt])]]()
     val P_OrOrTok__ExpAndAnd_ExpJuxt = mutable.Map[R,List[(OrOrTok,AExp)]]()
     val P_ForInfo__RParenTok = mutable.Map[R,List[(AStmt=>AStmt,RParenTok)]]()
-    val P_Type__List1_VarDecl = mutable.Map[R,List[(AType,KList[(Name,Int,Option[AExp])])]]()
+    val P_Type__List1_VarDecl = mutable.Map[R,List[(AExp,KList[(Name,Int,Option[AExp])])]]()
     val P_IdentDims__ForeachSep__ExpAssign = mutable.Map[R,List[((Name,Int),Unit,AExp)]]()
     val P_ForInfo = mutable.Map[R,List[AStmt=>AStmt]]()
     val P_DivTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(DivTok,AExp)]]()
-    val P_List_Type__GtTok = mutable.Map[R,List[(KList[AType],GtTok)]]()
+    val P_List_Type__GtTok = mutable.Map[R,List[(KList[AExp],GtTok)]]()
     val P_Juxts2_ExpAssignNC = mutable.Map[R,List[List[AExp]]]()
     val P_LShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(LShiftTok,AExp)]]()
     val P_PlusTok__ExpMul_ExpNew = mutable.Map[R,List[(PlusTok,AExp)]]()
@@ -130,8 +123,7 @@ object ParseEddy {
     val P_EqEqTok__ExpRel_ExpJuxt = mutable.Map[R,List[(EqEqTok,AExp)]]()
     val P_AssignOp = mutable.Map[R,List[Option[AssignOp]]]()
     val P_ForeachSep__ExpAssign = mutable.Map[R,List[(Unit,AExp)]]()
-    val P_DotTok__Ident = mutable.Map[R,List[(DotTok,Name)]]()
-    val P_WildcardBounds = mutable.Map[R,List[Option[(Bound,AType)]]]()
+    val P_WildcardBounds = mutable.Map[R,List[Option[(Bound,AExp)]]]()
     val P_Option_ThenTok = mutable.Map[R,List[Option[ThenTok]]]()
     val P_ColonTok__ExpCond_ExpJuxt = mutable.Map[R,List[(ColonTok,AExp)]]()
     val P_PreOp = mutable.Map[R,List[UnaryOp]]()
@@ -159,14 +151,15 @@ object ParseEddy {
     val P_CommaTok__Commas1_ExpCond_ExpJuxt = mutable.Map[R,List[(CommaTok,List[AExp])]]()
     val P_Commas0_StmtHelperBS__SemiTok = mutable.Map[R,List[(List[AStmt],SemiTok)]]()
     val P_ExpHigh__DotTok = mutable.Map[R,List[(AExp,DotTok)]]()
-    val P_Commas2_Type = mutable.Map[R,List[List[AType]]]()
-    val P_CommaTok__Commas1_Type = mutable.Map[R,List[(CommaTok,List[AType])]]()
+    val P_Commas2_Type = mutable.Map[R,List[List[AExp]]]()
+    val P_CommaTok__Commas1_Type = mutable.Map[R,List[(CommaTok,List[AExp])]]()
     val P_ModTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(ModTok,AExp)]]()
     val P_MinusTok__ExpMul_ExpNew = mutable.Map[R,List[(MinusTok,AExp)]]()
+    val P_Juxts2_ExpNewNA = mutable.Map[R,List[List[AExp]]]()
     val P_ForInfo__RParenTok__Stmt = mutable.Map[R,List[(AStmt=>AStmt,RParenTok,AStmt)]]()
     val P_ExpParens = mutable.Map[R,List[AExp]]()
-    val P_TypeArgs = mutable.Map[R,List[KList[AType]]]()
-    val P_Option_TypeArgs = mutable.Map[R,List[Option[KList[AType]]]]()
+    val P_TypeArgs = mutable.Map[R,List[KList[AExp]]]()
+    val P_Option_TypeArgs = mutable.Map[R,List[Option[KList[AExp]]]]()
     val P_UnsignedRShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(UnsignedRShiftTok,AExp)]]()
     val P_Juxts2_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
     val P_Commas2_ExpCond_ExpJuxt__RBrackTok = mutable.Map[R,List[(List[AExp],RBrackTok)]]()
@@ -175,7 +168,6 @@ object ParseEddy {
     val P_MulTok__ExpUnary_ExpNew = mutable.Map[R,List[(MulTok,AExp)]]()
     val P_ColonTok__ExpJuxt = mutable.Map[R,List[(ColonTok,AExp)]]()
     val P_ExpCond_ExpNew__RBrackTok = mutable.Map[R,List[(AExp,RBrackTok)]]()
-    val P_PrimType = mutable.Map[R,List[PrimType]]()
     val P_Commas2_ExpCond_ExpJuxt__RCurlyTok = mutable.Map[R,List[(List[AExp],RCurlyTok)]]()
     val P_ExpAssignNP__ThenTok = mutable.Map[R,List[(AExp,ThenTok)]]()
     val P_ExpAssign__RParenTok = mutable.Map[R,List[(AExp,RParenTok)]]()
@@ -197,9 +189,9 @@ object ParseEddy {
     val P_ExpCond_ExpNew__RCurlyTok = mutable.Map[R,List[(AExp,RCurlyTok)]]()
     val P_ForTok__LParenTok = mutable.Map[R,List[(ForTok,LParenTok)]]()
     val P_Commas2_ExpCond_ExpJuxt = mutable.Map[R,List[List[AExp]]]()
-    val P_Juxts2_Type = mutable.Map[R,List[List[AType]]]()
+    val P_Juxts2_Type = mutable.Map[R,List[List[AExp]]]()
     val P_DivTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(DivTok,AExp)]]()
-    val P_LParenTok__Type = mutable.Map[R,List[(LParenTok,AType)]]()
+    val P_LParenTok__Type = mutable.Map[R,List[(LParenTok,AExp)]]()
     val P_CommaTok__Commas1_ExpAssignNC = mutable.Map[R,List[(CommaTok,List[AExp])]]()
     val P_PlusTok__ExpMul_ExpJuxt = mutable.Map[R,List[(PlusTok,AExp)]]()
     val P_CommaTok__Commas1_StmtHelperBS = mutable.Map[R,List[(CommaTok,List[AStmt])]]()
@@ -212,7 +204,7 @@ object ParseEddy {
     val P_Lit = mutable.Map[R,List[ALit]]()
     val P_DoTok__Stmt = mutable.Map[R,List[(DoTok,AStmt)]]()
     val P_GeTok__ExpShift_ExpJuxt = mutable.Map[R,List[(GeTok,AExp)]]()
-    val P_InstanceofTok__Type = mutable.Map[R,List[(InstanceofTok,AType)]]()
+    val P_InstanceofTok__Type = mutable.Map[R,List[(InstanceofTok,AExp)]]()
     val P_ModTok__ExpUnary_ExpNew = mutable.Map[R,List[(ModTok,AExp)]]()
     val P_ExpAssign__ColonTok__ExpCond_ExpJuxt = mutable.Map[R,List[(AExp,ColonTok,AExp)]]()
     val P_WhileUntil__ParenExp = mutable.Map[R,List[(Boolean,AExp)]]()
@@ -223,21 +215,15 @@ object ParseEddy {
     val P_ThenTok__Stmt = mutable.Map[R,List[(ThenTok,AStmt)]]()
     val P_RParenTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(RParenTok,AExp)]]()
     val P_Ident = mutable.Map[R,List[Name]]()
-    val P_Type = mutable.Map[R,List[AType]]()
-    val P_Juxts1_Type = mutable.Map[R,List[List[AType]]]()
-    val P_List1_Type = mutable.Map[R,List[KList[AType]]]()
-    val P_List_Type = mutable.Map[R,List[KList[AType]]]()
-    val P_Option_Type = mutable.Map[R,List[Option[AType]]]()
-    val P_Juxts0_Mod__Option_Type = mutable.Map[R,List[(List[Mod],Option[AType])]]()
-    val P_Commas1_Type = mutable.Map[R,List[List[AType]]]()
     val P_IdentDims = mutable.Map[R,List[(Name,Int)]]()
     val P_VarDecl = mutable.Map[R,List[(Name,Int,Option[AExp])]]()
     val P_Commas1_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
     val P_Juxts1_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
-    val P_Option_TypeArgs__Ident = mutable.Map[R,List[(Option[KList[AType]],Name)]]()
+    val P_Option_TypeArgs__Ident = mutable.Map[R,List[(Option[KList[AExp]],Name)]]()
     val P_Option_Ident = mutable.Map[R,List[Option[Name]]]()
     val P_ExpHighNA = mutable.Map[R,List[AExp]]()
     val P_ExpNewNA = mutable.Map[R,List[AExp]]()
+    val P_SingleJuxt1_ExpNewNA = mutable.Map[R,List[KList[AExp]]]()
     val P_Juxts1_ExpNewNA = mutable.Map[R,List[List[AExp]]]()
     val P_ExpHighNP = mutable.Map[R,List[AExp]]()
     val P_ExpNewNP = mutable.Map[R,List[AExp]]()
@@ -259,10 +245,17 @@ object ParseEddy {
     val P_MaybeParenExp__Option_DoTok = mutable.Map[R,List[(AExp,Option[DoTok])]]()
     val P_MaybeParenExp__Option_ThenTok = mutable.Map[R,List[(AExp,Option[ThenTok])]]()
     val P_ExpHigh = mutable.Map[R,List[AExp]]()
+    val P_Type = mutable.Map[R,List[AExp]]()
+    val P_Juxts1_Type = mutable.Map[R,List[List[AExp]]]()
+    val P_List1_Type = mutable.Map[R,List[KList[AExp]]]()
+    val P_List_Type = mutable.Map[R,List[KList[AExp]]]()
+    val P_Option_Type = mutable.Map[R,List[Option[AExp]]]()
+    val P_Juxts0_Mod__Option_Type = mutable.Map[R,List[(List[Mod],Option[AExp])]]()
+    val P_Commas1_Type = mutable.Map[R,List[List[AExp]]]()
     val P_ExpNew = mutable.Map[R,List[AExp]]()
     val P_ExpJuxt = mutable.Map[R,List[AExp]]()
     val P_Option_ExpJuxt = mutable.Map[R,List[Option[AExp]]]()
-    val P_Option_TypeArgs__ExpJuxt = mutable.Map[R,List[(Option[KList[AType]],AExp)]]()
+    val P_Option_TypeArgs__ExpJuxt = mutable.Map[R,List[(Option[KList[AExp]],AExp)]]()
     val P_ExpUnary_ExpJuxt = mutable.Map[R,List[AExp]]()
     val P_ExpMul_ExpJuxt = mutable.Map[R,List[AExp]]()
     val P_ExpAdd_ExpJuxt = mutable.Map[R,List[AExp]]()
@@ -316,7 +309,7 @@ object ParseEddy {
     val P_List_ExpAssignNC__RBrackTok = mutable.Map[R,List[(KList[AExp],RBrackTok)]]()
     val P_GtTok__ExpShift_ExpJuxt = mutable.Map[R,List[(GtTok,AExp)]]()
     val P_WhileUntil__ExpAssignNP = mutable.Map[R,List[(Boolean,AExp)]]()
-    val P_Option_TypeArgs__NewTok = mutable.Map[R,List[(Option[KList[AType]],NewTok)]]()
+    val P_Option_TypeArgs__NewTok = mutable.Map[R,List[(Option[KList[AExp]],NewTok)]]()
     
     // Parse bottom up for each nonterminal
     val n = input.length
@@ -345,7 +338,6 @@ object ParseEddy {
       P_EqEqTok__ExpRel_ExpJuxt((lo,lo)) = List()
       P_AssignOp((lo,lo)) = List()
       P_ForeachSep__ExpAssign((lo,lo)) = List()
-      P_DotTok__Ident((lo,lo)) = List()
       P_WildcardBounds((lo,lo)) = List(None)
       P_Option_ThenTok((lo,lo)) = List(None)
       P_ColonTok__ExpCond_ExpJuxt((lo,lo)) = List()
@@ -378,6 +370,7 @@ object ParseEddy {
       P_CommaTok__Commas1_Type((lo,lo)) = List()
       P_ModTok__ExpUnary_ExpJuxtNP((lo,lo)) = List()
       P_MinusTok__ExpMul_ExpNew((lo,lo)) = List()
+      P_Juxts2_ExpNewNA((lo,lo)) = List()
       P_ForInfo__RParenTok__Stmt((lo,lo)) = List()
       P_ExpParens((lo,lo)) = List()
       P_TypeArgs((lo,lo)) = List()
@@ -390,7 +383,6 @@ object ParseEddy {
       P_MulTok__ExpUnary_ExpNew((lo,lo)) = List()
       P_ColonTok__ExpJuxt((lo,lo)) = List()
       P_ExpCond_ExpNew__RBrackTok((lo,lo)) = List()
-      P_PrimType((lo,lo)) = List()
       P_Commas2_ExpCond_ExpJuxt__RCurlyTok((lo,lo)) = List()
       P_ExpAssignNP__ThenTok((lo,lo)) = List()
       P_ExpAssign__RParenTok((lo,lo)) = List()
@@ -438,13 +430,6 @@ object ParseEddy {
       P_ThenTok__Stmt((lo,lo)) = List()
       P_RParenTok__ExpUnary_ExpJuxt((lo,lo)) = List()
       P_Ident((lo,lo)) = List()
-      P_Type((lo,lo)) = List()
-      P_Juxts1_Type((lo,lo)) = List()
-      P_List1_Type((lo,lo)) = List()
-      P_List_Type((lo,lo)) = List(EmptyList)
-      P_Option_Type((lo,lo)) = List(None)
-      P_Juxts0_Mod__Option_Type((lo,lo)) = List((P_Juxts0_Mod((lo,lo)).head,P_Option_Type((lo,lo)).head))
-      P_Commas1_Type((lo,lo)) = List()
       P_IdentDims((lo,lo)) = List()
       P_VarDecl((lo,lo)) = List()
       P_Commas1_VarDecl((lo,lo)) = List()
@@ -453,6 +438,7 @@ object ParseEddy {
       P_Option_Ident((lo,lo)) = List(None)
       P_ExpHighNA((lo,lo)) = List()
       P_ExpNewNA((lo,lo)) = List()
+      P_SingleJuxt1_ExpNewNA((lo,lo)) = List()
       P_Juxts1_ExpNewNA((lo,lo)) = List()
       P_ExpHighNP((lo,lo)) = List()
       P_ExpNewNP((lo,lo)) = List()
@@ -474,6 +460,13 @@ object ParseEddy {
       P_MaybeParenExp__Option_DoTok((lo,lo)) = List()
       P_MaybeParenExp__Option_ThenTok((lo,lo)) = List()
       P_ExpHigh((lo,lo)) = List()
+      P_Type((lo,lo)) = List()
+      P_Juxts1_Type((lo,lo)) = List()
+      P_List1_Type((lo,lo)) = List()
+      P_List_Type((lo,lo)) = List(EmptyList)
+      P_Option_Type((lo,lo)) = List(None)
+      P_Juxts0_Mod__Option_Type((lo,lo)) = List((P_Juxts0_Mod((lo,lo)).head,P_Option_Type((lo,lo)).head))
+      P_Commas1_Type((lo,lo)) = List()
       P_ExpNew((lo,lo)) = List()
       P_ExpJuxt((lo,lo)) = List()
       P_Option_ExpJuxt((lo,lo)) = List(None)
@@ -575,7 +568,6 @@ object ParseEddy {
       P_EqEqTok__ExpRel_ExpJuxt((lo,hi)) = ts(P_EqEqTok,P_ExpRel_ExpJuxt)((x,y) => (x,y)); d("EqEqTok__ExpRel_ExpJuxt",P_EqEqTok__ExpRel_ExpJuxt)
       P_AssignOp((lo,hi)) = t(P_LShiftEqTok)(x => Some(LShiftOp)) ::: t(P_ModEqTok)(x => Some(ModOp)) ::: t(P_MinusEqTok)(x => Some(SubOp)) ::: t(P_EqTok)(x => None) ::: t(P_RShiftEqTok)(x => Some(RShiftOp)) ::: t(P_UnsignedRShiftEqTok)(x => Some(UnsignedRShiftOp)) ::: t(P_PlusEqTok)(x => Some(AddOp)) ::: t(P_DivEqTok)(x => Some(DivOp)) ::: t(P_AndEqTok)(x => Some(AndOp)) ::: t(P_OrEqTok)(x => Some(OrOp)) ::: t(P_XorEqTok)(x => Some(XorOp)) ::: t(P_MulEqTok)(x => Some(MulOp)); d("AssignOp",P_AssignOp)
       P_ForeachSep__ExpAssign((lo,hi)) = ss(P_ForeachSep,P_ExpAssign)((x,y) => (x,y)); d("ForeachSep__ExpAssign",P_ForeachSep__ExpAssign)
-      P_DotTok__Ident((lo,hi)) = ts(P_DotTok,P_Ident)((x,y) => (x,y)); d("DotTok__Ident",P_DotTok__Ident)
       P_WildcardBounds((lo,hi)) = ts(P_ExtendsTok,P_Type)((x,y) => Some((Extends(),y))) ::: ts(P_ColonTok,P_Type)((x,y) => Some((Extends(),y))) ::: ts(P_SuperTok,P_Type)((x,y) => Some((Super(),y))); d("WildcardBounds",P_WildcardBounds)
       P_Option_ThenTok((lo,hi)) = t(P_ThenTok)(x => Some(x)); d("Option_ThenTok",P_Option_ThenTok)
       P_ColonTok__ExpCond_ExpJuxt((lo,hi)) = ts(P_ColonTok,P_ExpCond_ExpJuxt)((x,y) => (x,y)); d("ColonTok__ExpCond_ExpJuxt",P_ColonTok__ExpCond_ExpJuxt)
@@ -608,6 +600,7 @@ object ParseEddy {
       P_CommaTok__Commas1_Type((lo,hi)) = ts(P_CommaTok,P_Commas1_Type)((x,y) => (x,y)); d("CommaTok__Commas1_Type",P_CommaTok__Commas1_Type)
       P_ModTok__ExpUnary_ExpJuxtNP((lo,hi)) = ts(P_ModTok,P_ExpUnary_ExpJuxtNP)((x,y) => (x,y)); d("ModTok__ExpUnary_ExpJuxtNP",P_ModTok__ExpUnary_ExpJuxtNP)
       P_MinusTok__ExpMul_ExpNew((lo,hi)) = ts(P_MinusTok,P_ExpMul_ExpNew)((x,y) => (x,y)); d("MinusTok__ExpMul_ExpNew",P_MinusTok__ExpMul_ExpNew)
+      P_Juxts2_ExpNewNA((lo,hi)) = ss(P_ExpNewNA,P_Juxts1_ExpNewNA)((x,y) => x :: y); d("Juxts2_ExpNewNA",P_Juxts2_ExpNewNA)
       P_ForInfo__RParenTok__Stmt((lo,hi)) = ss(P_ForInfo,P_RParenTok__Stmt)((x,y) => (x,y._1,y._2)); d("ForInfo__RParenTok__Stmt",P_ForInfo__RParenTok__Stmt)
       P_ExpParens((lo,hi)) = ts(P_LParenTok,P_ExpAssignNC__RParenTok)((x,y) => ParenAExp(y._1)) ::: tt(P_LParenTok,P_RParenTok)((x,y) => ArrayAExp(EmptyList, ParenAround)) ::: ts(P_LParenTok,P_Commas2_ExpCond_ExpJuxt__RParenTok)((x,y) => ArrayAExp(CommaList(y._1), ParenAround)) ::: ts(P_LParenTok,P_Juxts2_ExpNew__RParenTok)((x,y) => ArrayAExp(JuxtList(y._1), ParenAround)); d("ExpParens",P_ExpParens)
       P_TypeArgs((lo,hi)) = ts(P_LtTok,P_List_Type__GtTok)((x,y) => y._1); d("TypeArgs",P_TypeArgs)
@@ -620,7 +613,6 @@ object ParseEddy {
       P_MulTok__ExpUnary_ExpNew((lo,hi)) = ts(P_MulTok,P_ExpUnary_ExpNew)((x,y) => (x,y)); d("MulTok__ExpUnary_ExpNew",P_MulTok__ExpUnary_ExpNew)
       P_ColonTok__ExpJuxt((lo,hi)) = ts(P_ColonTok,P_ExpJuxt)((x,y) => (x,y)); d("ColonTok__ExpJuxt",P_ColonTok__ExpJuxt)
       P_ExpCond_ExpNew__RBrackTok((lo,hi)) = st(P_ExpCond_ExpNew,P_RBrackTok)((x,y) => (x,y)); d("ExpCond_ExpNew__RBrackTok",P_ExpCond_ExpNew__RBrackTok)
-      P_PrimType((lo,hi)) = t(P_ByteTok)(x => ByteType) ::: t(P_LongTok)(x => LongType) ::: t(P_IntTok)(x => IntType) ::: t(P_CharTok)(x => CharType) ::: t(P_DoubleTok)(x => DoubleType) ::: t(P_FloatTok)(x => FloatType) ::: t(P_ShortTok)(x => ShortType); d("PrimType",P_PrimType)
       P_Commas2_ExpCond_ExpJuxt__RCurlyTok((lo,hi)) = st(P_Commas2_ExpCond_ExpJuxt,P_RCurlyTok)((x,y) => (x,y)); d("Commas2_ExpCond_ExpJuxt__RCurlyTok",P_Commas2_ExpCond_ExpJuxt__RCurlyTok)
       P_ExpAssignNP__ThenTok((lo,hi)) = st(P_ExpAssignNP,P_ThenTok)((x,y) => (x,y)); d("ExpAssignNP__ThenTok",P_ExpAssignNP__ThenTok)
       P_ExpAssign__RParenTok((lo,hi)) = st(P_ExpAssign,P_RParenTok)((x,y) => (x,y)); d("ExpAssign__RParenTok",P_ExpAssign__RParenTok)
@@ -668,13 +660,6 @@ object ParseEddy {
       P_ThenTok__Stmt((lo,hi)) = ts(P_ThenTok,P_Stmt)((x,y) => (x,y)); d("ThenTok__Stmt",P_ThenTok__Stmt)
       P_RParenTok__ExpUnary_ExpJuxt((lo,hi)) = ts(P_RParenTok,P_ExpUnary_ExpJuxt)((x,y) => (x,y)); d("RParenTok__ExpUnary_ExpJuxt",P_RParenTok__ExpUnary_ExpJuxt)
       P_Ident((lo,hi)) = t(P_IdentTok)(x => x.name) ::: t(P_ThenTok)(x => "then") ::: t(P_UntilTok)(x => "until") ::: t(P_InTok)(x => "in"); d("Ident",P_Ident)
-      P_Type((lo,hi)) = tn(P_QuestionTok,P_WildcardBounds)((x,y) => WildAType(y)) ::: s(P_PrimType)(x => PrimAType(x)) ::: s(P_Ident)(x => NameAType(x)) ::: ss(P_Type,P_TypeArgs)((x,y) => ApplyAType(x,y)) ::: ss(P_Type,P_LBrackTok__RBrackTok)((x,y) => ArrayAType(x)) ::: t(P_VoidTok)(x => VoidAType()) ::: ss(P_Type,P_DotTok__Ident)((x,y) => FieldAType(x,y._2)) ::: ss(P_Mod,P_Type)((x,y) => ModAType(x,y)); d("Type",P_Type)
-      P_Juxts1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_Juxts1_Type)((x,y) => x :: y); d("Juxts1_Type",P_Juxts1_Type)
-      P_List1_Type((lo,hi)) = s(P_Type)(x => SingleList(x)) ::: s(P_Commas2_Type)(x => CommaList(x)) ::: s(P_Juxts2_Type)(x => JuxtList(x)); d("List1_Type",P_List1_Type)
-      P_List_Type((lo,hi)) = s(P_List1_Type)(x => x); d("List_Type",P_List_Type)
-      P_Option_Type((lo,hi)) = s(P_Type)(x => Some(x)); d("Option_Type",P_Option_Type)
-      P_Juxts0_Mod__Option_Type((lo,hi)) = nn(P_Juxts0_Mod,P_Option_Type)((x,y) => (x,y)); d("Juxts0_Mod__Option_Type",P_Juxts0_Mod__Option_Type)
-      P_Commas1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_CommaTok__Commas1_Type)((x,y) => x :: y._2); d("Commas1_Type",P_Commas1_Type)
       P_IdentDims((lo,hi)) = s(P_Ident)(x => (x,0)) ::: ss(P_IdentDims,P_LBrackTok__RBrackTok)((x,y) => (x._1,x._2+1)); d("IdentDims",P_IdentDims)
       P_VarDecl((lo,hi)) = s(P_IdentDims)(x => (x._1,x._2,None)) ::: ss(P_IdentDims,P_EqTok__ExpCommas)((x,y) => (x._1,x._2,Some(y._2))); d("VarDecl",P_VarDecl)
       P_Commas1_VarDecl((lo,hi)) = s(P_VarDecl)(x => List(x)) ::: ss(P_VarDecl,P_CommaTok__Commas1_VarDecl)((x,y) => x :: y._2); d("Commas1_VarDecl",P_Commas1_VarDecl)
@@ -683,10 +668,11 @@ object ParseEddy {
       P_Option_Ident((lo,hi)) = s(P_Ident)(x => Some(x)); d("Option_Ident",P_Option_Ident)
       P_ExpHighNA((lo,hi)) = ss(P_ExpHigh__ColonColonTok,P_Option_TypeArgs__Ident)((x,y) => MethodRefAExp(x._1,y._1,y._2)) ::: ss(P_ExpHigh__LBrackTok,P_List_ExpAssignNC__RBrackTok)((x,y) => ApplyAExp(x._1,y._1,BrackAround)) ::: ss(P_ExpHigh__DotTok,P_Option_TypeArgs__Ident)((x,y) => FieldAExp(x._1,y._1,y._2)) ::: ss(P_ExpHigh,P_TypeArgs)((x,y) => TypeApplyAExp(x,y)) ::: ss(P_ExpHigh__ColonColonTok,P_Option_TypeArgs__NewTok)((x,y) => NewRefAExp(x._1,y._1)) ::: s(P_Lit)(x => x) ::: s(P_Ident)(x => NameAExp(x)) ::: ss(P_ExpHigh__LParenTok,P_List_ExpAssignNC__RParenTok)((x,y) => ApplyAExp(x._1,y._1,ParenAround)) ::: ss(P_ExpHigh__LCurlyTok,P_List_ExpAssignNC__RCurlyTok)((x,y) => ApplyAExp(x._1,y._1,CurlyAround)); d("ExpHighNA",P_ExpHighNA)
       P_ExpNewNA((lo,hi)) = s(P_ExpHighNA)(x => x) ::: ts(P_NewTok,P_Option_TypeArgs__ExpJuxt)((x,y) => NewAExp(y._1,y._2)) ::: tn(P_QuestionTok,P_WildcardBounds)((x,y) => WildAExp(y)); d("ExpNewNA",P_ExpNewNA)
+      P_SingleJuxt1_ExpNewNA((lo,hi)) = s(P_ExpNewNA)(x => SingleList(x)) ::: s(P_Juxts2_ExpNewNA)(x => JuxtList(x)); d("SingleJuxt1_ExpNewNA",P_SingleJuxt1_ExpNewNA)
       P_Juxts1_ExpNewNA((lo,hi)) = s(P_ExpNewNA)(x => List(x)) ::: ss(P_ExpNewNA,P_Juxts1_ExpNewNA)((x,y) => x :: y); d("Juxts1_ExpNewNA",P_Juxts1_ExpNewNA)
       P_ExpHighNP((lo,hi)) = tt(P_LBrackTok,P_RBrackTok)((x,y) => ArrayAExp(EmptyList, BrackAround)) ::: ts(P_LCurlyTok,P_Juxts2_ExpNew__RCurlyTok)((x,y) => ArrayAExp(JuxtList(y._1), CurlyAround)) ::: ts(P_LBrackTok,P_Commas2_ExpCond_ExpJuxt__RBrackTok)((x,y) => ArrayAExp(CommaList(y._1), BrackAround)) ::: ts(P_LCurlyTok,P_Commas2_ExpCond_ExpJuxt__RCurlyTok)((x,y) => ArrayAExp(CommaList(y._1), CurlyAround)) ::: ts(P_LBrackTok,P_ExpCond_ExpNew__RBrackTok)((x,y) => ArrayAExp(SingleList(y._1),BrackAround)) ::: ts(P_LBrackTok,P_Juxts2_ExpNew__RBrackTok)((x,y) => ArrayAExp(JuxtList(y._1), BrackAround)) ::: tt(P_LCurlyTok,P_RCurlyTok)((x,y) => ArrayAExp(EmptyList, CurlyAround)) ::: ts(P_LCurlyTok,P_ExpCond_ExpNew__RCurlyTok)((x,y) => ArrayAExp(SingleList(y._1),CurlyAround)) ::: s(P_ExpHighNA)(x => x); d("ExpHighNP",P_ExpHighNP)
       P_ExpNewNP((lo,hi)) = s(P_ExpHighNP)(x => x) ::: ts(P_NewTok,P_Option_TypeArgs__ExpJuxt)((x,y) => NewAExp(y._1,y._2)) ::: tn(P_QuestionTok,P_WildcardBounds)((x,y) => WildAExp(y)); d("ExpNewNP",P_ExpNewNP)
-      P_ExpJuxtNP((lo,hi)) = s(P_ExpNewNP)(x => x) ::: ss(P_ExpNew,P_Juxts1_ExpNewNA)((x,y) => ApplyAExp(x,JuxtList(y),NoAround)); d("ExpJuxtNP",P_ExpJuxtNP)
+      P_ExpJuxtNP((lo,hi)) = s(P_ExpNewNP)(x => x) ::: ss(P_ExpNew,P_SingleJuxt1_ExpNewNA)((x,y) => ApplyAExp(x,y,NoAround)); d("ExpJuxtNP",P_ExpJuxtNP)
       P_ExpUnary_ExpJuxtNP((lo,hi)) = s(P_ExpJuxtNP)(x => x) ::: ss(P_ExpUnary_ExpJuxt,P_PostOp)((x,y) => UnaryAExp(y,x)) ::: ss(P_PreOp,P_ExpUnary_ExpJuxt)((x,y) => UnaryAExp(x,y)) ::: ss(P_LParenTok__Type,P_RParenTok__ExpUnary_ExpJuxt)((x,y) => CastAExp(x._2,y._2)); d("ExpUnary_ExpJuxtNP",P_ExpUnary_ExpJuxtNP)
       P_ExpMul_ExpJuxtNP((lo,hi)) = s(P_ExpUnary_ExpJuxtNP)(x => x) ::: ss(P_ExpMul_ExpJuxt,P_MulTok__ExpUnary_ExpJuxtNP)((x,y) => BinaryAExp(MulOp,x,y._2)) ::: ss(P_ExpMul_ExpJuxt,P_DivTok__ExpUnary_ExpJuxtNP)((x,y) => BinaryAExp(DivOp,x,y._2)) ::: ss(P_ExpMul_ExpJuxt,P_ModTok__ExpUnary_ExpJuxtNP)((x,y) => BinaryAExp(ModOp,x,y._2)); d("ExpMul_ExpJuxtNP",P_ExpMul_ExpJuxtNP)
       P_ExpAdd_ExpJuxtNP((lo,hi)) = s(P_ExpMul_ExpJuxtNP)(x => x) ::: ss(P_ExpAdd_ExpJuxt,P_PlusTok__ExpMul_ExpJuxtNP)((x,y) => BinaryAExp(AddOp,x,y._2)) ::: ss(P_ExpAdd_ExpJuxt,P_MinusTok__ExpMul_ExpJuxtNP)((x,y) => BinaryAExp(SubOp,x,y._2)); d("ExpAdd_ExpJuxtNP",P_ExpAdd_ExpJuxtNP)
@@ -704,8 +690,15 @@ object ParseEddy {
       P_MaybeParenExp__Option_DoTok((lo,hi)) = sn(P_MaybeParenExp,P_Option_DoTok)((x,y) => (x,y)); d("MaybeParenExp__Option_DoTok",P_MaybeParenExp__Option_DoTok)
       P_MaybeParenExp__Option_ThenTok((lo,hi)) = sn(P_MaybeParenExp,P_Option_ThenTok)((x,y) => (x,y)); d("MaybeParenExp__Option_ThenTok",P_MaybeParenExp__Option_ThenTok)
       P_ExpHigh((lo,hi)) = s(P_ExpParens)(x => x) ::: s(P_ExpHighNP)(x => x); d("ExpHigh",P_ExpHigh)
+      P_Type((lo,hi)) = s(P_ExpHigh)(x => x) ::: tn(P_QuestionTok,P_WildcardBounds)((x,y) => WildAExp(y)); d("Type",P_Type)
+      P_Juxts1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_Juxts1_Type)((x,y) => x :: y); d("Juxts1_Type",P_Juxts1_Type)
+      P_List1_Type((lo,hi)) = s(P_Type)(x => SingleList(x)) ::: s(P_Commas2_Type)(x => CommaList(x)) ::: s(P_Juxts2_Type)(x => JuxtList(x)); d("List1_Type",P_List1_Type)
+      P_List_Type((lo,hi)) = s(P_List1_Type)(x => x); d("List_Type",P_List_Type)
+      P_Option_Type((lo,hi)) = s(P_Type)(x => Some(x)); d("Option_Type",P_Option_Type)
+      P_Juxts0_Mod__Option_Type((lo,hi)) = nn(P_Juxts0_Mod,P_Option_Type)((x,y) => (x,y)); d("Juxts0_Mod__Option_Type",P_Juxts0_Mod__Option_Type)
+      P_Commas1_Type((lo,hi)) = s(P_Type)(x => List(x)) ::: ss(P_Type,P_CommaTok__Commas1_Type)((x,y) => x :: y._2); d("Commas1_Type",P_Commas1_Type)
       P_ExpNew((lo,hi)) = s(P_ExpHigh)(x => x) ::: ts(P_NewTok,P_Option_TypeArgs__ExpJuxt)((x,y) => NewAExp(y._1,y._2)) ::: tn(P_QuestionTok,P_WildcardBounds)((x,y) => WildAExp(y)); d("ExpNew",P_ExpNew)
-      P_ExpJuxt((lo,hi)) = s(P_ExpNew)(x => x) ::: ss(P_ExpNew,P_Juxts1_ExpNewNA)((x,y) => ApplyAExp(x,JuxtList(y),NoAround)); d("ExpJuxt",P_ExpJuxt)
+      P_ExpJuxt((lo,hi)) = s(P_ExpNew)(x => x) ::: ss(P_ExpNew,P_SingleJuxt1_ExpNewNA)((x,y) => ApplyAExp(x,y,NoAround)); d("ExpJuxt",P_ExpJuxt)
       P_Option_ExpJuxt((lo,hi)) = s(P_ExpJuxt)(x => Some(x)); d("Option_ExpJuxt",P_Option_ExpJuxt)
       P_Option_TypeArgs__ExpJuxt((lo,hi)) = ns(P_Option_TypeArgs,P_ExpJuxt)((x,y) => (x,y)); d("Option_TypeArgs__ExpJuxt",P_Option_TypeArgs__ExpJuxt)
       P_ExpUnary_ExpJuxt((lo,hi)) = s(P_ExpJuxt)(x => x) ::: ss(P_ExpUnary_ExpJuxt,P_PostOp)((x,y) => UnaryAExp(y,x)) ::: ss(P_PreOp,P_ExpUnary_ExpJuxt)((x,y) => UnaryAExp(x,y)) ::: ss(P_LParenTok__Type,P_RParenTok__ExpUnary_ExpJuxt)((x,y) => CastAExp(x._2,y._2)); d("ExpUnary_ExpJuxt",P_ExpUnary_ExpJuxt)

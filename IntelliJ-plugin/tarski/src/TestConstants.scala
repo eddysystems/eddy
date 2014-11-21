@@ -2,7 +2,7 @@ package tarski
 
 import tarski.Constants._
 import tarski.Denotations._
-import tarski.AST._
+import tarski.Operators._
 import tarski.TestUtils._
 import tarski.Types._
 import scala.language.implicitConversions

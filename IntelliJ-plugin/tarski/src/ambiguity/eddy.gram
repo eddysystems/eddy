@@ -6,6 +6,7 @@ preamble package tarski
 preamble import tarski.Tokens._
 preamble import tarski.AST._
 preamble import tarski.Types._
+preamble import tarski.Operators._
 
 // Identifiers, including fake keywords
 Ident Name
@@ -44,6 +45,9 @@ Juxts1[a] List[a]
   a Juxts1[a]                    { $1 :: $2 }
 Juxts2[a] List[a]
   a Juxts1[a]                    { $1 :: $2 }
+SingleJuxt1[a] KList[a]
+  a                              { SingleList($1) }
+  Juxts2[a]                      { JuxtList($1) }
 Ands[a] List[a]
   a                              { List($1) }
   a AndTok Ands[a]               { $1 :: $3 }
@@ -69,31 +73,17 @@ IdentDims (Name,Int)
   Ident                          { ($1,0) }
   IdentDims LBrackTok RBrackTok  { ($1._1,$1._2+1) }
 
-// Types
-Type AType
-  Ident                          { NameAType($1) }
-  VoidTok                        { VoidAType() }
-  PrimType                       { PrimAType($1) }
-  Mod Type                       { ModAType($1,$2) }
-  Type LBrackTok RBrackTok       { ArrayAType($1) }
-  Type TypeArgs                  { ApplyAType($1,$2) }
-  Type DotTok Ident              { FieldAType($1,$3) }
-  QuestionTok WildcardBounds     { WildAType($2) }
-TypeArgs KList[AType]
-  LtTok List[Type] GtTok         { $2 }
-WildcardBounds Option[(Bound,AType)]
-  ""                             { None }
-  ExtendsTok Type                { Some((Extends(),$2)) }
-  ColonTok Type                  { Some((Extends(),$2)) }
-  SuperTok Type                  { Some((Super(),$2)) }
-PrimType PrimType
-  ByteTok                        { ByteType }
-  ShortTok                       { ShortType }
-  IntTok                         { IntType }
-  LongTok                        { LongType }
-  FloatTok                       { FloatType }
-  DoubleTok                      { DoubleType }
-  CharTok                        { CharType }
+// Types.  Most of the logic is shared with expressions.
+Type AExp
+  ExpHigh                           { $1 }
+  QuestionTok WildcardBounds        { WildAExp($2) }
+TypeArgs KList[AExp]
+  LtTok List[Type] GtTok            { $2 }
+WildcardBounds Option[(Bound,AExp)]
+  ""                                { None }
+  ExtendsTok Type                   { Some((Extends(),$2)) }
+  ColonTok Type                     { Some((Extends(),$2)) }
+  SuperTok Type                     { Some((Super(),$2)) }
 
 // Type parameters
 //TypeParam
@@ -252,10 +242,10 @@ ExpUnary[a] AExp
 
 ExpJuxt AExp
   ExpNew                                                    { $1 }
-  ExpNew Juxts1[ExpNewNA]                                   { ApplyAExp($1,JuxtList($2),NoAround) }
+  ExpNew SingleJuxt1[ExpNewNA]                              { ApplyAExp($1,$2,NoAround) }
 ExpJuxtNP AExp
   ExpNewNP                                                  { $1 }
-  ExpNew Juxts1[ExpNewNA]                                   { ApplyAExp($1,JuxtList($2),NoAround) }
+  ExpNew SingleJuxt1[ExpNewNA]                              { ApplyAExp($1,$2,NoAround) }
 
 ExpNew AExp
   ExpHigh                                                   { $1 }

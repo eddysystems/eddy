@@ -8,6 +8,7 @@ import tarski.Lexer._
 import tarski.Pretty._
 import tarski.Tokens._
 import tarski.TestUtils._
+import tarski.Operators._
 import tarski.Types._
 
 class TestParse {
@@ -65,12 +66,20 @@ class TestParse {
 
   @Test
   def primTypes() =
-    for (t <- VoidAType() :: List(ByteType,ShortType,IntType,LongType,FloatType,DoubleType,CharType).map(PrimAType(_)))
-      testAST(show(t)+" x",VarAStmt(Nil,t,SingleList(("x",0,None))))
+    for (t <- List(VoidType,ByteType,ShortType,IntType,LongType,FloatType,DoubleType,CharType))
+      testAST(show(t)+" x",
+        VarAStmt(Nil,t,SingleList(("x",0,None))),
+        ApplyAExp(t,SingleList("x"),NoAround))
 
   @Test
   def varArray() =
-    testAST("int x[]",VarAStmt(Nil,IntType,SingleList(("x",1,None))))
+    testAST("int x[]",VarAStmt(Nil,IntType,SingleList(("x",1,None))),
+                      ApplyAExp("int",SingleList(ApplyAExp("x",EmptyList,BrackAround)),NoAround))
+
+  @Test def varField() = testAST("X().Y y",
+    ApplyAExp("X",JuxtList(List(FieldAExp(ArrayAExp(EmptyList,ParenAround),None,"Y"),"y")),NoAround),
+    ApplyAExp(FieldAExp(ApplyAExp("X",EmptyList,ParenAround),None,"Y"),SingleList("y"),NoAround),
+    VarAStmt(Nil,FieldAExp(ApplyAExp("X",EmptyList,ParenAround),None,"Y"),SingleList(("y",0,None))))
 
   // Precedence
   def add(x: AExp, y: AExp) = BinaryAExp(AddOp,x,y)
@@ -89,7 +98,7 @@ class TestParse {
   @Test def doWhileBare() = testAST("do; while true", DoAStmt(e,t,false))
   @Test def whileHole()   = testAST("while true", WhileAStmt(t,h,false), WhileAStmt(t,e,false))
   @Test def untilHole()   = testAST("until true", WhileAStmt(t,h,true), WhileAStmt(t,e,true),
-                                                  ApplyAExp("until",JuxtList(List(BoolALit(true))),NoAround))
+                                                  ApplyAExp("until",SingleList(true),NoAround))
   @Test def forever()     = testAST("for (;;);", ForAStmt(Nil,None,Nil,EmptyAStmt()))
   @Test def foreverHole() = testAST("for (;;)", ForAStmt(Nil,None,Nil,HoleAStmt()))
   @Test def forSimple()   = testAST("for (x=7;true;x++)",

@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.AST.{AssignOp, BinaryOp, UnaryOp}
+import tarski.Operators._
 import tarski.Items._
 import tarski.Types._
 import ambiguity.Utility._
@@ -16,7 +16,7 @@ object Denotations {
   }
   case class MethodDen(obj: Exp, override val f: MethodItem) extends NonNewCallable
   case class LocalMethodDen(override val f: MethodItem) extends NonNewCallable
-  case class StaticMethodDen(override val f: StaticMethodItem) extends NonNewCallable
+  case class StaticMethodDen(obj: Option[Exp], override val f: StaticMethodItem) extends NonNewCallable
   case class ForwardDen(override val f: ConstructorItem) extends NonNewCallable
   case class NewDen(override val f: ConstructorItem) extends Callable {
     def tparams = f.parent.params ++ f.tparams // TODO: May need to recursively include higher parent parameters
@@ -51,6 +51,7 @@ object Denotations {
   // It's all expressions from here
   sealed abstract class Exp
 
+  // Literals
   sealed abstract class Lit extends Exp
   case class ByteLit(b: Byte, text: String) extends Lit
   case class ShortLit(s: Short, text: String) extends Lit
@@ -108,9 +109,9 @@ object Denotations {
     case AssignExp(op,left,right) => typeOf(left)
     case ParenExp(e) => typeOf(e)
     case ApplyExp(f,ts,_) => f match {
-      case MethodDen(_,f)     => substitute(f.tparams,ts,f.retVal)
-      case LocalMethodDen(f)  => substitute(f.tparams,ts,f.retVal)
-      case StaticMethodDen(f) => substitute(f.tparams,ts,f.retVal)
+      case MethodDen(_,f)       => substitute(f.tparams,ts,f.retVal)
+      case LocalMethodDen(f)    => substitute(f.tparams,ts,f.retVal)
+      case StaticMethodDen(_,f) => substitute(f.tparams,ts,f.retVal)
       case NewDen(c) => c.parent.generic(ts.take(c.parent.arity),c.parent.parent.simple)
       case ForwardDen(_) => VoidType
     }
@@ -136,5 +137,26 @@ object Denotations {
   def typeOf(e: Option[Exp]): Type = e match {
     case None => VoidType
     case Some(e) => typeOf(e)
+  }
+
+  // Is an expression definitely side effect free?
+  def noEffects(e: Exp): Boolean = e match {
+    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:EnumConstantExp|_:StaticFieldExp|_:LocalFieldExp
+        |_:ThisExp|_:SuperExp => true
+    case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp => false
+    case FieldExp(x,f) => noEffects(x)
+    case UnaryExp(op,x) => pure(op) && noEffects(x)
+    case BinaryExp(op,x,y) => pure(op,typeOf(x),typeOf(y)) && noEffects(x) && noEffects(y)
+    case ParenExp(x) => noEffects(x)
+    case CondExp(c,x,y,_) => noEffects(c) && noEffects(x) && noEffects(y)
+  }
+  def pure(op: UnaryOp) = !op.isInstanceOf[ImpOp]
+  def pure(op: BinaryOp, x: Type, y: Type) = (x,y) match {
+    case (x:PrimType,y:PrimType) => op match {
+      case DivOp|ModOp => x.isInstanceOf[FloatingType] || y.isInstanceOf[FloatingType]
+      case MulOp|AddOp|SubOp|LShiftOp|RShiftOp|UnsignedRShiftOp
+          |AndAndOp|OrOrOp|AndOp|XorOp|OrOp|LtOp|GtOp|LeOp|GeOp|EqOp|NeOp => true
+    }
+    case _ => false // If we unbox, there can always be null
   }
 }

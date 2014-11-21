@@ -1,6 +1,6 @@
 package tarski
 
-import scala.annotation.tailrec
+import scala.language.implicitConversions
 
 object Scores {
   /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability
@@ -41,6 +41,7 @@ object Scores {
     def map[B](f: A => B): Scored[B]
     def flatMap[B](f: A => Scored[B]): Scored[B] // f is assumed to generate conditional probabilities
     def ++[B >: A](s: Scored[B]): Scored[B]
+    def bias(p: Prob): Scored[A]
   }
 
   // Failure
@@ -53,6 +54,7 @@ object Scores {
       case Bad(f) => Bad(NestError("++ failed",List(e,f)))
       case Good(_) => s
     }
+    def bias(p: Prob) = this
   }
 
   // Nonempty list of possibilities
@@ -92,19 +94,17 @@ object Scores {
       case Bad(_) => c
       case Good(sc) => c++sc
     })
+
+    def bias(p: Prob) = Good(c map { case (q,a) => (p*q,a) })
   }
 
   // Score constructors
   def fail[A](error: String): Scored[A] = Bad(OneError(error))
+  def known[A](x: A): Scored[A] = Good(List((Prob(1),x)))
   def single[A](x: A, p: Prob): Scored[A] = Good(List((p,x)))
   def multiple[A](xs: List[(Prob,A)], error: => String): Scored[A] = xs filter { case (Prob(p),a) => p > 0.0 } match {
     case Nil => Bad(OneError(error))
     case _ => Good(xs)
-  }
-
-  def bias[A](s: Scored[A], b: Prob): Scored[A] = s match {
-    case Bad(_) => s
-    case Good(g) => Good(g.map( { case (p,a) => (p*b,a) } ))
   }
 
   // a and b are assumed independent
@@ -166,4 +166,33 @@ object Scores {
   // thread is map followed by product
   def thread[A,B](xs: Option[A])(f: A => Scored[B]): Scored[Option[B]] = product(xs map f)
   def thread[A,B](xs: List[A])  (f: A => Scored[B]): Scored[List[B]]   = product(xs map f)
+
+  // Scored monad with accumulator
+  case class ScoredAccum[+S,+A](x: Scored[(List[S],A)]) extends AnyVal {
+    def map[B](f: A => B): ScoredAccum[S,B] = ScoredAccum(x map {case (s,a) => (s,f(a))})
+    def flatMap[T>:S,B](f: A => ScoredAccum[T,B]): ScoredAccum[T,B] =
+      ScoredAccum(x flatMap {case (s,a) => f(a).x map {case (t,b) => (t++s,b)}})
+    def ++[T>:S,B>:A](y: ScoredAccum[T,B]): ScoredAccum[T,B] = ScoredAccum(x++y.x)
+    def bias(p: Prob): ScoredAccum[S,A] = ScoredAccum(x bias p)
+  }
+  implicit def liftAccum[A](x: Scored[A]): ScoredAccum[Nothing,A] = ScoredAccum(x map ((Nil,_)))
+
+  def productA[S,A,B](as: ScoredAccum[S,A], bs: => ScoredAccum[S,B]): ScoredAccum[S,(A,B)] =
+    ScoredAccum(productWith(as.x,bs.x)((a,b) => (b._1++a._1,(a._2,b._2))))
+  def productA[S,A,B,C](as: ScoredAccum[S,A], bs: => ScoredAccum[S,B], cs: => ScoredAccum[S,C]): ScoredAccum[S,(A,B,C)] =
+    ScoredAccum(productWith(as.x,bs.x,cs.x)((a,b,c) => (c._1++b._1++a._1,(a._2,b._2,c._2))))
+  def productWithA[S,A,B,T](as: ScoredAccum[S,A], bs: => ScoredAccum[S,B])(f: (A,B) => T): ScoredAccum[S,T] =
+    ScoredAccum(productWith(as.x,bs.x)((a,b) => (b._1++a._1,f(a._2,b._2))))
+  def productA[S,A](xs: Option[ScoredAccum[S,A]]): ScoredAccum[S,Option[A]] =
+    ScoredAccum(product(xs.map(_.x)) map {
+      case None => (Nil,None)
+      case Some((s,a)) => (s,Some(a))
+    })
+  def productA[S,A](xs: List[ScoredAccum[S,A]]): ScoredAccum[S,List[A]] =
+    ScoredAccum(product(xs.map(_.x)) map (xs => {
+      val (ss,as) = xs.unzip
+      (ss.flatten,as)
+    }))
+  def threadA[S,A,B](xs: Option[A])(f: A => ScoredAccum[S,B]): ScoredAccum[S,Option[B]] = productA(xs map f)
+  def threadA[S,A,B](xs: List[A])  (f: A => ScoredAccum[S,B]): ScoredAccum[S,List[B]]   = productA(xs map f)
 }
