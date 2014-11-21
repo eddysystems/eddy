@@ -67,8 +67,8 @@ object Denotations {
   // Expressions
   case class ParameterExp(item: ParameterItem) extends Exp
   case class LocalVariableExp(item: LocalVariableItem) extends Exp
-  case class EnumConstantExp(item: EnumConstantItem) extends Exp
-  case class StaticFieldExp(field: StaticFieldItem) extends Exp
+  case class EnumConstantExp(obj: Option[Exp], item: EnumConstantItem) extends Exp
+  case class StaticFieldExp(obj: Option[Exp], field: StaticFieldItem) extends Exp
   case class LocalFieldExp(field: FieldItem) extends Exp
   case class FieldExp(obj: Exp, field: FieldItem) extends Exp
   case class ThisExp(t: ThisItem) extends Exp
@@ -99,7 +99,7 @@ object Denotations {
     // Names
     case ParameterExp(i) => i.ty
     case LocalVariableExp(i) => i.ty
-    case EnumConstantExp(i) => i.ty
+    case EnumConstantExp(_,i) => i.ty
     case ThisExp(t) => t.inside
     case SuperExp(ThisItem(c:NormalClassItem)) => c.base
     case SuperExp(_) => throw new RuntimeException("type error")
@@ -123,7 +123,7 @@ object Denotations {
       }.getOrElse(throw new RuntimeException(s"Field $f not found in $t"))
     }
     case LocalFieldExp(f) => f.inside
-    case StaticFieldExp(f) => f.ty
+    case StaticFieldExp(_,f) => f.ty
     case IndexExp(e,i) => typeOf(e) match {
       case ArrayType(t) => t
       case _ => throw new RuntimeException("type error")

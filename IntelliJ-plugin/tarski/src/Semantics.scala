@@ -124,9 +124,9 @@ object Semantics {
     case i: ParameterItem if env.itemInScope(i) => single(ParameterExp(i), Pr.parameterValue)
     case i: LocalVariableItem if env.itemInScope(i) => single(LocalVariableExp(i), Pr.localValue)
 
-    // we can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
-    case i: StaticFieldItem => single(StaticFieldExp(i), Pr.staticFieldValue)
-    case i: EnumConstantItem => single(EnumConstantExp(i), Pr.enumConstantValue)
+    // We can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
+    case i: StaticFieldItem => single(StaticFieldExp(None,i), Pr.staticFieldValue)
+    case i: EnumConstantItem => single(EnumConstantExp(None,i), Pr.enumConstantValue)
     case i: ThisItem => single(ThisExp(i), Pr.thisValue)
 
     case i: FieldItem if env.itemInScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
@@ -187,14 +187,14 @@ object Semantics {
       // First, the ones where x is a type
       // TODO: penalize unnecessarily qualified field expressions?
       val tdens = denoteType(x) flatMap (t => staticFieldScores(t,f) flatMap {
-        case f: EnumConstantItem => single(EnumConstantExp(f), Pr.enumFieldExp)
-        case f: StaticFieldItem => single(StaticFieldExp(f), Pr.staticFieldExp)
+        case f: EnumConstantItem => single(EnumConstantExp(None,f), Pr.enumFieldExp)
+        case f: StaticFieldItem => single(StaticFieldExp(None,f), Pr.staticFieldExp)
       })
       // Now, x is an expression
-      val edens = denoteExp(x) flatMap (e => fieldScores(typeOf(e),f) flatMap {
-        case f: EnumConstantItem => single(EnumConstantExp(f), Pr.enumFieldExpWithObject) // TODO: cannot discard expression if there are side effects
-        case f: StaticFieldItem => single(StaticFieldExp(f), Pr.staticFieldExpWithObject) // TODO: cannot discard expression if there are side effects
-        case f: FieldItem => single(FieldExp(e,f), Pr.fieldExp)
+      val edens = denoteExp(x) flatMap (x => fieldScores(typeOf(x),f) flatMap {
+        case f: EnumConstantItem => single(EnumConstantExp(Some(x),f), Pr.enumFieldExpWithObject)
+        case f: StaticFieldItem => single(StaticFieldExp(Some(x),f), Pr.staticFieldExpWithObject)
+        case f: FieldItem => single(FieldExp(x,f), Pr.fieldExp)
       })
       tdens++edens
     }
@@ -305,7 +305,7 @@ object Semantics {
     case SuperExp(_) => false
     case ParameterExp(i) => !i.isFinal
     case LocalVariableExp(i) => !i.isFinal
-    case EnumConstantExp(_) => false
+    case EnumConstantExp(_,_) => false
     case CastExp(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case UnaryExp(_,_) => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
     case BinaryExp(_,_,_) => false
@@ -314,7 +314,7 @@ object Semantics {
     case ApplyExp(_,_,_) => false
     case FieldExp(_,f) => !f.isFinal
     case LocalFieldExp(f) => !f.isFinal
-    case StaticFieldExp(f) => !f.isFinal
+    case StaticFieldExp(_,f) => !f.isFinal
     case IndexExp(_,_) => true // Java arrays are always mutable
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
     case ArrayExp(_,_) => false

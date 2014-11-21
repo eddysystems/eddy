@@ -373,11 +373,14 @@ object Pretty {
     case StringLit(v,s) => StringLitTok(s)
     case NullLit => NullLitTok()
   }))
+  def prettyField(x: Exp, f: Item)(implicit env: Env): (Fixity,Tokens) =
+    fix(FieldFix, left(_,x) ::: DotTok() :: tokens(f.name))
   implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case l: Lit => pretty(l)
     case ParameterExp(x) => pretty(x)
     case LocalVariableExp(x) => pretty(x)
-    case EnumConstantExp(x) => pretty(x)
+    case EnumConstantExp(None,f) => pretty(f)
+    case EnumConstantExp(Some(x),f) => prettyField(x,f)
     case ThisExp(i) => if (env.itemInScope(i)) (HighestFix,List(ThisTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(ThisTok()))
     case SuperExp(i) => if (env.itemInScope(i)) (HighestFix,List(SuperTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(SuperTok()))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
@@ -398,9 +401,10 @@ object Pretty {
         case ForwardDen(c) => ThisTok() :: t
       }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
     }
-    case FieldExp(x,f) => fix(FieldFix, left(_,x) ::: DotTok() :: tokens(f.name))
+    case FieldExp(x,f) => prettyField(x,f)
     case LocalFieldExp(f) => pretty(f)
-    case StaticFieldExp(f) => pretty(f)
+    case StaticFieldExp(None,f) => pretty(f)
+    case StaticFieldExp(Some(x),f) => prettyField(x,f)
     case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok() :: tokens(i) ::: List(RBrackTok()))
     case ArrayExp(t,xs) => (ApplyFix, NewTok() :: tokens(ArrayType(t)) ::: prettyArrayExp(xs)._2)
     case EmptyArrayExp(t,is) => {
