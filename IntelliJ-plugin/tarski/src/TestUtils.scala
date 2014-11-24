@@ -8,6 +8,7 @@ import tarski.Environment.Env
 import tarski.Items._
 import tarski.Tokens._
 import tarski.Types.{ClassType, LangType, ParamType, VoidType}
+import scala.language.implicitConversions
 
 object TestUtils {
   // AST implicit conversions
