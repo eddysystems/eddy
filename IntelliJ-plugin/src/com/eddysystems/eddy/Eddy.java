@@ -44,7 +44,7 @@ public class Eddy {
   private int resultOffset = 0;
   boolean selectedExplicitly = true;
 
-  Eddy() {
+  public Eddy() {
     logger.setLevel(Level.DEBUG);
   }
 
@@ -95,15 +95,16 @@ public class Eddy {
     document = editor.getDocument();
     project = editor.getProject();
 
-    if (results != null)
-      results = null;
-
-    if (project == null)
-      return;
+    found_existing = false;
+    results = null;
+    resultStrings = new SmartList<String>();
 
     // clear the offset
     resultOffset = 0;
     selectedExplicitly = false;
+
+    if (project == null)
+      return;
 
     int pos = editor.getCaretModel().getCurrentCaret().getOffset();
     int lnum = document.getLineNumber(pos);
@@ -205,8 +206,6 @@ public class Eddy {
       env = (new EnvironmentProcessor(project, place, true)).getJavaEnvironment();
       results = Tarski.fixJava(tokens, env);
 
-      found_existing = false;
-      resultStrings = new SmartList<String>();
       for (scala.Tuple2<Scores.Prob,List<Denotations.Stmt>> interpretation : results) {
         // for each interpretation, compute a string
         if (interpretation._2().isEmpty()) {
