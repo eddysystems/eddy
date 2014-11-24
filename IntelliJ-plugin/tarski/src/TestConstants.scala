@@ -1,13 +1,14 @@
 package tarski
 
+import org.testng.AssertJUnit._
+import org.testng.annotations.Test
 import tarski.Constants._
 import tarski.Denotations._
 import tarski.Operators._
-import tarski.TestUtils._
 import tarski.Types._
+import tarski.TestUtils._
+
 import scala.language.implicitConversions
-import org.testng.annotations.Test
-import org.testng.AssertJUnit._
 
 class TestConstants {
   def test(c: OptionCon, e: Exp) = {

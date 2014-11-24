@@ -1,12 +1,13 @@
 package tarski
 
-import org.testng.annotations.Test
 import org.testng.AssertJUnit._
+import org.testng.annotations.Test
 import tarski.Base._
+import tarski.Inference.{Var, infer, looseBounds}
 import tarski.Items._
 import tarski.Types._
-import tarski.TestUtils.{toType,_}
-import tarski.Inference.{Var,Bound,Fixed,Bounded,infer,looseBounds}
+import tarski.TestUtils._
+
 import scala.language.implicitConversions
 
 class TestInfer {

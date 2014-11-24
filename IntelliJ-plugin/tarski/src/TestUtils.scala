@@ -1,15 +1,13 @@
 package tarski
 
-import tarski.Base._
-import tarski.Environment.Env
-
-import scala.language.implicitConversions
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
+import tarski.Base._
 import tarski.Denotations._
+import tarski.Environment.Env
 import tarski.Items._
-import tarski.Types._
 import tarski.Tokens._
+import tarski.Types.{ClassType, LangType, ParamType, VoidType}
 
 object TestUtils {
   // AST implicit conversions

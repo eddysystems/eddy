@@ -1,21 +1,20 @@
 package tarski
 
-import tarski.AST._
-import tarski.Operators._
-import tarski.Denotations._
-
-import scala.language.implicitConversions
-import org.testng.annotations.Test
+import ambiguity.Utility._
 import org.testng.AssertJUnit._
-
-import tarski.Tarski.fix
-import tarski.Environment.Env
+import org.testng.annotations.Test
+import tarski.AST._
 import tarski.Base._
+import tarski.Denotations._
+import tarski.Environment.Env
 import tarski.Items._
 import tarski.Lexer._
-import tarski.Types._
+import tarski.Operators._
+import tarski.Tarski.fix
 import tarski.TestUtils._
-import ambiguity.Utility._
+import tarski.Types._
+
+import scala.language.implicitConversions
 
 class TestDen {
   // Default to an empty local environment

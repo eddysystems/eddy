@@ -1,14 +1,15 @@
 package tarski
 
-import tarski.Items._
-import tarski.Pretty._
-import tarski.Lexer._
-import tarski.Tokens._
-import tarski.Base._
-import tarski.Types._
-import scala.language.implicitConversions
-import org.testng.annotations.Test
 import org.testng.AssertJUnit._
+import org.testng.annotations.Test
+import tarski.Base._
+import tarski.Items._
+import tarski.Lexer._
+import tarski.Pretty._
+import tarski.Tokens._
+import tarski.Types._
+
+import scala.language.implicitConversions
 
 class TestPretty {
   implicit val env = baseEnv

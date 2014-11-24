@@ -1,14 +1,14 @@
 package tarski
 
-import org.testng.annotations.Test
 import org.testng.AssertJUnit._
+import org.testng.annotations.Test
 import tarski.Base._
-import tarski.Denotations.{ThisExp, FieldExp, AssignExp}
+import tarski.Denotations.ThisExp
 import tarski.Environment._
 import tarski.Items._
-import tarski.Types._
 import tarski.Pretty._
 import tarski.Tokens._
+import tarski.Types._
 
 class TestEnvironment {
 

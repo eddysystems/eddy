@@ -5,10 +5,10 @@ import org.testng.AssertJUnit._
 import org.testng.annotations.Test
 import tarski.AST._
 import tarski.Lexer._
-import tarski.Pretty._
-import tarski.Tokens._
-import tarski.TestUtils._
 import tarski.Operators._
+import tarski.Pretty._
+import tarski.TestUtils._
+import tarski.Tokens._
 import tarski.Types._
 
 class TestParse {
