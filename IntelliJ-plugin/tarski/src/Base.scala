@@ -29,7 +29,7 @@ object Base {
     def isFinal = false
     private val E = SimpleTypeVar("E")
     def parent = JavaLangPkg
-    def params = List(E)
+    def tparams = List(E)
     def base = ObjectType
     def implements = List(SerializableType,comparable(ParamType(E)))
   }
@@ -37,7 +37,7 @@ object Base {
   // Simple classes
   sealed abstract class SimpleClassItem extends ClassItem {
     override def parent = JavaLangPkg
-    override def params = Nil
+    override def tparams = Nil
     def isClass = true
     def isEnum = false
   }
@@ -58,7 +58,7 @@ object Base {
     def base = ObjectType
     private val T = SimpleTypeVar("T")
     def parent = JavaLangPkg
-    def params = List(T)
+    def tparams = List(T)
     def implements = Nil
     def isFinal = false
   }

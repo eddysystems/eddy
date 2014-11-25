@@ -132,6 +132,7 @@ object Inference {
   def isProper(bs: Bounds, t: Parent): Boolean = t match {
     case _:PackageParent => true
     case t:ClassType => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent)
+    case t:CallableParent => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent.asInstanceOf[Parent])
   }
   def isProper(bs: Bounds, t: TypeArg): Boolean = t match {
     case t:RefType => isProper(bs,t)

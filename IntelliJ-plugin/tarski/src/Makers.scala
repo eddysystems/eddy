@@ -7,7 +7,7 @@ import tarski.Items._
 // Unpleasant imperative classes for use in processing recursive environments
 object Makers {
 
-    class ClassItemMaker(val name: Name, val parent: ParentItem, var params: List[TypeVar],
+    class ClassItemMaker(val name: Name, val parent: ParentItem, var tparams: List[TypeVar],
                          val isClass: Boolean, val isEnum: Boolean, val isFinal: Boolean) extends ClassItem {
     // To be filled in later
     private var _base: ClassType = null

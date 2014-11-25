@@ -3,10 +3,13 @@ package com.eddysystems.eddy;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.source.PsiClassReferenceType;
 import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
 import com.intellij.psi.scope.JavaScopeProcessorEvent;
+import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.scope.util.PsiScopesUtil;
+import com.intellij.psi.search.*;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
@@ -14,11 +17,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import scala.collection.JavaConversions;
+import scala.collection.immutable.Nil;
 import tarski.Environment.Env;
 import tarski.Items.*;
-import tarski.Types.*;
-import tarski.Makers.*;
+import tarski.Makers.ClassItemMaker;
+import tarski.Makers.TypeVarMaker;
 import tarski.Tarski;
+import tarski.Types.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -74,11 +79,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // this is set to null when we go to java.lang
     this.currentFileContext = place;
 
-    logger.setLevel(Level.INFO);
+    logger.setLevel(Level.DEBUG);
 
     PsiScopesUtil.treeWalkUp(this, place, null);
 
-    // TODO: add all installed packages
     // TODO: find import statements and add those to scope
   }
 
@@ -108,7 +112,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (elem instanceof PsiMethod)
       return addMethodToEnvMap(envitems, (PsiMethod)elem);
     if (elem instanceof PsiClass)
-      return addClassToEnvMap(envitems, (PsiClass)elem);
+      return addClassToEnvMap(envitems, (PsiClass)elem, false);
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
       if (!envitems.containsKey(pkg)) {
@@ -146,7 +150,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return ti;
   }
 
-  private TypeItem addClassToEnvMap(Map<PsiElement,Item> envitems, PsiClass cls) {
+  private TypeItem addClassToEnvMap(Map<PsiElement,Item> envitems, PsiClass cls, boolean recurse) {
     if (envitems.containsKey(cls))
       return (TypeItem)envitems.get(cls);
 
@@ -182,17 +186,37 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiClass scls = cls.getSuperClass();
     assert scls != null;
     // TODO: get actual type arguments for scls and make generic class
-    ClassType base = (ClassType)addClassToEnvMap(envitems, scls).raw();
+    ClassType base = (ClassType)addClassToEnvMap(envitems, scls, false).raw();
 
     // Interfaces
     ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
     for (PsiClass i : cls.getInterfaces()) {
       // TODO: Handle generics
-      j_interfaces.add(((ClassItem)addClassToEnvMap(envitems,i)).raw());
+      j_interfaces.add(((ClassItem)addClassToEnvMap(envitems, i, false)).raw());
     }
     scala.collection.immutable.List<ClassType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
 
     ci.set(base, interfaces);
+
+    // add subthings recursively
+    if (recurse) {
+      for (PsiField f : cls.getFields()) {
+        addFieldToEnvMap(envitems, f);
+      }
+      for (PsiMethod m : cls.getMethods()) {
+        if (!envitems.containsKey(m))
+          addMethodToEnvMap(envitems, m);
+      }
+      for (PsiMethod m : cls.getConstructors()) {
+        if (!envitems.containsKey(m))
+          addMethodToEnvMap(envitems, m);
+      }
+      for (PsiClass c : cls.getInnerClasses()) {
+        if (!envitems.containsKey(c))
+          addClassToEnvMap(envitems, c, true);
+      }
+    }
+
     return ci;
   }
 
@@ -217,7 +241,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiClass cls = method.getContainingClass();
     assert cls != null;
     if (!envitems.containsKey(cls)) {
-      addClassToEnvMap(envitems, cls);
+      addClassToEnvMap(envitems, cls, false);
     }
     ClassItem clsitem = (ClassItem)envitems.get(cls);
 
@@ -257,8 +281,21 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (t instanceof PsiClassType) {
       PsiClass tcls = ((PsiClassType)t).resolve();
       if (tcls == null) {
-        // ClassType cannot be resolved to a Class (probably because JDK is missing or the code is incomplete
+        // ClassType cannot be resolved to a Class (probably because its class file is missing or the code is incomplete)
         String name = ((PsiClassType)t).getClassName();
+
+        logger.warn("cannot resolve type " + t);
+
+        if (t instanceof PsiClassReferenceType) {
+          String qname = ((PsiClassReferenceType)t).getReference().getQualifiedName();
+          boolean isfinal = false;
+          if (t instanceof PsiModifierListOwner)
+            isfinal = ((PsiModifierListOwner) t).hasModifierProperty(PsiModifier.FINAL);
+          // TODO: pass on type parameters
+          List<TypeArg> jargs = new SmartList<TypeArg>();
+          scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
+          return new UnresolvedType(new UnresolvedItem(name, qname.substring(qname.lastIndexOf('.')+1), args, isfinal), args);
+        }
         throw new RuntimeException("Cannot resolve " + t);
       } else if (tcls instanceof PsiTypeParameter) {
         return new ParamType(addTypeParameterToEnvMap(envitems, (PsiTypeParameter)tcls));
@@ -269,23 +306,23 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         }
         scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
-        logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
+        //logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
 
-        ClassItem item = (ClassItem)addClassToEnvMap(envitems,tcls);
+        ClassItem item = (ClassItem)addClassToEnvMap(envitems,tcls, false);
 
-        logger.debug("  item: " + item + ": params " + item.params().mkString("[",",","]"));
+        //logger.debug("  item: " + item + ": params " + item.tparams().mkString("[",",","]"));
 
         assert params.size() == ((PsiClassType)t).getParameterCount();
-        assert params.nonEmpty() == ((PsiClassType)t).hasParameters();
 
-        if (params.nonEmpty()) {
+        if (item.arity() > 0 && params.isEmpty()) {
+          // This happens. For instance in java.lang.SecurityManager.getClassContext()
+          return item.raw();
+        } else if (((PsiClassType)t).hasParameters()) {
           Item container = addContainerToEnvMap(envitems, containing(tcls));
           assert container instanceof ParentItem;
           return item.generic(params, ((ParentItem)container).inside());
-        } else if (item.arity() > 0) {
-          // This happens. For instance in java.lang.SecurityManager.getClassContext()
-          return item.raw();
         } else {
+          assert params.isEmpty();
           return item.simple();
         }
       }
@@ -313,7 +350,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     Type t = convertType(envitems,f.getType());
     ClassItem c = (ClassItem)envitems.get(cls);
     boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
-    Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(),(EnumItem)c) :
+    Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(),(ClassItem)c) :
               (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c,isFinal)
                                                          : new FieldItem(f.getName(),t,c,isFinal));
     envitems.put(f, v);
@@ -321,12 +358,29 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   }
 
   private Map<PsiElement, Item> getGlobalEnvItems() {
+    // TODO: do this asynchronously before the first time we're using it, and return without the full set immediately
     if (global_envitems_ready) {
       HashMap<PsiElement, Item> newmap = new HashMap<PsiElement, Item>();
       newmap.putAll(global_envitems);
       return newmap;
-    } else
-      return new HashMap<PsiElement, Item>();
+    } else {
+      // get all classes from IntelliJ
+      HashMap<PsiElement, Item> newmap = new HashMap<PsiElement, Item>();
+
+      PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
+      String[] classnames = cache.getAllClassNames();
+
+      for (String name : classnames) {
+        //GlobalSearchScope scope = new EverythingGlobalScope();
+        //GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
+        GlobalSearchScope scope = ProjectScopeBuilder.getInstance(project).buildProjectScope();
+        for (PsiClass cls : cache.getClassesByName(name, scope)) {
+          logger.debug("adding global class: " + cls);
+          addClassToEnvMap(newmap, cls, true);
+        }
+      }
+      return newmap;
+    }
   }
 
   private void updateGlobalEnvItems(Map<PsiElement, Item> envitems) {
@@ -359,7 +413,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     Map<Item, Integer> localItems = new HashMap<Item, Integer>();
 
     // register locally visible items (each item will register things it contains, inherits from, etc.)
-
     for (ShadowElement<PsiPackage> spkg : packages) {
       final PsiPackage pkg = spkg.e;
       Item ipkg = addContainerToEnvMap(envitems, pkg);
@@ -374,25 +427,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
         // TODO: get type parameters etc
-      Item icls = addClassToEnvMap(envitems, cls);
+      Item icls = addClassToEnvMap(envitems, cls, true);
       localItems.put(icls,scls.shadowingPriority);
-
-      // if these items don't already exist, they can never shadow things
-      for (PsiField f : cls.getFields()) {
-        addFieldToEnvMap(envitems, f);
-      }
-      for (PsiMethod m : cls.getMethods()) {
-        if (!envitems.containsKey(m))
-          addMethodToEnvMap(envitems, m);
-      }
-      for (PsiMethod m : cls.getConstructors()) {
-        if (!envitems.containsKey(m))
-          addMethodToEnvMap(envitems, m);
-      }
-      for (PsiClass c : cls.getInnerClasses()) {
-        if (!envitems.containsKey(c))
-          addClassToEnvMap(envitems, c);
-      }
     }
 
     // register methods (also register types used in this method)

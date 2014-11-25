@@ -75,7 +75,7 @@ object Types {
     override def unboxIntegral = Some(this)
     def isIntegral = true
   }
-  sealed abstract class FloatingType extends NumType { def isIntegral = true }
+  sealed abstract class FloatingType extends NumType { def isIntegral = false }
   case object ByteType    extends IntegralType { val box = ByteItem.simple }
   case object ShortType   extends IntegralType { val box = ShortItem.simple }
   case object IntType     extends IntegralType { val box = IntegerItem.simple }
@@ -84,9 +84,8 @@ object Types {
   case object DoubleType  extends FloatingType { val box = DoubleItem.simple }
   case object CharType    extends IntegralType { val box = CharacterItem.simple }
 
-  // Parents of classes (either classes or packages)
+  // Parents of classes (either classes or packages, or callables for local classes)
   // Inherited by SimpleItem and ClassType
-  // TODO: If the def is A.L, but L is really defined in the base class B of A, actual = B.
   sealed trait Parent {
     def item: ParentItem
     def env: Tenv
@@ -97,6 +96,11 @@ object Types {
     def safe: Option[Parent]
     def raw: Parent // If we're generic, become raw
   }
+  sealed trait GenericParent extends Parent {
+    def item: ParentItem with GenericItem
+    def args: List[TypeArg]
+  }
+
   trait PackageParent extends Parent { // Exists so that we can seal Parent
     def item: PackageItem
     def env = Map.empty
@@ -116,9 +120,8 @@ object Types {
   }
 
   // Class types are either Object, simple, raw, or generic
-  sealed abstract class ClassType extends RefType with Parent {
+  sealed abstract class ClassType extends RefType with GenericParent {
     def item: ClassItem
-    def args: List[TypeArg]
     def parent: Parent
     def base: ClassType = item.base.substitute(env)
     def implements: List[ClassType] = item.implements map (_.substitute(env))
@@ -154,7 +157,7 @@ object Types {
   }
   case class RawType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
-    def env = item.params.foldLeft(parent.env)((env,p) => env+((p,None)))
+    def env = item.tparams.foldLeft(parent.env)((env,p) => env+((p,None)))
     def isRaw = true
     def isSimple = parent.isSimple
     def known(implicit env: Tenv) = parent.known
@@ -174,6 +177,31 @@ object Types {
     }
     def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield GenericType(item,a,p)
     def raw = RawType(item,parent.raw)
+  }
+
+  case class UnresolvedType(item: UnresolvedItem, args: List[TypeArg]) extends RefType {
+    def raw = UnresolvedType(item, Nil)
+    def isFinal = item.isFinal
+    def isSimple = item.arity == 0
+    def known(implicit env: Tenv) = args.forall(_.known)
+    def substitute(implicit env: Tenv) = UnresolvedType(item, args map (_.substitute))
+    def safe = None // this can never safely be used -- we have no idea what it is!
+    val supers = Nil
+  }
+
+  // for local classes
+  case class CallableParent(item: CallableParentItem, args: List[TypeArg], parent: ClassType) extends GenericParent {
+    def env() = capture(this,parent.env)._1
+    def isRaw = parent.isRaw && args.isEmpty
+    def isSimple = parent.isSimple && item.arity == 0
+    def known(implicit env: Tenv) = args.forall(_.known) && parent.known
+    def substitute(implicit env: Tenv) = {
+      val p = parent.substitute
+      if (!p.isRaw && (args forall (_.known))) CallableParent(item,args map (_.substitute),p)
+      else CallableParent(item,Nil,p)
+    }
+    def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield CallableParent(item,a,p)
+    def raw = CallableParent(item, Nil, parent.raw)
   }
 
   // Type arguments are either reference types or wildcards.  4.5.1
@@ -330,14 +358,14 @@ object Types {
   }
 
   // Capture conversion for generic types with wildcards
-  def capture(t: GenericType, base: Tenv): (Tenv,List[RefType]) = {
+  def capture(t: GenericParent, base: Tenv): (Tenv,List[RefType]) = {
     // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
     class FreshVar(val name: Name) extends TypeVar {
       var lo: RefType = null
       var hi: RefType = null
     }
     var fills: List[Tenv => Unit] = Nil
-    val vts = (t.item.params,t.args).zipped map { case (v,t) => (v,t match {
+    val vts = (t.item.tparams,t.args).zipped map { case (v,t) => (v,t match {
       case t:RefType => t
       case t:Wildcard => {
         val f = new FreshVar(v.name)

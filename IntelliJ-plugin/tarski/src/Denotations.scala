@@ -19,7 +19,7 @@ object Denotations {
   case class StaticMethodDen(obj: Option[Exp], override val f: StaticMethodItem) extends NonNewCallable
   case class ForwardDen(override val f: ConstructorItem) extends NonNewCallable
   case class NewDen(override val f: ConstructorItem) extends Callable {
-    def tparams = f.parent.params ++ f.tparams // TODO: May need to recursively include higher parent parameters
+    def tparams = f.parent.tparams ++ f.tparams // TODO: May need to recursively include higher parent parameters
     def params = f.params
   }
 

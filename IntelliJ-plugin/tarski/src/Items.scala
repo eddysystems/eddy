@@ -81,11 +81,15 @@ object Items {
     def raw = t
     def simple = t
   }
-  sealed abstract class RefTypeItem extends TypeItem with Member {
-    def params: List[TypeVar]
-    def arity: Int = params.size
-    def raw: ClassType
-    def generic(args: List[TypeArg], parent: Parent): ClassType
+
+  trait GenericItem {
+    def tparams: List[TypeVar]
+    def arity: Int = tparams.size
+  }
+
+  sealed abstract class RefTypeItem extends TypeItem with Member with GenericItem {
+    def raw: RefType
+    def generic(args: List[TypeArg], parent: Parent): RefType
   }
 
   abstract class ClassItem extends RefTypeItem with ParentItem {
@@ -105,16 +109,16 @@ object Items {
     def unboxesToBoolean: Boolean = false
 
     // Convert to the type valid inside the definition
-    val inside: ClassType = {
+    def inside: ClassType = {
       val p = parent.inside
       if (arity == 0) SimpleType(this,p)
-      else GenericType(this,params map ParamType,p)
+      else GenericType(this,tparams map ParamType,p)
     }
 
     // Convert to a type valid anywhere, bailing if type parameters are required
     def simple: SimpleType =
       if (arity == 0) SimpleType(this,parent.inside)
-      else throw new RuntimeException(s"class $name isn't simple (has args $params)")
+      else throw new RuntimeException(s"class $name isn't simple (has args $tparams)")
 
     // Convert to a simple or raw type (valid anywhere)
     def raw: ClassType = {
@@ -142,7 +146,7 @@ object Items {
     def isClass = true
     def isEnum = false
     def isFinal = false
-    def params = Nil
+    def tparams = Nil
     override def base = throw new RuntimeException("Object has no base")
     def implements = Nil
     override def supers = Nil
@@ -155,7 +159,17 @@ object Items {
     }
   }
 
-  case class NormalInterfaceItem(name: Name, parent: ParentItem, params: List[TypeVar] = Nil,
+  case class UnresolvedItem(name: Name, pkgname: Name, args: List[TypeArg], isFinal: Boolean = false) extends RefTypeItem {
+    def tparams = (1 to args.size).map(x => SimpleTypeVar("T" + x)).toList
+    def parent = PackageItem(pkgname, pkgname)
+    def generic(args: List[TypeArg], parent: Parent) = UnresolvedType(this, args)
+    def raw = UnresolvedType(this,Nil)
+    def inside = UnresolvedType(this,Nil)
+    def simple = if (arity == 0) UnresolvedType(this,Nil) else throw new RuntimeException(s"unresolved class $name probably isn't simple (probably has some args $tparams)")
+    def supers = Nil
+  }
+
+  case class NormalInterfaceItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
                                  implements: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
     def isClass = false
@@ -163,7 +177,7 @@ object Items {
     def isFinal = false
   }
 
-  case class NormalClassItem(name: Name, parent: ParentItem, params: List[TypeVar],
+  case class NormalClassItem(name: Name, parent: ParentItem, tparams: List[TypeVar],
                              base: ClassType = ObjectType, implements: List[ClassType] = Nil,
                              isFinal: Boolean = false) extends ClassItem {
     def isClass = true
@@ -174,7 +188,7 @@ object Items {
     def isClass = true
     def isEnum = true
     def isFinal = true
-    def params = Nil
+    def tparams = Nil
     def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
   }
 
@@ -183,7 +197,7 @@ object Items {
     override def qualifiedName = None
     def parent = JavaLangPkg
     private def error = throw new RuntimeException("Array<T> is special: T can be primitive, and is covariant")
-    def params = error
+    def tparams = error
     val supers = List(SerializableItem.simple,CloneableItem.simple)
     def inside = error
     def raw = error
@@ -240,23 +254,38 @@ object Items {
                              extends StaticValue with ClassMember
   case class ParameterItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
   case class LocalVariableItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
-  case class EnumConstantItem(name: Name, parent: EnumItem) extends StaticValue with ClassMember {
+  case class EnumConstantItem(name: Name, parent: ClassItem) extends StaticValue with ClassMember {
+    assert(parent.isEnum) // TODO: make a separate maker for enums?
     override def item = parent
     def ty = parent.simple
     def isFinal = true
   }
 
   // Callables
-  sealed abstract class CallableItem extends Item with PlaceItem {
-    def tparams: List[TypeVar]
+  sealed abstract class CallableItem extends Item with PlaceItem with GenericItem {
     def params: List[Type]
   }
+  sealed trait CallableParentItem extends CallableItem with ParentItem {
+    def parent: ClassItem
+    def inside = CallableParent(this, tparams map ParamType, parent.inside)
+    def simple =
+      if (arity == 0) CallableParent(this,Nil,parent.inside)
+      else throw new RuntimeException(s"method $name isn't simple (has args $tparams)")
+    def raw = CallableParent(this,Nil,parent.raw)
+    def generic(args: List[TypeArg], par: ClassType): CallableParent = {
+      if (par.item != parent)
+        throw new RuntimeException(s"parent mismatch: expected $parent, got $par}")
+      if (arity != args.size)
+        throw new RuntimeException(s"arity mismatch: $name takes $arity arguments, not ${args.size} ($args)")
+      CallableParent(this,args,par)
+    }
+  }
   case class MethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
-                        params: List[Type]) extends CallableItem with ClassMember
+                        params: List[Type]) extends CallableParentItem with ClassMember
   case class StaticMethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
-                              params: List[Type]) extends CallableItem with ClassMember
+                              params: List[Type]) extends CallableParentItem with ClassMember
   case class ConstructorItem(parent: ClassItem, tparams: List[TypeVar], params: List[Type])
-    extends CallableItem with ClassMember {
+    extends CallableParentItem with ClassMember {
     def name = parent.name
   }
 }

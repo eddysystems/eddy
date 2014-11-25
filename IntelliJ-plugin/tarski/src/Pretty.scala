@@ -342,6 +342,7 @@ object Pretty {
           case LocalPkg|JavaLangPkg => ts
           case p:PackageParent => (FieldFix, tokens(p.item) ::: DotTok() :: ts._2)
           case t:ClassType => (FieldFix, cls(t)._2 ::: DotTok() :: ts._2)
+          case t:CallableParent => ts // this means we're local and not in scope
         }
       }
     }
