@@ -51,14 +51,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
-  // utilities
-  private void printResults(final Eddy eddy) {
-    System.out.println("eddy says: ");
-    for (String res: eddy.getResultStrings()) {
-      System.out.println("  " + res);
-    }
-  }
-
   private Eddy setupEddy(String filename) {
     myFixture.configureByFile(filename);
     System.out.println("Document:");
@@ -68,9 +60,23 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return eddy;
   }
 
+  private void timed(Runnable runner) {
+    long start = System.nanoTime();
+    runner.run();
+    long end = System.nanoTime();
+    System.out.println("elapsed = "+(end-start)/1e9);
+  }
+
   // actual tests
   public void testCeateEddy() {
-    printResults(setupEddy("dummy.java"));
+    for (int i = 0; i < 1; i++) {
+      System.out.println("iteration " + i);
+      timed(new Runnable() {
+        @Override public void run() {
+          setupEddy("dummy.java");
+        }
+      });
+    }
   }
 
   public void testProbLE1() {
