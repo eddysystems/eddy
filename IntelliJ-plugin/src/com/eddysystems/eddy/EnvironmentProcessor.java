@@ -286,17 +286,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
         logger.warn("cannot resolve type " + t);
 
+        String qname = "";
+        boolean isfinal = false;
+        List<TypeArg> jargs = new SmartList<TypeArg>();
+
         if (t instanceof PsiClassReferenceType) {
-          String qname = ((PsiClassReferenceType)t).getReference().getQualifiedName();
-          boolean isfinal = false;
+          qname = ((PsiClassReferenceType)t).getReference().getQualifiedName();
           if (t instanceof PsiModifierListOwner)
             isfinal = ((PsiModifierListOwner) t).hasModifierProperty(PsiModifier.FINAL);
           // TODO: pass on type parameters
-          List<TypeArg> jargs = new SmartList<TypeArg>();
-          scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
-          return new UnresolvedType(new UnresolvedItem(name, qname.substring(qname.lastIndexOf('.')+1), args, isfinal), args);
         }
-        throw new RuntimeException("Cannot resolve " + t);
+
+        scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
+        return new UnresolvedClassItem(name, qname.substring(qname.lastIndexOf('.')+1), args, isfinal).generic();
       } else if (tcls instanceof PsiTypeParameter) {
         return new ParamType(addTypeParameterToEnvMap(envitems, (PsiTypeParameter)tcls));
       } else {
@@ -371,6 +373,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       String[] classnames = cache.getAllClassNames();
 
       for (String name : classnames) {
+        // TODO: enable one of these once the lookups are faster
         //GlobalSearchScope scope = new EverythingGlobalScope();
         //GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
         GlobalSearchScope scope = ProjectScopeBuilder.getInstance(project).buildProjectScope();

@@ -179,16 +179,6 @@ object Types {
     def raw = RawType(item,parent.raw)
   }
 
-  case class UnresolvedType(item: UnresolvedItem, args: List[TypeArg]) extends RefType {
-    def raw = UnresolvedType(item, Nil)
-    def isFinal = item.isFinal
-    def isSimple = item.arity == 0
-    def known(implicit env: Tenv) = args.forall(_.known)
-    def substitute(implicit env: Tenv) = UnresolvedType(item, args map (_.substitute))
-    def safe = None // this can never safely be used -- we have no idea what it is!
-    val supers = Nil
-  }
-
   // for local classes
   case class CallableParent(item: CallableParentItem, args: List[TypeArg], parent: ClassType) extends GenericParent {
     def env() = capture(this,parent.env)._1

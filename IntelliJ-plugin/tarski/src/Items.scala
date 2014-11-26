@@ -159,16 +159,6 @@ object Items {
     }
   }
 
-  case class UnresolvedItem(name: Name, pkgname: Name, args: List[TypeArg], isFinal: Boolean = false) extends RefTypeItem {
-    def tparams = (1 to args.size).map(x => SimpleTypeVar("T" + x)).toList
-    def parent = PackageItem(pkgname, pkgname)
-    def generic(args: List[TypeArg], parent: Parent) = UnresolvedType(this, args)
-    def raw = UnresolvedType(this,Nil)
-    def inside = UnresolvedType(this,Nil)
-    def simple = if (arity == 0) UnresolvedType(this,Nil) else throw new RuntimeException(s"unresolved class $name probably isn't simple (probably has some args $tparams)")
-    def supers = Nil
-  }
-
   case class NormalInterfaceItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
                                  implements: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
@@ -182,6 +172,17 @@ object Items {
                              isFinal: Boolean = false) extends ClassItem {
     def isClass = true
     def isEnum = false
+  }
+
+  case class UnresolvedClassItem(name: Name, pkgName: Name, args: List[TypeArg], isFinal: Boolean) extends ClassItem {
+    def isClass = true
+    def isEnum = false
+    val parent = PackageItem(pkgName, pkgName)
+    def base = ObjectType
+    def implements = Nil
+    def tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
+
+    def generic: ClassType = generic(args, parent)
   }
 
   case class EnumItem(name: Name, parent: ParentItem, implements: List[ClassType]) extends ClassItem {
