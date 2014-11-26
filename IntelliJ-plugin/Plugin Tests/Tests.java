@@ -12,6 +12,10 @@ import com.intellij.pom.java.LanguageLevel;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
+import tarski.Denotations.Stmt;
+import tarski.Scores.Prob;
+
+import java.util.List;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
@@ -47,17 +51,32 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
-  public void testCeateEddy() {
-    myFixture.configureByFile("dummy.java");
-
-    System.out.println("Document:");
-    System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
-
-    Eddy eddy = new Eddy();
-    eddy.process(myFixture.getEditor());
+  // utilities
+  private void printResults(final Eddy eddy) {
     System.out.println("eddy says: ");
     for (String res: eddy.getResultStrings()) {
       System.out.println("  " + res);
+    }
+  }
+
+  private Eddy setupEddy(String filename) {
+    myFixture.configureByFile(filename);
+    System.out.println("Document:");
+    System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
+    Eddy eddy = new Eddy();
+    eddy.process(myFixture.getEditor());
+    return eddy;
+  }
+
+  // actual tests
+  public void testCeateEddy() {
+    printResults(setupEddy("dummy.java"));
+  }
+
+  public void testProbLE1() {
+    Eddy eddy = setupEddy("denote_x.java");
+    for (scala.Tuple2<Prob,List<Stmt>> result : eddy.getResults()) {
+      assertTrue("Probability > 1", result._1().p() <= 1.0);
     }
   }
 }

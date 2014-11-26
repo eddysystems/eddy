@@ -34,6 +34,7 @@ public class Eddy {
   private Project project = null;
   private Editor editor = null;
   private PsiElement place = null;
+
   // the results of the interpretation
   private Environment.Env env = null;
   private List<scala.Tuple2<Scores.Prob,List<Denotations.Stmt>>> results;
@@ -84,6 +85,8 @@ public class Eddy {
   }
 
   public List<String> getResultStrings() { return resultStrings; }
+
+  public List<scala.Tuple2<Scores.Prob,List<Denotations.Stmt>>> getResults() { return results; }
 
   public void dumpEnvironment(String filename) {
     if (env != null)
