@@ -21,8 +21,8 @@ object Pr {
     0.5 + (sum/math.sqrt(2*math.Pi))*math.exp(-(x*x)/2.0)
   }
 
-  def factorial(k: Int): Int = {
-    var f = 1
+  def factorial(k: Int): Double = {
+    var f = 1.0
     for (i <- 2 to k)
       f *= i
     f
