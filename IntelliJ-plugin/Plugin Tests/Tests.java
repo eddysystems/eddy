@@ -47,18 +47,23 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
-  public void testCeateEddy() {
+  public void testCreateEddy() {
     myFixture.configureByFile("dummy.java");
 
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
 
-    Eddy eddy = new Eddy();
-    eddy.process(myFixture.getEditor());
-    System.out.println("eddy says: ");
-    for (String res: eddy.getResultStrings()) {
-      System.out.println("  " + res);
+    long start = System.nanoTime();
+    for (int i=0;i<1;i++) {
+      System.out.println("\niteration "+i);
+      Eddy eddy = new Eddy();
+      eddy.process(myFixture.getEditor());
+      System.out.println("eddy says: ");
+      for (String res : eddy.getResultStrings())
+        System.out.println("  " + res);
     }
+    long end = System.nanoTime();
+    System.out.println("elapsed = "+(end-start)/1e9);
   }
 }
 
