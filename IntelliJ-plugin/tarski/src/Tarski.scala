@@ -17,7 +17,7 @@ object Tarski {
 
   def localPkg(): PackageItem = Base.LocalPkg
 
-  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[(Prob,java.util.List[Stmt])] = {
+  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[java.util.List[Stmt]]] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
     // TODO: Propagate error messages into Java
@@ -53,7 +53,7 @@ object Tarski {
       throw new RuntimeException("duplicated ast")
 
     // Determine meaning(s)
-    multiple(uasts.toList map { (Prob(1.0), _) }, "Parse failed") flatMap { root => {
+    multiple(uasts.toList map (Alt(Prob(1),_)), "Parse failed") flatMap { root => {
       println("  ast: " + show(Pretty.tokens(root)))
       //println("  ast: " + root)
       println("  meanings: ")
@@ -61,7 +61,7 @@ object Tarski {
       ds.all match {
         case Left(e) => println(e.prefixed("    error: "))
         case Right(all) =>
-          for ((s,(e,d)) <- all)
+          for (Alt(s,(e,d)) <- all)
             println(s"    $s: \t${show(d)} \t($d)")
       }
       ds

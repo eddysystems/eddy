@@ -37,7 +37,7 @@ public class Eddy {
 
   // the results of the interpretation
   private Environment.Env env = null;
-  private List<scala.Tuple2<Scores.Prob,List<Denotations.Stmt>>> results;
+  private List<Scores.Alt<List<Denotations.Stmt>>> results;
   private List<String> resultStrings;
   private boolean found_existing;
 
@@ -86,7 +86,7 @@ public class Eddy {
 
   public List<String> getResultStrings() { return resultStrings; }
 
-  public List<scala.Tuple2<Scores.Prob,List<Denotations.Stmt>>> getResults() { return results; }
+  public List<Scores.Alt<List<Denotations.Stmt>>> getResults() { return results; }
 
   public void dumpEnvironment(String filename) {
     if (env != null)
@@ -209,13 +209,13 @@ public class Eddy {
       env = (new EnvironmentProcessor(project, place, true)).getJavaEnvironment();
       results = Tarski.fixJava(tokens, env);
 
-      for (scala.Tuple2<Scores.Prob,List<Denotations.Stmt>> interpretation : results) {
+      for (Scores.Alt<List<Denotations.Stmt>> interpretation : results) {
         // for each interpretation, compute a string
-        if (interpretation._2().isEmpty()) {
+        if (interpretation.x().isEmpty()) {
           resultStrings.add("");
         } else {
           String s = "";
-          for (Denotations.Stmt meaning : interpretation._2()) {
+          for (Denotations.Stmt meaning : interpretation.x()) {
             s = s + code(meaning) + " ";
           }
           s = s.substring(0,s.length()-1); // remove trailing space

@@ -1,7 +1,7 @@
 package tarski
 
 import tarski.AST.CommaList
-import tarski.Scores.{Probs, Scored, Prob}
+import tarski.Scores.{Scored, Prob}
 import tarski.Denotations.{Callable, Exp, typeOf}
 import tarski.Items._
 import tarski.Types.Type
@@ -42,13 +42,9 @@ object Pr {
 
   // generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
   // for the qualifying objects, and the object chosen as qualifier
-  def omitQualifier[A <: ClassMember](probs: Probs[Exp], choice: Exp, item: A): Prob = {
-    assert(probs.size > 0)
-    if (probs.size == 1)
-      Prob(0.8)
-    else
-      // TODO: make this probability higher if there's only one option in values with high likelihood?
-      Prob(.3)
+  def omitQualifier[A <: ClassMember](probs: Scored[Exp], choice: Exp, item: A): Prob = {
+    if (probs.isSingle) Prob(.8) // One choice
+    else Prob(.3) // TODO: make this probability higher if there's only one option in values with high likelihood?
   }
 
   val argPosErrorRate = .2
@@ -106,21 +102,21 @@ object Pr {
   val localFieldValue = passThrough
 
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
-  def superFieldValue(values: Probs[Exp], c: TypeItem, f: FieldItem) = Prob(.8)
+  def superFieldValue(values: Scored[Exp], c: TypeItem, f: FieldItem) = Prob(.8)
 
   // a field requires qualification (with obj), which requires a cast (to c), how likely is it that the user forgot the qualification?
-  def shadowedFieldValue(values: Probs[Exp], obj: Exp, c: TypeItem, f: FieldItem): Prob = fieldValue(values, obj, f)
+  def shadowedFieldValue(values: Scored[Exp], obj: Exp, c: TypeItem, f: FieldItem): Prob = fieldValue(values, obj, f)
 
   // a field requires qualification with one of values, how likely is it that the user forgot to qualify with obj?
-  def fieldValue(values: Probs[Exp], obj: Exp, f: FieldItem) = omitQualifier(values, obj, f)
+  def fieldValue(values: Scored[Exp], obj: Exp, f: FieldItem) = omitQualifier(values, obj, f)
 
   // denoteCallable(AExp)
   val localMethodCallable = passThrough
 
   // equivalent of fieldValue, shadowedFieldValue, superFieldValue for methods
-  def methodCallable(values: Probs[Exp], obj: Exp, f: MethodItem) = omitQualifier(values, obj, f)
-  def shadowedMethodCallable(values: Probs[Exp], obj: Exp, c: TypeItem, f: MethodItem) = methodCallable(values, obj, f)
-  def superMethodCallable(values: Probs[Exp], c: TypeItem, f: MethodItem) = Prob(.8)
+  def methodCallable(values: Scored[Exp], obj: Exp, f: MethodItem) = omitQualifier(values, obj, f)
+  def shadowedMethodCallable(values: Scored[Exp], obj: Exp, c: TypeItem, f: MethodItem) = methodCallable(values, obj, f)
+  def superMethodCallable(values: Scored[Exp], c: TypeItem, f: MethodItem) = Prob(.8)
 
   val staticMethodCallable = passThrough
   val constructorCallable = passThrough

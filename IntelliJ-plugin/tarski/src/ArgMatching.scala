@@ -49,7 +49,7 @@ object ArgMatching {
         val validPermutations = permute[Exp](args, xs => resolveOptions(List(f), xs.toList map Denotations.typeOf).nonEmpty ).toList
         val scores = multiple(validPermutations flatMap { p => resolve(List(f), p.toList map Denotations.typeOf) match {
           case None => Nil
-          case Some((_,ts)) => List((Pr.certain, ApplyExp(f, ts, p.toList)))
+          case Some((_,ts)) => List(Alt(Pr.certain, ApplyExp(f, ts, p.toList)))
         }}, show(f)+": params "+show(tokensSig(f))+" don't match arguments "+show(CommaList(args))+" with types "+show(CommaList(args map Denotations.typeOf)))
         scores.flatMap( x => single(x, Pr.permuteArgs(f, args, x.args)) )
       }

@@ -13,7 +13,7 @@ import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import tarski.Denotations.Stmt;
-import tarski.Scores.Prob;
+import tarski.Scores;
 
 import java.util.List;
 
@@ -81,8 +81,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testProbLE1() {
     Eddy eddy = setupEddy("denote_x.java");
-    for (scala.Tuple2<Prob,List<Stmt>> result : eddy.getResults()) {
-      assertTrue("Probability > 1", result._1().p() <= 1.0);
+    for (Scores.Alt<List<Stmt>> result : eddy.getResults()) {
+      assertTrue("Probability > 1", result.p() <= 1.0);
     }
   }
 }
