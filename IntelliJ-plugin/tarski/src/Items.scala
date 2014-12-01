@@ -15,9 +15,6 @@ object Items {
     override def toString: String = qualifiedName getOrElse name
   }
 
-  // Anything with this type will never be looked up (mainly, errors)
-  sealed trait NoLookupItem extends Item
-
   // Something which we can be inside
   sealed trait PlaceItem extends Item
   sealed trait ParentItem extends PlaceItem {
@@ -27,7 +24,7 @@ object Items {
   }
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
-  abstract class TypeVar extends TypeItem with NoLookupItem with RefEq {
+  abstract class TypeVar extends TypeItem with RefEq {
     def name: Name
     def lo: RefType // Lower bound
     def hi: RefType // Upper bound
@@ -193,7 +190,7 @@ object Items {
     def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
   }
 
-  case object ArrayItem extends RefTypeItem with NoLookupItem {
+  case object ArrayItem extends RefTypeItem {
     def name = "Array"
     override def qualifiedName = None
     def parent = JavaLangPkg

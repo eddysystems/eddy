@@ -470,8 +470,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     List<Item> items = new ArrayList<Item>();
     for (Item i : envitems.values())
-      if (!(i instanceof NoLookupItem))
-        items.add(i);
+      items.add(i);
 
     // find out which element we are inside (method, class or interface, or package)
     PlaceItem placeItem = null;
