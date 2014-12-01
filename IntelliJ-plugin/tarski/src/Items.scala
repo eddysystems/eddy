@@ -177,7 +177,7 @@ object Items {
     val parent = PackageItem(pkgName, pkgName)
     def base = ObjectType
     def implements = Nil
-    def tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
+    lazy val tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
 
     def generic: ClassType = generic(args, parent)
   }
