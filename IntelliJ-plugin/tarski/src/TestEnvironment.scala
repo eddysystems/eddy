@@ -7,6 +7,7 @@ import tarski.Denotations.ThisExp
 import tarski.Environment._
 import tarski.Items._
 import tarski.Pretty._
+import tarski.Scores.Alt
 import tarski.Tokens._
 import tarski.Types._
 
@@ -41,5 +42,32 @@ class TestEnvironment {
     val typed = "isInstnaceof"
     val d = StringMatching.levenshteinDistance(meant, typed)
     println(s"Levenshtein Distance $meant -> $typed = $d")
+  }
+
+  @Test
+  def trieQuery(): Unit = {
+    val typed = "test"
+    val things = List(NormalClassItem("test", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("tset", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("verylongName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("LongLongName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("TestName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("testName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("NameTest", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("iTest", LocalPkg, Nil, ObjectType, Nil)
+                       )
+    val env = Env(things)
+
+    val qr = env.query(typed)
+    val lr = things.collect( Function.unlift((item:Item) => {
+      val p = Pr.typoProbability(item.name, typed)
+      if (p > env.minimumProbability) Some(Alt(p,item)) else None
+    }))
+
+    println(s"exact match for query $typed -> ${env.exactQuery(typed)}")
+    println("trie query: " + qr)
+    println("list query: " + lr)
+
+    assertEquals("Trie query failed to find high probability item(s).", qr, lr)
   }
 }

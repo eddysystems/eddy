@@ -142,7 +142,8 @@ object Scores {
   def fail[A](error: => String): Scored[A] = delay(0,new Bad(OneError(error)))
   def known[A](x: A): Scored[A] = Strict(1,Best(1,x,empty))
   def single[A](x: A, p: Prob): Scored[A] = Strict(p,Best(p,x,empty))
-  def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] = delay(1,{
+
+  private def makeActual[A](xs: List[Alt[A]], error: => String): Actual[A] = {
     def good(p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]]): Actual[A] = xs match {
       case Nil => Best(p,x,delay(p,empty(low)))
       case (y@Alt(q,_))::xs if p >= q => good(p,x,y::low,xs)
@@ -150,16 +151,43 @@ object Scores {
     }
     def empty(xs: List[Alt[A]]): Actual[A] = xs match {
       case Nil => Empty
-      case Alt(0,_)::xs => bad(xs)
-      case Alt(p,x)::xs if p > 0 => good(p,x,Nil,xs)
+      case Alt(0,_)::xs => empty(xs)
+      case Alt(p,x)::xs => good(p,x,Nil,xs)
     }
     def bad(xs: List[Alt[A]]): Actual[A] = xs match {
       case Nil => new Bad(OneError(error))
       case Alt(0,_)::xs => bad(xs)
-      case Alt(p,x)::xs if p > 0 => good(p,x,Nil,xs)
+      case Alt(p,x)::xs => good(p,x,Nil,xs)
     }
     bad(xs)
-  })
+  }
+  def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] = delay(1,{ makeActual(xs, error) })
+
+  private def makeActual[A](first: List[Alt[A]], andthen: => List[Alt[A]], error: => String): Actual[A] = {
+    def good(p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]], backup: List[Alt[A]]): Actual[A] = xs match {
+      case Nil => Best(p,x,delay(p,possiblyEmpty(low,backup)))
+      case (y@Alt(q,_))::xs if p >= q => good(p,x,y::low,xs,backup)
+      case Alt(q,y)::xs => good(q,y,Alt(p,x)::low,xs,backup)
+    }
+    def possiblyEmpty(xs: List[Alt[A]], backup: => List[Alt[A]]): Actual[A] = xs match {
+      case Nil => backup match { // if xs is empty, switch to backup
+        case Nil => Empty
+        case xs => possiblyEmpty(xs, Nil)
+      }
+      case Alt(0,_)::xs => possiblyEmpty(xs,backup)
+      case Alt(p,x)::xs => good(p,x,Nil,xs,backup)
+    }
+    def possiblyBad(xs: List[Alt[A]], backup: => List[Alt[A]]): Actual[A] = xs match {
+      case Nil => backup match { // if xs is empty, switch to backup
+        case Nil => new Bad(OneError(error))
+        case xs => possiblyBad(xs, Nil)
+      }
+      case Alt(0,_)::xs => possiblyBad(xs,backup)
+      case Alt(p,x)::xs => good(p,x,Nil,xs,backup)
+    }
+    possiblyBad(first, andthen)
+  }
+  def multiples[A](first: List[Alt[A]], andthen: => List[Alt[A]], error: => String): Scored[A] = delay(1,{ makeActual(first, andthen, error) })
 
   // Structured errors
   sealed abstract class Error {

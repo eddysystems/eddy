@@ -372,8 +372,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       for (String name : classnames) {
         // TODO: enable one of these once the lookups are faster
         //GlobalSearchScope scope = new EverythingGlobalScope();
-        //GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
-        GlobalSearchScope scope = ProjectScopeBuilder.getInstance(project).buildProjectScope();
+        GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
+        //GlobalSearchScope scope = ProjectScopeBuilder.getInstance(project).buildProjectScope();
         for (PsiClass cls : cache.getClassesByName(name, scope)) {
           logger.debug("adding global class: " + cls);
           addClass(newmap, cls, true);

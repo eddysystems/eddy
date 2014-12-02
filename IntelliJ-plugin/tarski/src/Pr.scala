@@ -32,12 +32,22 @@ object Pr {
     math.pow(lambda, k) / factorial(k) * math.exp(-lambda)
   }
 
-  def typoProbability(meant: String, typed: String): Prob = {
-    val d = StringMatching.levenshteinDistance(meant, typed)
-    val e = meant.length*typingErrorRate
+  // return how many mistakes we can make until the probability drops below a threshold
+  def poissonQuantile(lambda: Double, p: Prob): Int = {
+    var k = math.ceil(lambda).toInt
+    while (poissonPDF(lambda,k) > p) k += 1
+    k
+  }
 
+  def typoProbability(d: Float, l: Int): Prob = {
+    val e = l*typingErrorRate
     // probability we make d errors when typing meant.length characters
     Prob(poissonPDF(e,math.ceil(d).toInt))
+  }
+
+  def typoProbability(meant: String, typed: String): Prob = {
+    val d = StringMatching.levenshteinDistance(meant, typed)
+    typoProbability(d, typed.length) // could be meant.length, but that's inconsistent with when we don't have meant available
   }
 
   // generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
@@ -213,6 +223,5 @@ object Pr {
   val exactCallableField = base
   val exactField = base
   val exactStaticField = base
-  val exactEnumConst = base
   val exactTypeField = base
 }

@@ -15,6 +15,8 @@ object StringMatching {
   val replaceOmitShiftStroke = 0.5f // a lowercase letter that should've been uppercase in the middle of two uppercase letters
   val extendShift = .3f // shift key held down too long or let go too quickly
   val swapCostConst = .3f // the cost of swapping two adjacent letters
+  val minSwapCost = swapCostConst // the minimum cost of a swap operation (for lower bounds)
+  val minInsertCost = doubleTypeCost(1.0f)
 
   // not considering case
   def charDistance(c1: Char, c2: Char): Float = {
@@ -92,15 +94,15 @@ object StringMatching {
                           deleteCost: (CharSequence, Int, CharSequence, Int) => Float = deleteCost,
                           replaceCost: (CharSequence, Int, CharSequence, Int) => Float = replaceCost,
                           swapCost: (CharSequence, Int, CharSequence, Int) => Float = swapCost): Float = {
-    // d(i,j) is cost to obtain the first i character of s having used the first j characters of t
+    // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
     val d = ArrayBuffer.fill(meant.length + 1, typed.length + 1)(0.0f)
 
-    // fill first column (moving down equals deletion of a character in from
+    // fill first column (moving down equals deletion of a character in meant
     for (i <- 1 to meant.length) {
       d(i)(0) = d(i-1)(0) + deleteCost(meant, i-1, "", 0)
     }
 
-    // fill first row (moving right equals inserting a character into to
+    // fill first row (moving right equals inserting a character into typed)
     for (i <- 1 to typed.length) {
       d(0)(i) = d(0)(i-1) + insertCost(meant, 0, typed, i-1)
     }
@@ -165,4 +167,63 @@ object StringMatching {
     d(meant.length)(typed.length)
   }
 
+  trait IncrementalDistance {
+    // the position in the meant string we're at
+    def i: Int
+    // the currently meant string
+    def current: String
+    // the prefixDistance of current minus the last character
+    def prefixDistance: IncrementalDistance
+
+    // row i of the distance matrix
+    def d(i: Int): Float
+
+    // the minimum distance that's still possible to achieve by appending characters
+    def min: Float
+
+    // the current distance (assuming nothing more is added
+    def distance: Float
+  }
+
+  class IncrementalLevenshteinBound(typed: String, override val prefixDistance: IncrementalDistance, c: Char) extends IncrementalDistance {
+    // we are at position i in meant
+    val i: Int = prefixDistance.i + 1
+    val current: String = prefixDistance.current + c
+
+    // we're creating row i
+    val _d: Array[Float] = new Array(typed.length+1)
+    def d(i: Int): Float = _d(i)
+
+    _d(0) = prefixDistance.d(0) + deleteCost(current, i-1, "", 0)
+    for (j <- 1 to typed.length) {
+      _d(j) = List(prefixDistance.d(j) + deleteCost(current, i-1, typed, j-1), // omit a character of what we intended to write
+                  d(j-1) + insertCost(current, i-1, typed, j-1), // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
+                  prefixDistance.d(j-1) + replaceCost(current, i-1, typed, j-1) // type a character (maybe getting it wrong)
+                  ).min
+      if (j > 1 && i > 1)
+        _d(j) = List(d(j),
+                     prefixDistance.prefixDistance.d(j-2) + swapCost(current, i-2, typed, j-2)
+                     ).min
+    }
+
+    // the minimum distance that's still possible to achieve by appending more characters
+    // (this assumes that the minimum replaceCost is 0, so there is a potential zero-cost path from
+    // all points to the far right of the matrix)
+    def min: Float = if (_d.length > 2)
+                       List(_d.min, ((0 until _d.length-2) map prefixDistance.d).min + minSwapCost).min
+                     else
+                       _d.min
+
+    // the current distance if no more characters are appended
+    def distance: Float = _d.last
+  }
+
+  object EmptyIncrementalLevenshteinBound extends IncrementalDistance {
+    val i = 0
+    val current = ""
+    def prefixDistance = throw new RuntimeException("Accessing prefix of empty string distance")
+    def d(i: Int): Float = i * minInsertCost // we use the lower bound here because we cannot look ahead
+    def min: Float = 0
+    def distance: Float = 0
+  }
 }

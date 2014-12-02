@@ -69,7 +69,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   // actual tests
   public void testCeateEddy() {
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 2; i++) {
       System.out.println("iteration " + i);
       timed(new Runnable() {
         @Override public void run() {
