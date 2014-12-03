@@ -134,7 +134,7 @@ object Base {
   val ObjectConsItem = ConstructorItem(ObjectItem,Nil,Nil)
 
   // Standard base environment
-  val baseEnv = Env(List(
+  val baseEnv = new Env(List(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
     // basic types

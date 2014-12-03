@@ -50,12 +50,13 @@ object TestUtils {
   def localEnv(locals: List[Item]): Env = {
     val X = NormalClassItem("X", LocalPkg, Nil)
     val f = MethodItem("f", X, Nil, VoidType, Nil)
-    Env(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
+    new Env(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
   }
   def localEnvWithBase(locals: List[Item]): Env = {
     val X = NormalClassItem("X", LocalPkg, Nil)
     val f = MethodItem("f", X, Nil, VoidType, Nil)
-    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int]).move(f,inside_breakable=false,inside_continuable=false,Nil)
+    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
+           .move(f,inside_breakable=false,inside_continuable=false,Nil)
   }
 
   def assertIn[A](x: A, xs: Set[A]): Unit =

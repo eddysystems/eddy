@@ -11,47 +11,66 @@ import tarski.Types._
 import tarski.Tokens.show
 import tarski.Pretty._
 
+import scala.collection.immutable.Set
+
 object Environment {
+
+  def merge[A,B](t: Map[A,Set[B]], t2: Map[A,Set[B]]): Map[A,Set[B]] = {
+    ((t.keySet ++ t2.keySet) map { s => (s, t.getOrElse(s,Set()) ++ t2.getOrElse(s,Set())) } ).toMap
+  }
+
+  def toMultiMap[A,B](ps: List[(A,B)]): Map[A,Set[B]] = {
+    ps.groupBy(_._1).mapValues({ x:List[(A,B)] => (x map (_._2)).toSet })
+  }
+
   /**
    * The environment used for name resolution
    */
-  case class Env(things: List[Item],
-                 inScope: Map[Item,Int] = Map(),
-                 place: PlaceItem = Base.LocalPkg,
-                 inside_breakable: Boolean = false,
-                 inside_continuable: Boolean = false,
-                 labels: List[String] = Nil) extends scala.Serializable {
+   case class Env(trie: Trie[Item],
+                  things: Map[String,Set[Item]],
+                  inScope: Map[Item,Int],
+                  place: PlaceItem,
+                  inside_breakable: Boolean,
+                  inside_continuable: Boolean,
+                  labels: List[String]) extends scala.Serializable {
+
+    // add some new things to an existing environment, and optionally change place
+    def this(base: Env, newthings: List[Item], newScope: Map[Item,Int],
+             place: PlaceItem,
+             inside_breakable: Boolean,
+             inside_continuable: Boolean,
+             labels: List[String]) = {
+      this(base.trie.add(newthings map { i => (i.name,i) }), merge(base.things, toMultiMap(newthings map { i => (i.name,i) })), base.inScope ++ newScope,
+           place, inside_breakable, inside_continuable, labels)
+    }
+
+    // make an environment from a list of items
+    def this(things: List[Item], inScope: Map[Item,Int] = Map(),
+             place: PlaceItem = Base.LocalPkg,
+             inside_breakable: Boolean = false,
+             inside_continuable: Boolean = false,
+             labels: List[String] = Nil) = {
+      this(new Trie[Item](things.map( x => (x.name,x) )), toMultiMap(things.map( x => (x.name,x) )), inScope, place, inside_breakable, inside_continuable, labels)
+    }
+
 
     // minimum probability before an object is considered a match for a query
     val minimumProbability = Prob(.01)
-    // prefix tree for faster name-based lookup
-    private val trie: Trie[Item] = new Trie[Item](things map { x => (x.name,x) })
 
-    assert(place == Base.LocalPkg || things.contains(place))
+    assert( place == Base.LocalPkg || things.getOrElse(place.name, Set()).contains(place) )
 
     // Add objects (while filling environment)
     def addObjects(xs: List[Item], is: Map[Item,Int]): Env = {
-      // TODO: this is quadratic time
       // TODO: filter identical things (like java.lang.String)
-      // TODO: don't rebuild trie
-      Env(things ++ xs, inScope ++ is, place)
+      new Env(this, xs, is, place, inside_breakable, inside_continuable, labels)
     }
-
-    // Make all items local with priority 1 (for tests)
-    def makeAllLocal: Env =
-      // TODO: don't rebuild trie
-      Env(things, things.map(i => (i,1)).toMap)
 
     // Add local objects (they all appear in inScope with priority 1)
     def addLocalObjects(xs: List[Item]): Env =
-      // TODO: don't rebuild trie
-      Env(things ++ xs, inScope ++ xs.map((_,1)).toMap, place)
-
+      addObjects(xs, (xs map {(_,1)}).toMap)
 
     def move(newPlace: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: List[String]): Env = {
-      // TODO: don't rebuild trie
-      assert(things.contains(newPlace))
-      Env(things, inScope, newPlace, inside_breakable, inside_continuable, labels)
+      Env(trie, things, inScope, newPlace, inside_breakable, inside_continuable, labels)
     }
 
     def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)] = place match {
@@ -81,7 +100,7 @@ object Environment {
 
     // Fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {
-      things collect { case x: LocalVariableItem if x.name == name => x } match {
+      things.getOrElse(name, Set()).toList collect { case x: LocalVariableItem => x } match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
@@ -94,11 +113,11 @@ object Environment {
 
     // Enter a new block scope
     def pushScope: Env =
-      Env(things, inScope map { case (i,n) => (i,n+1) }, place)
+      Env(trie, things, inScope map { case (i,n) => (i,n+1) }, place, inside_breakable, inside_continuable, labels)
 
     // Leave a block scope
     def popScope: Env =
-      Env(things, inScope collect { case (i,n) if n>1 => (i,n-1) }, place)
+      Env(trie, things, inScope collect { case (i,n) if n>1 => (i,n-1) }, place, inside_breakable, inside_continuable, labels)
 
     // get typo probabilities for string queries
     def query(typed: String): List[Alt[Item]] = {
@@ -147,8 +166,7 @@ object Environment {
 
   // Same as objectsOfType, but without type arguments
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
-    multiple(env.things collect { case i: Value if isSubitem(i.item,t) => Alt(Pr.objectOfItem,i) }
-                        filter { case Alt(p,_) => p > env.minimumProbability },
+    multiple(env.things.flatMap({ case (s,is) => is collect { case i: Value if isSubitem(i.item,t) => Alt(Pr.objectOfItem,i) } }).toList,
              s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
@@ -173,7 +191,7 @@ object Environment {
 
   // Does an item declare a member of the given name
   def declaresName(i: Item, name: Name)(implicit env: Env): Boolean = {
-    env.things.exists({ case f: Member if f.parent == i && f.name == name => true; case _ => false })
+    env.things.getOrElse(name, Set()) exists { case f: Member if f.parent == i => true; case _ => false }
   }
 
   def shadowedInSubType(i: Member, t: RefType)(implicit env: Env): Boolean = {
@@ -202,8 +220,7 @@ object Environment {
 
   // what could this be, assuming it's a static member of the given type?
   def staticFieldScores(t: Type, name: String)(implicit env: Env): Scored[StaticValue with Member] =
-    env.combinedQuery(name, Pr.exactStaticField,
-                      { case f:StaticFieldItem if memberIn(f,t) => f case f: EnumConstantItem if memberIn(f,t) => f },
+    env.combinedQuery(name, Pr.exactStaticField, { case f:StaticFieldItem if memberIn(f,t) => f case f: EnumConstantItem if memberIn(f,t) => f },
                       s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?

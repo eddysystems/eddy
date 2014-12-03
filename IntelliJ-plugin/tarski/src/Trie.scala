@@ -13,37 +13,31 @@ object Trie {
     def found(t: List[V]): X
   }
 
+  case class Trie[V](values: List[V] = Nil, nodes: Map[Char, Trie[V]] = Map[Char,Trie[V]]()) {
 
-  class Trie[V] {
-
-    def this(xs: List[(String,V)]) = {
-      this()
-      xs foreach { case (s,v) => put(s,v) }
+    // create as a shallow copy of another Trie (only used because of constructor restrictions
+    def this(t: Trie[V]) = {
+      this(t.values, t.nodes)
     }
 
-    // children
-    private var nodes = new HashMap[Char, Trie[V]]
+    // create from a list of things
+    def this(xs: List[(String,V)]) = {
+      this(Trie[V]().add(xs))
+    }
 
-    // values associated with this node
-    private var values : List[V] = Nil
+    // return a new trie containing everything in here and the values in xs
+    def add(xs: List[(String,V)]): Trie[V] = xs match {
+      case Nil => this
+      case (s,v)::xs => add(s.toSeq,v).add(xs)
+    }
 
-    def put(k: Seq[Char], v: V) : Unit = {
-      k match {
-        case Seq()         => values = values :+ v
-        case Seq(h,t @ _*) => {
-          val node = nodes.get(h) match {
-            case None => {
-              val n = new Trie[V]
-              nodes = nodes + ((h, n))
-              n
-            }
-            case Some(n) => n
-          }
-          node.put(t,v)
-        }
+    // return a new Trie with s,v added
+    def add(s: Seq[Char], v: V): Trie[V] = {
+      s match {
+        case Seq() => new Trie[V](values :+ v, nodes)
+        case Seq(h,t @ _*) => new Trie[V](values, nodes.updated(h, nodes.getOrElse(h, { new Trie[V]() }).add(t,v)))
       }
     }
-    def put(k: String, v: V): Unit = put(k.toSeq, v)
 
     // find the node for a query string
     def node(k: Seq[Char]): Option[Trie[V]] = {

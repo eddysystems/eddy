@@ -107,7 +107,7 @@ class TestParse {
   @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
     ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
 
-  @Test def mismatchedParens() = {
+  @Test def mismatchedParens(): Unit = {
     testASTPossible("((X()).f();",
       ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
     notImplemented

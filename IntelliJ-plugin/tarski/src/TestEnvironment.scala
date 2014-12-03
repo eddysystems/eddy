@@ -20,7 +20,7 @@ class TestEnvironment {
     val f = StaticMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)))
     val y = LocalVariableItem("y",ArrayType(DoubleType),true)
     val scope = Map[Item,Int]((LocalPkg,4),(main,3),(yf,2),(f,2),(y,1))
-    implicit val env = Env(List(main,f),scope)
+    implicit val env = new Env(List(main,f),scope)
     assertEquals(tokens(y), List(IdentTok("y")))
     assertEquals(tokens(yf), List(IdentTok("Main"),DotTok(), IdentTok("y")))
   }
@@ -31,7 +31,7 @@ class TestEnvironment {
     val Y = NormalClassItem("Y", X, Nil, ObjectType, Nil)
     val tX = ThisItem(X)
     val tY = ThisItem(Y)
-    implicit val env = Env(List(X,Y,tX,tY), Map((tX,2),(X,2),(tY,1),(Y,1)))
+    implicit val env = new Env(List(X,Y,tX,tY), Map((tX,2),(X,2),(tY,1),(Y,1)))
     assertEquals(tokens(ThisExp(tX)), List(IdentTok("X"),DotTok(),ThisTok()))
     assertEquals(tokens(ThisExp(tY)), List(ThisTok()))
   }
@@ -56,7 +56,7 @@ class TestEnvironment {
                        NormalClassItem("NameTest", LocalPkg, Nil, ObjectType, Nil),
                        NormalClassItem("iTest", LocalPkg, Nil, ObjectType, Nil)
                        )
-    val env = Env(things)
+    val env = new Env(things)
 
     val qr = env.query(typed)
     val lr = things.collect( Function.unlift((item:Item) => {

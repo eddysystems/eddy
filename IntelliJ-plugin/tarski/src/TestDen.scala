@@ -114,7 +114,7 @@ class TestDen {
   def arrayLiteral(): Unit = {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = StaticMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)))
-    implicit val env = Env(List(Main,f), Map((Main,2),(f,2)), f)
+    implicit val env = new Env(List(Main,f), Map((Main,2),(f,2)), f)
     testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(None,f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
@@ -148,7 +148,7 @@ class TestDen {
   @Test
   def nestedIndexExpMixed(): Unit = {
     val x = new LocalVariableItem("x",ArrayType(ArrayType(CharType)),true)
-    implicit val env = Env(List(x)).makeAllLocal
+    implicit val env = new Env(List(x), Map((x,1)))
     testDen("""x{4,5} = x{2}[5]""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
@@ -172,7 +172,7 @@ class TestDen {
     val f = StaticMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)))
     val x = LocalVariableItem("x",ArrayType(DoubleType),true)
     val y = LocalVariableItem("y",ArrayType(DoubleType),false)
-    implicit val env = Env(List(main,f,x,y), Map((main,2),(f,2),(x,1),(y,1)), f)
+    implicit val env = new Env(List(main,f,x,y), Map((main,2),(f,2),(x,1),(y,1)), f)
     testDen("y = f(x)", Nil)
     notImplemented
   }
@@ -236,7 +236,7 @@ class TestDen {
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
     val m = MethodItem("m", Z, Nil, VoidType, List(Q.simple))
     val y = LocalVariableItem("y",Y.simple,true)
-    implicit val env = Env(List(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
+    implicit val env = new Env(List(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
 
     testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(CastExp(X.simple,y),Xf))))
   }
@@ -269,7 +269,7 @@ class TestDen {
 
     val m = MethodItem("m", Y, Nil, VoidType, List(Q.simple))
     val tY = ThisItem(Y)
-    implicit val env = Env(List(X,Y,Xf,Yf,m,tY), Map((tY,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
+    implicit val env = new Env(List(X,Y,Xf,Yf,m,tY), Map((tY,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
     testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(SuperExp(tY), Xf))))
   }
@@ -280,7 +280,7 @@ class TestDen {
     val Xx = FieldItem("x",IntType,X,false)
     val x = LocalVariableItem("x",StringType,false)
     val t = ThisItem(X)
-    implicit val env = Env(List(X,Xx,x,t), Map((x,1),(X,2),(t,2),(Xx,2)))
+    implicit val env = new Env(List(X,Xx,x,t), Map((x,1),(X,2),(t,2),(Xx,2)))
 
     testDen("x = 1", AssignExp(None,FieldExp(ThisExp(t),Xx),1))
   }
@@ -363,7 +363,7 @@ class TestDen {
     val cons = ConstructorItem(X,Nil,Nil)
     val f = StaticMethodItem("f",X,Nil,VoidType,Nil)
 
-    implicit val env = Env(List(X,cons,f),Map((f,2),(X,3)),f)
+    implicit val env = new Env(List(X,cons,f),Map((f,2),(X,3)),f)
     // We are not allowed to discard the possible side effects in the X constructor.
     testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(cons),Nil,Nil)),f),Nil,Nil))))
   }
@@ -394,7 +394,7 @@ class TestDen {
     val d = LocalVariableItem("d",DoubleType,true)
     val s = LocalVariableItem("s",StringType,true)
     val b = LocalVariableItem("b",BooleanType,true)
-    implicit val env = Env(List(X,f), Map((X,3),(f,2)), f).addLocalObjects(List(x,d,s,b))
+    implicit val env = new Env(List(X,f), Map((X,3),(f,2)), f).addLocalObjects(List(x,d,s,b))
     testDen("f(s,b,d,x)", ApplyExp(StaticMethodDen(None,f), Nil, List(x,d,s,b)))
   }
 
