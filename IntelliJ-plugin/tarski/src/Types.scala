@@ -100,9 +100,8 @@ object Types {
     def item: ParentItem with GenericItem
     def args: List[TypeArg]
   }
-
-  trait PackageParent extends Parent { // Exists so that we can seal Parent
-    def item: PackageItem
+  trait SimpleParent extends Parent { // Exists so that we can seal Parent
+    def item: SimpleParentItem
     def env = Map.empty
     def isRaw = false
     def isSimple = true
@@ -177,21 +176,6 @@ object Types {
     }
     def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield GenericType(item,a,p)
     def raw = RawType(item,parent.raw)
-  }
-
-  // for local classes
-  case class CallableParent(item: CallableParentItem, args: List[TypeArg], parent: ClassType) extends GenericParent {
-    def env() = capture(this,parent.env)._1
-    def isRaw = parent.isRaw && args.isEmpty
-    def isSimple = parent.isSimple && item.arity == 0
-    def known(implicit env: Tenv) = args.forall(_.known) && parent.known
-    def substitute(implicit env: Tenv) = {
-      val p = parent.substitute
-      if (!p.isRaw && (args forall (_.known))) CallableParent(item,args map (_.substitute),p)
-      else CallableParent(item,Nil,p)
-    }
-    def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield CallableParent(item,a,p)
-    def raw = CallableParent(item, Nil, parent.raw)
   }
 
   // Type arguments are either reference types or wildcards.  4.5.1

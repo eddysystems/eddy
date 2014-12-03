@@ -340,9 +340,11 @@ object Pretty {
       else {
         t.parent match {
           case LocalPkg|JavaLangPkg => ts
-          case p:PackageParent => (FieldFix, tokens(p.item) ::: DotTok() :: ts._2)
           case t:ClassType => (FieldFix, cls(t)._2 ::: DotTok() :: ts._2)
-          case t:CallableParent => ts // this means we're local and not in scope
+          case p:SimpleParent => p.item match {
+            case p:PackageItem => (FieldFix, tokens(p.item) ::: DotTok() :: ts._2)
+            case _:CallableParentItem => ts // We're always local in this case
+          }
         }
       }
     }
