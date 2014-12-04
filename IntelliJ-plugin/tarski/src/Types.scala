@@ -11,7 +11,7 @@ import ambiguity.Utility._
 // Properties of types according to the Java spec, without extra intelligence
 object Types {
   // Types
-  sealed abstract class Type extends scala.Serializable {
+  sealed abstract class Type {
     def item: TypeItem
     def supers: List[RefType] // Immediate super classes
     def isSimple: Boolean // Do we depend on any type parameters?
@@ -208,19 +208,29 @@ object Types {
     def safe = Some(ObjectType) // nulltype becomes Object
     def raw = this
   }
-  case class ParamType(v: TypeVar) extends RefType {
-    def item = v
-    def supers = v.supers
+  abstract class TypeVar extends RefType with TypeItem with RefEq {
+    def name: Name
+    def lo: RefType // Lower bound
+    def hi: RefType // Upper bound
+
+    def supers = List(lo)
+    def item = this
     def isFinal = false
     def isSimple = false
-    def known(implicit env: Tenv) = v.known
-    def substitute(implicit env: Tenv): RefType = env.get(v) match {
+    def known(implicit env: Tenv): Boolean = env.get(this) match {
+      case Some(None) => false // We're raw, and therefore not known
+      case _ => true
+    }
+    def substitute(implicit env: Tenv): RefType = env.get(this) match {
       case None => this
       case Some(Some(t)) => t
       case Some(None) => throw new RuntimeException("raw variable encountered in substitute")
     }
     def safe = Some(this)
+    def simple = this
+    def inside = this
     def raw = throw new RuntimeException("should never happen")
+    def qualifiedName = None
   }
   case class IntersectType(ts: Set[RefType]) extends RefType {
     def item = NoTypeItem
@@ -349,7 +359,7 @@ object Types {
           case WildSuper(t) => f.lo = lub(List(t,v.lo.substitute(env)))
                                f.hi =            v.hi.substitute(env)
         }) :: fills
-        ParamType(f)
+        f
       }
     })}
     val env = base ++ vts.toMap.mapValues(Some(_))

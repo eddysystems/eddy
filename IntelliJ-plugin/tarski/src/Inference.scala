@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Items.{ClassItem, PackageItem, TypeVar}
+import tarski.Items.{ClassItem, PackageItem}
 import tarski.Types._
 import ambiguity.Utility._
 
@@ -39,7 +39,7 @@ object Inference {
       case _ => false
     }
     case IntersectType(ts) => ts exists (occurs(s,_))
-    case ParamType(t) => s == t
+    case t:TypeVar => s == t
     case t:Wildcard => occurs(s,t.t)
     case NullType => false
   }
@@ -58,7 +58,7 @@ object Inference {
       case _ => Set()
     }
     case IntersectType(ts) => ts flatMap (vars(bs,_))
-    case ParamType(v) => Set(v)
+    case v:TypeVar => Set(v)
     case t:Wildcard => vars(bs,t.t)
     case NullType => Set()
   }
@@ -122,7 +122,7 @@ object Inference {
     case t:ClassType => t.args.forall(isProper(bs,_)) && isProper(bs,t.parent)
     case ArrayType(t) => isProper(bs,t)
     case IntersectType(ts) => ts forall (isProper(bs,_))
-    case ParamType(v) => !bs.contains(v)
+    case v:TypeVar => !bs.contains(v)
     case NullType => true
   }
   def isProper(bs: Bounds, t: Type): Boolean = t match {
@@ -160,8 +160,8 @@ object Inference {
     else (s,t) match {
       case (NullType,_) => Some(bs)
       case (_,NullType) => fail(s"subForm: $s !<: nulltype")
-      case (ParamType(s),t) if bs contains s => incorporateSub(bs,s,t)
-      case (s,ParamType(t)) if bs contains t => incorporateSub(bs,s,t)
+      case (s:TypeVar,t) if bs contains s => incorporateSub(bs,s,t)
+      case (s,t:TypeVar) if bs contains t => incorporateSub(bs,s,t)
       case (s,t:GenericType) => supers(s)
         .collect({case ss: GenericType if ss.parent == t.parent => ss})
         .headOption
@@ -175,7 +175,7 @@ object Inference {
         }
         case _ => fail(s"subForm: $s is not an array type, ArrayType($t) is")
       }
-      case (s,ParamType(_)) => s match {
+      case (s,_:TypeVar) => s match {
         case IntersectType(ss) if ss contains t => Some(bs)
         // TODO: Handle case where t has a lower bound
         case _ => fail(s"subForm: $s does not contain $t")
@@ -204,8 +204,8 @@ object Inference {
     if (isProper(bs,s) && isProper(bs,t))
       if (s == t) Some(bs) else fail(s"equalForm: proper $s != $t")
     else (s,t) match {
-      case (ParamType(s),t) if bs contains s => incorporateEqual(bs,s,t)
-      case (s,ParamType(t)) if bs contains t => incorporateEqual(bs,t,s)
+      case (s:TypeVar,t) if bs contains s => incorporateEqual(bs,s,t)
+      case (s,t:TypeVar) if bs contains t => incorporateEqual(bs,t,s)
       case (s:GenericType,t:GenericType) =>
         if (s.parent == t.parent) forms(bs,s.args,t.args)(equalForm) else fail(s"equalForm: class ${s.parent} != ${t.parent}")
       case (ArrayType(s),ArrayType(t)) => equalForm(bs,s,t)
@@ -257,7 +257,7 @@ object Inference {
   def extract(bs: Bounds, ps: List[Var]): List[RefType] = {
     def clean(t: RefType): Boolean = t match {
       case t:ClassType => t.args forall cleanArg
-      case ParamType(v) => !bs.contains(v)
+      case v:TypeVar => !bs.contains(v)
       case IntersectType(ts) => ts forall clean
       case ArrayType(t) => t match {
         case t: RefType => clean(t)

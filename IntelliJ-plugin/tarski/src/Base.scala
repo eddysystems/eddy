@@ -31,7 +31,7 @@ object Base {
     def parent = JavaLangPkg
     def tparams = List(E)
     def base = ObjectType
-    def implements = List(SerializableType,comparable(ParamType(E)))
+    def implements = List(SerializableType,comparable(E))
   }
 
   // Simple classes

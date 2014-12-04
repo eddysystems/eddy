@@ -187,7 +187,7 @@ class TestDen {
   def genericConsObject(): Unit = {
     val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
-    val AC = ConstructorItem(A,Nil,List(ParamType(T)))
+    val AC = ConstructorItem(A,Nil,List(T))
     implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))
     testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
       (x,ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
@@ -404,7 +404,7 @@ class TestDen {
     val A = NormalClassItem("A",LocalPkg,List(T))
     val B = NormalClassItem("B",LocalPkg,Nil)
     val F = NormalClassItem("F",LocalPkg,Nil)
-    val f = StaticMethodItem("f",F,List(S),VoidType,List(ParamType(S)))
+    val f = StaticMethodItem("f",F,List(S),VoidType,List(S))
     for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
       val x = LocalVariableItem("x",A.generic(List(w)),true)
       implicit val env = localEnv(List(A,x,F,f))

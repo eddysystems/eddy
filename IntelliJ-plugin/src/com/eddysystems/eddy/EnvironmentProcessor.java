@@ -297,7 +297,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
         return new UnresolvedClassItem(name, qname.substring(qname.lastIndexOf('.')+1), args, isfinal).generic();
       } else if (tcls instanceof PsiTypeParameter) {
-        return new ParamType(addTypeParam(envitems, (PsiTypeParameter) tcls));
+        return addTypeParam(envitems, (PsiTypeParameter)tcls);
       } else {
         List<TypeArg> jparams = new SmartList<TypeArg>();
         for (PsiType tp : ((PsiClassType)t).getParameters()) {
