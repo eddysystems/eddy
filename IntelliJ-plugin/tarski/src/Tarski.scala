@@ -12,12 +12,8 @@ import scala.collection.JavaConverters._
 
 object Tarski {
 
-  def environment(jvalues: java.util.Collection[Item]): Env = {
-    println("making environment from " + jvalues.size + " items")
-    val things = addItemsToMapList(Base.extraEnv.things, jvalues.asScala)
-    println("  merged things")
-    Env(new Trie.CompactTrie(jvalues.asScala, (x:Item) => x.name ), things, Base.baseEnv.inScope, Base.baseEnv.place, false, false, Nil)
-  }
+  def environment(jvalues: java.util.Collection[Item]): Env =
+    Base.extraEnv.addObjects(jvalues.asScala,Map.empty)
 
   def add_environment(env: Env, values: java.util.Collection[Item], inScope: java.util.Map[Item,Integer]): Env = {
     env.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue))

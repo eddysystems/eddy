@@ -113,6 +113,7 @@ object Types {
 
   // Reference types
   sealed abstract class RefType extends Type with TypeArg {
+    def item: RefTypeItem
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
     def raw: RefType
@@ -208,7 +209,7 @@ object Types {
     def safe = Some(ObjectType) // nulltype becomes Object
     def raw = this
   }
-  abstract class TypeVar extends RefType with TypeItem with RefEq {
+  abstract class TypeVar extends RefType with RefTypeItem with RefEq {
     def name: Name
     def lo: RefType // Lower bound
     def hi: RefType // Upper bound
@@ -478,6 +479,14 @@ object Types {
   def supers(t: Type): Set[RefType] = t match {
     case t:RefType => supers(t)
     case _ => Set()
+  }
+  def supers(t: RefTypeItem): Set[RefTypeItem] = {
+    def loop(ss: Set[RefTypeItem], t: RefType): Set[RefTypeItem] = {
+      val i = t.item
+      if (ss contains i) ss
+      else t.supers.foldLeft(ss+i)(loop)
+    }
+    t.supers.foldLeft(Set(t))(loop)
   }
 
   // Least upper bounds: 4.10.4

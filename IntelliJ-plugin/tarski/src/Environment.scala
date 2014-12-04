@@ -14,17 +14,22 @@ import tarski.Pretty._
 import scala.collection.mutable
 
 object Environment {
-
-  def itemsToMapList(bs: Iterable[Item]): Map[String,List[Item]] = {
-    val m = mutable.Map[String,List[Item]]()
-    bs.foreach { b => m.update(b.name, b :: m.getOrElse(b.name,Nil)) }
+  def itemsToMapList(start: Map[String,List[Item]], bs: Iterable[Item]): Map[String,List[Item]] = {
+    val m = mutable.Map[String,List[Item]]()++start
+    bs foreach { b => m(b.name) = b :: m.getOrElse(b.name,Nil) }
     m.toMap
   }
 
-  def addItemsToMapList(m0: Map[String,List[Item]], bs: Iterable[Item]): Map[String,List[Item]] = {
-    val m = mutable.Map[String,List[Item]]()
-    m0.foreach { case (a,bs) => m.update(a, bs ::: m.getOrElse(a,Nil)) }
-    bs.foreach { b => m.update(b.name, b :: m.getOrElse(b.name,Nil)) }
+  def valuesByItem(start: Map[TypeItem,List[Value]], vs: Iterable[Item]): Map[TypeItem,List[Value]] = {
+    val m = mutable.Map[TypeItem,List[Value]]()++start
+    def add(s: TypeItem, v: Value) = m(s) = v::m.getOrElse(s,Nil)
+    vs foreach {
+      case v:Value => v.item match {
+        case i:RefTypeItem => supers(i) foreach (s => if (s != ObjectItem) add(s,v))
+        case i:LangTypeItem => add(i,v)
+      }
+      case _ => ()
+    }
     m.toMap
   }
 
@@ -34,6 +39,7 @@ object Environment {
    case class Env(trie: CompactTrie[Item],
                   things: Map[String,List[Item]],
                   inScope: Map[Item,Int],
+                  byItem: Map[TypeItem,List[Value]], // Map from item to values with matching type
                   place: PlaceItem,
                   inside_breakable: Boolean,
                   inside_continuable: Boolean,
@@ -45,8 +51,8 @@ object Environment {
              inside_breakable: Boolean,
              inside_continuable: Boolean,
              labels: List[String]) = {
-      this(base.trie.add(newthings), addItemsToMapList(base.things, newthings), base.inScope ++ newScope,
-           place, inside_breakable, inside_continuable, labels)
+      this(base.trie.add(newthings), itemsToMapList(base.things,newthings), base.inScope ++ newScope,
+           valuesByItem(base.byItem,newthings), place, inside_breakable, inside_continuable, labels)
     }
 
     // make an environment from a list of items
@@ -55,9 +61,9 @@ object Environment {
              inside_breakable: Boolean = false,
              inside_continuable: Boolean = false,
              labels: List[String] = Nil) = {
-      this(new CompactTrie[Item](things, (x:Item) => x.name ), itemsToMapList(things), inScope, place, inside_breakable, inside_continuable, labels)
+      this(new CompactTrie[Item](things)(_.name), itemsToMapList(Map.empty,things), inScope,
+           valuesByItem(Map.empty,things), place, inside_breakable, inside_continuable, labels)
     }
-
 
     // minimum probability before an object is considered a match for a query
     val minimumProbability = Prob(.01)
@@ -65,7 +71,7 @@ object Environment {
     assert( place == Base.LocalPkg || things.getOrElse(place.name, Nil).contains(place) )
 
     // Add objects
-    def addObjects(xs: List[Item], is: Map[Item,Int]): Env = {
+    def addObjects(xs: Iterable[Item], is: Map[Item,Int]): Env = {
       // TODO: filter identical things (like java.lang.String)
       new Env(this, xs, is, place, inside_breakable, inside_continuable, labels)
     }
@@ -75,7 +81,7 @@ object Environment {
       addObjects(xs, (xs map {(_,1)}).toMap)
 
     def move(newPlace: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: List[String]): Env = {
-      Env(trie, things, inScope, newPlace, inside_breakable, inside_continuable, labels)
+      Env(trie, things, inScope, byItem, newPlace, inside_breakable, inside_continuable, labels)
     }
 
     def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)] = place match {
@@ -118,11 +124,13 @@ object Environment {
 
     // Enter a new block scope
     def pushScope: Env =
-      Env(trie, things, inScope map { case (i,n) => (i,n+1) }, place, inside_breakable, inside_continuable, labels)
+      Env(trie, things, inScope map { case (i,n) => (i,n+1) },
+          byItem, place, inside_breakable, inside_continuable, labels)
 
     // Leave a block scope
     def popScope: Env =
-      Env(trie, things, inScope collect { case (i,n) if n>1 => (i,n-1) }, place, inside_breakable, inside_continuable, labels)
+      Env(trie, things, inScope collect { case (i,n) if n>1 => (i,n-1) },
+          byItem, place, inside_breakable, inside_continuable, labels)
 
     // get typo probabilities for string queries
     def query(typed: String): List[Alt[Item]] = {
@@ -171,8 +179,7 @@ object Environment {
 
   // Same as objectsOfType, but without type arguments
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
-    multiple(env.things.flatMap({ case (s,is) => is collect { case i: Value if isSubitem(i.item,t) => Alt(Pr.objectOfItem,i) } }).toList,
-             s"Value of item ${show(t)} not found")
+    uniform(Pr.objectOfItem, env.byItem.getOrElse(t,Nil), s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {

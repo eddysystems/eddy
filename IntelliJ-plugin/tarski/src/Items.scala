@@ -50,7 +50,7 @@ object Items {
   }
 
   // Types
-  trait TypeItem extends Item { // Not sealed so that TypeVar can inherit from here
+  sealed trait TypeItem extends Item {
     def supers: List[RefType]
     def inside: Type
     def raw: Type
@@ -70,12 +70,9 @@ object Items {
     def arity: Int = tparams.size
   }
 
-  sealed abstract class RefTypeItem extends TypeItem with Member with GenericItem {
-    def raw: RefType
-    def generic(args: List[TypeArg], parent: Parent): RefType
-  }
+  trait RefTypeItem extends TypeItem // Not sealed so that TypeVar can inherit from here
 
-  abstract class ClassItem extends RefTypeItem with ParentItem {
+  abstract class ClassItem extends RefTypeItem with ParentItem with Member with GenericItem {
     def parent: ParentItem
     def isClass: Boolean // true for class, false for interface
     def isEnum: Boolean // true only for descendants of Enum<E>
@@ -188,9 +185,9 @@ object Items {
     def simple = error
     def generic(args: List[TypeArg], parent: Parent) = error
   }
-  case object NoTypeItem extends TypeItem {
+  case object NoTypeItem extends RefTypeItem {
     def name = "NoTypeItem"
-    def qualifiedName = None
+    override def qualifiedName = None
     def supers = Nil
     private def error = throw new RuntimeException("NoTypeItem shouldn't be touched")
     def inside = error

@@ -19,7 +19,7 @@ object Trie {
     def lookup[X](visitor: TrieVisitor[V,List[X]]): List[X]
   }
 
-  class CompactTrie[V]( _values: Iterable[V], key: V => String )(implicit t: ClassTag[V]) extends Lookupable[V] {
+  class CompactTrie[V](_values: Iterable[V])(key: V => String)(implicit t: ClassTag[V]) extends Lookupable[V] {
 
     val initial_size_multiplier = 10 // average 10 ints per input value -- this is likely much too low
     val grow_size_multiplier = 1.2 // grow by 20 percent when running out of space
@@ -118,9 +118,8 @@ object Trie {
     }
 
     // TODO: for single items, adding them by inserting nodes is probably faster
-    def add(vs: Iterable[V]): CompactTrie[V] = {
-      new CompactTrie(vs++values, key)
-    }
+    def add(vs: Iterable[V]): CompactTrie[V] =
+      new CompactTrie(vs++values)(key)
 
     private def exact(idx: String, depth: Int, nodeidx: Int): List[V] = {
       idx.lift(depth) match {

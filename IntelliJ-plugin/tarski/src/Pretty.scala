@@ -296,13 +296,11 @@ object Pretty {
 
   // Denotations
   implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
-    def relative(i: Item with Member) =
-      if (env.itemInScope(i) || i.parent == LocalPkg || i.parent == JavaLangPkg)
-        pretty(i.name) // even if they're not in scope, pretty-print some things using just their name (although this means we have a broken environment)
-      else {
+    def relative(i: Item) = i match {
+      case i:Member if i.parent != LocalPkg && i.parent != JavaLangPkg =>
         (FieldFix, tokens(i.parent) ::: DotTok() :: tokens(i.name))
-      }
-
+      case _ => pretty(i.name)
+    }
     i match {
       // Types
       case i: RefTypeItem => relative(i)
