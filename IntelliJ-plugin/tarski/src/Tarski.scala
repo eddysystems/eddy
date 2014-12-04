@@ -8,8 +8,6 @@ import Denotations._
 import Semantics._
 import Pretty._
 
-import ambiguity.Utility._
-
 import scala.collection.JavaConverters._
 
 object Tarski {
