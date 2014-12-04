@@ -124,6 +124,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
       PackageItem pitem = new PackageItem(pkg.getName(), qualifiedName(pkg));
+      Item base = Tarski.baseLookupJava(pitem);
+      if (base != null)
+        pitem = (PackageItem)base;
       local_envitems.put(pkg, pitem);
       return pitem;
     }
@@ -185,6 +188,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     ClassItemMaker ci = new ClassItemMaker(cls.getName(), container, params, !cls.isInterface(), cls.isEnum(),
                                            cls.hasModifierProperty(PsiModifier.FINAL));
+    Item ciBase = Tarski.baseLookupJava(ci);
+    if (ciBase != null) {
+      local_envitems.put(cls,ciBase);
+      return (TypeItem)ciBase;
+    }
     local_envitems.put(cls,ci);
 
     // Base
@@ -255,6 +263,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (method.isConstructor()) {
       // TODO: varargs
       mitem = new ConstructorItem(clsitem, tparams, params);
+      Item base = Tarski.baseLookupJava(mitem);
+      if (base != null)
+        mitem = (ConstructorItem)base;
     } else {
       // TODO: varargs
       Type rtype = convertType(global_envitems, local_envitems, method.getReturnType());
@@ -383,23 +394,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
           PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
           String[] classnames = cache.getAllClassNames();
+          GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
 
-          for (String name : classnames) {
-            // TODO: enable one of these once the lookups are faster
-            //GlobalSearchScope scope = new EverythingGlobalScope();
-            GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
-            //GlobalSearchScope scope = ProjectScopeBuilder.getInstance(project).buildProjectScope();
-            for (PsiClass cls : cache.getClassesByName(name, scope)) {
-              // TODO: this includes local classes, but probably shouldn't
+          // Add all classes.  TODO: This includes local classes, but probably shouldn't
+          Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
+          for (String name : classnames)
+            for (PsiClass cls : cache.getClassesByName(name, scope))
               if (!isInaccessible(cls, true))
-                addClass(new HashMap<PsiElement,Item>(), global_envitems, cls, true, true);
-            }
-          }
+                addClass(fake_globals, global_envitems, cls, true, true);
 
           logger.info("making global_env with " + global_envitems.size() + " items.");
 
           // update global_env
-          global_env = tarski.Tarski.environment(global_envitems.values());
+          global_env = Tarski.environment(global_envitems.values());
 
           logger.info("global_env ready.");
 

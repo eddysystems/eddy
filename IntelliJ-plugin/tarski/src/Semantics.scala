@@ -125,7 +125,7 @@ object Semantics {
     objs flatMap { xd => {
       if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
         xd match {
-          case ThisExp(ThisItem(tt:ClassItem)) if tt.base.item == c => single(combine(SuperExp(ThisItem(tt)),i), superFieldProb(objs, c, i))
+          case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(combine(SuperExp(tt),i), superFieldProb(objs, c, i))
           case _ => single(combine(CastExp(c.raw,xd),i), shadowedFieldProb(objs, xd,c,i))
         }
       } else {

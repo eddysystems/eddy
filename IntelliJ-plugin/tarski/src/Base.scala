@@ -4,6 +4,7 @@ import tarski.AST.Name
 import tarski.Items._
 import tarski.Types._
 import tarski.Environment.Env
+import scala.collection.mutable
 
 object Base {
   // Basic packages
@@ -137,13 +138,34 @@ object Base {
   val baseEnv = new Env(List(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
-    // basic types
+    // Primitive types
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem,
     // Classes
-    ObjectItem,ObjectConsItem,VoidItem,
+    ObjectItem,VoidItem,
     EnumBaseItem,ThrowableItem,StringItem,BooleanItem,CharacterItem,
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
     // Interfaces
-    CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem
+    CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem,
+    // Constructors
+    ObjectConsItem
   ))
+
+  // Things that EnvironmentProcessor won't add on its own
+  val extraEnv = new Env(List(
+    LocalPkg,
+    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem))
+
+  // Map from qualified names to base environment entries
+  val baseQualifiedNames: Map[String,Item] = baseEnv.things.toList.flatMap(_._2).map(t => t.qualifiedName.get -> t).toMap
+
+  // Check that an environment has a unique copy of everything in baseEnv
+  def checkEnv(env: Env): Unit = {
+    val seen = mutable.Set[String]()
+    env.things.foreach(_._2.foreach(t => t.qualifiedName foreach (n => baseQualifiedNames get n foreach (b => {
+      assert(!seen.contains(n),s"Two copies of $n, type ${t.getClass}")
+      assert(t eq b,s"Versions of $n in baseEnv (${b.getClass}) and env (${t.getClass}) differ")
+      seen += n
+    }))))
+    baseQualifiedNames foreach {case (n,_) => assert(seen contains n,s"env does not contain $n")}
+  }
 }

@@ -16,7 +16,7 @@ object Tarski {
 
   def environment(jvalues: java.util.Collection[Item]): Env = {
     println("making environment from " + jvalues.size + " items")
-    val things = addItemsToMapList(Base.baseEnv.things, jvalues.asScala)
+    val things = addItemsToMapList(Base.extraEnv.things, jvalues.asScala)
     println("  merged things")
     Env(new Trie.CompactTrie(jvalues.asScala, (x:Item) => x.name ), things, Base.baseEnv.inScope, Base.baseEnv.place, false, false, Nil)
   }
@@ -26,6 +26,11 @@ object Tarski {
   }
 
   def localPkg(): PackageItem = Base.LocalPkg
+
+  def baseLookupJava(i: Item): Item = i.qualifiedName match {
+    case None => null
+    case Some(q) => Base.baseQualifiedNames.getOrElse(q,null)
+  }
 
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[java.util.List[Stmt]]] = {
     val toks = tokens.asScala.toList

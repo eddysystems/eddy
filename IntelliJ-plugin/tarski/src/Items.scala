@@ -9,7 +9,7 @@ import tarski.Tokens.show
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
-  sealed trait Item {
+  sealed trait Item extends RefEq {
     def name: Name
     def qualifiedName: Option[Name] // A name that is valid anywhere
     override def toString: String = qualifiedName getOrElse name
@@ -201,7 +201,10 @@ object Items {
   trait Member {
     def name: Name
     def parent: PlaceItem // Could be a package
-    def qualifiedName = parent.qualifiedName map (_ + '.' + name)
+    def qualifiedName = parent.qualifiedName map {
+      case "" => name
+      case s => s + '.' + name
+    }
   }
 
   trait ClassMember extends Member {
