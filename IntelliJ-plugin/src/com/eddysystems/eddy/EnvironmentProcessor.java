@@ -88,24 +88,26 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   }
 
   private @Nullable PsiPackage getPackage(@NotNull PsiJavaFile file) {
-    PsiPackage pkg = JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
-    return pkg;
+    return JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
   }
 
-  private PsiElement containing(PsiElement cls) {
-    PsiElement parent = cls.getParent();
+  private PsiElement containing(PsiElement elem) {
+    PsiElement parent = elem.getParent();
     if (parent instanceof PsiJavaFile) {
       return getPackage((PsiJavaFile) parent);
     } else if (parent instanceof PsiClass) {
       return parent;
     } else if (parent instanceof PsiDeclarationStatement) {
       while (!(parent instanceof PsiMethod)) {
-        logger.debug("walking up to find containing method for local class " + cls + ": " + parent);
+        logger.debug("walking up to find containing method for local class " + elem + ": " + parent);
         parent = parent.getParent();
       }
       return parent;
+    } else if (parent instanceof PsiTypeParameterList) {
+      assert elem instanceof PsiTypeParameter;
+      return ((PsiTypeParameter) elem).getOwner();
     }
-    throw new RuntimeException("unexpected container of " + cls + ": " + parent);
+    throw new RuntimeException("unexpected container of " + elem + ": " + parent);
   }
 
   // the add* methods look up in global_ and local_ envitems, but add only to local_envitems.
