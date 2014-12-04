@@ -120,7 +120,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (elem instanceof PsiMethod)
       return addMethod(global_envitems, local_envitems, (PsiMethod) elem);
     if (elem instanceof PsiClass)
-      return addClass(global_envitems, local_envitems, (PsiClass) elem, false);
+      return addClass(global_envitems, local_envitems, (PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
       PackageItem pitem = new PackageItem(pkg.getName(), qualifiedName(pkg));
@@ -145,9 +145,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (PsiClassType e : extended) {
       etypes.add((ClassType)convertType(global_envitems, local_envitems, e));
     }
-    for (int i = 1; i < extended.length; ++i) {
-      assert !extended[i].resolve().isInterface();
-    }
 
     if (etypes.isEmpty())
       ti.set(ObjectType$.MODULE$, JavaConversions.asScalaBuffer(etypes).toList());
@@ -157,7 +154,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return ti;
   }
 
-  private TypeItem addClass(Map<PsiElement,Item> global_envitems, Map<PsiElement,Item> local_envitems, PsiClass cls, boolean recurse) {
+  private TypeItem addClass(Map<PsiElement,Item> global_envitems, Map<PsiElement,Item> local_envitems, PsiClass cls, boolean recurse, boolean noProtected) {
     if (global_envitems.containsKey(cls))
       return (TypeItem)global_envitems.get(cls);
     if (local_envitems.containsKey(cls))
@@ -195,13 +192,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiClass scls = cls.getSuperClass();
     assert scls != null;
     // TODO: get actual type arguments for scls and make generic class
-    ClassType base = (ClassType) addClass(global_envitems, local_envitems, scls, false).raw();
+    ClassType base = (ClassType) addClass(global_envitems, local_envitems, scls, false, false).raw();
 
     // Interfaces
     ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
     for (PsiClass i : cls.getInterfaces()) {
       // TODO: Handle generics
-      j_interfaces.add(((ClassItem) addClass(global_envitems, local_envitems, i, false)).raw());
+      j_interfaces.add(((ClassItem) addClass(global_envitems, local_envitems, i, false, false)).raw());
     }
     scala.collection.immutable.List<ClassType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
 
@@ -210,16 +207,20 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // add subthings recursively
     if (recurse) {
       for (PsiField f : cls.getFields()) {
-        addField(global_envitems, local_envitems, f);
+        if (!isInaccessible(f, noProtected))
+          addField(global_envitems, local_envitems, f);
       }
       for (PsiMethod m : cls.getMethods()) {
-        addMethod(global_envitems, local_envitems, m);
+        if (!isInaccessible(m, noProtected))
+          addMethod(global_envitems, local_envitems, m);
       }
       for (PsiMethod m : cls.getConstructors()) {
-        addMethod(global_envitems, local_envitems, m);
+        if (!isInaccessible(m, noProtected))
+          addMethod(global_envitems, local_envitems, m);
       }
       for (PsiClass c : cls.getInnerClasses()) {
-        addClass(global_envitems, local_envitems, c, true);
+        if (!isInaccessible(c, noProtected))
+          addClass(global_envitems, local_envitems, c, true, noProtected);
       }
     }
 
@@ -248,7 +249,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // get class
     PsiClass cls = method.getContainingClass();
     assert cls != null;
-    ClassItem clsitem = (ClassItem)addClass(global_envitems, local_envitems, cls, false);
+    ClassItem clsitem = (ClassItem)addClass(global_envitems, local_envitems, cls, false, false);
 
     CallableItem mitem;
     if (method.isConstructor()) {
@@ -315,7 +316,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
         //logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
 
-        ClassItem item = (ClassItem) addClass(global_envitems, local_envitems, tcls, false);
+        ClassItem item = (ClassItem) addClass(global_envitems, local_envitems, tcls, false, false);
 
         //logger.debug("  item: " + item + ": params " + item.tparams().mkString("[",",","]"));
 
@@ -357,7 +358,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiClass cls = f.getContainingClass();
     assert cls != null;
     Type t = convertType(global_envitems, local_envitems, f.getType());
-    ClassItem c = (ClassItem)addClass(global_envitems, local_envitems, cls, false);
+    ClassItem c = (ClassItem)addClass(global_envitems, local_envitems, cls, false, false);
     boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
     Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(),c) :
               (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c,isFinal)
@@ -389,8 +390,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
             GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
             //GlobalSearchScope scope = ProjectScopeBuilder.getInstance(project).buildProjectScope();
             for (PsiClass cls : cache.getClassesByName(name, scope)) {
-              // this includes local classes (yey!)
-              addClass(new HashMap<PsiElement,Item>(), global_envitems, cls, true);
+              // TODO: this includes local classes, but probably shouldn't
+              if (!isInaccessible(cls, true))
+                addClass(new HashMap<PsiElement,Item>(), global_envitems, cls, true, true);
             }
           }
 
@@ -433,7 +435,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
       // TODO: get type parameters etc
-      Item icls = addClass(global_envitems, local_envitems, cls, true);
+      // add private/protected stuff that's not already visible
+      Item icls = addClass(global_envitems, local_envitems, cls, true, false);
       scopeItems.put(icls,scls.shadowingPriority);
     }
 
@@ -502,7 +505,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // add special "this" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         assert local_envitems.containsKey(place) || global_envitems.containsKey(place);
-        ClassItem c = (ClassItem)addClass(global_envitems, local_envitems, (PsiClass)place, false);
+        ClassItem c = (ClassItem)addClass(global_envitems, local_envitems, (PsiClass)place, false, false);
         assert scopeItems.containsKey(c);
         int p = scopeItems.get(c);
         ThisItem ti = new ThisItem(c);
@@ -583,34 +586,58 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   /**
    * Check if a thing (member or class) is private or protected and therefore not accessible
    * @param element The thing to check whether it's inaccessible because it may be private or protected
-   * @param containingClass The class containing the thing
+   * @param noProtected Consider all protected, private, or package local items inaccessible
    * @return whether the element is private or protected and not accessible because of it
    */
-  private boolean isInaccessible(PsiModifierListOwner element, PsiClass containingClass) {
-    if (element.hasModifierProperty(PsiModifier.PRIVATE)) {
-      // if the member is private we can only see it if place is contained in a class in which member is declared.
-      PsiClass containingPlaceClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
-      while (containingPlaceClass != null) {
-        if (containingClass == containingPlaceClass) {
-          break;
-        }
-        containingPlaceClass = PsiTreeUtil.getParentOfType(containingPlaceClass, PsiClass.class);
-      }
-      if (containingPlaceClass == null) {
+  private boolean isInaccessible(PsiModifierListOwner element, boolean noProtected) {
+
+    PsiElement container = containing(element);
+
+    if (container instanceof PsiPackage && !element.hasModifierProperty(PsiModifier.PUBLIC)) {
+      if (noProtected)
         return true;
+
+      PsiJavaFile file = PsiTreeUtil.getParentOfType(place, PsiJavaFile.class, false);
+      if (file != null && container != getPackage(file))
+        return true;
+
+      return false;
+    }
+
+    if (element.hasModifierProperty(PsiModifier.PRIVATE)) {
+      if (noProtected)
+        return true;
+
+      if (container instanceof PsiClass) {
+        // if the member is private we can only see it if place is contained in a class in which member is declared.
+        PsiClass containingPlaceClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
+        while (containingPlaceClass != null) {
+          if (container == containingPlaceClass) {
+            break;
+          }
+          containingPlaceClass = PsiTreeUtil.getParentOfType(containingPlaceClass, PsiClass.class);
+        }
+        if (containingPlaceClass == null) {
+          return true;
+        }
       }
     }
 
     if (element.hasModifierProperty(PsiModifier.PROTECTED)) {
-      // if the member is protected we can only see it if place is contained in a subclass of the containingClass
-      PsiClass containingPlaceClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
-      while (containingPlaceClass != null) {
-        if (containingPlaceClass == containingClass)
-          break;
-        containingPlaceClass = containingPlaceClass.getSuperClass();
-      }
-      if (containingPlaceClass == null) {
+      if (noProtected)
         return true;
+
+      // if the member is protected we can only see it if place is contained in a subclass of the containingClass
+      if (container instanceof PsiClass) {
+        PsiClass containingPlaceClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
+        while (containingPlaceClass != null) {
+          if (containingPlaceClass.isInheritor((PsiClass)container, true))
+            break;
+          containingPlaceClass = PsiTreeUtil.getParentOfType(containingPlaceClass, PsiClass.class);
+        }
+        if (containingPlaceClass == null) {
+          return true;
+        }
       }
     }
 
@@ -642,11 +669,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     if (honorPrivate) {
-      PsiClass containing = null;
-      if (element instanceof PsiMember)
-        containing = ((PsiMember)element).getContainingClass();
-
-      if (containing != null && isInaccessible((PsiModifierListOwner)element, containing)) {
+      if (isInaccessible((PsiModifierListOwner)element, false)) {
         return true;
       }
     }
