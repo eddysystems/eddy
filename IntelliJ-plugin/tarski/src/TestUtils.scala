@@ -7,7 +7,7 @@ import tarski.Denotations._
 import tarski.Environment.Env
 import tarski.Items._
 import tarski.Tokens._
-import tarski.Types.{ClassType, LangType, ParamType, VoidType}
+import tarski.Types.{ClassType, LangType, TypeVar, VoidType}
 import scala.language.implicitConversions
 
 object TestUtils {
@@ -31,7 +31,6 @@ object TestUtils {
   implicit def toExps(e: Exp): List[Exp] = List(e)
 
   // Type implicit conversions
-  implicit def toType(v: TypeVar): ParamType = ParamType(v)
   implicit def toType(c: ClassItem): ClassType = c.simple
 
   // Statement implicit conversions

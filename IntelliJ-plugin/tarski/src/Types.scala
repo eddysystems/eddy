@@ -11,7 +11,7 @@ import ambiguity.Utility._
 // Properties of types according to the Java spec, without extra intelligence
 object Types {
   // Types
-  sealed abstract class Type extends scala.Serializable {
+  sealed abstract class Type {
     def item: TypeItem
     def supers: List[RefType] // Immediate super classes
     def isSimple: Boolean // Do we depend on any type parameters?
@@ -100,9 +100,8 @@ object Types {
     def item: ParentItem with GenericItem
     def args: List[TypeArg]
   }
-
-  trait PackageParent extends Parent { // Exists so that we can seal Parent
-    def item: PackageItem
+  trait SimpleParent extends Parent { // Exists so that we can seal Parent
+    def item: SimpleParentItem
     def env = Map.empty
     def isRaw = false
     def isSimple = true
@@ -179,21 +178,6 @@ object Types {
     def raw = RawType(item,parent.raw)
   }
 
-  // for local classes
-  case class CallableParent(item: CallableParentItem, args: List[TypeArg], parent: ClassType) extends GenericParent {
-    def env() = capture(this,parent.env)._1
-    def isRaw = parent.isRaw && args.isEmpty
-    def isSimple = parent.isSimple && item.arity == 0
-    def known(implicit env: Tenv) = args.forall(_.known) && parent.known
-    def substitute(implicit env: Tenv) = {
-      val p = parent.substitute
-      if (!p.isRaw && (args forall (_.known))) CallableParent(item,args map (_.substitute),p)
-      else CallableParent(item,Nil,p)
-    }
-    def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield CallableParent(item,a,p)
-    def raw = CallableParent(item, Nil, parent.raw)
-  }
-
   // Type arguments are either reference types or wildcards.  4.5.1
   sealed trait TypeArg { // Inherited by RefType and Wildcard
     def known(implicit env: Tenv): Boolean
@@ -224,19 +208,29 @@ object Types {
     def safe = Some(ObjectType) // nulltype becomes Object
     def raw = this
   }
-  case class ParamType(v: TypeVar) extends RefType {
-    def item = v
-    def supers = v.supers
+  abstract class TypeVar extends RefType with TypeItem with RefEq {
+    def name: Name
+    def lo: RefType // Lower bound
+    def hi: RefType // Upper bound
+
+    def supers = List(lo)
+    def item = this
     def isFinal = false
     def isSimple = false
-    def known(implicit env: Tenv) = v.known
-    def substitute(implicit env: Tenv): RefType = env.get(v) match {
+    def known(implicit env: Tenv): Boolean = env.get(this) match {
+      case Some(None) => false // We're raw, and therefore not known
+      case _ => true
+    }
+    def substitute(implicit env: Tenv): RefType = env.get(this) match {
       case None => this
       case Some(Some(t)) => t
       case Some(None) => throw new RuntimeException("raw variable encountered in substitute")
     }
     def safe = Some(this)
+    def simple = this
+    def inside = this
     def raw = throw new RuntimeException("should never happen")
+    def qualifiedName = None
   }
   case class IntersectType(ts: Set[RefType]) extends RefType {
     def item = NoTypeItem
@@ -365,7 +359,7 @@ object Types {
           case WildSuper(t) => f.lo = lub(List(t,v.lo.substitute(env)))
                                f.hi =            v.hi.substitute(env)
         }) :: fills
-        ParamType(f)
+        f
       }
     })}
     val env = base ++ vts.toMap.mapValues(Some(_))

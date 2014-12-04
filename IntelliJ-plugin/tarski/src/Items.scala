@@ -9,7 +9,7 @@ import tarski.Tokens.show
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
-  sealed abstract class Item extends scala.Serializable {
+  sealed trait Item {
     def name: Name
     def qualifiedName: Option[Name] // A name that is valid anywhere
     override def toString: String = qualifiedName getOrElse name
@@ -22,24 +22,12 @@ object Items {
     def raw: Parent
     def simple: Parent
   }
+  sealed trait SimpleParentItem extends ParentItem with SimpleParent {
+    def item = this
+    def inside = this
+  }
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
-  abstract class TypeVar extends TypeItem with RefEq {
-    def name: Name
-    def lo: RefType // Lower bound
-    def hi: RefType // Upper bound
-
-    def qualifiedName = None
-    def supers = List(lo)
-    def simple = ParamType(this)
-    def inside = simple
-    def raw = simple
-
-    def known(implicit env: Tenv): Boolean = env.get(this) match {
-      case Some(None) => false // We're raw, and therefore not known
-      case _ => true
-    }
-  }
   case class NormalTypeVar(name: String, base: RefType, implements: List[ClassType]) extends TypeVar {
     override def supers = base :: implements
     def lo = NullType
@@ -51,10 +39,8 @@ object Items {
   }
 
   // Packages
-  case class PackageItem(name: Name, qualified: Name) extends Item with ParentItem with PackageParent {
-    def item = this
+  case class PackageItem(name: Name, qualified: Name) extends Item with SimpleParentItem {
     def qualifiedName = Some(qualified)
-    def inside = this
     def simple = this
   }
 
@@ -64,7 +50,7 @@ object Items {
   }
 
   // Types
-  sealed abstract class TypeItem extends Item {
+  trait TypeItem extends Item { // Not sealed so that TypeVar can inherit from here
     def supers: List[RefType]
     def inside: Type
     def raw: Type
@@ -109,7 +95,7 @@ object Items {
     def inside: ClassType = {
       val p = parent.inside
       if (arity == 0) SimpleType(this,p)
-      else GenericType(this,tparams map ParamType,p)
+      else GenericType(this,tparams,p)
     }
 
     // Convert to a type valid anywhere, bailing if type parameters are required
@@ -263,20 +249,9 @@ object Items {
   sealed abstract class CallableItem extends Item with PlaceItem with GenericItem {
     def params: List[Type]
   }
-  sealed trait CallableParentItem extends CallableItem with ParentItem {
+  sealed trait CallableParentItem extends CallableItem with SimpleParentItem {
     def parent: ClassItem
-    def inside = CallableParent(this, tparams map ParamType, parent.inside)
-    def simple =
-      if (arity == 0) CallableParent(this,Nil,parent.inside)
-      else throw new RuntimeException(s"method $name isn't simple (has args $tparams)")
-    def raw = CallableParent(this,Nil,parent.raw)
-    def generic(args: List[TypeArg], par: ClassType): CallableParent = {
-      if (par.item != parent)
-        throw new RuntimeException(s"parent mismatch: expected $parent, got $par}")
-      if (arity != args.size)
-        throw new RuntimeException(s"arity mismatch: $name takes $arity arguments, not ${args.size} ($args)")
-      CallableParent(this,args,par)
-    }
+    def simple = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
   }
   case class MethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
                         params: List[Type]) extends CallableParentItem with ClassMember

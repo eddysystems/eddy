@@ -317,6 +317,11 @@ object Pretty {
     }
   }
 
+  implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = t match {
+    case t:LangType => prettyLangType(t)
+    case t:RefType => prettyRefType(t)
+  }
+  implicit def prettyTypeVar(t: TypeVar): (Fixity,Tokens) = pretty(t.name)
   implicit def prettyLangType(t: LangType): (Fixity,Tokens) = (HighestFix, List((t match {
     case VoidType    => VoidTok
     case BooleanType => BooleanTok
@@ -328,10 +333,6 @@ object Pretty {
     case DoubleType  => DoubleTok
     case CharType    => CharTok
   })()))
-  implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = t match {
-    case t:LangType => prettyLangType(t)
-    case t:RefType => pretty(t)
-  }
   implicit def prettyRefType(t: RefType)(implicit env: Env): (Fixity,Tokens) = {
     def cls(t: ClassType): (Fixity,Tokens) = {
       val ts = if (t.args.isEmpty) pretty(t.item)
@@ -340,16 +341,18 @@ object Pretty {
       else {
         t.parent match {
           case LocalPkg|JavaLangPkg => ts
-          case p:PackageParent => (FieldFix, tokens(p.item) ::: DotTok() :: ts._2)
           case t:ClassType => (FieldFix, cls(t)._2 ::: DotTok() :: ts._2)
-          case t:CallableParent => ts // this means we're local and not in scope
+          case p:SimpleParent => p.item match {
+            case p:PackageItem => (FieldFix, tokens(p.item) ::: DotTok() :: ts._2)
+            case _:CallableParentItem => ts // We're always local in this case
+          }
         }
       }
     }
     t match {
       case NullType => pretty("nulltype")
       case t:ClassType => cls(t)
-      case ParamType(x) => pretty(x)
+      case x:TypeVar => prettyTypeVar(x)
       case IntersectType(ts) => pretty(AndList(ts.toList))
       case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok(),RBrackTok()))
     }
