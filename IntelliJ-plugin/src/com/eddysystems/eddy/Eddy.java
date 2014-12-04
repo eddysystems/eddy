@@ -88,6 +88,11 @@ public class Eddy {
 
   public List<Scores.Alt<List<Denotations.Stmt>>> getResults() { return results; }
 
+  public Environment.Env getEnv() {
+    assert env != null;
+    return env;
+  }
+
   public void dumpEnvironment(String filename) {
     if (env != null)
       Environment.envToFile(env,filename);

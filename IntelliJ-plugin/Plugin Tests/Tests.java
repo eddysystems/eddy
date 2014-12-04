@@ -14,6 +14,7 @@ import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import tarski.Denotations.Stmt;
 import tarski.Scores;
+import tarski.Base;
 
 import java.util.List;
 
@@ -81,6 +82,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testProbLE1() {
     Eddy eddy = setupEddy("denote_x.java");
+    Base.checkEnv(eddy.getEnv());
     for (Scores.Alt<List<Stmt>> result : eddy.getResults()) {
       assertTrue("Probability > 1", result.p() <= 1.0);
     }
