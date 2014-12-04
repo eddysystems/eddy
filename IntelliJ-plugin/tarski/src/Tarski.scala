@@ -27,12 +27,12 @@ object Tarski {
   }
 
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[java.util.List[Stmt]]] = {
+    val limit = 4 // Report at most this many alternatives
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
-    // TODO: Propagate error messages into Java
     ((r map {case (e,ss) => ss.asJava}).all match {
       case Left(error) => Nil
-      case Right(all) => all
+      case Right(all) => all take limit
     }).asJava
   }
 
@@ -49,31 +49,13 @@ object Tarski {
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     val clean = tokens.filterNot(isSpace).map(fake)
-    println("parsing " + show(clean))
     val asts = ParseEddy.parse(clean)
-    if (asts.isEmpty)
-      println("  no asts")
 
     // Check for duplicates
-    val uasts = asts.toSet
-    val bads = for (a <- uasts; n = asts.count(a==_); if n > 1) yield
-      println(s"  $n copied ast: $a")
-    if (!bads.isEmpty)
-      throw new RuntimeException("duplicated ast")
+    for (a <- asts; n = asts.count(a==_); if n > 1)
+      throw new RuntimeException(s"$n copied ast: $a")
 
     // Determine meaning(s)
-    multiple(uasts.toList map (Alt(Prob(1),_)), "Parse failed") flatMap { root => {
-      println("  ast: " + show(Pretty.tokens(root)))
-      //println("  ast: " + root)
-      println("  meanings: ")
-      val ds = denoteStmts(root)(env)
-      ds.all match {
-        case Left(e) => println(e.prefixed("    error: "))
-        case Right(all) =>
-          for (Alt(s,(e,d)) <- all)
-            println(s"    $s: \t${show(d)} \t($d)")
-      }
-      ds
-    }}
+    uniform(1,asts,"Parse failed") flatMap (denoteStmts(_)(env))
   }
 }
