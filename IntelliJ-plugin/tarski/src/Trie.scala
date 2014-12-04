@@ -1,6 +1,7 @@
 package tarski
 
-import tarski.StringMatching.{IncrementalLevenshteinBound, EmptyIncrementalLevenshteinBound, IncrementalDistance, levenshteinDistance}
+import ambiguity.Utility.binarySearch
+import StringMatching.{IncrementalLevenshteinBound, EmptyIncrementalLevenshteinBound, IncrementalDistance, levenshteinDistance}
 
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
@@ -82,31 +83,58 @@ object Trie {
 
       // for each child:
       var entryidx = nodestart + 3
-      parts.foreach { case (Some(c),vs) => {
-        // - fill in correct child character and start index
-        structure(entryidx) = c.toInt
-        structure(entryidx+1) = structure_pos
-        entryidx += 2
+      parts.keys.toList.sorted.foreach {
+        case k@Some(c) => {
+          // - fill in correct child character and start index
+          structure(entryidx) = c.toInt
+          structure(entryidx+1) = structure_pos
+          entryidx += 2
 
-        // - call makeNode for c's subtree
-        makeNode(vs, depth+1)
-      } case (None,_) => Unit }
+          // - call makeNode for c's subtree
+          makeNode(parts.get(k).get, depth+1)
+        }
+        case None => Unit
+      }
     }
 
     private def nodevalues(nodeidx: Int) = values.view(structure(nodeidx), structure(nodeidx+1))
 
-    private def children(nodeidx: Int): List[(Char,Int)] =
-      (0 until structure(nodeidx+2)).map { x => {
-        val childidx = nodeidx + 3 + 2 * x
-        (structure(childidx).toChar, structure(childidx+1))
-      } }.toList
+    private def children(nodeidx: Int): IndexedSeq[(Char,Int)] = {
+
+      class ChildList(nodeidx: Int) extends IndexedSeq[(Char,Int)] {
+        def length: Int = structure(nodeidx+2)
+        def apply(idx: Int): (Char, Int) = {
+          val childidx = nodeidx + 3 + 2 * idx
+          (structure(childidx).toChar, structure(childidx+1))
+        }
+      }
+
+      new ChildList(nodeidx)
+    }
+
+    private def findChild(nodeidx: Int, c: Char): Option[Int] = {
+      val cs = children(nodeidx)
+      binarySearch(cs, (c,0))(Ordering.by[(Char,Int),Char](_._1)) map (cs(_)._2)
+    }
 
     // TODO: for single items, adding them by inserting nodes is probably faster
     def add(vs: Iterable[V]): CompactTrie[V] = {
       new CompactTrie(vs++values, key)
     }
 
-    def lookup[X](visitor: TrieVisitor[V,List[X]], nodeidx: Int): List[X] = {
+    private def exact(idx: String, depth: Int, nodeidx: Int): List[V] = {
+      idx.lift(depth) match {
+        case None => nodevalues(nodeidx).toList // we're done here, return values
+        case Some(c) => // search our children for c,
+          findChild(nodeidx,c) match {
+            case None => Nil // not found
+            case Some(i) => exact(idx, depth+1, i)
+          }
+      }
+    }
+    def exact(idx: String): List[V] = exact(idx,0,0)
+
+    private def lookup[X](visitor: TrieVisitor[V,List[X]], nodeidx: Int): List[X] = {
       val myValues = visitor.found(nodevalues(nodeidx))
       val childValues = children(nodeidx) flatMap { case (c,idx) =>
         visitor.pass(c) match {
