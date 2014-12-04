@@ -7,6 +7,22 @@ object Utility {
   def notImplemented = throw new NotImplementedError("not implemented")
   def impossible = throw new InternalError("impossible")
 
+  def binarySearch[A](s: Seq[A], key: A)(implicit ord: math.Ordering[A]): Option[Int] = {
+    var left: Int = 0
+    var right: Int = s.length - 1
+    while (right > left) {
+      val mid = left + (right - left) / 2
+      val comp = ord.compare(s(mid), key)
+      if (comp == 0) // s(mid) == key
+        return Some(mid)
+      else if (comp > 0) // s(mid) > key
+        right = mid - 1
+      else if (comp < 0) // s(mid) < key
+        left = mid + 1
+    }
+    None
+  }
+
   def toMapList[A,B](c: Iterable[(A,B)]): Map[A,List[B]] = {
     val m = mutable.Map[A,List[B]]()
     c.foreach { case (a,b) => m.update(a, b :: m.getOrElse(a,Nil)) }
