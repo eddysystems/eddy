@@ -13,6 +13,7 @@ import tarski.Tokens._
 import tarski.Pretty._
 import ambiguity.Utility._
 import ambiguity.Products._
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 object Semantics {
@@ -104,6 +105,7 @@ object Semantics {
   }
 
   // Are we contained in the given type, or in something contained in the given type?
+  @tailrec
   def containedIn(i: Item, t: TypeItem): Boolean = i match {
     case f: Member => f.parent == t || containedIn(f.parent,t)
     case _ => false
@@ -223,6 +225,7 @@ object Semantics {
       def call(f: Callable): ScoredAbove[Exp] =
         product(xsl) flatMap { xl => ArgMatching.fiddleArgs(f,xl) bias Pr.callExp(xsn,around) }
       def index(f: Exp, ft: Type): ScoredAbove[Exp] = {
+        @tailrec
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
           case ArrayType(t) => hasDims(t,d-1)
           case _ => false
@@ -310,6 +313,7 @@ object Semantics {
     }
   }
 
+  @tailrec
   def isVariable(e: Exp): Boolean = e match {
     // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
     case _: Lit => false

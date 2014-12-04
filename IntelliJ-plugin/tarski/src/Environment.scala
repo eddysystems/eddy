@@ -11,23 +11,28 @@ import tarski.Types._
 import tarski.Tokens.show
 import tarski.Pretty._
 
-import scala.collection.immutable.Set
+import scala.collection.mutable
 
 object Environment {
 
-  def merge[A,B](t: Map[A,Set[B]], t2: Map[A,Set[B]]): Map[A,Set[B]] = {
-    ((t.keySet ++ t2.keySet) map { s => (s, t.getOrElse(s,Set()) ++ t2.getOrElse(s,Set())) } ).toMap
+  def itemsToMapList(bs: Iterable[Item]): Map[String,List[Item]] = {
+    val m = mutable.Map[String,List[Item]]()
+    bs.foreach { b => m.update(b.name, b :: m.getOrElse(b.name,Nil)) }
+    m.toMap
   }
 
-  def toMultiMap[A,B](ps: List[(A,B)]): Map[A,Set[B]] = {
-    ps.groupBy(_._1).mapValues({ x:List[(A,B)] => (x map (_._2)).toSet })
+  def addItemsToMapList(m0: Map[String,List[Item]], bs: Iterable[Item]): Map[String,List[Item]] = {
+    val m = mutable.Map[String,List[Item]]()
+    m0.foreach { case (a,bs) => m.update(a, bs ::: m.getOrElse(a,Nil)) }
+    bs.foreach { b => m.update(b.name, b :: m.getOrElse(b.name,Nil)) }
+    m.toMap
   }
 
   /**
    * The environment used for name resolution
    */
-   case class Env(trie: Trie[Item],
-                  things: Map[String,Set[Item]],
+   case class Env(trie: CompactTrie[Item],
+                  things: Map[String,List[Item]],
                   inScope: Map[Item,Int],
                   place: PlaceItem,
                   inside_breakable: Boolean,
@@ -35,31 +40,31 @@ object Environment {
                   labels: List[String]) extends scala.Serializable {
 
     // add some new things to an existing environment, and optionally change place
-    def this(base: Env, newthings: List[Item], newScope: Map[Item,Int],
+    def this(base: Env, newthings: Iterable[Item], newScope: Map[Item,Int],
              place: PlaceItem,
              inside_breakable: Boolean,
              inside_continuable: Boolean,
              labels: List[String]) = {
-      this(base.trie.add(newthings map { i => (i.name,i) }), merge(base.things, toMultiMap(newthings map { i => (i.name,i) })), base.inScope ++ newScope,
+      this(base.trie.add(newthings), addItemsToMapList(base.things, newthings), base.inScope ++ newScope,
            place, inside_breakable, inside_continuable, labels)
     }
 
     // make an environment from a list of items
-    def this(things: List[Item], inScope: Map[Item,Int] = Map(),
+    def this(things: Iterable[Item], inScope: Map[Item,Int] = Map(),
              place: PlaceItem = Base.LocalPkg,
              inside_breakable: Boolean = false,
              inside_continuable: Boolean = false,
              labels: List[String] = Nil) = {
-      this(new Trie[Item](things.map( x => (x.name,x) )), toMultiMap(things.map( x => (x.name,x) )), inScope, place, inside_breakable, inside_continuable, labels)
+      this(new CompactTrie[Item](things, (x:Item) => x.name ), itemsToMapList(things), inScope, place, inside_breakable, inside_continuable, labels)
     }
 
 
     // minimum probability before an object is considered a match for a query
     val minimumProbability = Prob(.01)
 
-    assert( place == Base.LocalPkg || things.getOrElse(place.name, Set()).contains(place) )
+    assert( place == Base.LocalPkg || things.getOrElse(place.name, Nil).contains(place) )
 
-    // Add objects (while filling environment)
+    // Add objects
     def addObjects(xs: List[Item], is: Map[Item,Int]): Env = {
       // TODO: filter identical things (like java.lang.String)
       new Env(this, xs, is, place, inside_breakable, inside_continuable, labels)
@@ -100,7 +105,7 @@ object Environment {
 
     // Fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {
-      things.getOrElse(name, Set()).toList collect { case x: LocalVariableItem => x } match {
+      things.getOrElse(name, Nil) collect { case x: LocalVariableItem => x } match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
@@ -133,7 +138,7 @@ object Environment {
     def exactQuery(typed: String): List[Alt[Item]] = {
       val e = typed.length * Pr.typingErrorRate
       val p = Pr.poissonPDF(e,0)
-      trie.get(typed) map { Alt(p, _) }
+      things.getOrElse(typed, Nil) map { Alt(p, _) }
     }
 
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
@@ -191,7 +196,7 @@ object Environment {
 
   // Does an item declare a member of the given name
   def declaresName(i: Item, name: Name)(implicit env: Env): Boolean = {
-    env.things.getOrElse(name, Set()) exists { case f: Member if f.parent == i => true; case _ => false }
+    env.things.getOrElse(name, Nil) exists { case f: Member if f.parent == i => true; case _ => false }
   }
 
   def shadowedInSubType(i: Member, t: RefType)(implicit env: Env): Boolean = {

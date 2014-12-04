@@ -3,16 +3,26 @@ package tarski
 import Environment._
 import Tokens._
 import Items._
-import tarski.Scores._
-import tarski.Denotations._
-import tarski.Semantics._
-import tarski.Pretty._
+import Scores._
+import Denotations._
+import Semantics._
+import Pretty._
+
+import ambiguity.Utility._
 
 import scala.collection.JavaConverters._
 
 object Tarski {
-  def environment(values: java.util.Collection[Item], inScope: java.util.Map[Item,Integer], place: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: java.util.List[String] = Nil.asJava): Env = {
-    Base.baseEnv.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue)).move(place, inside_breakable, inside_continuable, labels.asScala.toList)
+
+  def environment(jvalues: java.util.Collection[Item]): Env = {
+    println("making environment from " + jvalues.size + " items")
+    val things = addItemsToMapList(Base.baseEnv.things, jvalues.asScala)
+    println("  merged things")
+    Env(new Trie.CompactTrie(jvalues.asScala, (x:Item) => x.name ), things, Base.baseEnv.inScope, Base.baseEnv.place, false, false, Nil)
+  }
+
+  def add_environment(env: Env, values: java.util.Collection[Item], inScope: java.util.Map[Item,Integer]): Env = {
+    env.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue))
   }
 
   def localPkg(): PackageItem = Base.LocalPkg

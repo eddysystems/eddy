@@ -58,11 +58,11 @@ class TestEnvironment {
                        )
     val env = new Env(things)
 
-    val qr = env.query(typed)
+    val qr = env.query(typed).toSet
     val lr = things.collect( Function.unlift((item:Item) => {
       val p = Pr.typoProbability(item.name, typed)
       if (p > env.minimumProbability) Some(Alt(p,item)) else None
-    }))
+    })).toSet
 
     println(s"exact match for query $typed -> ${env.exactQuery(typed)}")
     println("trie query: " + qr)

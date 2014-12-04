@@ -1,15 +1,30 @@
 package ambiguity
+
+import scala.collection.immutable.Set
 import scala.collection.mutable
 
 object Utility {
   def notImplemented = throw new NotImplementedError("not implemented")
   def impossible = throw new InternalError("impossible")
 
-  def toMapList[A,B](c: Iterable[(A,B)]): Map[A,List[B]] =
-    c.groupBy(_._1).mapValues(_.map(_._2).toList)
+  def toMapList[A,B](c: Iterable[(A,B)]): Map[A,List[B]] = {
+    val m = mutable.Map[A,List[B]]()
+    c.foreach { case (a,b) => m.update(a, b :: m.getOrElse(a,Nil)) }
+    m.toMap
+  }
+
+  def addToMapList[A,B](m0: Map[A,List[B]], bs: Iterable[(A,B)]): Map[A,List[B]] = {
+    val m = mutable.Map[A,List[B]]()
+    m0.foreach { case (a,bs) => m.update(a, bs ::: m.getOrElse(a,Nil)) }
+    bs.foreach { case (a,b) => m.update(a, b :: m.getOrElse(a,Nil)) }
+    m.toMap
+  }
 
   def toMapSet[A,B](c: Iterable[(A,B)]): Map[A,Set[B]] =
-    c.groupBy(_._1).mapValues(_.map(_._2).toSet)
+    toMapList(c) mapValues (_.toSet)
+
+  def mergeMapSets[A,B](t: Map[A,Set[B]], t2: Map[A,Set[B]]): Map[A,Set[B]] =
+    ((t.keySet ++ t2.keySet) map { s => (s, t.getOrElse(s,Set()) ++ t2.getOrElse(s,Set())) } ).toMap
 
   def doWhile(f: => Boolean): Unit =
     if (f) doWhile(f)

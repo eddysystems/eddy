@@ -10,6 +10,7 @@ import tarski.Environment.Env
 import tarski.Items._
 import tarski.Lexer._
 import tarski.Operators._
+import tarski.Scores.{Alt, Prob, Scored}
 import tarski.Tarski.fix
 import tarski.TestUtils._
 import tarski.Types._
@@ -49,6 +50,16 @@ class TestDen {
       case Left(_) => ()
       case Right(fs) => throw new AssertionError(s"excepted no denotations, got $fs")
     }
+  }
+
+  def getProb[A](s: Scored[A], a: A): Prob = {
+    if (s.all.isLeft)
+      Prob(0.0)
+    else
+      s.all.right.get.find({ case Alt(p,i) => i == a }) match {
+        case None => Prob(0.0)
+        case Some(Alt(p,i)) => p
+      }
   }
 
   def assertFinal(v: Local) =
@@ -396,6 +407,32 @@ class TestDen {
     val b = LocalVariableItem("b",BooleanType,true)
     implicit val env = new Env(List(X,f), Map((X,3),(f,2)), f).addLocalObjects(List(x,d,s,b))
     testDen("f(s,b,d,x)", ApplyExp(StaticMethodDen(None,f), Nil, List(x,d,s,b)))
+  }
+
+  @Test def omittedQualifier() = {
+    val P = PackageItem("com.P", "com.P")
+    val Z = NormalClassItem("Z", P, Nil)
+    val Zx = StaticFieldItem("x", BooleanType, Z, true)
+    val Y = NormalClassItem("Y", LocalPkg, Nil)
+    val Yx = StaticFieldItem("x", BooleanType, Y, true)
+    val X = NormalClassItem("X", LocalPkg, Nil)
+    val Xx = StaticFieldItem("x", BooleanType, X, true)
+    val f = StaticMethodItem("f", X, Nil, VoidType, Nil)
+    val x = LocalVariableItem("x", BooleanType, true)
+    implicit val env = new Env(List(P,Z,Zx,Y,Yx,X,Xx,f,x), Map((Y,3),(X,3),(Xx,2),(f,2),(x,1)),f)
+    val fixes = fix(lex("x"))
+    // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
+    val px = getProb(fixes, List(ExpStmt(LocalVariableExp(x))))
+    val pXx = getProb(fixes, List(ExpStmt(StaticFieldExp(None,Xx))))
+    val pYx = getProb(fixes, List(ExpStmt(StaticFieldExp(None,Yx))))
+    val pZx = getProb(fixes, List(ExpStmt(StaticFieldExp(None,Zx))))
+
+    println("probabilities: ", px, pXx, pYx, pZx)
+
+    assertTrue(s"local variable not more likely ($px) than shadowed field ($pXx)", px > pXx)
+    assertTrue(s"same class static field not more likely ($pXx) than other class field ($pYx)", pXx > pYx)
+    assertTrue(s"other class field not more likely ($pYx) than other package field ($pZx)", pYx > pZx) // this may not be what we want. only learning will really figure this out
+    notImplemented
   }
 
   @Test def capture() = {
