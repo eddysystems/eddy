@@ -65,6 +65,17 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return eddy;
   }
 
+  private void checkResult(Eddy eddy, String expected) {
+    System.out.println("results: ");
+    boolean found = false;
+    for (String s : eddy.getResultStrings()) {
+      if (s.equals(expected))
+        found = true;
+      System.out.println(s);
+    }
+    assertTrue("eddy did not find correct solution.", found);
+  }
+
   // actual tests
   public void testCreateEddy() throws Exception {
     for (int i = 0; i < 2; i++) {
@@ -85,75 +96,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       assertTrue("Probability > 1", result.p() <= 1.0);
     }
   }
-}
 
-/*
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.testFramework.LightProjectDescriptor;
-import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
-
-public class Tests extends LightCodeInsightFixtureTestCase {
-  @Override @NotNull
-  public LightProjectDescriptor getProjectDescriptor() {
-    return JAVA_1_6;
-  }
-
-  class State {
-    boolean running;
-
-    public void start() {
-      running = true;
-    }
-    public void stop() {
-      running = false;
-    }
-
-    public boolean isRunning() {
-      return running;
-    }
-  }
-
-  public void testCreateEddy() {
-    final State state = new State();
-    state.start();
-
-    try {
-      setUp();
-    } catch (Exception e) {
-      System.out.println("exception in setUp: " + e);
-    }
-
-    ApplicationManager.getApplication().invokeLater( new Runnable() {
-      @Override
-      public void run() {
-        myFixture.configureByFile("/Users/martin/src/eddy/eddy/IntelliJ-plugin/Test Data/dummy.java");
-
-        System.out.println("Document:");
-        System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
-
-        Eddy eddy = new Eddy();
-        eddy.process(myFixture.getEditor());
-        System.out.println("eddy says: ");
-        for (String res: eddy.getResultStrings()) {
-          System.out.println("  " + res);
-        }
-        state.stop();
-      }
-    });
-    try {
-      while (state.isRunning()) {
-        Thread.sleep(100);
-      }
-    } catch (InterruptedException e) {
-      System.out.println("interrupted: " + e);
-    }
-
-    try {
-      tearDown();
-    } catch (Exception e) {
-      System.out.println("exception in tearDown: " + e);
-    }
+  public void testBigFile() {
+    Eddy eddy = setupEddy("EnvironmentProcessor.java");
+    checkResult(eddy, "if (file != null && container != getValue(file))");
   }
 }
-*/
