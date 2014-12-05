@@ -477,4 +477,11 @@ class TestDen {
     testDen("((X()).f()",best)
     testDen("((X()).f(",best)
   }
+
+  @Test def omittedEmptyCallParens() = {
+    val X = NormalClassItem("X",LocalPkg)
+    val f = MethodItem("f",X,Nil,VoidType,Nil)
+    implicit val env = localEnv(X,f)
+    testDen("f", ApplyExp(LocalMethodDen(f),Nil,Nil))
+  }
 }
