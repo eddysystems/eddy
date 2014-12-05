@@ -37,6 +37,7 @@ object Base {
 
   // Simple classes
   sealed abstract class SimpleClassItem extends ClassItem {
+    override def simple: SimpleType = SimpleType(this, parent.simple)
     override def parent = JavaLangPkg
     override def tparams = Nil
     def isClass = true

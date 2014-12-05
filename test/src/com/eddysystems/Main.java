@@ -37,7 +37,8 @@ public class Main {
 	    // write your code here
         int y;
         {
-            y();
+            y(blah,blahla(), gsdg), ghjg);
         }
     }
+
 }

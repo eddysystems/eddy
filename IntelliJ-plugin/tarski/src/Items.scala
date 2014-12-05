@@ -96,8 +96,8 @@ object Items {
     }
 
     // Convert to a type valid anywhere, bailing if type parameters are required
-    def simple: SimpleType =
-      if (arity == 0) SimpleType(this,parent.inside)
+    def simple: ClassType =
+      if (arity == 0) SimpleType(this,parent.simple)
       else throw new RuntimeException(s"class $name isn't simple (has args $tparams)")
 
     // Convert to a simple or raw type (valid anywhere)
@@ -131,6 +131,7 @@ object Items {
     def implements = Nil
     override def supers = Nil
     override val inside = ObjectType
+    override def simple = ObjectType
     override def raw = ObjectType
     override def generic(args: List[TypeArg], par: Parent) = {
       if (par.item != parent) throw new RuntimeException(s"parent mismatch: expected $parent, got $par}")
