@@ -203,10 +203,8 @@ object Items {
       case s => s + '.' + name
     }
   }
-
   trait ClassMember extends Member {
-    def name: Name
-    def parent: TypeItem with ParentItem
+    def parent: ClassItem
   }
 
   // Values

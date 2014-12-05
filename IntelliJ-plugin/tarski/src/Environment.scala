@@ -189,7 +189,7 @@ object Environment {
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {
-    case f: ClassMember => {
+    case f: Member => {
       val p = f.parent
       supers(t) exists (_.item == p)
     }
@@ -198,7 +198,7 @@ object Environment {
 
   // Assuming a member belongs to a type, what is its fully applied type?
   def typeIn(f: TypeItem, t: Type): Type = f match {
-    case f: ClassMember => {
+    case f: Member => {
       def p = f.parent
       collectOne(supers(t)){
         case t:ClassType if t.item==p => f.inside.substitute(t.env)
