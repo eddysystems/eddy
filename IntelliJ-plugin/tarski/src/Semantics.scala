@@ -113,7 +113,7 @@ object Semantics {
     case _ => false
   }
 
-  def denoteField[ItemKind <: Item with ClassMember,FieldDen]
+  def denoteField[ItemKind <: ClassMember,FieldDen]
                  (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
                   superFieldProb: (Scored[Exp],TypeItem,ItemKind) => Prob,
                   shadowedFieldProb: (Scored[Exp],Exp,TypeItem,ItemKind) => Prob,
