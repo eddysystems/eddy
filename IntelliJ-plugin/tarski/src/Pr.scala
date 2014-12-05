@@ -21,8 +21,8 @@ object Pr {
     0.5 + (sum/math.sqrt(2*math.Pi))*math.exp(-(x*x)/2.0)
   }
 
-  def factorial(k: Int): Double = {
-    var f = 1.0
+  def factorial(k: Int): Float = {
+    var f = 1.0f
     for (i <- 2 to k)
       f *= i
     f
@@ -39,7 +39,7 @@ object Pr {
     k
   }
 
-  def typoProbability(d: Float, l: Int): Prob = {
+  def typoProbability(d: Double, l: Int): Prob = {
     val e = l*typingErrorRate
     // probability we make d errors when typing meant.length characters
     Prob(poissonPDF(e,math.ceil(d).toInt))

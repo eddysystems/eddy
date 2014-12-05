@@ -36,7 +36,7 @@ object Environment {
   /**
    * The environment used for name resolution
    */
-   case class Env(private val trie: CompactTrie[Item],
+   case class Env(private val trie: Trie[Item],
                   private val things: Map[String,List[Item]],
                   private val inScope: Map[Item,Int],
                   private val byItem: Map[TypeItem,List[Value]], // Map from item to values with matching type
@@ -66,7 +66,7 @@ object Environment {
              inside_breakable: Boolean = false,
              inside_continuable: Boolean = false,
              labels: List[String] = Nil) = {
-      this(new CompactTrie[Item](things)(_.name), itemsToMapList(Map.empty,things), inScope,
+      this(new Trie[Item](things)(_.name), itemsToMapList(Map.empty,things), inScope,
            valuesByItem(Map.empty,things), place, inside_breakable, inside_continuable, labels)
     }
 
@@ -141,11 +141,7 @@ object Environment {
     def query(typed: String): List[Alt[Item]] = {
       val e = typed.length * Pr.typingErrorRate
       val maxErrors = Pr.poissonQuantile(e, minimumProbability) // this never discards anything because it has too few errors
-      levenshteinLookup(trie, typed, maxErrors) map {
-        case (d,item) => Alt(Pr.poissonPDF(e,math.ceil(d).toInt), item)
-      } filter {
-        case Alt(p,item) => p > minimumProbability
-      }
+      levenshteinLookup(trie,typed,maxErrors,e,minimumProbability)
     }
 
     def exactQuery(typed: String): List[Alt[Item]] = {

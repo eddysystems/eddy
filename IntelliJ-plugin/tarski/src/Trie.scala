@@ -3,7 +3,7 @@ package tarski
 import ambiguity.Utility
 import ambiguity.Utility.binarySearch
 import StringMatching.{IncrementalLevenshteinBound, EmptyIncrementalLevenshteinBound, IncrementalDistance, levenshteinDistance}
-
+import tarski.Scores.{Alt,Prob}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -11,18 +11,15 @@ import scala.reflect.ClassTag
 object Trie {
 
   trait TrieVisitor[V,X] {
-    // you see k, want to continue descending? Return none if no, a new visitor that has absorbed the k if yes.
-    def pass(k: Char): Option[TrieVisitor[V,X]]
-    // we found these values, filter and transform to output type
+    // If you see k, do you want to continue descending?
+    // Return None if no, a new visitor that has absorbed the k if yes.
+    def next(k: Char): Option[TrieVisitor[V,X]]
+
+    // We found these values, filter and transform to output type
     def found(t: TraversableOnce[V]): X
   }
 
-  trait Lookupable[V] {
-    def lookup[X](visitor: TrieVisitor[V,List[X]]): List[X]
-  }
-
-  class CompactTrie[V](_values: Iterable[V])(key: V => String, _initial_size: Int = 0, vsize: Int = _values.size)(implicit tt: ClassTag[V]) extends Lookupable[V] {
-
+  class Trie[V](_values: Iterable[V])(key: V => String, _initial_size: Int = 0, vsize: Int = _values.size)(implicit tt: ClassTag[V]) {
     private val initial_size_multiplier = 10
     private val grow_size_multiplier = 1.2 // grow by 20 percent when running out of space
     private val initial_size = if (_initial_size == 0) initial_size_multiplier * vsize else _initial_size
@@ -42,7 +39,7 @@ object Trie {
 
     makeNode(_values, 0)
 
-    // structure contains tuples: (begin_values,n_values,n_children,(character,start_idx)*)
+    // structure contains tuples: (begin_values,end_values,n_children,(character,start_idx)*)
 
     // A node in structure is
     //   lo,hi: Int = start and end index of values for this node
@@ -100,8 +97,8 @@ object Trie {
       }
     }
 
-    private def copyNode(t: CompactTrie[V], node: Int): Unit = {
-      // transscribe the subtree to this trie to match our structure/value positions
+    private def copyNode(t: Trie[V], node: Int): Unit = {
+      // transcribe the subtree to this trie to match our structure/value positions
 
       // copy values and write range to structure
       val vs = t.nodevalues(node)
@@ -127,7 +124,7 @@ object Trie {
       }
     }
 
-    private def makeMergedNode(t1: CompactTrie[V], n1: Int, t2: CompactTrie[V], n2: Int): Unit = {
+    private def makeMergedNode(t1: Trie[V], n1: Int, t2: Trie[V], n2: Int): Unit = {
 
       val nodestart = structure_pos
 
@@ -180,9 +177,9 @@ object Trie {
       }
     }
 
-    def mergeWith(t: CompactTrie[V]): CompactTrie[V] = {
+    def mergeWith(t: Trie[V]): Trie[V] = {
       // we'll need at most the sum of both our structure sizes
-      val newt = new CompactTrie[V](Nil)(key, structure_pos + t.structure_pos, values_pos + t.values_pos)(tt)
+      val newt = new Trie[V](Nil)(key, structure_pos + t.structure_pos, values_pos + t.values_pos)(tt)
 
       println(s"merging $structure_pos + ${t.structure_pos} -> ${newt.structure.size}")
 
@@ -220,8 +217,8 @@ object Trie {
       binarySearch(cs, (c,0))(Ordering.by[(Char,Int),Char](_._1)) map (cs(_)._2)
     }
 
-    def add(vs: Iterable[V]): CompactTrie[V] =
-      mergeWith(new CompactTrie(vs)(key))
+    def add(vs: Iterable[V]): Trie[V] =
+      mergeWith(new Trie(vs)(key))
 
     private def exact(idx: String, depth: Int, nodeidx: Int): List[V] = {
       idx.lift(depth) match {
@@ -238,7 +235,7 @@ object Trie {
     private def lookup[X](visitor: TrieVisitor[V,List[X]], nodeidx: Int): List[X] = {
       val myValues = visitor.found(nodevalues(nodeidx))
       val childValues = children(nodeidx) flatMap { case (c,idx) =>
-        visitor.pass(c) match {
+        visitor next c match {
           case None => Nil
           case Some(v) => lookup(v, idx)
         }
@@ -249,97 +246,21 @@ object Trie {
     def lookup[X](visitor: TrieVisitor[V,List[X]]): List[X] = lookup(visitor,0)
   }
 
-
-
-  // create a new Trie with the given xs more efficiently than using add
-  def fromIterable[V](xs: Iterable[(String,V)], pos: Int = 0): Trie[V] = {
-    println(s"making Trie level $pos, ${xs.size} items")
-    // partition xs according to char at position pos. All those with no char there (because they're too short) end up in values
-    val parts = xs groupBy { case (s,v) => s.lift(pos) }
-    // make Map of Tries and values
-    val values = parts.getOrElse(None, Nil) map (_._2)
-    val nodes = parts collect { case (Some(c),xs) => (c,fromIterable(xs,pos+1)) }
-    Trie(values.toList,nodes)
-  }
-
-  // if we have a different type in the list and a builder for what we need, use that
-  def fromIterableBuilder[A,V](xs: Iterable[A], build: A => (String,V), pos: Int = 0): Trie[V] = {
-    println(s"making Trie level $pos, ${xs.size} items")
-    // partition xs according to char at position pos. All those with no char there (because they're too short) end up in values
-    val parts = xs groupBy { a => build(a)._1.lift(pos) }
-    // make Map of Tries and values
-    val values = parts.getOrElse(None, Nil) map (build(_)._2)
-    val nodes = parts collect { case (Some(c),xs) => (c,fromIterableBuilder(xs,build,pos+1)) }
-    Trie[V](values.toList,nodes)
-  }
-
-  case class Trie[V](private val values: List[V] = Nil, private val nodes: Map[Char, Trie[V]] = Map[Char,Trie[V]]()) extends Lookupable[V] {
-
-    // return a new trie containing everything in here and the values in xs
-    @tailrec
-    final def add(xs: Iterable[(String,V)]): Trie[V] = xs match {
-      case x if xs.isEmpty => this
-      case (s,v)::xs => add(s.toSeq,v).add(xs)
-    }
-
-    // return a new Trie with s,v added
-    def add(s: Seq[Char], v: V): Trie[V] = {
-      s match {
-        case Seq() => Trie[V](v :: values, nodes)
-        case Seq(h,t @ _*) => Trie[V](values, nodes.updated(h, nodes.getOrElse(h, { Trie[V]() }).add(t,v)))
+  def levenshteinLookup[V](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
+    case class LevenshteinVisitor[V](dist: IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
+      def next(k: Char): Option[LevenshteinVisitor[V]] = {
+        val d = new IncrementalLevenshteinBound(typed,dist,k)
+        if (d.min > maxDistance) None else Some(LevenshteinVisitor[V](d))
+      }
+      def found(xs: TraversableOnce[V]): List[Alt[V]] = {
+        if (dist.distance > maxDistance) Nil else {
+        val d = levenshteinDistance(typed,dist.current)
+        if (d > maxDistance) Nil else {
+        val p = Pr.poissonPDF(expected,math.ceil(d).toInt)
+        if (p < minProb) Nil else {
+        xs.toList map (Alt(p,_))}}}
       }
     }
-
-    // find the node for a query string
-    def node(k: Seq[Char]): Option[Trie[V]] = {
-      k match {
-        case Seq()          => Some(this)
-        case Seq(h, t @ _*) => nodes.get(h).flatMap { n => n.node(t) }
-      }
-    }
-    def node(k: String): Option[Trie[V]] = node(k.toSeq)
-
-    // return all exact matches for the given key
-    def get(k: String): List[V] = {
-      node(k).toList.flatMap { (n) => n.values }
-    }
-
-    // return all values stored at and below this node
-    def getAll : List[V] = {
-      values ++ nodes.values.flatMap { n => n.getAll }
-    }
-
-    // for inexact queries
-    def lookup[X](visitor: TrieVisitor[V,List[X]]): List[X] = {
-      val here = visitor.found(values)
-      val children: List[X] = nodes.toList flatMap {
-        case (k,t) => visitor.pass(k) match {
-          case None => Nil
-          case Some(v) => t.lookup(v)
-        }
-      }
-      here ++ children
-    }
-  }
-
-  def levenshteinLookup[V](t: Lookupable[V], typed: String, maxDistance: Float): List[(Float,V)] = {
-
-    class LevenshteinVisitor[V](val dist: IncrementalDistance = EmptyIncrementalLevenshteinBound) extends TrieVisitor[V,List[(Float,V)]] {
-
-      def pass(k: Char): Option[LevenshteinVisitor[V]] = {
-        val down = new LevenshteinVisitor[V](new IncrementalLevenshteinBound(typed, dist, k))
-        if (down.dist.min > maxDistance) None else Some(down)
-      }
-
-      def found(xs: TraversableOnce[V]): List[(Float,V)] = {
-        if (dist.distance > maxDistance)
-          Nil
-        else
-          // must recheck distance -- dist only gives a bound
-          (xs flatMap { v => { val d = levenshteinDistance(typed, dist.current); if (d > maxDistance) Nil else List((d,v)) }}).toList
-      }
-    }
-
-    t.lookup(new LevenshteinVisitor[V])
+    t.lookup(LevenshteinVisitor[V](EmptyIncrementalLevenshteinBound))
   }
 }
