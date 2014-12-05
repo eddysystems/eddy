@@ -189,9 +189,9 @@ object Environment {
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {
-    case f: Member => {
-      val p = f.parent
-      supers(t) exists (_.item == p)
+    case f: Member => f.parent match {
+      case p:ClassItem => isSubitem(t,p)
+      case _ => false
     }
     case _ => false
   }
