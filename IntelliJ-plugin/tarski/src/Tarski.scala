@@ -29,9 +29,19 @@ object Tarski {
     val limit = 4 // Report at most this many alternatives
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
-    ((r map {case (e,ss) => ss.asJava}).all match {
+
+    // Take up to limit elements, merging duplicates and adding their probabilities if found
+    def mergeTake[A](s: Stream[Alt[A]])(m: Map[A,Prob]): List[Alt[A]] =
+      if (m.size == limit || s.isEmpty)
+        m.toList map {case (a,p) => Alt(p,a)} sortBy (-_.p)
+      else {
+        val Alt(p,a) = s.head
+        mergeTake(s.tail)(m+((a,p+m.getOrElse(a,0.0))))
+      }
+
+    (r.map(_._2.asJava).all match {
       case Left(error) => Nil
-      case Right(all) => all take limit
+      case Right(all) => mergeTake(all)(Map.empty)
     }).asJava
   }
 
