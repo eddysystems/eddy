@@ -10,6 +10,7 @@ import tarski.Pretty._
 import tarski.TestUtils._
 import tarski.Tokens._
 import tarski.Types._
+import tarski.Scores._
 
 class TestParse {
   @Test
@@ -56,6 +57,15 @@ class TestParse {
   def testASTPossible(s: String, ss: List[AStmt]): Unit = {
     val asts = ParseEddy.parse(lex(s).filterNot(isSpace).map(fake))
     assertIn(ss,asts.toSet)
+  }
+
+  def testBest(s: String, ss: List[AStmt]): Unit = {
+    val clean = lex(s).filterNot(isSpace).map(fake)
+    val asts = Mismatch.repair(clean) flatMap (ts => uniform(1,ParseEddy.parse(ts),"Parse failed"))
+    asts.best match {
+      case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
+      case Right(ast) => assertEquals(ss,ast)
+    }
   }
 
   @Test
@@ -106,12 +116,6 @@ class TestParse {
 
   @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
     ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround),ParenAround),None,"f"),EmptyList,ParenAround)))
-
-  @Test def mismatchedParens(): Unit = {
-    testASTPossible("((X()).f();",
-      ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround),ParenAround),None,"f"),EmptyList,ParenAround)))
-    notImplemented
-  }
 
   @Test def weirdParens() = testAST("([{)]}",
     ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,Grouped(Curly,Paren))),BrackAround),Grouped(Paren,Curly)))

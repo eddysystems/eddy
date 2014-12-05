@@ -19,7 +19,7 @@ import scala.language.implicitConversions
 
 class TestDen {
   // Default to an empty local environment
-  implicit val env = localEnvWithBase(Nil)
+  implicit val env = localEnvWithBase()
 
   def testHelper[A](input: String, best: Env => A)(implicit env: Env, convert: A => List[Stmt]): Unit = {
     val fixes = fix(lex(input))
@@ -68,28 +68,28 @@ class TestDen {
   @Test
   def assignExp(): Unit = {
     val x = LocalVariableItem("x",IntType,false)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("x = 1", AssignExp(None,x,1))
   }
 
   @Test
   def assignExpFinal(): Unit = {
     val x = LocalVariableItem("x",IntType,true)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testFail("x = 1")
   }
 
   @Test
   def longLit() = {
     val x = LocalVariableItem("x",LongType,false)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("x = 2l", AssignExp(None,x,LongLit(2,"2l")))
   }
 
   @Test
   def bigIntLit() = {
     val x = LocalVariableItem("x",LongType,false)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     val big = 1099511627776L
     testDen(s"x = $big", AssignExp(None,x,LongLit(big,s"${big}L")))
   }
@@ -117,7 +117,7 @@ class TestDen {
   @Test
   def arrayLiteralAssign(): Unit = {
     val x = LocalVariableItem("x",ArrayType(IntType),false)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("x = {1,2,3}", AssignExp(None,x,ArrayExp(IntType,List(1,2,3))))
   }
 
@@ -138,21 +138,21 @@ class TestDen {
   @Test
   def indexExp(): Unit = {
     val x = LocalVariableItem("x",ArrayType(CharType),true)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("""x[4] = '\n'""", AssignExp(None,IndexExp(x,4),'\n'))
   }
 
   @Test
   def nestedIndexExpBrack(): Unit = {
     val x = new LocalVariableItem("x",ArrayType(ArrayType(CharType)),true)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("""x[4,5] = x[2][5]""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def nestedIndexExpJuxt(): Unit = {
     val x = new LocalVariableItem("x",ArrayType(ArrayType(CharType)),true)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("""x 4 5 = x 2 5""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
@@ -166,14 +166,14 @@ class TestDen {
   @Test
   def nestedIndexExpParen(): Unit = {
     val x = new LocalVariableItem("x",ArrayType(ArrayType(CharType)),true)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("""x(4,5) = x(2)(5)""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def indexOpExp(): Unit = {
     val x = LocalVariableItem("x",ArrayType(CharType),true)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("""x[4] *= '\n'""", AssignExp(Some(MulOp), IndexExp(x,4), '\n'))
   }
 
@@ -190,7 +190,7 @@ class TestDen {
 
   @Test
   def cons(): Unit = {
-    implicit val env = localEnvWithBase(Nil)
+    implicit val env = localEnvWithBase()
     testDen("x = Object()", "x", x => VarStmt(ObjectType,(x,ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))
   }
 
@@ -199,7 +199,7 @@ class TestDen {
     val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
     val AC = ConstructorItem(A,Nil,List(T))
-    implicit val env = localEnvWithBase(Nil).addObjects(List(A,AC),Map((A,3),(AC,3)))
+    implicit val env = localEnvWithBase().addObjects(List(A,AC),Map((A,3),(AC,3)))
     testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
       (x,ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
   }
@@ -336,7 +336,7 @@ class TestDen {
   val h = HoleStmt
   def testDenX(input: String, best: (Stmt,Stmt) => Stmt) = {
     val x = LocalVariableItem("x",IntType,false)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen(input,best(AssignExp(None,x,1),AssignExp(None,x,2)))
   }
   @Test def ifStmt()       = testDen ("if (true);", IfStmt(t,e))
@@ -375,7 +375,7 @@ class TestDen {
     assertFinal(x); ForeachStmt(IntType,x,ArrayExp(IntType,List(1,2)),HoleStmt) })
 
   @Test def sideEffects() = {
-    val X = NormalClassItem("X",LocalPkg,Nil)
+    val X = NormalClassItem("X",LocalPkg)
     val cons = ConstructorItem(X,Nil,Nil)
     val f = StaticMethodItem("f",X,Nil,VoidType,Nil)
 
@@ -385,22 +385,22 @@ class TestDen {
   }
 
   @Test def sideEffectsCons() = {
-    val X = NormalClassItem("X",LocalPkg,Nil)
+    val X = NormalClassItem("X",LocalPkg)
     val cons = ConstructorItem(X,Nil,Nil)
     val Y = NormalClassItem("Y",X,Nil)
-    implicit val env = localEnv(List(X,cons,Y))
+    implicit val env = localEnv(X,cons,Y)
     testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(cons),Nil,Nil)),VarStmt(Y,List((y,0,None)))))
   }
 
   @Test def sideEffectsFail() = {
     val x = LocalVariableItem("x",IntType,true)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testFail("x")
   }
 
   @Test def sideEffectsSplit() = {
     val x = LocalVariableItem("x",IntType,false)
-    implicit val env = localEnv(List(x))
+    implicit val env = localEnv(x)
     testDen("true ? x = 1 : (x = 2)", IfElseStmt(true,AssignExp(None,x,1),AssignExp(None,x,2)))
   }
 
@@ -411,7 +411,7 @@ class TestDen {
   @Test def insertIntComparison() = testDen("if 1 then;", IfStmt(BinaryExp(NeOp,1,0), e))
   @Test def insertRefTypeComparison() = {
     val o = LocalVariableItem("o",ObjectType,true)
-    implicit val env = localEnvWithBase(List(o))
+    implicit val env = localEnvWithBase(o)
     testDen("if o then;", IfStmt(BinaryExp(NeOp,o,NullLit), e))
   }
 
@@ -457,13 +457,24 @@ class TestDen {
     val T = SimpleTypeVar("T")
     val S = SimpleTypeVar("S")
     val A = NormalClassItem("A",LocalPkg,List(T))
-    val B = NormalClassItem("B",LocalPkg,Nil)
-    val F = NormalClassItem("F",LocalPkg,Nil)
+    val B = NormalClassItem("B",LocalPkg)
+    val F = NormalClassItem("F",LocalPkg)
     val f = StaticMethodItem("f",F,List(S),VoidType,List(S))
     for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
       val x = LocalVariableItem("x",A.generic(List(w)),true)
-      implicit val env = localEnv(List(A,x,F,f))
+      implicit val env = localEnv(A,x,F,f)
       testDen("f(x)",ApplyExp(StaticMethodDen(None,f),List(ObjectType),List(x)))
     }
+  }
+
+  // Mismatched parentheses
+  @Test def mismatchedParens() = {
+    val X = NormalClassItem("X",LocalPkg)
+    val cons = ConstructorItem(X,Nil,Nil)
+    val f = MethodItem("f",X,Nil,VoidType,Nil)
+    implicit val env = localEnv(X,cons,f)
+    val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(cons),Nil,Nil)),f),Nil,Nil)
+    testDen("((X()).f()",best)
+    testDen("((X()).f(",best)
   }
 }

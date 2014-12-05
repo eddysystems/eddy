@@ -147,7 +147,7 @@ object Items {
     def isFinal = false
   }
 
-  case class NormalClassItem(name: Name, parent: ParentItem, tparams: List[TypeVar],
+  case class NormalClassItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
                              base: ClassType = ObjectType, implements: List[ClassType] = Nil,
                              isFinal: Boolean = false) extends ClassItem {
     def isClass = true

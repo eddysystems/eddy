@@ -46,16 +46,16 @@ object TestUtils {
   implicit def toForInit(n: List[Nothing]): ForInit = ForExps(Nil)
   implicit def toForInit(e: Exp): ForInit = ForExps(List(e))
 
-    // Make an env with a class X and a method void X.f(), which we are inside of
-  def localEnv(locals: List[Item]): Env = {
-    val X = NormalClassItem("X", LocalPkg, Nil)
-    val f = MethodItem("f", X, Nil, VoidType, Nil)
-    new Env(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
+    // Inside a function with a bunch of locals
+  def localEnv(locals: Item*): Env = {
+    val X = NormalClassItem("XX", LocalPkg)
+    val f = MethodItem("ff", X, Nil, VoidType, Nil)
+    new Env(List(f,X) ::: locals.toList, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
   }
-  def localEnvWithBase(locals: List[Item]): Env = {
-    val X = NormalClassItem("X", LocalPkg, Nil)
-    val f = MethodItem("f", X, Nil, VoidType, Nil)
-    baseEnv.addObjects(List(f,X) ::: locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
+  def localEnvWithBase(locals: Item*): Env = {
+    val X = NormalClassItem("XX", LocalPkg)
+    val f = MethodItem("ff", X, Nil, VoidType, Nil)
+    baseEnv.addObjects(List(f,X) ::: locals.toList, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
            .move(f,inside_breakable=false,inside_continuable=false,Nil)
   }
 
