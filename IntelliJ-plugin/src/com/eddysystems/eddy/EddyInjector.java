@@ -12,9 +12,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 
-/**
- * Created by martin on 15.10.14.
- */
 public class EddyInjector implements FileEditorManagerListener {
   private final Project project;
   private final Logger logger = Logger.getInstance(getClass());

@@ -20,6 +20,8 @@ import java.util.List;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
+  // TODO: initialize global environment once for all tests
+
   @Override @NotNull
   public LightProjectDescriptor getProjectDescriptor() {
     return new LightProjectDescriptor() {

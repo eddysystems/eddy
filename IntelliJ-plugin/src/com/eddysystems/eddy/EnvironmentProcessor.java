@@ -72,6 +72,18 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private PsiElement currentFileContext;
   private boolean honorPrivate;
 
+  // setup only for statics initialization -- the result of this cannot be used
+  private EnvironmentProcessor(@NotNull Project project) {
+    this.project = project;
+    this.place = null;
+
+    getGlobalEnvItems();
+  }
+
+  static public void initGlobalEnvironment(@NotNull Project project) {
+    new EnvironmentProcessor(project);
+  }
+
   public EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
     this.project = project;
     this.place = place;
@@ -97,7 +109,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       return getPackage((PsiJavaFile) parent);
     } else if (parent instanceof PsiClass) {
       return parent;
-    } else if (parent instanceof PsiDeclarationStatement) {
+    } else if (parent instanceof PsiDeclarationStatement || // local variable
+              (parent instanceof PsiForeachStatement) || (parent instanceof PsiForStatement) || // declaration in for loop
+              (parent instanceof PsiParameterList)) { // parameter to callable
       while (!(parent instanceof PsiMethod)) {
         logger.debug("walking up to find containing method for local class " + elem + ": " + parent);
         parent = parent.getParent();

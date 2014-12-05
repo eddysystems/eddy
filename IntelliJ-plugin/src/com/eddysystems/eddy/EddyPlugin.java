@@ -3,13 +3,12 @@ package com.eddysystems.eddy;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.startup.StartupManager;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * Created by martin on 15.10.14.
- */
 public class EddyPlugin implements ProjectComponent {
   private Project project;
   private Logger logger = Logger.getInstance(getClass());
@@ -24,7 +23,15 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void initComponent() {
+    // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
+    // initialize the global environment
+    StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() { @Override public void run() {
+        DumbService.getInstance(project).runWhenSmart(new Runnable() { @Override public void run() {
+          EnvironmentProcessor.initGlobalEnvironment(project);
+        }});
+      }});
+
     logger.debug("Eddy initialized");
   }
 

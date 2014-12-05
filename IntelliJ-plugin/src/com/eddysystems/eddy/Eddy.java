@@ -49,6 +49,10 @@ public class Eddy {
     logger.setLevel(Level.DEBUG);
   }
 
+  public boolean ready() {
+    return EnvironmentProcessor.global_envitems_ready;
+  }
+
   // applies a result by modifying the psifile
   public void apply(int i) {
     apply(code(i));

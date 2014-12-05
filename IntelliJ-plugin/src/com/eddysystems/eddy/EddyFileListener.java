@@ -64,8 +64,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected boolean enabled() {
-    // only with a single caret can we deal...
-    return editor.getCaretModel().getCaretCount() == 1;
+    // wait till eddy is reddy, and only with a single caret can we deal...
+    return eddy.ready() && editor.getCaretModel().getCaretCount() == 1;
   }
 
   protected void showHint() {
