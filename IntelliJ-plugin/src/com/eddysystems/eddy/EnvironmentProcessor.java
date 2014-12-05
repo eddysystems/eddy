@@ -352,13 +352,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (item.arity() > 0 && params.isEmpty()) {
           // This happens. For instance in java.lang.SecurityManager.getClassContext()
           return item.raw();
-        } else if (((PsiClassType)t).hasParameters()) {
+        } else {
           Item container = addContainer(global_envitems, local_envitems, containing(tcls));
           assert container instanceof ParentItem;
           return item.generic(params, ((ParentItem)container).inside());
-        } else {
-          assert params.isEmpty();
-          return item.simple();
         }
       }
     }
@@ -399,35 +396,34 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       return global_envitems;
     } else {
 
-      // TODO: do this asynchronously before the first time we're using it, and return without the full set immediately
       synchronized (global_envitems_lock) {
 
         if (global_envitems == null) {
           // get all classes from IntelliJ
           global_envitems = new HashMap<PsiElement, Item>();
-
-          logger.info("making global_envitems");
-
-          PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
-          String[] classnames = cache.getAllClassNames();
-          GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
-
-          // Add all classes.  TODO: This includes local classes, but probably shouldn't
-          Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
-          for (String name : classnames)
-            for (PsiClass cls : cache.getClassesByName(name, scope))
-              if (!isInaccessible(cls, true))
-                addClass(fake_globals, global_envitems, cls, true, true);
-
-          logger.info("making global_env with " + global_envitems.size() + " items.");
-
-          // update global_env
-          global_env = Tarski.environment(global_envitems.values());
-
-          logger.info("global_env ready.");
-
-          global_envitems_ready = true;
         }
+
+        logger.info("making global_envitems (" + global_envitems.size() + " items already there)");
+
+        PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
+        String[] classnames = cache.getAllClassNames();
+        GlobalSearchScope scope = new ProjectAndLibrariesScope(project, true);
+
+        // Add all classes.  TODO: This includes local classes, but probably shouldn't
+        Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
+        for (String name : classnames)
+          for (PsiClass cls : cache.getClassesByName(name, scope))
+            if (!isInaccessible(cls, true))
+              addClass(fake_globals, global_envitems, cls, true, true);
+
+        logger.info("making global_env with " + global_envitems.size() + " items.");
+
+        // update global_env
+        global_env = Tarski.environment(global_envitems.values());
+
+        logger.info("global_env ready.");
+
+        global_envitems_ready = true;
 
       }
 
