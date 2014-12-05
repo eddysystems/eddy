@@ -18,7 +18,6 @@ import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import static com.eddysystems.eddy.Utility.*;
-import java.util.concurrent.Callable;
 import tarski.*;
 
 import java.util.List;
