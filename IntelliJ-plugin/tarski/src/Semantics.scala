@@ -69,10 +69,12 @@ object Semantics {
   }
 
   // If an expression has side effects, evaluate it above
-  def discard[A,B](e: Exp)(f: ScoredAbove[B]): ScoredAbove[B] = {
-    val s = if (noEffects(e)) Nil else List(ExpStmt(e))
+  def discard[A,B](e: List[Exp])(f: ScoredAbove[B]): ScoredAbove[B] = {
+    val s = e flatMap effects
     ScoredAbove(known((s,()))) flatMap (u => f)
   }
+  def discard[A,B](e: Exp)(f: ScoredAbove[B]): ScoredAbove[B] =
+    discard(List(e))(f)
 
   // Types
   def denoteType(e: AExp)(implicit env: Env): ScoredAbove[Type] = e match {
@@ -111,7 +113,7 @@ object Semantics {
     case _ => false
   }
 
-  def denoteField[ItemKind <: Item with ClassMember,FieldDen]
+  def denoteField[ItemKind <: ClassMember,FieldDen]
                  (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
                   superFieldProb: (Scored[Exp],TypeItem,ItemKind) => Prob,
                   shadowedFieldProb: (Scored[Exp],Exp,TypeItem,ItemKind) => Prob,
@@ -245,7 +247,10 @@ object Semantics {
     }
 
     case UnaryAExp(op,x) => denoteExp(x) flatMap {
-      case x if unaryLegal(op,typeOf(x)) => single(UnaryExp(op,x), Pr.unaryExp)
+      case x if unaryLegal(op,typeOf(x)) => single(op match {
+        case op:ImpOp => ImpExp(op,x)
+        case op:NonImpOp => NonImpExp(op,x)
+      }, Pr.unaryExp)
       case x => fail(s"${show(e)}: invalid unary ${show(token(op))} on type ${show(typeOf(x))}")
     }
 
@@ -323,7 +328,7 @@ object Semantics {
     case LocalVariableExp(i) => !i.isFinal
     case EnumConstantExp(_,_) => false
     case CastExp(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
-    case UnaryExp(_,_) => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
+    case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
     case BinaryExp(_,_,_) => false
     case AssignExp(_,_,_) => false
     case ParenExp(x) => isVariable(x)
@@ -367,7 +372,13 @@ object Semantics {
             fail(s"cannot make variables of type $t.")
         }))
       case ExpAStmt(e) => {
-        val exps = denoteExp(e) flatMap { e => single((env,ExpStmt(e)), Pr.expStmt) }
+        val exps = denoteExp(e) flatMap {
+          case e:StmtExp => single((env,ExpStmt(e)),Pr.expStmt)
+          case e => effects(e) match {
+            case Nil => fail(s"${show(e)}: has no side effects")
+            case ss => single((env,blocked(ss)),Pr.expStmtsSplit)
+          }
+        }
         val stmts: ScoredAbove[(Env,Stmt)] = e match {
           case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => typeOf(y).safe match {
             case Some(t) => env.newVariable(x,t,false) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
@@ -458,7 +469,7 @@ object Semantics {
     }}
 
   def xor(x: Boolean, y: Exp): Exp =
-    if (x) UnaryExp(NotOp,y) else y
+    if (x) NonImpExp(NotOp,y) else y
 
   def denoteLabel[A](lab: Option[Name], x: => A): Scored[A] = lab match {
     case None => single(x, Pr.labelNone)
@@ -467,12 +478,6 @@ object Semantics {
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)} bias Pr.stmtList
-
-  def blocked(ss: List[Stmt]): Stmt = ss match {
-    case Nil => EmptyStmt
-    case List(s) => s
-    case ss => BlockStmt(ss)
-  }
 
   // Statement whose environment is discarded
   def denoteScoped(s: AStmt)(env: Env): Scored[(Env,Stmt)] =

@@ -195,7 +195,7 @@ object Items {
     def simple = error
   }
 
-  trait Member {
+  trait Member extends Item {
     def name: Name
     def parent: PlaceItem // Could be a package
     def qualifiedName = parent.qualifiedName map {
@@ -203,10 +203,8 @@ object Items {
       case s => s + '.' + name
     }
   }
-
   trait ClassMember extends Member {
-    def name: Name
-    def parent: TypeItem with ParentItem
+    def parent: ClassItem
   }
 
   // Values

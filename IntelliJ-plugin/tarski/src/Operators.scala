@@ -3,14 +3,15 @@ package tarski
 object Operators {
   sealed abstract class UnaryOp
   sealed abstract class ImpOp extends UnaryOp
+  sealed abstract class NonImpOp extends UnaryOp
   case object PreDecOp extends ImpOp
   case object PreIncOp extends ImpOp
   case object PostDecOp extends ImpOp
   case object PostIncOp extends ImpOp
-  case object PosOp extends UnaryOp
-  case object NegOp extends UnaryOp
-  case object CompOp extends UnaryOp
-  case object NotOp extends UnaryOp
+  case object PosOp extends NonImpOp
+  case object NegOp extends NonImpOp
+  case object CompOp extends NonImpOp
+  case object NotOp extends NonImpOp
 
   sealed abstract class BinaryOp
   sealed abstract class AssignOp extends BinaryOp

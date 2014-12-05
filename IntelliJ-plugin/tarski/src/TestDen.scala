@@ -327,23 +327,28 @@ class TestDen {
   def intLiteral() = testDen("int x = 3", "x", x => VarStmt(IntType,(x,IntLit(3,"3"))))
 
   @Test
-  def parens() = testDen("(1)", ParenExp(1))
+  def parens() = testDen("x = (1)", "x", x => VarStmt(IntType,(x,ParenExp(1))))
 
   // If statements
   val t = BooleanLit(true)
-  val f = UnaryExp(NotOp,t)
+  val f = NonImpExp(NotOp,t)
   val e = EmptyStmt
   val h = HoleStmt
-  @Test def ifStmt()       = testDen("if (true);", IfStmt(t,e))
-  @Test def ifHole()       = testDen("if (true)", IfStmt(t,h))
-  @Test def ifBare()       = testDen("if true;", IfStmt(t,e))
-  @Test def ifBareHole()   = testDen("if true", IfStmt(t,h))
-  @Test def ifThen()       = testDen("if true then;", IfStmt(t,e))
-  @Test def ifThenHole()   = testDen("if true then", IfStmt(t,h))
-  @Test def ifThenParens() = testDen("if (true) then", IfStmt(t,h))
-  @Test def ifElse()       = testDen("if (true) 1 else 2", IfElseStmt(t,1,2))
-  @Test def ifElseHole()   = testDen("if (true) else", IfElseStmt(t,h,h))
-  @Test def ifThenElse()   = testDen("if true then 1 else 2", IfElseStmt(t,1,2))
+  def testDenX(input: String, best: (Stmt,Stmt) => Stmt) = {
+    val x = LocalVariableItem("x",IntType,false)
+    implicit val env = localEnv(List(x))
+    testDen(input,best(AssignExp(None,x,1),AssignExp(None,x,2)))
+  }
+  @Test def ifStmt()       = testDen ("if (true);", IfStmt(t,e))
+  @Test def ifHole()       = testDen ("if (true)", IfStmt(t,h))
+  @Test def ifBare()       = testDen ("if true;", IfStmt(t,e))
+  @Test def ifBareHole()   = testDen ("if true", IfStmt(t,h))
+  @Test def ifThen()       = testDen ("if true then;", IfStmt(t,e))
+  @Test def ifThenHole()   = testDen ("if true then", IfStmt(t,h))
+  @Test def ifThenParens() = testDen ("if (true) then", IfStmt(t,h))
+  @Test def ifElse()       = testDenX("if (true) x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
+  @Test def ifElseHole()   = testDen ("if (true) else", IfElseStmt(t,h,h))
+  @Test def ifThenElse()   = testDenX("if true then x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
 
   // While and do
   @Test def whileStmt()       = testDen("while (true);", WhileStmt(t,e))
@@ -361,7 +366,7 @@ class TestDen {
   @Test def forever()     = testDen("for (;;);", ForStmt(Nil,None,Nil,EmptyStmt))
   @Test def foreverHole() = testDen("for (;;)", ForStmt(Nil,None,Nil,HoleStmt))
   @Test def forSimple()   = testDen("for (x=7;true;x++)", "x", x =>
-    ForStmt(VarStmt(IntType,(x,7)),Some(t),UnaryExp(PostIncOp,x),HoleStmt))
+    ForStmt(VarStmt(IntType,(x,7)),Some(t),ImpExp(PostIncOp,x),HoleStmt))
   @Test def forTwo()      = testDen("for (x=7,y=8.1;true;)", "x", "y", (x,y) =>
     BlockStmt(List(VarStmt(IntType,(x,7)),
                    VarStmt(DoubleType,(y,8.1)),
@@ -385,6 +390,18 @@ class TestDen {
     val Y = NormalClassItem("Y",X,Nil)
     implicit val env = localEnv(List(X,cons,Y))
     testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(cons),Nil,Nil)),VarStmt(Y,List((y,0,None)))))
+  }
+
+  @Test def sideEffectsFail() = {
+    val x = LocalVariableItem("x",IntType,true)
+    implicit val env = localEnv(List(x))
+    testFail("x")
+  }
+
+  @Test def sideEffectsSplit() = {
+    val x = LocalVariableItem("x",IntType,false)
+    implicit val env = localEnv(List(x))
+    testDen("true ? x = 1 : (x = 2)", IfElseStmt(true,AssignExp(None,x,1),AssignExp(None,x,2)))
   }
 
   // Synchronized
@@ -412,20 +429,21 @@ class TestDen {
   @Test def omittedQualifier() = {
     val P = PackageItem("com.P", "com.P")
     val Z = NormalClassItem("Z", P, Nil)
-    val Zx = StaticFieldItem("x", BooleanType, Z, true)
+    val Zx = StaticFieldItem("x", BooleanType, Z, false)
     val Y = NormalClassItem("Y", LocalPkg, Nil)
-    val Yx = StaticFieldItem("x", BooleanType, Y, true)
+    val Yx = StaticFieldItem("x", BooleanType, Y, false)
     val X = NormalClassItem("X", LocalPkg, Nil)
-    val Xx = StaticFieldItem("x", BooleanType, X, true)
+    val Xx = StaticFieldItem("x", BooleanType, X, false)
     val f = StaticMethodItem("f", X, Nil, VoidType, Nil)
-    val x = LocalVariableItem("x", BooleanType, true)
+    val x = LocalVariableItem("x", BooleanType, false)
     implicit val env = new Env(List(P,Z,Zx,Y,Yx,X,Xx,f,x), Map((Y,3),(X,3),(Xx,2),(f,2),(x,1)),f)
-    val fixes = fix(lex("x"))
+    val fixes = fix(lex("x = true"))
     // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
-    val px = getProb(fixes, List(ExpStmt(LocalVariableExp(x))))
-    val pXx = getProb(fixes, List(ExpStmt(StaticFieldExp(None,Xx))))
-    val pYx = getProb(fixes, List(ExpStmt(StaticFieldExp(None,Yx))))
-    val pZx = getProb(fixes, List(ExpStmt(StaticFieldExp(None,Zx))))
+    def set(e: Exp): List[Stmt] = List(ExpStmt(AssignExp(None,e,true)))
+    val px = getProb(fixes,set(LocalVariableExp(x)))
+    val pXx = getProb(fixes,set(StaticFieldExp(None,Xx)))
+    val pYx = getProb(fixes,set(StaticFieldExp(None,Yx)))
+    val pZx = getProb(fixes,set(StaticFieldExp(None,Zx)))
 
     println("probabilities: ", px, pXx, pYx, pZx)
 

@@ -185,6 +185,7 @@ object Pr {
   var varDecl = base
   val varStmt = base // should depend on matchiness of declaration and initializer types
   val expStmt = base // could also be passThrough, nothing happens here
+  val expStmtsSplit = Prob(.3) // tried to write a non-expression statement as a statement, had to be split
   val assignmentAsVarStmt = Prob(.4) // should depend on types: e.g. explicit constructor calls are more likely
   val blockStmt = base
   val assertStmt = base

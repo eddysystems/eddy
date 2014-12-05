@@ -23,6 +23,7 @@ object TestUtils {
   implicit def toAExps[A](xs: KList[A])(implicit to: A => AExp): KList[AExp] = xs map to
 
   // Denotation implicit conversions
+  implicit def toExp(b: Boolean): Exp = BooleanLit(b)
   implicit def toExp(i: Int): Exp = IntLit(i,i.toString)
   implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
   implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString)
@@ -34,9 +35,9 @@ object TestUtils {
   implicit def toType(c: ClassItem): ClassType = c.simple
 
   // Statement implicit conversions
-  implicit def toStmt(e: Exp): Stmt = ExpStmt(e)
-  implicit def toStmt[A](x: A)(implicit to: A => Exp): Stmt = ExpStmt(to(x))
-  implicit def toStmts(e: Exp): List[Stmt] = List(ExpStmt(e))
+  implicit def toStmt(e: StmtExp): Stmt = ExpStmt(e)
+  implicit def toStmt[A](x: A)(implicit to: A => StmtExp): Stmt = ExpStmt(to(x))
+  implicit def toStmts(e: StmtExp): List[Stmt] = List(ExpStmt(e))
   implicit def toStmts(s: Stmt): List[Stmt] = List(s)
 
   // Variable declarations, for statements, etc.
