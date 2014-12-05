@@ -80,7 +80,7 @@ object Semantics {
   def denoteType(e: AExp)(implicit env: Env): ScoredAbove[Type] = e match {
     case NameAExp(n) => typeScores(n)
     case x: ALit => fail("literals are not types.")
-    case ParenAExp(x) => denoteType(x) flatMap { x => single(x,Pr.parensAroundType(x)) } // Java doesn't allow parentheses around types, but we do
+    case ParenAExp(x,_) => denoteType(x) flatMap { x => single(x,Pr.parensAroundType(x)) } // Java doesn't allow parentheses around types, but we do
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
@@ -157,7 +157,7 @@ object Semantics {
       case i: StaticMethodItem => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
       case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
     }
-    case ParenAExp(x) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do
+    case ParenAExp(x,_) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do
 
     // x is either a type or an expression, f is a method, static method, or constructor
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
@@ -196,7 +196,7 @@ object Semantics {
   def denoteExp(e: AExp)(implicit env: Env): ScoredAbove[Exp] = e match {
     case NameAExp(n) => valueScores(n) flatMap denoteValue
     case x: ALit => denoteLit(x)
-    case ParenAExp(x) => denoteExp(x) map ParenExp bias Pr.parenExp
+    case ParenAExp(x,_) => denoteExp(x) map ParenExp bias Pr.parenExp
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
@@ -408,17 +408,17 @@ object Semantics {
         if (isThrowable(t)) single((env,ThrowStmt(e)), Pr.throwStmt)
         else fail(s"${show(s)}: type $t is not throwable")
       })
-      case SyncAStmt(e,b) => above(product(denoteRef(e),liftAbove(denoteScoped(b)(env))) flatMap {
+      case SyncAStmt(e,b,_) => above(product(denoteRef(e),liftAbove(denoteScoped(b)(env))) flatMap {
         case (e,(env,b)) => single((env,SyncStmt(e,b)), Pr.syncStmt) })
-      case IfAStmt(c,x) => above(product(denoteBool(c),liftAbove(denoteScoped(x)(env))) flatMap {
+      case IfAStmt(c,x,_) => above(product(denoteBool(c),liftAbove(denoteScoped(x)(env))) flatMap {
         case (c,(env,x)) => single((env,IfStmt(c,x)), Pr.ifStmt) })
-      case IfElseAStmt(c,x,y) => above(product(denoteBool(c),liftAbove(denoteScoped(x)(env))) flatMap {case (c,(env,x)) =>
+      case IfElseAStmt(c,x,y,_) => above(product(denoteBool(c),liftAbove(denoteScoped(x)(env))) flatMap {case (c,(env,x)) =>
         denoteScoped(y)(env) flatMap {case (env,y) => single((env,IfElseStmt(c,x,y)), Pr.ifElseStmt) }})
-      case WhileAStmt(c,s,flip) => above(product(denoteBool(c),liftAbove(denoteScoped(s)(env))) flatMap {case (c,(env,s)) =>
+      case WhileAStmt(c,s,flip,_) => above(product(denoteBool(c),liftAbove(denoteScoped(s)(env))) flatMap {case (c,(env,s)) =>
         single((env,WhileStmt(xor(flip,c),s)), Pr.whileStmt) })
-      case DoAStmt(s,c,flip) => above(product(liftAbove(denoteScoped(s)(env)),denoteBool(c)) flatMap {case ((env,s),c) =>
+      case DoAStmt(s,c,flip,_) => above(product(liftAbove(denoteScoped(s)(env)),denoteBool(c)) flatMap {case ((env,s),c) =>
         single((env,DoStmt(s,xor(flip,c))), Pr.doStmt) })
-      case ForAStmt(i,c,u,s) => {
+      case ForAStmt(For(i,c,u),s,_) => {
         // Sanitize an initializer into valid Java
         def init(i: List[Stmt]): Scored[(Option[Exp],List[Exp],Stmt) => Stmt] = i match {
           case List(i:VarStmt) => single((c,u,s) => ForStmt(i,c,u,s), Pr.forStmt)
@@ -434,9 +434,9 @@ object Semantics {
             .map {case (c,u,(env,s)) => (env.popScope,List(i(c,u,s)))}
         })}
       }
-      case ForeachAStmt(m,t,v,n,e,s) => {
+      case ForAStmt(info@Foreach(m,t,v,n,e),s,a) => {
         val isFinal = modifiers(m,Final) || t.isEmpty
-        def hole = show(ForeachAStmt(m,t,v,n,e,HoleAStmt()))
+        def hole = show(ForAStmt(info,HoleAStmt(),a))
         above(product(thread(t)(denoteType),denoteExp(e)) flatMap {case (t,e) =>
           val tc = typeOf(e)
           isIterable(tc) match {

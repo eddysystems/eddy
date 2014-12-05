@@ -58,13 +58,12 @@ object Tarski {
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     val clean = tokens.filterNot(isSpace).map(fake)
-    val asts = ParseEddy.parse(clean)
-
-    // Check for duplicates
-    for (a <- asts; n = asts.count(a==_); if n > 1)
-      throw new RuntimeException(s"$n copied ast: $a")
-
-    // Determine meaning(s)
-    uniform(1,asts,"Parse failed") flatMap (denoteStmts(_)(env))
+    val asts = Mismatch.repair(clean) flatMap (ts => {
+      val asts = ParseEddy.parse(ts)
+      for (a <- asts; n = asts.count(a==_); if n > 1)
+        throw new RuntimeException(s"AST duplicated $n times: $a")
+      uniform(1,asts,"Parse failed")
+    })
+    asts flatMap (denoteStmts(_)(env))
   }
 }

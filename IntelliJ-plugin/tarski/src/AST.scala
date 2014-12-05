@@ -50,11 +50,15 @@ object AST {
     def map[B](f: A => B) = CommaList(list map f)
   }
 
+  sealed abstract class Group
+  case object Paren extends Group
+  case object Brack extends Group
+  case object Curly extends Group
   sealed abstract class Around
   case object NoAround extends Around
-  case object ParenAround extends Around
-  case object BrackAround extends Around
-  case object CurlyAround extends Around
+  case class Grouped(l: Group, r: Group) extends Around
+  val ParenAround = Grouped(Paren,Paren)
+  val BrackAround = Grouped(Brack,Brack)
 
   type Block = List[AStmt]
   type ADims = Int
@@ -70,23 +74,26 @@ object AST {
   case class ContinueAStmt(label: Option[Name]) extends AStmt
   case class ReturnAStmt(e: Option[AExp]) extends AStmt
   case class ThrowAStmt(e: AExp) extends AStmt
-  case class SyncAStmt(e: AExp, s: AStmt) extends AStmt
-  case class IfAStmt(cond: AExp, t: AStmt) extends AStmt
-  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt) extends AStmt
-  case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean) extends AStmt
-  case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean) extends AStmt
-  case class ForAStmt(i: List[AStmt], cond: Option[AExp], u: List[AExp], s: AStmt) extends AStmt
-  case class ForeachAStmt(m: List[Mod], t: Option[AExp], v: Name, n: ADims, e: AExp, s: AStmt) extends AStmt
+  case class SyncAStmt(e: AExp, s: AStmt, a: Around) extends AStmt
+  case class IfAStmt(cond: AExp, t: AStmt, a: Around) extends AStmt
+  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around) extends AStmt
+  case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean, a: Around) extends AStmt
+  case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean, a: Around) extends AStmt
+  case class ForAStmt(i: ForInfo, s: AStmt, a: Around) extends AStmt
   case class HoleAStmt() extends AStmt
+
+  sealed abstract class ForInfo
+  case class For(i: List[AStmt], cond: Option[AExp], u: List[AExp]) extends ForInfo
+  case class Foreach(m: List[Mod], t: Option[AExp], v: Name, n: ADims, e: AExp) extends ForInfo
 
   sealed abstract class AExp
   case class NameAExp(name: Name) extends AExp
-  case class ParenAExp(e: AExp) extends AExp
+  case class ParenAExp(e: AExp, a: Grouped) extends AExp
   case class FieldAExp(e: AExp, t: Option[KList[AExp]], f: Name) extends AExp
   case class MethodRefAExp(e: AExp, t: Option[KList[AExp]], f: Name) extends AExp
   case class NewRefAExp(e: AExp, t: Option[KList[AExp]]) extends AExp
   case class TypeApplyAExp(e: AExp, t: KList[AExp]) extends AExp
-  case class ApplyAExp(e: AExp, xs: KList[AExp], a: Around = ParenAround) extends AExp
+  case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around = ParenAround) extends AExp
   case class NewAExp(t: Option[KList[AExp]], e: AExp) extends AExp
   case class WildAExp(b: Option[(Bound,AExp)]) extends AExp
   case class UnaryAExp(op: UnaryOp, e: AExp) extends AExp

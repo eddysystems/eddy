@@ -39,6 +39,9 @@ object Scores {
     // We are assumed independent of t
     def productWith[B,C](t: Scored[B])(f: (A,B) => C): Scored[C] = delay(p*t.p,s.productWith(t)(f))
 
+    // Filter, turning Empty into given error
+    def filter(f: A => Boolean, error: => String): Scored[A] = delay(p,s.filter(f,error))
+
     // Queries
     def isEmpty: Boolean = s.isEmpty
     def isSingle: Boolean = s.isSingle
@@ -63,6 +66,8 @@ object Scores {
     def map[B](f: A => B): Actual[B]
     def flatMap[B](f: A => Scored[B]): Actual[B]
     def productWith[B,C](s: Scored[B])(f: (A,B) => C): Actual[C]
+    def filter(f: A => Boolean, error: => String): Actual[A]
+    def filter(f: A => Boolean): Actual[A] // Filter with no error
     def isEmpty: Boolean
     def isSingle: Boolean
   }
@@ -82,6 +87,8 @@ object Scores {
     def flatMap[B](f: Nothing => Scored[B]) = this
     def bias(p: Prob) = this
     def productWith[B,C](s: Scored[B])(f: (Nothing,B) => C) = this
+    def filter(f: Nothing => Boolean, error: => String) = this
+    def filter(f: Nothing => Boolean) = Empty
     def isEmpty = true
     def isSingle = false
   }
@@ -96,6 +103,8 @@ object Scores {
     def ++[B](s: Scored[B]) = s.s
     def bias(p: Prob) = this
     def productWith[B,C](s: Scored[B])(f: (Nothing,B) => C) = this
+    def filter(f: Nothing => Boolean, error: => String) = new Bad(OneError(error))
+    def filter(f: Nothing => Boolean) = this
     def isEmpty = true
     def isSingle = false
   }
@@ -128,6 +137,13 @@ object Scores {
       case Best(q,y,s) => Best(p*q,f(x,y),r.map(f(_,y)).bias(p) ++ s.map(f(x,_)).bias(q) ++ r.productWith(s)(f))
     }
 
+    def filter(f: A => Boolean, error: => String) =
+      if (f(x)) Best(p,x,delay(r.p,r.s.filter(f)))
+      else r.s.filter(f,error)
+    def filter(f: A => Boolean) =
+      if (f(x)) Best(p,x,delay(r.p,r.s.filter(f)))
+      else r.s.filter(f)
+
     def isEmpty = false
     def isSingle = r.isEmpty
   }
@@ -154,17 +170,19 @@ object Scores {
       delay(p,good(xs))
     }
 
+  // Helpers for multiple and multipleGood
+  private def good[A](p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]]): Actual[A] = xs match {
+    case Nil => Best(p,x,delay(p,empty(low)))
+    case (y@Alt(q,_))::xs if p >= q => good(p,x,y::low,xs)
+    case Alt(q,y)::xs => good(q,y,Alt(p,x)::low,xs)
+  }
+  private def empty[A](xs: List[Alt[A]]): Actual[A] = xs match {
+    case Nil => Empty
+    case Alt(0,_)::xs => empty(xs)
+    case Alt(p,x)::xs => good(p,x,Nil,xs)
+  }
+
   def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] = {
-    def good(p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]]): Actual[A] = xs match {
-      case Nil => Best(p,x,delay(p,empty(low)))
-      case (y@Alt(q,_))::xs if p >= q => good(p,x,y::low,xs)
-      case Alt(q,y)::xs => good(q,y,Alt(p,x)::low,xs)
-    }
-    def empty(xs: List[Alt[A]]): Actual[A] = xs match {
-      case Nil => Empty
-      case Alt(0,_)::xs => empty(xs)
-      case Alt(p,x)::xs => good(p,x,Nil,xs)
-    }
     def bad(xs: List[Alt[A]]): Actual[A] = xs match {
       case Nil => new Bad(OneError(error))
       case Alt(0,_)::xs => bad(xs)
@@ -172,6 +190,9 @@ object Scores {
     }
     delay(1,bad(xs))
   }
+  // Assume no error (use Empty instead of Bad)
+  def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
+    delay(1,empty(xs))
 
   def multiples[A](first: List[Alt[A]], andthen: => List[Alt[A]], error: => String): Scored[A] = {
     def good(p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]], backup: List[Alt[A]]): Actual[A] = xs match {

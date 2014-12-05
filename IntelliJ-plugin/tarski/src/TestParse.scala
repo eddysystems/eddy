@@ -10,6 +10,7 @@ import tarski.Pretty._
 import tarski.TestUtils._
 import tarski.Tokens._
 import tarski.Types._
+import tarski.Scores._
 
 class TestParse {
   @Test
@@ -58,6 +59,15 @@ class TestParse {
     assertIn(ss,asts.toSet)
   }
 
+  def testBest(s: String, ss: List[AStmt]): Unit = {
+    val clean = lex(s).filterNot(isSpace).map(fake)
+    val asts = Mismatch.repair(clean) flatMap (ts => uniform(1,ParseEddy.parse(ts),"Parse failed"))
+    asts.best match {
+      case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
+      case Right(ast) => assertEquals(ss,ast)
+    }
+  }
+
   @Test
   def nestApply() =
     testAST("x = A(Object())",
@@ -91,25 +101,22 @@ class TestParse {
   val t = BoolALit(true)
   val e = EmptyAStmt()
   val h = HoleAStmt()
-  @Test def ifStmt()      = testAST("if (true);",IfAStmt(t,e))
-  @Test def ifBare()      = testAST("if true;",IfAStmt(t,e),IfElseAStmt(t,e,h))
-  @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(t,h,h))
-  @Test def whileBare()   = testAST("while true;", WhileAStmt(t,e,false))
-  @Test def doWhileBare() = testAST("do; while true", DoAStmt(e,t,false))
-  @Test def whileHole()   = testAST("while true", WhileAStmt(t,h,false), WhileAStmt(t,e,false))
-  @Test def untilHole()   = testAST("until true", WhileAStmt(t,h,true), WhileAStmt(t,e,true),
+  @Test def ifStmt()      = testAST("if (true);",IfAStmt(t,e,ParenAround))
+  @Test def ifBare()      = testAST("if true;",IfAStmt(t,e,NoAround),IfElseAStmt(t,e,h,NoAround))
+  @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(t,h,h,ParenAround))
+  @Test def whileBare()   = testAST("while true;", WhileAStmt(t,e,false,NoAround))
+  @Test def doWhileBare() = testAST("do; while true", DoAStmt(e,t,false,NoAround))
+  @Test def whileHole()   = testAST("while true", WhileAStmt(t,h,false,NoAround), WhileAStmt(t,e,false,NoAround))
+  @Test def untilHole()   = testAST("until true", WhileAStmt(t,h,true,NoAround), WhileAStmt(t,e,true,NoAround),
                                                   ApplyAExp("until",SingleList(true),NoAround))
-  @Test def forever()     = testAST("for (;;);", ForAStmt(Nil,None,Nil,EmptyAStmt()))
-  @Test def foreverHole() = testAST("for (;;)", ForAStmt(Nil,None,Nil,HoleAStmt()))
+  @Test def forever()     = testAST("for (;;);", ForAStmt(For(Nil,None,Nil),EmptyAStmt(),ParenAround))
+  @Test def foreverHole() = testAST("for (;;)", ForAStmt(For(Nil,None,Nil),HoleAStmt(),ParenAround))
   @Test def forSimple()   = testAST("for (x=7;true;x++)",
-    ForAStmt(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp,"x"),HoleAStmt()))
+    ForAStmt(For(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp,"x")),HoleAStmt(),ParenAround))
 
   @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
-    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
+    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround),ParenAround),None,"f"),EmptyList,ParenAround)))
 
-  @Test def mismatchedParens(): Unit = {
-    testASTPossible("((X()).f();",
-      ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround)),None,"f"),EmptyList,ParenAround)))
-    notImplemented
-  }
+  @Test def weirdParens() = testAST("([{)]}",
+    ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,Grouped(Curly,Paren))),BrackAround),Grouped(Paren,Curly)))
 }

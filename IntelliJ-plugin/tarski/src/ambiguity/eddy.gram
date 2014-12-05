@@ -71,7 +71,7 @@ Commas0[a] List[a]
 // Dims
 IdentDims (Name,Int)
   Ident                          { ($1,0) }
-  IdentDims LBrackTok RBrackTok  { ($1._1,$1._2+1) }
+  IdentDims LBrackTok Right      { ($1._1,$1._2+1) }
 
 // Types.  Most of the logic is shared with expressions.
 Type AExp
@@ -100,7 +100,7 @@ WildcardBounds Option[(Bound,AExp)]
 
 // Blocks
 Block List[AStmt]
-  LCurlyTok Stmts RCurlyTok      { $2 }
+  LCurlyTok Stmts Right          { $2 }
 Stmts List[AStmt]
   ""                             { Nil }
   SemiTok Stmts                  { EmptyAStmt() :: $2 }
@@ -118,13 +118,13 @@ MaybeStmt AStmt
   Stmt                                                       { $1 }
 StmtHelper AStmt
   StmtHelperBS                                               { $1 }
-  IfTok MaybeParenExp Option[ThenTok]                        { IfAStmt($2,HoleAStmt()) }
-  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok           { IfElseAStmt($2,$4,HoleAStmt()) }
-  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok                { IfElseAStmt($2,$4,HoleAStmt()) }
-  WhileUntil MaybeParenExp Option[DoTok]                     { WhileAStmt($2,HoleAStmt(),$1) }
-  ForTok LParenTok ForInfo RParenTok                         { $3(HoleAStmt()) }
-  ForTok ForInfo                                             { $2(HoleAStmt()) }
-  SynchronizedTok MaybeParenExp                              { SyncAStmt($2,HoleAStmt()) }
+  IfTok MaybeParenExp Option[ThenTok]                        { IfAStmt($2._1,HoleAStmt(),$2._2) }
+  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok           { IfElseAStmt($2._1,$4,HoleAStmt(),$2._2) }
+  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok                { IfElseAStmt($2,$4,HoleAStmt(),NoAround) }
+  WhileUntil MaybeParenExp Option[DoTok]                     { WhileAStmt($2._1,HoleAStmt(),$1,$2._2) }
+  ForTok Left ForInfo Right                                  { ForAStmt($3,HoleAStmt(),Grouped($2,$4)) }
+  ForTok ForInfo                                             { ForAStmt($2,HoleAStmt(),NoAround) }
+  SynchronizedTok MaybeParenExp                              { SyncAStmt($2._1,HoleAStmt(),$2._2) }
 StmtHelperBS AStmt
   Juxts0[Mod] Type List1[VarDecl]                            { VarAStmt($1,$2,$3) }
   Block                                                      { BlockAStmt($1) }
@@ -136,19 +136,19 @@ StmtHelperBS AStmt
   ReturnTok Option[ExpJuxt]                                  { ReturnAStmt($2) }
   ThrowTok ExpJuxt                                           { ThrowAStmt($2) }
   // LabelStmt
-  IfTok ParenExp Option[ThenTok] Stmt                        { IfAStmt($2,$4) }
-  IfTok ExpAssignNP ThenTok Stmt                             { IfAStmt($2,$4) }
-  IfTok ExpAssignNP                                          { IfAStmt($2,EmptyAStmt()) }
-  IfTok ExpAssignNP                                          { IfElseAStmt($2,EmptyAStmt(),HoleAStmt()) }
-  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok Stmt      { IfElseAStmt($2,$4,$6) }
-  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok Stmt           { IfElseAStmt($2,$4,$6) }
-  WhileUntil ParenExp Option[DoTok] Stmt                     { WhileAStmt($2,$4,$1) }
-  WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($2,$4,$1) }
-  WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt(),$1) }
-  DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($2,$4,$3) }
-  ForTok LParenTok ForInfo RParenTok Stmt                    { $3($5) }
-  ForTok ForInfo DoTok Stmt                                  { $2($4) }
-  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2,BlockAStmt($3)) }
+  IfTok ParenExp Option[ThenTok] Stmt                        { IfAStmt($2._1,$4,$2._2) }
+  IfTok ExpAssignNP ThenTok Stmt                             { IfAStmt($2,$4,NoAround) }
+  IfTok ExpAssignNP                                          { IfAStmt($2,EmptyAStmt(),NoAround) }
+  IfTok ExpAssignNP                                          { IfElseAStmt($2,EmptyAStmt(),HoleAStmt(),NoAround) }
+  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok Stmt      { IfElseAStmt($2._1,$4,$6,$2._2) }
+  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok Stmt           { IfElseAStmt($2,$4,$6,NoAround) }
+  WhileUntil ParenExp Option[DoTok] Stmt                     { WhileAStmt($2._1,$4,$1,$2._2) }
+  WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($2,$4,$1,NoAround) }
+  WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt(),$1,NoAround) }
+  DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($2,$4._1,$3,$4._2) }
+  ForTok Left ForInfo Right Stmt                             { ForAStmt($3,$5,Grouped($2,$4)) }
+  ForTok ForInfo DoTok Stmt                                  { ForAStmt($2,$4,NoAround) }
+  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2._1,BlockAStmt($3),$2._2) }
   // Try
   // Switch
 VarDecl (Name,Int,Option[AExp])
@@ -157,16 +157,16 @@ VarDecl (Name,Int,Option[AExp])
 WhileUntil Boolean
   WhileTok                                                   { false }
   UntilTok                                                   { true }
-ForInfo AStmt=>AStmt
-  Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { (s: AStmt) => ForAStmt($1,$3,$5,s) }
-  Juxts0[Mod] Option[Type] IdentDims ForeachSep ExpAssign                       { (s: AStmt) => ForeachAStmt($1,$2,$3._1,$3._2,$5,s) }
+ForInfo ForInfo
+  Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { For($1,$3,$5) }
+  Juxts0[Mod] Option[Type] IdentDims ForeachSep ExpAssign                       { Foreach($1,$2,$3._1,$3._2,$5) }
 ForeachSep Unit
   ColonTok                                                   { () }
   InTok                                                      { () }
-ParenExp AExp
-  LParenTok ExpAssign RParenTok                              { $2 }
-MaybeParenExp AExp
-  ExpAssignNP                                                { $1 }
+ParenExp (AExp,Around)
+  Left ExpAssign Right                                       { ($2,Grouped($1,$3)) }
+MaybeParenExp (AExp,Around)
+  ExpAssignNP                                                { ($1,NoAround) }
   ParenExp                                                   { $1 }
 
 // Expressions, lowest to highest precedence
@@ -238,7 +238,7 @@ ExpUnary[a] AExp
   a                                                         { $1 }
   ExpUnary[EJ] PostOp                                       { UnaryAExp($2,$1) }
   PreOp ExpUnary[EJ]                                        { UnaryAExp($1,$2) }
-  LParenTok Type RParenTok ExpUnary[EJ]                     { CastAExp($2,$4) }
+  LParenTok Type Right ExpUnary[EJ]                         { CastAExp($2,$4) }
 
 ExpJuxt AExp
   ExpNew                                                    { $1 }
@@ -265,29 +265,35 @@ ExpHigh AExp
   ExpHighNP                                                 { $1 }
 ExpHighNP AExp
   ExpHighNA                                                 { $1 }
-  LBrackTok RBrackTok                                       { ArrayAExp(EmptyList,     BrackAround) }
-  LBrackTok ExpBinaryNJ RBrackTok                           { ArrayAExp(SingleList($2),BrackAround) }
-  LBrackTok Commas2[ExpBinary] RBrackTok                    { ArrayAExp(CommaList($2), BrackAround) }
-  LBrackTok Juxts2[ExpNew] RBrackTok                        { ArrayAExp(JuxtList($2),  BrackAround) }
-  LCurlyTok RCurlyTok                                       { ArrayAExp(EmptyList,     CurlyAround) }
-  LCurlyTok ExpBinaryNJ RCurlyTok                           { ArrayAExp(SingleList($2),CurlyAround) }
-  LCurlyTok Commas2[ExpBinary] RCurlyTok                    { ArrayAExp(CommaList($2), CurlyAround) }
-  LCurlyTok Juxts2[ExpNew] RCurlyTok                        { ArrayAExp(JuxtList($2),  CurlyAround) }
+  LeftNP Right                                              { ArrayAExp(EmptyList,     Grouped($1,$2)) }
+  LeftNP ExpBinaryNJ Right                                  { ArrayAExp(SingleList($2),Grouped($1,$3)) }
+  LeftNP Commas2[ExpBinary] Right                           { ArrayAExp(CommaList($2), Grouped($1,$3)) }
+  LeftNP Juxts2[ExpNew] Right                               { ArrayAExp(JuxtList($2),  Grouped($1,$3)) }
 ExpParens AExp
-  LParenTok ExpAssignNC RParenTok                           { ParenAExp($2) }
-  LParenTok RParenTok                                       { ArrayAExp(EmptyList,     ParenAround) }
-  LParenTok Commas2[ExpBinary] RParenTok                    { ArrayAExp(CommaList($2), ParenAround) }
-  LParenTok Juxts2[ExpNew] RParenTok                        { ArrayAExp(JuxtList($2),  ParenAround) }
+  LParenTok ExpAssignNC Right                               { ParenAExp($2,           Grouped(Paren,$3)) }
+  LParenTok Right                                           { ArrayAExp(EmptyList,    Grouped(Paren,$2)) }
+  LParenTok Commas2[ExpBinary] Right                        { ArrayAExp(CommaList($2),Grouped(Paren,$3)) }
+  LParenTok Juxts2[ExpNew] Right                            { ArrayAExp(JuxtList($2), Grouped(Paren,$3)) }
 ExpHighNA AExp
   Ident                                                     { NameAExp($1) }
   Lit                                                       { $1 }
   ExpHigh DotTok Option[TypeArgs] Ident                     { FieldAExp($1,$3,$4) }
-  ExpHigh LParenTok List[ExpAssignNC] RParenTok             { ApplyAExp($1,$3,ParenAround) }
-  ExpHigh LBrackTok List[ExpAssignNC] RBrackTok             { ApplyAExp($1,$3,BrackAround) }
-  ExpHigh LCurlyTok List[ExpAssignNC] RCurlyTok             { ApplyAExp($1,$3,CurlyAround) }
+  ExpHigh Left List[ExpAssignNC] Right                      { ApplyAExp($1,$3,Grouped($2,$4)) }
   ExpHigh ColonColonTok Option[TypeArgs] Ident              { MethodRefAExp($1,$3,$4) }
   ExpHigh ColonColonTok Option[TypeArgs] NewTok             { NewRefAExp($1,$3) }
   ExpHigh TypeArgs                                          { TypeApplyAExp($1,$2) }
+
+Left Group
+  LParenTok { Paren }
+  LBrackTok { Brack }
+  LCurlyTok { Curly }
+Right Group
+  RParenTok { Paren }
+  RBrackTok { Brack }
+  RCurlyTok { Curly }
+LeftNP Group
+  LBrackTok { Brack }
+  LCurlyTok { Curly }
 
 Lit ALit
   IntLitTok     { IntALit($1.v) }

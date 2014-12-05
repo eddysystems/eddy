@@ -51,6 +51,19 @@ object Utility {
       case x => x
     }
 
+  // Run-length encode a list
+  def runs[A](xs: List[A]): List[(A,Int)] = {
+    def loop(next: List[A], prev: List[(A,Int)]): List[(A,Int)] = next match {
+      case Nil => prev.reverse
+      case n::ns => loop(ns,prev match {
+        case (p,i)::ps if p==n => (p,i+1)::ps
+        case ps => (n,1)::ps
+      })
+    }
+    loop(xs,Nil)
+  }
+  def unruns[A](xs: List[(A,Int)]): List[A] = xs flatMap {case (a,n) => List.fill(n)(a)}
+
   def escape(raw: String): String = {
     import scala.reflect.runtime.universe._
     Literal(Constant(raw)).toString
