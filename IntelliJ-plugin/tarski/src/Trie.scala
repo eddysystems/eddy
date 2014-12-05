@@ -19,20 +19,20 @@ object Trie {
     def lookup[X](visitor: TrieVisitor[V,List[X]]): List[X]
   }
 
-  class CompactTrie[V](_values: Iterable[V])(key: V => String)(implicit t: ClassTag[V]) extends Lookupable[V] {
+  class CompactTrie[V](_values: Iterable[V])(key: V => String, _initial_size: Int = 0)(implicit t: ClassTag[V]) extends Lookupable[V] {
 
-    val initial_size_multiplier = 10 // average 10 ints per input value -- this is likely much too low
-    val grow_size_multiplier = 1.2 // grow by 20 percent when running out of space
+    private val vsize = _values.size
+    private val initial_size_multiplier = 10
+    private val grow_size_multiplier = 1.2 // grow by 20 percent when running out of space
+    private val initial_size = if (_initial_size == 0) initial_size_multiplier * vsize else _initial_size
 
     def ensureSpace(size: Int): Unit = if (size > structure.size) {
       println("increasing trie memory size to " + structure.size * 4)
       structure = structure.padTo((size * grow_size_multiplier).ceil.toInt, 0)
     }
 
-    private val vsize = _values.size
-
-    println("allocating (hopefully) " + 4 * initial_size_multiplier*vsize + " bytes.")
-    private var structure = new Array[Int](initial_size_multiplier*vsize)
+    println("allocating " + 4 * initial_size + " bytes.")
+    private var structure = new Array[Int](initial_size)
     val values = new Array[V](vsize)
 
     private var structure_pos = 0
@@ -119,7 +119,7 @@ object Trie {
 
     // TODO: for single items, adding them by inserting nodes is probably faster
     def add(vs: Iterable[V]): CompactTrie[V] =
-      new CompactTrie(vs++values)(key)
+      new CompactTrie(vs++values)(key, structure_pos + initial_size_multiplier * vs.size)
 
     private def exact(idx: String, depth: Int, nodeidx: Int): List[V] = {
       idx.lift(depth) match {

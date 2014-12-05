@@ -10,7 +10,7 @@ object Utility {
   def binarySearch[A](s: Seq[A], key: A)(implicit ord: math.Ordering[A]): Option[Int] = {
     var left: Int = 0
     var right: Int = s.length - 1
-    while (right > left) {
+    while (right >= left) {
       val mid = left + (right - left) / 2
       val comp = ord.compare(s(mid), key)
       if (comp == 0) // s(mid) == key

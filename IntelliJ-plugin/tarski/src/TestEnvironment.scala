@@ -44,6 +44,34 @@ class TestEnvironment {
     println(s"Levenshtein Distance $meant -> $typed = $d")
   }
 
+  @Test def trieExactQuery(): Unit = {
+    val typed = List("garbage", "tes", "LongLongNameTest")
+    val things = List(NormalClassItem("test", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("tset", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("verylongName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("LongLongName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("TestName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("testName", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("NameTest", LocalPkg, Nil, ObjectType, Nil),
+                       NormalClassItem("iTest", LocalPkg, Nil, ObjectType, Nil)
+                       )
+    val env = new Env(things)
+
+    // these should all return nothing
+    for (name <- typed) {
+      val alts = env.exactQuery(name)
+      assertEquals(s"found $name in trie as $alts", alts, Nil)
+    }
+
+    // these should all return exactly one
+    for (i <- things) {
+      val e = i.name.length * Pr.typingErrorRate
+      val p = Pr.poissonPDF(e,0)
+      val x = env.exactQuery(i.name)
+      assertEquals(s"found $x, expected exactly $i", List(Alt(p,i)), x)
+    }
+  }
+
   @Test
   def trieQuery(): Unit = {
     val typed = "test"

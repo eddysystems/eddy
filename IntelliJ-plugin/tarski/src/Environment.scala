@@ -36,14 +36,19 @@ object Environment {
   /**
    * The environment used for name resolution
    */
-   case class Env(trie: CompactTrie[Item],
-                  things: Map[String,List[Item]],
-                  inScope: Map[Item,Int],
-                  byItem: Map[TypeItem,List[Value]], // Map from item to values with matching type
+   case class Env(private val trie: CompactTrie[Item],
+                  private val things: Map[String,List[Item]],
+                  private val inScope: Map[Item,Int],
+                  private val byItem: Map[TypeItem,List[Value]], // Map from item to values with matching type
                   place: PlaceItem,
                   inside_breakable: Boolean,
                   inside_continuable: Boolean,
                   labels: List[String]) extends scala.Serializable {
+
+    def items: Array[Item] = trie.values
+    def nameMap: Map[String,List[Item]] = things
+    def itemMap: Map[TypeItem,List[Value]] = byItem
+    def scopeMap: Map[Item,Int] = inScope
 
     // add some new things to an existing environment, and optionally change place
     def this(base: Env, newthings: Iterable[Item], newScope: Map[Item,Int],
@@ -146,7 +151,8 @@ object Environment {
     def exactQuery(typed: String): List[Alt[Item]] = {
       val e = typed.length * Pr.typingErrorRate
       val p = Pr.poissonPDF(e,0)
-      things.getOrElse(typed, Nil) map { Alt(p, _) }
+      trie.exact(typed) map (Alt(p,_))
+      //nameMap.getOrElse(typed, Nil) map { Alt(p, _) }
     }
 
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
@@ -179,7 +185,7 @@ object Environment {
 
   // Same as objectsOfType, but without type arguments
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
-    uniform(Pr.objectOfItem, env.byItem.getOrElse(t,Nil), s"Value of item ${show(t)} not found")
+    uniform(Pr.objectOfItem, env.itemMap.getOrElse(t,Nil), s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: Type): Boolean = f match {
@@ -203,7 +209,7 @@ object Environment {
 
   // Does an item declare a member of the given name
   def declaresName(i: Item, name: Name)(implicit env: Env): Boolean = {
-    env.things.getOrElse(name, Nil) exists { case f: Member if f.parent == i => true; case _ => false }
+    env.exactQuery(name) exists { case Alt(_,f: Member) if f.parent == i => true; case _ => false }
   }
 
   def shadowedInSubType(i: Member, t: RefType)(implicit env: Env): Boolean = {
