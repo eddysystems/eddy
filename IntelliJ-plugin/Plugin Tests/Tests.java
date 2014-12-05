@@ -1,4 +1,5 @@
 import com.eddysystems.eddy.Eddy;
+import static com.eddysystems.eddy.Utility.*;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
@@ -17,6 +18,7 @@ import tarski.Scores;
 import tarski.Base;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
@@ -61,20 +63,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return eddy;
   }
 
-  private void timed(Runnable runner) {
-    long start = System.nanoTime();
-    runner.run();
-    long end = System.nanoTime();
-    System.out.println("elapsed = "+(end-start)/1e9);
-  }
-
   // actual tests
-  public void testCeateEddy() {
+  public void testCreateEddy() throws Exception {
     for (int i = 0; i < 2; i++) {
       System.out.println("iteration " + i);
-      timed(new Runnable() {
-        @Override public void run() {
+      timed("setupEddy", new Timed<Object>() {
+        public Object call() {
           setupEddy("dummy.java");
+          return null;
         }
       });
     }

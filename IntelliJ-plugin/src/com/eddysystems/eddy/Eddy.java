@@ -17,6 +17,8 @@ import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
+import static com.eddysystems.eddy.Utility.*;
+import java.util.concurrent.Callable;
 import tarski.*;
 
 import java.util.List;
@@ -188,7 +190,7 @@ public class Eddy {
       List<Tokens.Token> tokens = vtokens;
       List<TextRange> tokens_ranges = vtokens_ranges;
 
-      // remove leading and trailing whitespace
+      // Remove leading and trailing whitespace
       while (!tokens.isEmpty() && tokens.get(0) instanceof Tokens.WhitespaceTok) {
         tokens = tokens.subList(1,tokens.size());
         tokens_ranges = tokens_ranges.subList(1,tokens_ranges.size());
@@ -211,8 +213,17 @@ public class Eddy {
 
       // place is just before this line
       place = prevLineEnd;
-      env = (new EnvironmentProcessor(project, place, true)).getJavaEnvironment();
-      results = Tarski.fixJava(tokens, env);
+      env = timed("environment",new Timed<Environment.Env>() {
+        public Environment.Env call() {
+          return new EnvironmentProcessor(project, place, true).getJavaEnvironment();
+        }
+      });
+      final List<Tokens.Token> _tokens = tokens;
+      results = timed("fix",new Timed<List<Scores.Alt<List<Denotations.Stmt>>>>() {
+        public List<Scores.Alt<List<Denotations.Stmt>>> call() {
+          return Tarski.fixJava(_tokens, env);
+        }
+      });
 
       for (Scores.Alt<List<Denotations.Stmt>> interpretation : results) {
         // for each interpretation, compute a string
