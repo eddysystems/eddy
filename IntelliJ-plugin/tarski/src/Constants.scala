@@ -258,8 +258,7 @@ object Constants {
       })
       case _ => NotCon
     }
-    case UnaryExp(op,e) => toPrim(e,e => op match {
-      case PostDecOp|PostIncOp|PreIncOp|PreDecOp => NotCon
+    case NonImpExp(op,e) => toPrim(e,e => op match {
       case PosOp => e match {
         case e:NumCon => e
         case _ => error

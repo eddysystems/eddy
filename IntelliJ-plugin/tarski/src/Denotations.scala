@@ -32,7 +32,7 @@ object Denotations {
   case object EmptyStmt extends Stmt
   case object HoleStmt extends Stmt
   case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt with ForInit
-  case class ExpStmt(e: Exp) extends Stmt
+  case class ExpStmt(e: StmtExp) extends Stmt
   case class BlockStmt(b: List[Stmt]) extends Stmt
   case class AssertStmt(c: Exp, m: Option[Exp]) extends Stmt
   case object BreakStmt extends Stmt    // TODO: optional label
@@ -50,6 +50,7 @@ object Denotations {
 
   // It's all expressions from here
   sealed abstract class Exp
+  sealed trait StmtExp extends Exp
 
   // Literals
   sealed abstract class Lit extends Exp
@@ -74,15 +75,17 @@ object Denotations {
   case class ThisExp(t: ThisItem) extends Exp
   case class SuperExp(t: ThisItem) extends Exp // t is the type super is used in, t.base is the type of this expression
   case class CastExp(t: Type, e: Exp) extends Exp
-  case class UnaryExp(op: UnaryOp, e: Exp) extends Exp
+  sealed abstract class UnaryExp extends Exp { def op: UnaryOp; def e: Exp }
+  case class ImpExp(op: ImpOp, e: Exp) extends UnaryExp with StmtExp
+  case class NonImpExp(op: NonImpOp, e: Exp) extends UnaryExp
   case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp
-  case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends Exp
+  case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends StmtExp
   case class ParenExp(e: Exp) extends Exp
-  case class ApplyExp(f: Callable, targs: List[RefType], args: List[Exp]) extends Exp
+  case class ApplyExp(f: Callable, targs: List[RefType], args: List[Exp]) extends StmtExp
   case class IndexExp(e: Exp, i: Exp) extends Exp
   case class CondExp(c: Exp, t: Exp, f: Exp, r: Type) extends Exp
-  case class ArrayExp(t: Type, i: List[Exp]) extends Exp // t is the inner type
-  case class EmptyArrayExp(t: Type, i: List[Exp]) extends Exp // new t[i]
+  case class ArrayExp(t: Type, i: List[Exp]) extends StmtExp // t is the inner type
+  case class EmptyArrayExp(t: Type, i: List[Exp]) extends StmtExp // new t[i]
 
   def typeOf(d: Exp): Type = d match {
     // Literals
@@ -104,7 +107,7 @@ object Denotations {
     case SuperExp(ThisItem(c:NormalClassItem)) => c.base
     case SuperExp(_) => throw new RuntimeException("type error")
     case CastExp(t,_) => t
-    case UnaryExp(op,e) => unaryType(op,typeOf(e)) getOrElse (throw new RuntimeException("type error"))
+    case e:UnaryExp => unaryType(e.op,typeOf(e.e)) getOrElse (throw new RuntimeException("type error"))
     case BinaryExp(op,x,y) => binaryType(op,typeOf(x),typeOf(y)) getOrElse (throw new RuntimeException("type error"))
     case AssignExp(op,left,right) => typeOf(left)
     case ParenExp(e) => typeOf(e)
@@ -143,9 +146,9 @@ object Denotations {
   def noEffects(e: Exp): Boolean = e match {
     case _:Lit|_:ParameterExp|_:LocalVariableExp|_:EnumConstantExp|_:StaticFieldExp|_:LocalFieldExp
         |_:ThisExp|_:SuperExp => true
-    case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp => false
+    case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp => false
     case FieldExp(x,f) => noEffects(x)
-    case UnaryExp(op,x) => pure(op) && noEffects(x)
+    case NonImpExp(op,x) => pure(op) && noEffects(x)
     case BinaryExp(op,x,y) => pure(op,typeOf(x),typeOf(y)) && noEffects(x) && noEffects(y)
     case ParenExp(x) => noEffects(x)
     case CondExp(c,x,y,_) => noEffects(c) && noEffects(x) && noEffects(y)
@@ -158,5 +161,24 @@ object Denotations {
           |AndAndOp|OrOrOp|AndOp|XorOp|OrOp|LtOp|GtOp|LeOp|GeOp|EqOp|NeOp => true
     }
     case _ => false // If we unbox, there can always be null
+  }
+
+  // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
+  def effects(e: Exp): List[Stmt] = e match {
+    case e:StmtExp => List(ExpStmt(e))
+    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:EnumConstantExp|_:StaticFieldExp|_:LocalFieldExp
+        |_:ThisExp|_:SuperExp => Nil
+    case _:CastExp|_:IndexExp => Nil
+    case FieldExp(x,_) => effects(x)
+    case NonImpExp(_,x) => effects(x)
+    case BinaryExp(_,x,y) => effects(x)++effects(y)
+    case CondExp(c,x,y,_) => List(IfElseStmt(c,blocked(effects(x)),blocked(effects(y))))
+    case ParenExp(x) => effects(x)
+  }
+
+  def blocked(ss: List[Stmt]): Stmt = ss match {
+    case Nil => EmptyStmt
+    case List(s) => s
+    case ss => BlockStmt(ss)
   }
 }

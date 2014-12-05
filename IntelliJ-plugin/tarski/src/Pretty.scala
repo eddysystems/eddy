@@ -386,8 +386,8 @@ object Pretty {
     case ThisExp(i) => if (env.itemInScope(i)) (HighestFix,List(ThisTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(ThisTok()))
     case SuperExp(i) => if (env.itemInScope(i)) (HighestFix,List(SuperTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(SuperTok()))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
-    case UnaryExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
-    case UnaryExp(op,x)               => fix(PostfixFix, left(_,x) ::: List(token(op)))
+    case ImpExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
+    case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(token(e.op)))
     case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
