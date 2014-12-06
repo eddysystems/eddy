@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
-import java.util.concurrent.Callable;
+import com.intellij.ide.IdeEventQueue;
+import com.intellij.openapi.application.ApplicationManager;
 
 public class Utility {
   public static interface Timed<T> {
@@ -13,5 +14,13 @@ public class Utility {
     long end = System.nanoTime();
     System.out.println("elapsed "+name+" = "+(end-start)/1e9);
     return x;
+  }
+
+  public static void processEvents() {
+    if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      ApplicationManager.getApplication().invokeLater( new Runnable() { @Override public void run() {
+        IdeEventQueue.getInstance().flushQueue();
+      }});
+    }
   }
 }

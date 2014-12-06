@@ -1,6 +1,10 @@
 package com.eddysystems.eddy;
 
+import com.intellij.ide.IdeEventQueue;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.impl.ApplicationImpl;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.progress.util.DispatchThreadProgressWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
@@ -411,10 +415,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
         // Add all classes.  TODO: This includes local classes, but probably shouldn't
         Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
-        for (String name : classnames)
+        for (String name : classnames) {
+
+          // keep IDE responsive
+          Utility.processEvents();
+
           for (PsiClass cls : cache.getClassesByName(name, scope))
             if (!isInaccessible(cls, true))
               addClass(fake_globals, global_envitems, cls, true, true);
+        }
 
         logger.info("making global_env with " + global_envitems.size() + " items.");
 
