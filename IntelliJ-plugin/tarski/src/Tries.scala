@@ -86,14 +86,14 @@ object Tries {
 
     // The two keys are assumed equal
     def ++(t: Trie[V])(implicit tt: ClassTag[V]): Trie[V] =
-      makeHelper(merge(values,t.values,key),key)
+      timed("trie merge",makeHelper(merge(values,t.values,key),key))
     def ++(t: Iterable[V])(implicit tt: ClassTag[V]): Trie[V] =
-      makeHelper(merge(values,toSorted(t,key),key),key)
+      timed("trie extend",makeHelper(merge(values,toSorted(t,key),key),key))
   }
 
   object Trie {
     def apply[V](input: Iterable[V])(key: V => String)(implicit tt: ClassTag[V]): Trie[V] =
-      timed("trie",makeHelper(toSorted(input,key),key))
+      timed("trie create",makeHelper(toSorted(input,key),key))
   }
 
   // Sort input into an array
@@ -152,11 +152,11 @@ object Tries {
     // Determine node information: an array of (position,start) pairs.
     val info = timed("position",{
       // At first, each info pair is (children,start)
-      val info = new Array[Int](2*nodes+1)
+      val info = timed("allocate info",new Array[Int](2*nodes+1))
       val stack = new Array[Int](depth)
       var prev = ""
       var n = 1
-      for (i <- 0 until values.size) {
+      timed("children loop",for (i <- 0 until values.size) {
         val k = key(values(i))
         val c = common(prev,k) // Implicit truncate stack to size c+1
         if (c < k.size) {
@@ -172,15 +172,15 @@ object Tries {
           n += 1
         }
         prev = k
-      }
+      })
       assert(n == nodes)
       // Accumulate children into position
       var total = 0
-      for (n <- 0 until nodes) {
+      timed("position loop",for (n <- 0 until nodes) {
         val next = total+2+2*info(2*n)
         info(2*n) = total
         total = next
-      }
+      })
       assert(total+1 == structureSize)
       info(2*nodes) = total
       info
