@@ -345,7 +345,7 @@ object Types {
   // Capture conversion for generic types with wildcards
   def capture(t: GenericParent, base: Tenv): (Tenv,List[RefType]) = {
     // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
-    class FreshVar(val name: Name) extends TypeVar {
+    case class FreshVar(name: Name) extends TypeVar {
       var lo: RefType = null
       var hi: RefType = null
     }

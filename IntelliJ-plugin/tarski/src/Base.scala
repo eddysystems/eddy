@@ -23,7 +23,7 @@ object Base {
   private def comparable(t: RefType): ClassType = GenericType(ComparableItem,List(t),JavaLangPkg)
 
   // Class Enum
-  object EnumBaseItem extends ClassItem {
+  case object EnumBaseItem extends ClassItem {
     def name = "Enum"
     def isClass = true
     def isEnum = true
@@ -45,7 +45,7 @@ object Base {
   }
 
   // Throwable
-  object ThrowableItem extends SimpleClassItem {
+  case object ThrowableItem extends SimpleClassItem {
     def name = "Throwable"
     def base = ObjectType
     def implements = Nil
@@ -53,7 +53,7 @@ object Base {
   }
 
   // Iterable
-  object IterableItem extends ClassItem {
+  case object IterableItem extends ClassItem {
     def name = "Iterable"
     def isClass = false
     def isEnum = false
@@ -66,7 +66,7 @@ object Base {
   }
 
   // Class String
-  object StringItem extends SimpleClassItem {
+  case object StringItem extends SimpleClassItem {
     def name = "String"
     def base = ObjectType
     def implements = List(comparable(inside),CharSequenceItem.simple,SerializableType)
@@ -74,7 +74,7 @@ object Base {
   }
 
   // java.lang.Void
-  object VoidItem extends SimpleClassItem {
+  case object VoidItem extends SimpleClassItem {
     def name = "Void"
     def base = ObjectType
     def implements = Nil
@@ -82,7 +82,7 @@ object Base {
   }
 
   // Reference wrappers around primitive types
-  object BooleanItem extends SimpleClassItem {
+  case object BooleanItem extends SimpleClassItem {
     def name = "Boolean"
     def base = ObjectType
     def implements = List(comparable(inside),SerializableType)
@@ -90,7 +90,7 @@ object Base {
     override def unboxesToBoolean = true
     def isFinal = true
   }
-  object CharacterItem extends SimpleClassItem {
+  case object CharacterItem extends SimpleClassItem {
     def name = "Character"
     def base = ObjectType
     def implements = List(comparable(inside),SerializableType)
@@ -99,7 +99,7 @@ object Base {
     override def unboxIntegral = Some(CharType)
     def isFinal = true
   }
-  object NumberItem extends SimpleClassItem {
+  case object NumberItem extends SimpleClassItem {
     def name = "Number"
     def base = ObjectType
     def implements = List(SerializableType)
@@ -115,12 +115,12 @@ object Base {
   sealed abstract class IntegralClassItem(name: Name, override val ty: IntegralType) extends NumberClassItem(name,ty) {
     override def unboxIntegral = Some(ty)
   }
-  object ByteItem    extends NumberClassItem("Byte",ByteType)
-  object ShortItem   extends NumberClassItem("Short",ShortType)
-  object IntegerItem extends NumberClassItem("Integer",IntType)
-  object LongItem    extends NumberClassItem("Long",LongType)
-  object FloatItem   extends NumberClassItem("Float",FloatType)
-  object DoubleItem  extends NumberClassItem("Double",DoubleType)
+  case object ByteItem    extends NumberClassItem("Byte",ByteType)
+  case object ShortItem   extends NumberClassItem("Short",ShortType)
+  case object IntegerItem extends NumberClassItem("Integer",IntType)
+  case object LongItem    extends NumberClassItem("Long",LongType)
+  case object FloatItem   extends NumberClassItem("Float",FloatType)
+  case object DoubleItem  extends NumberClassItem("Double",DoubleType)
 
   object ubVoidItem    extends LangTypeItem(VoidType)
   object ubBooleanItem extends LangTypeItem(BooleanType)

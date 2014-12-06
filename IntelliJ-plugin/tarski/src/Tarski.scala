@@ -25,6 +25,12 @@ object Tarski {
     case Some(q) => Base.baseQualifiedNames.getOrElse(q,null)
   }
 
+  def print(is: Iterable[Alt[Item]]): Unit = {
+    is.foreach { case Alt(p,i) =>
+      println(s"  $p => " + i.print)
+    }
+  }
+
   def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[java.util.List[Stmt]]] = {
     val limit = 4 // Report at most this many alternatives
     val toks = tokens.asScala.toList
