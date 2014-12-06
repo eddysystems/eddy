@@ -1,0 +1,3 @@
+[submodule "IntelliJ-plugin/test-data/JSON-java"]
+	path = IntelliJ-plugin/test-data/JSON-java
+	url = git@github.com:douglascrockford/JSON-java.git
