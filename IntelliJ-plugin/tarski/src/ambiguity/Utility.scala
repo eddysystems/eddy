@@ -192,4 +192,12 @@ object Utility {
       case _ => false
     }
   }
+
+  def timed[R](name: String, f: => R): R = {
+    val t0 = System.nanoTime()
+    val r = f
+    val t1 = System.nanoTime()
+    println(s"elapsed $name = ${1e-9*(t1-t0)} s")
+    r
+  }
 }

@@ -6,7 +6,7 @@ import ambiguity.Utility._
 import Scores._
 import tarski.AST.Name
 import tarski.Items._
-import tarski.Trie._
+import tarski.Tries._
 import tarski.Types._
 import tarski.Tokens.show
 import tarski.Pretty._
@@ -56,7 +56,7 @@ object Environment {
              inside_breakable: Boolean,
              inside_continuable: Boolean,
              labels: List[String]) = {
-      this(base.trie.add(newthings), itemsToMapList(base.things,newthings), base.inScope ++ newScope,
+      this(base.trie++newthings, itemsToMapList(base.things,newthings), base.inScope ++ newScope,
            valuesByItem(base.byItem,newthings), place, inside_breakable, inside_continuable, labels)
     }
 
@@ -66,7 +66,7 @@ object Environment {
              inside_breakable: Boolean = false,
              inside_continuable: Boolean = false,
              labels: List[String] = Nil) = {
-      this(new Trie[Item](things)(_.name), itemsToMapList(Map.empty,things), inScope,
+      this(Trie(things)(_.name), itemsToMapList(Map.empty,things), inScope,
            valuesByItem(Map.empty,things), place, inside_breakable, inside_continuable, labels)
     }
 

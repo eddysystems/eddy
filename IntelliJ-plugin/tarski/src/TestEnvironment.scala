@@ -2,6 +2,7 @@ package tarski
 
 import org.testng.AssertJUnit._
 import org.testng.annotations.Test
+import ambiguity.Utility._
 import tarski.Base._
 import tarski.Denotations.ThisExp
 import tarski.Environment._
@@ -9,6 +10,7 @@ import tarski.Items._
 import tarski.Pretty._
 import tarski.Scores.Alt
 import tarski.Tokens._
+import tarski.Tries._
 import tarski.Types._
 
 class TestEnvironment {
@@ -45,16 +47,9 @@ class TestEnvironment {
   }
 
   @Test def trieExactQuery(): Unit = {
-    val typed = List("garbage", "tes", "LongLongNameTest")
-    val things = List(NormalClassItem("test", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("tset", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("verylongName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("LongLongName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("TestName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("testName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("NameTest", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("iTest", LocalPkg, Nil, ObjectType, Nil)
-                       )
+    val typed = List("garbage","tes","LongLongNameTest")
+    val things = List("test","tset","verylongName","LongLongName","TestName","testName","NameTest","iTest")
+      .map(NormalClassItem(_,LocalPkg))
     val env = new Env(things)
 
     // these should all return nothing
@@ -72,18 +67,45 @@ class TestEnvironment {
     }
   }
 
+  @Test def trie() = {
+    def W(s: String) = splitWhitespace(s)
+    def S(s: Int*) = s.toList
+    val st = List(
+      W("")                  -> S(0,0, 0),
+      List("")               -> S(0,0, 1),
+      W("a")                 -> S(0,1,'a',4, 0,0,1),
+      W("a b")               -> S(0,2,'a',6,'b',8, 0,0, 1,0, 2),
+      W("a ab")              -> S(0,1,'a',4, 0,1,'b',8, 1,0, 2),
+      W("ab a")              -> S(0,1,'a',4, 0,1,'b',8, 1,0, 2),
+      W("ab a a")            -> S(0,1,'a',4, 0,1,'b',8, 2,0, 3),
+      W("a bc")              -> S(0,2,'a',6,'b',8, 0,0, 1,1,'c',12, 1,0, 2),
+      W("a ab abc")          -> S(0,1,'a',4, 0,1,'b',8, 1,1,'c',12, 2,0, 3),
+      W("a ab bc")           -> S(0,2,'a',6,'b',12, 0,1,'b',10, 1,0, 2,1,'c',16, 2,0, 3),
+      W("a ab abc bc")       -> S(0,2,'a',6,'b',16, 0,1,'b',10, 1,1,'c',14, 2,0, 3,1,'c',20, 3,0, 4),
+      (""::W("a abc ab bc")) -> S(0,2,'a',6,'b',16, 1,1,'b',10, 2,1,'c',14, 3,0, 4,1,'c',20, 4,0, 5)
+    )
+    for ((w,st) <- st) {
+      println(s"\ntrie: $w")
+      val t = Trie(w)(s => s)
+      assertEquals(st,t.structure.toList)
+      for ((s,ss) <- w groupBy (s => s))
+        assertEquals(ss,t.exact(s))
+      assertEquals(Nil,t.exact("blah"))
+    }
+    for ((w0,_) <- st; (w1,_) <- st) {
+      println(s"\nmerge: $w0, $w1")
+      val t0 = Trie(w0)(s => s)
+      val t1 = Trie(w1)(s => s)
+      for (t <- List(t0++t1,t0++w1))
+        assertEquals((w0++w1).sorted,t.values.toList)
+    }
+  }
+
   @Test
   def trieQuery(): Unit = {
     val typed = "test"
-    val things = List(NormalClassItem("test", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("tset", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("verylongName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("LongLongName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("TestName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("testName", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("NameTest", LocalPkg, Nil, ObjectType, Nil),
-                       NormalClassItem("iTest", LocalPkg, Nil, ObjectType, Nil)
-                       )
+    val things = List("test","tset","verylongName","LongLongName","TestName","testName","NameTest","iTest")
+      .map(NormalClassItem(_,LocalPkg))
     val env = new Env(things)
 
     val qr = env.query(typed).toSet
