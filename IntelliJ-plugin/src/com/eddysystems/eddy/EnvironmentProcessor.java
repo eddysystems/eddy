@@ -1,10 +1,6 @@
 package com.eddysystems.eddy;
 
-import com.intellij.ide.IdeEventQueue;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.impl.ApplicationImpl;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.progress.util.DispatchThreadProgressWindow;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
@@ -57,9 +53,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
   // a cache containing all the items in the global environment (everything outside this file)
   // if the PSI referenced here changes, this map becomes useless (we can check with PsiElement.isValid())
-  static final Object global_envitems_lock = new Object();
-  static boolean global_envitems_ready = false;
-  static Map<PsiElement, Item> global_envitems = null;
+  static final Object globals_lock = new Object();
+  static boolean globals_ready = false;
+  static Map<PsiElement, Item> globals = null;
   static Env global_env = null;
 
   // things that are in scope (not all these are accessible! things may be private, or not static while we are)
@@ -81,7 +77,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     this.project = project;
     this.place = null;
 
-    getGlobalEnvItems();
+    getGlobals();
   }
 
   static public void initGlobalEnvironment(@NotNull Project project) {
@@ -128,101 +124,101 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     throw new RuntimeException("unexpected container of " + elem + ": " + parent);
   }
 
-  // the add* methods look up in global_ and local_ envitems, but add only to local_envitems.
+  // the add* methods look up in globals and locals, but add only to locals.
 
-  private Item addContainer(Map<PsiElement,Item> global_envitems, Map<PsiElement,Item> local_envitems, PsiElement elem) {
-    if (global_envitems.containsKey(elem))
-      return global_envitems.get(elem);
-    if (local_envitems.containsKey(elem))
-      return local_envitems.get(elem);
+  private Item addContainer(Map<PsiElement,Item> globals, Map<PsiElement,Item> locals, PsiElement elem) {
+    if (globals.containsKey(elem))
+      return globals.get(elem);
+    if (locals.containsKey(elem))
+      return locals.get(elem);
 
     // local classes
     if (elem instanceof PsiMethod)
-      return addMethod(global_envitems, local_envitems, (PsiMethod) elem);
+      return addMethod(globals, locals, (PsiMethod) elem);
     if (elem instanceof PsiClass)
-      return addClass(global_envitems, local_envitems, (PsiClass) elem, false, false);
+      return addClass(globals, locals, (PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
       PackageItem pitem = new PackageItem(pkg.getName(), qualifiedName(pkg));
       Item base = Tarski.baseLookupJava(pitem);
       if (base != null)
         pitem = (PackageItem)base;
-      local_envitems.put(pkg, pitem);
+      locals.put(pkg, pitem);
       return pitem;
     }
     throw new RuntimeException("weird container "+elem);
   }
 
-  private TypeVar addTypeParam(Map<PsiElement,Item> global_envitems, Map<PsiElement,Item> local_envitems, PsiTypeParameter p) {
-    if (global_envitems.containsKey(p))
-      return (TypeVar)global_envitems.get(p);
-    if (local_envitems.containsKey(p))
-      return (TypeVar)local_envitems.get(p);
+  private TypeVar addTypeParam(Map<PsiElement,Item> globals, Map<PsiElement,Item> locals, PsiTypeParameter p) {
+    if (globals.containsKey(p))
+      return (TypeVar)globals.get(p);
+    if (locals.containsKey(p))
+      return (TypeVar)locals.get(p);
 
     // Add maker here to break recursion
     TypeVarMaker ti = new TypeVarMaker(p.getName());
-    local_envitems.put(p,ti);
+    locals.put(p,ti);
 
     PsiClassType[] extended = p.getExtendsList().getReferencedTypes();
     List<ClassType> etypes = new SmartList<ClassType>();
     for (PsiClassType e : extended) {
-      etypes.add((ClassType)convertType(global_envitems, local_envitems, e));
+      etypes.add((ClassType)convertType(globals, locals, e));
     }
 
     ti.set(JavaConversions.asScalaBuffer(etypes).toList());
     return ti;
   }
 
-  private TypeItem addClass(Map<PsiElement,Item> global_envitems, Map<PsiElement,Item> local_envitems, PsiClass cls, boolean recurse, boolean noProtected) {
-    if (global_envitems.containsKey(cls))
-      return (TypeItem)global_envitems.get(cls);
-    if (local_envitems.containsKey(cls))
-      return (TypeItem)local_envitems.get(cls);
+  private TypeItem addClass(Map<PsiElement,Item> globals, Map<PsiElement,Item> locals, PsiClass cls, boolean recurse, boolean noProtected) {
+    if (globals.containsKey(cls))
+      return (TypeItem)globals.get(cls);
+    if (locals.containsKey(cls))
+      return (TypeItem)locals.get(cls);
 
     if (cls instanceof PsiTypeParameter)
-      return addTypeParam(global_envitems, local_envitems, (PsiTypeParameter) cls);
+      return addTypeParam(globals, locals, (PsiTypeParameter) cls);
 
     // java.lang.Object is special
     if (cls.getQualifiedName() != null && cls.getQualifiedName().equals("java.lang.Object")) {
-      local_envitems.put(cls, ObjectItem$.MODULE$);
+      locals.put(cls, ObjectItem$.MODULE$);
       return ObjectItem$.MODULE$;
     }
 
     PsiElement celem = containing(cls);
-    ParentItem container = celem != null ? (ParentItem) addContainer(global_envitems, local_envitems, celem) : Tarski.localPkg();
+    ParentItem container = celem != null ? (ParentItem) addContainer(globals, locals, celem) : Tarski.localPkg();
 
     // Type parameters
     ArrayList<TypeVar> j_params = new ArrayList<TypeVar>();
     for (PsiTypeParameter tp: cls.getTypeParameters()) {
-      j_params.add(addTypeParam(global_envitems, local_envitems, tp));
+      j_params.add(addTypeParam(globals, locals, tp));
     }
     scala.collection.immutable.List<TypeVar> params = JavaConversions.asScalaBuffer(j_params).toList();
 
-    // maybe we just added ourselves by adding the container or the type parameters (we only add to local_envitems
-    if (local_envitems.containsKey(cls))
-      return (TypeItem)local_envitems.get(cls);
+    // maybe we just added ourselves by adding the container or the type parameters (we only add to locals
+    if (locals.containsKey(cls))
+      return (TypeItem)locals.get(cls);
 
     ClassItemMaker ci = new ClassItemMaker(cls.getName(), container, params, !cls.isInterface(), cls.isEnum(),
                                            cls.hasModifierProperty(PsiModifier.FINAL));
     Item ciBase = Tarski.baseLookupJava(ci);
     if (ciBase != null) {
-      local_envitems.put(cls,ciBase);
+      locals.put(cls,ciBase);
       return (TypeItem)ciBase;
     }
-    local_envitems.put(cls,ci);
+    locals.put(cls,ci);
 
     // Base
     // TODO: Handle generics
     PsiClass scls = cls.getSuperClass();
     assert scls != null;
     // TODO: get actual type arguments for scls and make generic class
-    ClassType base = (ClassType) addClass(global_envitems, local_envitems, scls, false, false).raw();
+    ClassType base = (ClassType) addClass(globals, locals, scls, false, false).raw();
 
     // Interfaces
     ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
     for (PsiClass i : cls.getInterfaces()) {
       // TODO: Handle generics
-      j_interfaces.add(((ClassItem) addClass(global_envitems, local_envitems, i, false, false)).raw());
+      j_interfaces.add(((ClassItem) addClass(globals, locals, i, false, false)).raw());
     }
     scala.collection.immutable.List<ClassType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
 
@@ -232,48 +228,48 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     if (recurse) {
       for (PsiField f : cls.getFields()) {
         if (!isInaccessible(f, noProtected))
-          addField(global_envitems, local_envitems, f);
+          addField(globals, locals, f);
       }
       for (PsiMethod m : cls.getMethods()) {
         if (!isInaccessible(m, noProtected))
-          addMethod(global_envitems, local_envitems, m);
+          addMethod(globals, locals, m);
       }
       for (PsiMethod m : cls.getConstructors()) {
         if (!isInaccessible(m, noProtected))
-          addMethod(global_envitems, local_envitems, m);
+          addMethod(globals, locals, m);
       }
       for (PsiClass c : cls.getInnerClasses()) {
         if (!isInaccessible(c, noProtected))
-          addClass(global_envitems, local_envitems, c, true, noProtected);
+          addClass(globals, locals, c, true, noProtected);
       }
     }
 
     return ci;
   }
 
-  private CallableItem addMethod(Map<PsiElement,Item> global_envitems, Map<PsiElement,Item> local_envitems, PsiMethod method) {
-    if (global_envitems.containsKey(method))
-      return (CallableItem)global_envitems.get(method);
-    if (local_envitems.containsKey(method))
-      return (CallableItem)local_envitems.get(method);
+  private CallableItem addMethod(Map<PsiElement,Item> globals, Map<PsiElement,Item> locals, PsiMethod method) {
+    if (globals.containsKey(method))
+      return (CallableItem)globals.get(method);
+    if (locals.containsKey(method))
+      return (CallableItem)locals.get(method);
 
     // get type parameters
     List<TypeVar> jtparams = new ArrayList<TypeVar>();
     for (PsiTypeParameter tp : method.getTypeParameters()) {
-      jtparams.add(addTypeParam(global_envitems, local_envitems, tp));
+      jtparams.add(addTypeParam(globals, locals, tp));
     }
     scala.collection.immutable.List<TypeVar> tparams = scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
 
     // get argument types
     List<Type> jparams = new SmartList<Type>();
     for (PsiParameter p : method.getParameterList().getParameters())
-      jparams.add(convertType(global_envitems, local_envitems, p.getType()));
+      jparams.add(convertType(globals, locals, p.getType()));
     scala.collection.immutable.List<Type> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
     // get class
     PsiClass cls = method.getContainingClass();
     assert cls != null;
-    ClassItem clsitem = (ClassItem)addClass(global_envitems, local_envitems, cls, false, false);
+    ClassItem clsitem = (ClassItem)addClass(globals, locals, cls, false, false);
 
     CallableItem mitem;
     if (method.isConstructor()) {
@@ -284,7 +280,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         mitem = (ConstructorItem)base;
     } else {
       // TODO: varargs
-      Type rtype = convertType(global_envitems, local_envitems, method.getReturnType());
+      Type rtype = convertType(globals, locals, method.getReturnType());
 
       if (method.hasModifierProperty(PsiModifier.STATIC))
         mitem = new StaticMethodItem(method.getName(), clsitem, tparams, rtype, params);
@@ -292,25 +288,25 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         mitem = new MethodItem(method.getName(), clsitem, tparams, rtype, params);
     }
 
-    local_envitems.put(method, mitem);
+    locals.put(method, mitem);
     return mitem;
   }
 
-  private Type convertType(Map<PsiElement, Item> global_envitems, Map<PsiElement, Item> local_envitems, PsiType t) {
+  private Type convertType(Map<PsiElement, Item> globals, Map<PsiElement, Item> locals, PsiType t) {
     // TODO: Handle modifiers
     if (t instanceof PsiArrayType)
-      return new ArrayType(convertType(global_envitems, local_envitems, ((PsiArrayType)t).getComponentType()));
+      return new ArrayType(convertType(globals, locals, ((PsiArrayType)t).getComponentType()));
 
     if (t instanceof PsiWildcardType) {
       // TODO: need proper wildcard expressions
       PsiType bound = ((PsiWildcardType) t).getBound();
       if (bound != null)
-        return convertType(global_envitems, local_envitems, bound);
+        return convertType(globals, locals, bound);
       else
         return ObjectType$.MODULE$;
     }
 
-    // classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
+    // Classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
     if (t instanceof PsiClassType) {
       PsiClass tcls = ((PsiClassType)t).resolve();
       if (tcls == null) {
@@ -333,17 +329,17 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
         return new UnresolvedClassItem(name, qname.substring(qname.lastIndexOf('.')+1), args, isfinal).generic();
       } else if (tcls instanceof PsiTypeParameter) {
-        return addTypeParam(global_envitems, local_envitems, (PsiTypeParameter)tcls);
+        return addTypeParam(globals, locals, (PsiTypeParameter)tcls);
       } else {
         List<TypeArg> jparams = new SmartList<TypeArg>();
         for (PsiType tp : ((PsiClassType)t).getParameters()) {
-          jparams.add((TypeArg)convertType(global_envitems, local_envitems, tp));
+          jparams.add((TypeArg)convertType(globals, locals, tp));
         }
         scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
         //logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
 
-        ClassItem item = (ClassItem) addClass(global_envitems, local_envitems, tcls, false, false);
+        ClassItem item = (ClassItem) addClass(globals, locals, tcls, false, false);
 
         //logger.debug("  item: " + item + ": params " + item.tparams().mkString("[",",","]"));
 
@@ -353,7 +349,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           // This happens. For instance in java.lang.SecurityManager.getClassContext()
           return item.raw();
         } else {
-          Item container = addContainer(global_envitems, local_envitems, containing(tcls));
+          Item container = addContainer(globals, locals, containing(tcls));
           assert container instanceof ParentItem;
           return item.generic(params, ((ParentItem)container).inside());
         }
@@ -373,37 +369,37 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     throw new NotImplementedError("Unknown type: " + t.getCanonicalText() + " type " + t.getClass().getCanonicalName());
   }
 
-  private Value addField(Map<PsiElement,Item> global_envitems, Map<PsiElement,Item> local_envitems, PsiField f) {
-    if (global_envitems.containsKey(f))
-      return (Value)global_envitems.get(f);
-    if (local_envitems.containsKey(f))
-      return (Value)local_envitems.get(f);
+  private Value addField(Map<PsiElement,Item> globals, Map<PsiElement,Item> locals, PsiField f) {
+    if (globals.containsKey(f))
+      return (Value)globals.get(f);
+    if (locals.containsKey(f))
+      return (Value)locals.get(f);
 
     PsiClass cls = f.getContainingClass();
     assert cls != null;
-    Type t = convertType(global_envitems, local_envitems, f.getType());
-    ClassItem c = (ClassItem)addClass(global_envitems, local_envitems, cls, false, false);
+    Type t = convertType(globals, locals, f.getType());
+    ClassItem c = (ClassItem)addClass(globals, locals, cls, false, false);
     boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
     Value v =               f instanceof PsiEnumConstant ? new EnumConstantItem(f.getName(),c) :
               (f.hasModifierProperty(PsiModifier.STATIC) ? new StaticFieldItem(f.getName(),t,c,isFinal)
                                                          : new FieldItem(f.getName(),t,c,isFinal));
-    local_envitems.put(f, v);
+    locals.put(f, v);
     return v;
   }
 
-  private Map<PsiElement,Item> getGlobalEnvItems() {
-    if (global_envitems_ready) {
-      return global_envitems;
+  private Map<PsiElement,Item> getGlobals() {
+    if (globals_ready) {
+      return globals;
     } else {
 
-      synchronized (global_envitems_lock) {
+      synchronized (globals_lock) {
 
-        if (global_envitems == null) {
+        if (globals == null) {
           // get all classes from IntelliJ
-          global_envitems = new HashMap<PsiElement, Item>();
+          globals = new HashMap<PsiElement, Item>();
         }
 
-        logger.info("making global_envitems (" + global_envitems.size() + " items already there)");
+        logger.info("making globals (" + globals.size() + " items already there)");
 
         PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
         String[] classnames = cache.getAllClassNames();
@@ -418,21 +414,21 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
           for (PsiClass cls : cache.getClassesByName(name, scope))
             if (!isInaccessible(cls, true))
-              addClass(fake_globals, global_envitems, cls, true, true);
+              addClass(fake_globals, globals, cls, true, true);
         }
 
-        logger.info("making global_env with " + global_envitems.size() + " items.");
+        logger.info("making global_env with " + globals.size() + " items.");
 
         // update global_env
-        global_env = Tarski.environment(global_envitems.values());
+        global_env = Tarski.environment(globals.values());
 
         logger.info("global_env ready.");
 
-        global_envitems_ready = true;
+        globals_ready = true;
 
       }
 
-      return global_envitems;
+      return globals;
     }
   }
 
@@ -441,8 +437,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
    */
   public Env getJavaEnvironment() {
 
-    Map<PsiElement, Item> global_envitems = getGlobalEnvItems();
-    Map<PsiElement, Item> local_envitems = new HashMap<PsiElement, Item>();
+    Map<PsiElement, Item> globals = getGlobals();
+    Map<PsiElement, Item> locals = new HashMap<PsiElement, Item>();
     Map<Item, Integer> scopeItems = new HashMap<Item, Integer>();
 
     logger.info("adding local items...");
@@ -450,7 +446,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // register locally visible items (each item will register things it contains, inherits from, etc.)
     for (ShadowElement<PsiPackage> spkg : packages) {
       final PsiPackage pkg = spkg.e;
-      Item ipkg = addContainer(global_envitems, local_envitems, pkg);
+      Item ipkg = addContainer(globals, locals, pkg);
       scopeItems.put(ipkg,spkg.shadowingPriority);
     }
 
@@ -460,14 +456,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       final PsiClass cls = scls.e;
       // TODO: get type parameters etc
       // add private/protected stuff that's not already visible
-      Item icls = addClass(global_envitems, local_envitems, cls, true, false);
+      Item icls = addClass(globals, locals, cls, true, false);
       scopeItems.put(icls,scls.shadowingPriority);
     }
 
     // register methods (also register types used in this method)
     for (ShadowElement<PsiMethod> smethod : methods) {
       final PsiMethod method = smethod.e;
-      Item imethod = addMethod(global_envitems, local_envitems, method);
+      Item imethod = addMethod(globals, locals, method);
       scopeItems.put(imethod,smethod.shadowingPriority);
     }
 
@@ -475,12 +471,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiVariable> svar : variables) {
       final PsiVariable var = svar.e;
       if (var instanceof PsiField) {
-        Item ivar = addField(global_envitems, local_envitems, (PsiField) var);
+        Item ivar = addField(globals, locals, (PsiField) var);
         scopeItems.put(ivar,svar.shadowingPriority);
       } else {
-        assert !global_envitems.containsKey(var);
-        assert !local_envitems.containsKey(var);
-        Type t = convertType(global_envitems, local_envitems, var.getType());
+        assert !globals.containsKey(var);
+        assert !locals.containsKey(var);
+        Type t = convertType(globals, locals, var.getType());
         boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
         Item i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t,isFinal)
                : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t,isFinal)
@@ -488,16 +484,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (i == null)
           throw new scala.NotImplementedError("Unknown variable: " + var);
 
-        // actually add to envitems map
-        local_envitems.put(var, i);
+        // Actually add to locals
+        locals.put(var, i);
         scopeItems.put(i,svar.shadowingPriority);
       }
     }
 
-    logger.info("added " + local_envitems.size() + " local envitems");
+    logger.info("added " + locals.size() + " locals");
 
     List<Item> local_items = new ArrayList<Item>();
-    local_items.addAll(local_envitems.values());
+    local_items.addAll(locals.values());
 
     // find out which element we are inside (method, class or interface, or package)
     PlaceItem placeItem = null;
@@ -528,8 +524,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       // add special "this" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
-        assert local_envitems.containsKey(place) || global_envitems.containsKey(place);
-        ClassItem c = (ClassItem)addClass(global_envitems, local_envitems, (PsiClass)place, false, false);
+        assert locals.containsKey(place) || globals.containsKey(place);
+        ClassItem c = (ClassItem)addClass(globals, locals, (PsiClass)place, false, false);
         assert scopeItems.containsKey(c);
         int p = scopeItems.get(c);
         ThisItem ti = new ThisItem(c);
@@ -539,11 +535,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
-          assert global_envitems.containsKey(place) || local_envitems.containsKey(place);
-          if (global_envitems.containsKey(place))
-            placeItem = (PlaceItem)global_envitems.get(place);
-          else if (local_envitems.containsKey(place))
-            placeItem = (PlaceItem)local_envitems.get(place);
+          assert globals.containsKey(place) || locals.containsKey(place);
+          if (globals.containsKey(place))
+            placeItem = (PlaceItem)globals.get(place);
+          else if (locals.containsKey(place))
+            placeItem = (PlaceItem)locals.get(place);
         }
       } else if (place instanceof PsiJavaFile) {
         PsiPackage pkg = getPackage((PsiJavaFile)place);
@@ -553,8 +549,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
             placeItem = Tarski.localPkg();
         } else {
           if (placeItem == null) {
-            assert local_envitems.containsKey(pkg) || global_envitems.containsKey(pkg);
-            placeItem = (PlaceItem)addContainer(global_envitems, local_envitems, pkg);
+            assert locals.containsKey(pkg) || globals.containsKey(pkg);
+            placeItem = (PlaceItem)addContainer(globals, locals, pkg);
           }
         }
         break;

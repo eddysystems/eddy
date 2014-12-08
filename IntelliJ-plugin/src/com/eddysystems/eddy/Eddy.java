@@ -51,7 +51,7 @@ public class Eddy {
   }
 
   public boolean ready() {
-    return EnvironmentProcessor.global_envitems_ready;
+    return EnvironmentProcessor.globals_ready;
   }
 
   // applies a result by modifying the psifile
