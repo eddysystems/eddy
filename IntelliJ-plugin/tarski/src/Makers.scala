@@ -26,18 +26,16 @@ object Makers {
 
   case class TypeVarMaker(name: Name) extends TypeVar {
     // To be filled in later
-    private var _base: ClassType = null
-    private var _implements: List[ClassType] = null
+    private var _supers: List[ClassType] = null
 
     // Public interface
-    override def supers = { assert(_base != null); _base :: _implements }
+    override def supers = { assert(_supers != null); _supers }
     def lo = NullType
     def hi = glb(supers)
 
-    def set(base: ClassType, implements: List[ClassType]): Unit = {
-      assert(_base eq null)
-      _base = base
-      _implements = implements
+    def set(supers: List[ClassType]): Unit = {
+      assert(_supers eq null)
+      _supers = if (supers.isEmpty) List(ObjectType) else supers
     }
   }
 }

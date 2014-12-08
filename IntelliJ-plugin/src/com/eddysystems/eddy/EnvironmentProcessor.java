@@ -169,11 +169,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       etypes.add((ClassType)convertType(global_envitems, local_envitems, e));
     }
 
-    if (etypes.isEmpty())
-      ti.set(ObjectType$.MODULE$, JavaConversions.asScalaBuffer(etypes).toList());
-    else
-      ti.set(etypes.get(0), JavaConversions.asScalaBuffer(etypes.subList(1,etypes.size())).toList());
-
+    ti.set(JavaConversions.asScalaBuffer(etypes).toList());
     return ti;
   }
 
