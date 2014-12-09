@@ -229,7 +229,7 @@ object Types {
     def safe = Some(this)
     def simple = this
     def inside = this
-    def raw: TypeVar = throw new RuntimeException("should never happen")
+    def raw: TypeVar = this
     def qualifiedName: Option[String] = None
   }
   case class IntersectType(ts: Set[RefType]) extends RefType {
@@ -480,7 +480,7 @@ object Types {
     case t:RefType => supers(t)
     case _ => Set()
   }
-  def supers(t: RefTypeItem): Set[RefTypeItem] = {
+  def superItems(t: RefTypeItem): Set[RefTypeItem] = {
     def loop(ss: Set[RefTypeItem], t: RefTypeItem): Set[RefTypeItem] = {
       if (ss contains t) ss
       else t.superItems.foldLeft(ss+t)(loop)

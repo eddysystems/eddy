@@ -25,7 +25,7 @@ object Environment {
     def add(s: TypeItem, v: Value) = m(s) = v::m.getOrElse(s,Nil)
     vs foreach {
       case v:Value => v.item match {
-        case i:RefTypeItem => supers(i) foreach (s => if (s != ObjectItem) add(s,v))
+        case i:RefTypeItem => superItems(i) foreach (s => if (s != ObjectItem) add(s,v))
         case i:LangTypeItem => add(i,v)
       }
       case _ => ()
@@ -212,11 +212,12 @@ object Environment {
     i.parent match {
       case c: RefTypeItem => {
         assert(isSubitem(t,c))
-        t.item match {
-          case t if c == t => false
-          case t: ClassItem => declaresName(t, i.name) || shadowedInSubType(i, t.base)
+        def loop(t: RefTypeItem): Boolean = t match {
+          case _ if c == t => false
+          case t:ClassItem => declaresName(t,i.name) || t.superItems.exists(s => isSubitem(s,c) && loop(s))
           case _ => false
         }
+        loop(t.item)
       }
       case _:PackageItem => false // member of package, no subtypes of packages, we're safe
       case v: Value => throw new RuntimeException(s"container of $i cannot be a value: $v")

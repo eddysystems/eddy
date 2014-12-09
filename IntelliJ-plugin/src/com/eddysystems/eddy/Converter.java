@@ -184,9 +184,9 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
+    public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public Some safe() { return new Some<RefType>(this); }
-    public TypeVar raw() { throw new NotImplementedError("Should never happen"); }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
@@ -284,6 +284,7 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
+    public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
@@ -373,6 +374,7 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
+    public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
     public Option<Parent> safe() { return new Some<Parent>(this); }
@@ -426,6 +428,7 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
+    public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
     public Option<Parent> safe() { return new Some<Parent>(this); }
@@ -487,6 +490,7 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
+    public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
@@ -522,6 +526,7 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
+    public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
