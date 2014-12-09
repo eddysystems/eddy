@@ -184,7 +184,7 @@ object Environment {
     uniform(Pr.objectOfItem, env.itemMap.getOrElse(t,Nil), s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
-  def memberIn(f: Item, t: Type): Boolean = f match {
+  def memberIn(f: Item, t: TypeItem): Boolean = f match {
     case f: Member => f.parent match {
       case p:ClassItem => isSubitem(t,p)
       case _ => false
@@ -208,7 +208,7 @@ object Environment {
     env.exactQuery(name) exists { case Alt(_,f: Member) if f.parent == i => true; case _ => false }
   }
 
-  def shadowedInSubType(i: Member, t: RefType)(implicit env: Env): Boolean = {
+  def shadowedInSubType(i: Member, t: RefTypeItem)(implicit env: Env): Boolean = {
     i.parent match {
       case c: RefTypeItem => {
         assert(isSubitem(t,c))
@@ -217,7 +217,7 @@ object Environment {
           case t:ClassItem => declaresName(t,i.name) || t.superItems.exists(s => isSubitem(s,c) && loop(s))
           case _ => false
         }
-        loop(t.item)
+        loop(t)
       }
       case _:PackageItem => false // member of package, no subtypes of packages, we're safe
       case v: Value => throw new RuntimeException(s"container of $i cannot be a value: $v")
@@ -226,21 +226,21 @@ object Environment {
   }
 
   // What could this be, assuming it's a callable field of the given type?
-  def callableFieldScores(t: Type, name: String)(implicit env: Env): Scored[CallableItem] =
+  def callableFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[CallableItem] =
     env.combinedQuery(name, Pr.exactCallableField, { case f:CallableItem if memberIn(f,t) => f }, s"Type ${show(t)} has no callable field $name")
 
   // What could this name be, assuming it is a member of the given type?
-  def fieldScores(t: Type, name: String)(implicit env: Env): Scored[Value with Member] =
+  def fieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[Value with Member] =
     env.combinedQuery(name, Pr.exactField, { case f: Value with Member if memberIn(f,t) => f }, s"Type ${show(t)} has no field $name")
 
   // what could this be, assuming it's a static member of the given type?
-  def staticFieldScores(t: Type, name: String)(implicit env: Env): Scored[StaticValue with Member] =
+  def staticFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[StaticValue with Member] =
     env.combinedQuery(name, Pr.exactStaticField, { case f:StaticFieldItem if memberIn(f,t) => f case f: EnumConstantItem if memberIn(f,t) => f },
                       s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?
   def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =
-    env.combinedQuery(name, Pr.exactTypeField, { case f: TypeItem if memberIn(f,t) => typeIn(f,t) }, s"Type ${show(t)} has no type field $name")
+    env.combinedQuery(name, Pr.exactTypeField, { case f: TypeItem if memberIn(f,t.item) => typeIn(f,t) }, s"Type ${show(t)} has no type field $name")
 
   // The return type of our ambient function
   def returnType(implicit env: Env): Scored[Type] = {

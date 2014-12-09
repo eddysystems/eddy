@@ -128,7 +128,7 @@ object Semantics {
       }
 
       objs flatMap { xd => {
-        if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
+        if (shadowedInSubType(i,itemOf(xd).asInstanceOf[RefTypeItem])) {
           xd match {
             case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(combine(SuperExp(tt),i), superFieldProb(objs, c, i))
             case _ => single(combine(CastExp(c.raw,xd),i), shadowedFieldProb(objs, xd,c,i))
@@ -166,12 +166,12 @@ object Semantics {
     // x is either a type or an expression, f is a method, static method, or constructor
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // first, the ones where x is a type
-      val tdens = denoteType(x) flatMap (t => callableFieldScores(t,f) flatMap {
+      val tdens = denoteType(x) flatMap (t => callableFieldScores(t.item,f) flatMap {
         case f:MethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
         case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
         case f:ConstructorItem => single(NewDen(f), Pr.constructorFieldCallable)
       })
-      val edens = denoteExp(x) flatMap (x => liftAbove(callableFieldScores(typeOf(x),f)) flatMap {
+      val edens = denoteExp(x) flatMap (x => liftAbove(callableFieldScores(itemOf(x),f)) flatMap {
         case f:MethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
         case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
         case f:ConstructorItem => discard(x)(single(NewDen(f),Pr.constructorFieldCallableWithObject))
@@ -206,12 +206,12 @@ object Semantics {
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // First, the ones where x is a type
       // TODO: penalize unnecessarily qualified field expressions?
-      val tdens = denoteType(x) flatMap (t => staticFieldScores(t,f) flatMap {
+      val tdens = denoteType(x) flatMap (t => staticFieldScores(t.item,f) flatMap {
         case f: EnumConstantItem => single(EnumConstantExp(None,f), Pr.enumFieldExp)
         case f: StaticFieldItem => single(StaticFieldExp(None,f), Pr.staticFieldExp)
       })
       // Now, x is an expression
-      val edens = denoteExp(x) flatMap (x => fieldScores(typeOf(x),f) flatMap {
+      val edens = denoteExp(x) flatMap (x => fieldScores(itemOf(x),f) flatMap {
         case f: EnumConstantItem => single(EnumConstantExp(Some(x),f), Pr.enumFieldExpWithObject)
         case f: StaticFieldItem => single(StaticFieldExp(Some(x),f), Pr.staticFieldExpWithObject)
         case f: FieldItem => single(FieldExp(x,f), Pr.fieldExp)

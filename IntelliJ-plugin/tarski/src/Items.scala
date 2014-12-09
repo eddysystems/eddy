@@ -32,9 +32,9 @@ object Items {
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
   case class NormalTypeVar(name: String, base: RefType, interfaces: List[ClassType]) extends TypeVar {
     override def supers = base :: interfaces
-    def superItems = supers map (_.item)
+    val superItems = supers map (_.item)
     def lo = NullType
-    def hi = glb(supers)
+    val hi = glb(supers)
   }
   case class SimpleTypeVar(name: String) extends TypeVar {
     def superItems = List(ObjectItem)

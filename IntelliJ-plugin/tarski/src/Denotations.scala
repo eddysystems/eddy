@@ -3,6 +3,7 @@ package tarski
 import tarski.Operators._
 import tarski.Items._
 import tarski.Types._
+import tarski.Base._
 import ambiguity.Utility._
 
 object Denotations {
@@ -86,6 +87,48 @@ object Denotations {
   case class CondExp(c: Exp, t: Exp, f: Exp, r: Type) extends Exp
   case class ArrayExp(t: Type, i: List[Exp]) extends StmtExp // t is the inner type
   case class EmptyArrayExp(t: Type, i: List[Exp]) extends StmtExp // new t[i]
+
+  def itemOf(d: Exp): TypeItem = d match {
+    // Literals
+    case ByteLit(_,_) => ubByteItem
+    case ShortLit(_,_) => ubShortItem
+    case IntLit(_,_) => ubIntItem
+    case LongLit(_,_) => ubLongItem
+    case BooleanLit(_) => ubBooleanItem
+    case StringLit(_,_) => StringItem
+    case FloatLit(_,_) => ubFloatItem
+    case DoubleLit(_,_) => ubDoubleItem
+    case CharLit(_,_) => ubCharItem
+    case NullLit => NullType.item
+    // Names
+    case ParameterExp(i) => i.item
+    case LocalVariableExp(i) => i.item
+    case EnumConstantExp(_,i) => i.item
+    case ThisExp(t) => t.item
+    case SuperExp(t) => t.self.base.item
+    case CastExp(t,_) => t.item
+    case e:UnaryExp => (unaryType(e.op,typeOf(e.e)) getOrElse (throw new RuntimeException("type error"))).item
+    case BinaryExp(op,x,y) => (binaryType(op,typeOf(x),typeOf(y)) getOrElse (throw new RuntimeException("type error"))).item
+    case AssignExp(op,left,right) => itemOf(left)
+    case ParenExp(e) => itemOf(e)
+    case ApplyExp(f,ts,_) => f match {
+      case MethodDen(_,f)       => f.retVal.item
+      case LocalMethodDen(f)    => f.retVal.item
+      case StaticMethodDen(_,f) => f.retVal.item
+      case NewDen(c) => c.parent
+      case ForwardDen(_) => VoidItem
+    }
+    case FieldExp(x,f) => f.item
+    case LocalFieldExp(f) => f.item
+    case StaticFieldExp(_,f) => f.item
+    case IndexExp(e,i) => typeOf(e) match {
+      case ArrayType(t) => t.item
+      case _ => throw new RuntimeException("type error")
+    }
+    case CondExp(_,_,_,r) => r.item
+    // Arrays
+    case _:ArrayExp|_:EmptyArrayExp => ArrayItem
+  }
 
   def typeOf(d: Exp): Type = d match {
     // Literals

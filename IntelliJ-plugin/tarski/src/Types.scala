@@ -319,15 +319,14 @@ object Types {
   // Is lo a subtype (or subitem) of hi?
   def isSubtype(lo: Type, hi: Type): Boolean = lo==hi || (lo==NullType || lo.supers.exists(isSubtype(_,hi)))
   def isProperSubtype(lo: Type, hi: Type): Boolean = lo!=hi && (lo==NullType || lo.supers.exists(isSubtype(_,hi)))
-  def isSubitem(lo: Type, hi: TypeItem): Boolean = isSubitem(lo.item,hi)
-  def isSubitem(lo: TypeItem, hi: TypeItem): Boolean = lo==hi || lo.supers.exists(isSubitem(_,hi))
+  def isSubitem(lo: TypeItem, hi: TypeItem): Boolean = lo==hi || lo.superItems.exists(isSubitem(_,hi))
 
   // If lo <: hi, find the superclass of lo matching hi
   def subItemType(lo: Type, hi: ClassItem): Option[ClassType] =
     collectOne(supers(lo)){ case t:ClassType if t.item==hi => t }
 
   // Is a type throwable?
-  def isThrowable(t: Type): Boolean = isSubitem(t,ThrowableItem)
+  def isThrowable(t: Type): Boolean = isSubitem(t.item,ThrowableItem)
 
   // Is a type iterable or an array?  If so, what does it contain?
   def isIterable(i: Type): Option[Type] = i match {
