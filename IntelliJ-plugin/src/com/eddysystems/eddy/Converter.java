@@ -148,6 +148,7 @@ public class Converter {
 
     // Lazy field
     private RefType _hi;
+    private scala.collection.immutable.List<RefTypeItem> _superItems;
 
     LazyTypeVar(Converter env, PsiTypeParameter p) {
       this.env = env;
@@ -170,6 +171,16 @@ public class Converter {
         _hi = tarski.Types.glb(JavaConversions.asScalaBuffer(supers).toList());
       }
       return _hi;
+    }
+
+    public scala.collection.immutable.List<RefTypeItem> superItems() {
+      if (_superItems == null) {
+        List<RefTypeItem> supers = new SmartList<RefTypeItem>();
+        for (PsiClass c : p.getSupers())
+          supers.add(env.addClass(c,false,false));
+        _superItems = JavaConversions.asScalaBuffer(supers).toList();
+      }
+      return _superItems;
     }
 
     // Necessary only due to screwy Java/Scala interop
@@ -202,6 +213,7 @@ public class Converter {
     private scala.collection.immutable.List<TypeVar> _tparams;
     private ClassType _base;
     private scala.collection.immutable.List<RefType> _supers;
+    private scala.collection.immutable.List<RefTypeItem> _superItems;
 
     LazyClass(Converter env, PsiClass cls, ParentItem parent) {
       this.env = env;
@@ -262,17 +274,27 @@ public class Converter {
       return _supers;
     }
 
+    public scala.collection.immutable.List<RefTypeItem> superItems() {
+      if (_superItems == null) {
+        ArrayList<RefTypeItem> all = new ArrayList<RefTypeItem>();
+        for (PsiClass s : cls.getSupers())
+          all.add(env.addClass(s,false,false));
+        _superItems = JavaConversions.asScalaBuffer(all).toList();
+      }
+      return _superItems;
+    }
+
     // Necessary only due to screwy Java/Scala interop
     public boolean canEqual(Object x) { return this == x; }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
-  TypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
+  RefTypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
     {
       Item i = lookup(cls);
       if (i != null)
-        return (TypeItem)i;
+        return (RefTypeItem)i;
     }
     if (cls instanceof PsiTypeParameter)
       return addTypeParam((PsiTypeParameter)cls);
@@ -281,7 +303,7 @@ public class Converter {
     Item ciBase = tarski.Tarski.baseLookupJava(cls.getQualifiedName());
     if (ciBase != null) {
       locals.put(cls,ciBase);
-      return (TypeItem)ciBase;
+      return (RefTypeItem)ciBase;
     }
 
     // Make and add the class

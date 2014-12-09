@@ -345,6 +345,7 @@ object Types {
   def capture(t: GenericParent, base: Tenv): (Tenv,List[RefType]) = {
     // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
     case class FreshVar(name: Name) extends TypeVar {
+      def superItems = throw new RuntimeException("Should never happen")
       var lo: RefType = null
       var hi: RefType = null
     }
@@ -480,12 +481,11 @@ object Types {
     case _ => Set()
   }
   def supers(t: RefTypeItem): Set[RefTypeItem] = {
-    def loop(ss: Set[RefTypeItem], t: RefType): Set[RefTypeItem] = {
-      val i = t.item
-      if (ss contains i) ss
-      else t.supers.foldLeft(ss+i)(loop)
+    def loop(ss: Set[RefTypeItem], t: RefTypeItem): Set[RefTypeItem] = {
+      if (ss contains t) ss
+      else t.superItems.foldLeft(ss+t)(loop)
     }
-    t.supers.foldLeft(Set(t))(loop)
+    t.superItems.foldLeft(Set(t))(loop)
   }
 
   // Least upper bounds: 4.10.4

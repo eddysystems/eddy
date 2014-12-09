@@ -32,10 +32,12 @@ object Items {
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
   case class NormalTypeVar(name: String, base: RefType, interfaces: List[ClassType]) extends TypeVar {
     override def supers = base :: interfaces
+    def superItems = supers map (_.item)
     def lo = NullType
     def hi = glb(supers)
   }
   case class SimpleTypeVar(name: String) extends TypeVar {
+    def superItems = List(ObjectItem)
     def lo = NullType
     def hi = ObjectType
   }
@@ -54,6 +56,7 @@ object Items {
   // Types
   sealed trait TypeItem extends Item {
     def supers: List[RefType]
+    def superItems: List[RefTypeItem] // supers map (_.item), but faster
     def inside: Type
     def raw: Type
     def simple: Type
@@ -62,6 +65,7 @@ object Items {
     def name = show(pretty(t))
     def qualifiedName = Some(name)
     def supers = Nil
+    def superItems = Nil
     def inside = t
     def raw = t
     def simple = t
@@ -128,9 +132,9 @@ object Items {
     def isEnum = false
     def isFinal = false
     def tparams = Nil
-    override def base = throw new RuntimeException("Object has no base")
-    def interfaces = Nil
-    override def supers = Nil
+    def base = throw new RuntimeException("Object has no base")
+    def supers = Nil
+    def superItems = Nil
     override val inside = ObjectType
     override def simple = ObjectType
     override def raw = ObjectType
@@ -145,6 +149,7 @@ object Items {
                                  interfaces: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
     def supers = base :: interfaces
+    def superItems = supers map (_.item)
     def isClass = false
     def isEnum = false
     def isFinal = false
@@ -154,6 +159,7 @@ object Items {
                              base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
                              isFinal: Boolean = false) extends ClassItem {
     def supers = base :: interfaces
+    def superItems = supers map (_.item)
     def isClass = true
     def isEnum = false
   }
@@ -164,18 +170,10 @@ object Items {
     val parent = PackageItem(pkgName, pkgName)
     def base = ObjectType
     def supers = List(base)
+    def superItems = List(ObjectItem)
     lazy val tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
 
     def generic: ClassType = generic(args, parent)
-  }
-
-  case class EnumItem(name: Name, parent: ParentItem, interfaces: List[ClassType]) extends ClassItem {
-    def isClass = true
-    def isEnum = true
-    def isFinal = true
-    def tparams = Nil
-    def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
-    def supers = base :: interfaces
   }
 
   case object ArrayItem extends RefTypeItem {
@@ -184,7 +182,8 @@ object Items {
     def parent = JavaLangPkg
     private def error = throw new RuntimeException("Array<T> is special: T can be primitive, and is covariant")
     def tparams = error
-    val supers = List(SerializableItem.simple,CloneableItem.simple)
+    val superItems = List(SerializableItem,CloneableItem)
+    val supers = superItems map (_.simple)
     def inside = error
     def raw = error
     def simple = error
@@ -194,6 +193,7 @@ object Items {
     def name = "NoTypeItem"
     override def qualifiedName = None
     def supers = Nil
+    def superItems = Nil
     private def error = throw new RuntimeException("NoTypeItem shouldn't be touched")
     def inside = error
     def raw = error
