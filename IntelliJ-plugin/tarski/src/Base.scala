@@ -33,6 +33,7 @@ object Base {
     def tparams = List(E)
     def base = ObjectType
     def supers = List(base,SerializableType,comparable(E))
+    def superItems = List(ObjectItem,SerializableItem,ComparableItem)
   }
 
   // Simple classes
@@ -44,6 +45,7 @@ object Base {
     def isEnum = false
     def interfaces: List[ClassType]
     def supers = base :: interfaces
+    lazy val superItems = supers map (_.item)
   }
 
   // Throwable
@@ -64,6 +66,7 @@ object Base {
     def parent = JavaLangPkg
     def tparams = List(T)
     def supers = List(base)
+    def superItems = List(ObjectItem)
     def isFinal = false
   }
 

@@ -148,6 +148,7 @@ public class Converter {
 
     // Lazy field
     private RefType _hi;
+    private scala.collection.immutable.List<RefTypeItem> _superItems;
 
     LazyTypeVar(Converter env, PsiTypeParameter p) {
       this.env = env;
@@ -170,6 +171,16 @@ public class Converter {
         _hi = tarski.Types.glb(JavaConversions.asScalaBuffer(supers).toList());
       }
       return _hi;
+    }
+
+    public scala.collection.immutable.List<RefTypeItem> superItems() {
+      if (_superItems == null) {
+        List<RefTypeItem> supers = new SmartList<RefTypeItem>();
+        for (PsiClass c : p.getSupers())
+          supers.add(env.addClass(c,false,false));
+        _superItems = JavaConversions.asScalaBuffer(supers).toList();
+      }
+      return _superItems;
     }
 
     // Necessary only due to screwy Java/Scala interop
@@ -202,6 +213,7 @@ public class Converter {
     private scala.collection.immutable.List<TypeVar> _tparams;
     private ClassType _base;
     private scala.collection.immutable.List<RefType> _supers;
+    private scala.collection.immutable.List<RefTypeItem> _superItems;
 
     LazyClass(Converter env, PsiClass cls, ParentItem parent) {
       this.env = env;
@@ -245,21 +257,30 @@ public class Converter {
     public scala.collection.immutable.List<RefType> supers() {
       if (_supers == null) {
         PsiClass base = cls.getSuperClass();
-        ArrayList<ClassType> interfaces = new ArrayList<ClassType>();
-        ArrayList<RefType> all = new ArrayList<RefType>();
+        ArrayList<RefType> supers = new ArrayList<RefType>();
         for (PsiClassType stype : cls.getSuperTypes()) {
           ClassType sc = (ClassType)env.convertType(stype);
           PsiClass stypeClass = stype.resolve();
           if (base == stypeClass)
             _base = sc;
-          all.add(sc);
+          supers.add(sc);
         }
         if (_base == null) {
           _base = ((ClassItem)env.addClass(base,false,false)).inside();
         }
-        _supers = JavaConversions.asScalaBuffer(all).toList();
+        _supers = JavaConversions.asScalaBuffer(supers).toList();
       }
       return _supers;
+    }
+
+    public scala.collection.immutable.List<RefTypeItem> superItems() {
+      if (_superItems == null) {
+        ArrayList<RefTypeItem> supers = new ArrayList<RefTypeItem>();
+        for (PsiClass s : cls.getSupers())
+          supers.add(env.addClass(s, false, false));
+        _superItems = JavaConversions.asScalaBuffer(supers).toList();
+      }
+      return _superItems;
     }
 
     // Necessary only due to screwy Java/Scala interop
@@ -268,11 +289,11 @@ public class Converter {
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
-  TypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
+  RefTypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
     {
       Item i = lookup(cls);
       if (i != null)
-        return (TypeItem)i;
+        return (RefTypeItem)i;
     }
     if (cls instanceof PsiTypeParameter)
       return addTypeParam((PsiTypeParameter)cls);
