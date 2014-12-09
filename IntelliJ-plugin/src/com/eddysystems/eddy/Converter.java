@@ -257,29 +257,28 @@ public class Converter {
     public scala.collection.immutable.List<RefType> supers() {
       if (_supers == null) {
         PsiClass base = cls.getSuperClass();
-        ArrayList<ClassType> interfaces = new ArrayList<ClassType>();
-        ArrayList<RefType> all = new ArrayList<RefType>();
+        ArrayList<RefType> supers = new ArrayList<RefType>();
         for (PsiClassType stype : cls.getSuperTypes()) {
           ClassType sc = (ClassType)env.convertType(stype);
           PsiClass stypeClass = stype.resolve();
           if (base == stypeClass)
             _base = sc;
-          all.add(sc);
+          supers.add(sc);
         }
         if (_base == null) {
           _base = ((ClassItem)env.addClass(base,false,false)).inside();
         }
-        _supers = JavaConversions.asScalaBuffer(all).toList();
+        _supers = JavaConversions.asScalaBuffer(supers).toList();
       }
       return _supers;
     }
 
     public scala.collection.immutable.List<RefTypeItem> superItems() {
       if (_superItems == null) {
-        ArrayList<RefTypeItem> all = new ArrayList<RefTypeItem>();
+        ArrayList<RefTypeItem> supers = new ArrayList<RefTypeItem>();
         for (PsiClass s : cls.getSupers())
-          all.add(env.addClass(s,false,false));
-        _superItems = JavaConversions.asScalaBuffer(all).toList();
+          supers.add(env.addClass(s, false, false));
+        _superItems = JavaConversions.asScalaBuffer(supers).toList();
       }
       return _superItems;
     }
