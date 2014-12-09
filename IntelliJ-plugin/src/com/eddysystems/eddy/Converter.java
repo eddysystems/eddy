@@ -250,15 +250,12 @@ public class Converter {
         for (PsiClassType stype : cls.getSuperTypes()) {
           ClassType sc = (ClassType)env.convertType(stype);
           PsiClass stypeClass = stype.resolve();
-          assert stypeClass != null;
           if (base == stypeClass)
             _base = sc;
           all.add(sc);
         }
         if (_base == null) {
-          // Psi Interfaces don't have Object in their supers list, but we want it as base.
-          assert cls.isInterface();
-          _base = ObjectType$.MODULE$;
+          _base = ((ClassItem)env.addClass(base,false,false)).inside();
         }
         _supers = JavaConversions.asScalaBuffer(all).toList();
       }
