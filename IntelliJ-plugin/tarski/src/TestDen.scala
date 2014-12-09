@@ -124,7 +124,7 @@ class TestDen {
   @Test
   def arrayLiteral(): Unit = {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val f = StaticMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)))
+    val f = NormalMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)),true)
     implicit val env = new Env(List(Main,f), Map((Main,2),(f,2)), f)
     testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(None,f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
@@ -180,7 +180,7 @@ class TestDen {
   @Test
   def mapExp(): Unit = {
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val f = StaticMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)))
+    val f = NormalMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)),true)
     val x = LocalVariableItem("x",ArrayType(DoubleType),true)
     val y = LocalVariableItem("y",ArrayType(DoubleType),false)
     implicit val env = new Env(List(main,f,x,y), Map((main,2),(f,2),(x,1),(y,1)), f)
@@ -198,7 +198,7 @@ class TestDen {
   def genericConsObject(): Unit = {
     val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(T))
-    val AC = ConstructorItem(A,Nil,List(T))
+    val AC = NormalConstructorItem(A,Nil,List(T))
     implicit val env = localEnvWithBase().addObjects(List(A,AC),Map((A,3),(AC,3)))
     testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
       (x,ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
@@ -240,12 +240,12 @@ class TestDen {
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
-    val Xf = FieldItem("f",Q.simple,X,true)
+    val Xf = NormalFieldItem("f",Q.simple,X,true)
     val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil)
-    val Yf = FieldItem("f",R.simple,Y,true)
+    val Yf = NormalFieldItem("f",R.simple,Y,true)
 
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
-    val m = MethodItem("m", Z, Nil, VoidType, List(Q.simple))
+    val m = NormalMethodItem("m", Z, Nil, VoidType, List(Q.simple), false)
     val y = LocalVariableItem("y",Y.simple,true)
     implicit val env = new Env(List(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
 
@@ -274,11 +274,11 @@ class TestDen {
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
-    val Xf = FieldItem("f",Q.simple,X,true)
+    val Xf = NormalFieldItem("f",Q.simple,X,true)
     val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil)
-    val Yf = FieldItem("f",R.simple,Y,true)
+    val Yf = NormalFieldItem("f",R.simple,Y,true)
 
-    val m = MethodItem("m", Y, Nil, VoidType, List(Q.simple))
+    val m = NormalMethodItem("m", Y, Nil, VoidType, List(Q.simple), false)
     val tY = ThisItem(Y)
     implicit val env = new Env(List(X,Y,Xf,Yf,m,tY), Map((tY,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
@@ -288,7 +288,7 @@ class TestDen {
   @Test
   def thisExp(): Unit = {
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
-    val Xx = FieldItem("x",IntType,X,false)
+    val Xx = NormalFieldItem("x",IntType,X,false)
     val x = LocalVariableItem("x",StringType,false)
     val t = ThisItem(X)
     implicit val env = new Env(List(X,Xx,x,t), Map((x,1),(X,2),(t,2),(Xx,2)))
@@ -376,8 +376,8 @@ class TestDen {
 
   @Test def sideEffects() = {
     val X = NormalClassItem("X",LocalPkg)
-    val cons = ConstructorItem(X,Nil,Nil)
-    val f = StaticMethodItem("f",X,Nil,VoidType,Nil)
+    val cons = NormalConstructorItem(X,Nil,Nil)
+    val f = NormalMethodItem("f",X,Nil,VoidType,Nil,true)
 
     implicit val env = new Env(List(X,cons,f),Map((f,2),(X,3)),f)
     // We are not allowed to discard the possible side effects in the X constructor.
@@ -386,7 +386,7 @@ class TestDen {
 
   @Test def sideEffectsCons() = {
     val X = NormalClassItem("X",LocalPkg)
-    val cons = ConstructorItem(X,Nil,Nil)
+    val cons = NormalConstructorItem(X,Nil,Nil)
     val Y = NormalClassItem("Y",X,Nil)
     implicit val env = localEnv(X,cons,Y)
     testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(cons),Nil,Nil)),VarStmt(Y,List((y,0,None)))))
@@ -417,7 +417,7 @@ class TestDen {
 
   @Test def shuffleArgs() = {
     val X = NormalClassItem("X", LocalPkg, Nil)
-    val f = StaticMethodItem("f", X, Nil, VoidType, List(X.simple, DoubleType, StringType, BooleanType))
+    val f = NormalMethodItem("f", X, Nil, VoidType, List(X.simple, DoubleType, StringType, BooleanType), true)
     val x = LocalVariableItem("x",X.simple,true)
     val d = LocalVariableItem("d",DoubleType,true)
     val s = LocalVariableItem("s",StringType,true)
@@ -429,12 +429,12 @@ class TestDen {
   @Test def omittedQualifier() = {
     val P = PackageItem("com.P", "com.P")
     val Z = NormalClassItem("Z", P, Nil)
-    val Zx = StaticFieldItem("x", BooleanType, Z, false)
+    val Zx = NormalStaticFieldItem("x", BooleanType, Z, false)
     val Y = NormalClassItem("Y", LocalPkg, Nil)
-    val Yx = StaticFieldItem("x", BooleanType, Y, false)
+    val Yx = NormalStaticFieldItem("x", BooleanType, Y, false)
     val X = NormalClassItem("X", LocalPkg, Nil)
-    val Xx = StaticFieldItem("x", BooleanType, X, false)
-    val f = StaticMethodItem("f", X, Nil, VoidType, Nil)
+    val Xx = NormalStaticFieldItem("x", BooleanType, X, false)
+    val f = NormalMethodItem("f", X, Nil, VoidType, Nil, true)
     val x = LocalVariableItem("x", BooleanType, false)
     implicit val env = new Env(List(P,Z,Zx,Y,Yx,X,Xx,f,x), Map((Y,3),(X,3),(Xx,2),(f,2),(x,1)),f)
     val fixes = fix(lex("x = true"))
@@ -459,7 +459,7 @@ class TestDen {
     val A = NormalClassItem("A",LocalPkg,List(T))
     val B = NormalClassItem("B",LocalPkg)
     val F = NormalClassItem("F",LocalPkg)
-    val f = StaticMethodItem("f",F,List(S),VoidType,List(S))
+    val f = NormalMethodItem("f",F,List(S),VoidType,List(S),true)
     for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
       val x = LocalVariableItem("x",A.generic(List(w)),true)
       implicit val env = localEnv(A,x,F,f)
@@ -470,8 +470,8 @@ class TestDen {
   // Mismatched parentheses
   @Test def mismatchedParens() = {
     val X = NormalClassItem("X",LocalPkg)
-    val cons = ConstructorItem(X,Nil,Nil)
-    val f = MethodItem("f",X,Nil,VoidType,Nil)
+    val cons = NormalConstructorItem(X,Nil,Nil)
+    val f = NormalMethodItem("f",X,Nil,VoidType,Nil,false)
     implicit val env = localEnv(X,cons,f)
     val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(cons),Nil,Nil)),f),Nil,Nil)
     testDen("((X()).f()",best)
@@ -480,7 +480,7 @@ class TestDen {
 
   @Test def omittedEmptyCallParens() = {
     val X = NormalClassItem("X",LocalPkg)
-    val f = MethodItem("f",X,Nil,VoidType,Nil)
+    val f = NormalMethodItem("f",X,Nil,VoidType,Nil,false)
     implicit val env = localEnv(X,f)
     testDen("f", ApplyExp(LocalMethodDen(f),Nil,Nil))
   }

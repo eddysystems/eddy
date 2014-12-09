@@ -102,12 +102,12 @@ object Types {
   }
   trait SimpleParent extends Parent { // Exists so that we can seal Parent
     def item: SimpleParentItem
-    def env = Map.empty
+    def env: Tenv = Map.empty
     def isRaw = false
     def isSimple = true
     def known(implicit env: Tenv) = true
     def substitute(implicit env: Tenv): this.type = this
-    def safe = Some(this)
+    def safe: Option[Parent] = Some(this)
     def raw = this
   }
 
@@ -124,8 +124,8 @@ object Types {
     def item: ClassItem
     def parent: Parent
     def base: ClassType = item.base.substitute(env)
-    def implements: List[ClassType] = item.implements map (_.substitute(env))
-    def supers = base :: implements
+    def interfaces: List[ClassType] = item.interfaces map (_.substitute(env))
+    def supers = base :: interfaces
     def isFinal = item.isFinal
     def substitute(implicit env: Tenv): ClassType
     def safe: Option[ClassType]
@@ -230,8 +230,8 @@ object Types {
     def safe = Some(this)
     def simple = this
     def inside = this
-    def raw = throw new RuntimeException("should never happen")
-    def qualifiedName = None
+    def raw: TypeVar = throw new RuntimeException("should never happen")
+    def qualifiedName: Option[String] = None
   }
   case class IntersectType(ts: Set[RefType]) extends RefType {
     def item = NoTypeItem
@@ -511,7 +511,7 @@ object Types {
   }
 
   // Greatest lower bounds: 5.1.10
-  def glb(xs: List[RefType]): RefType = xs match {
+  def glb[A <: RefType](xs: List[A]): RefType = xs match {
     case Nil => ObjectType
     case List(x) => x
     case xs => IntersectType(xs.toSet)

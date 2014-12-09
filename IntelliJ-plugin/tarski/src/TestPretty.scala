@@ -18,6 +18,6 @@ class TestPretty {
     assertEquals(s"$s -> ${show(tokens(x))}", lex(s).filterNot(isSpace), tokens(x))
 
   @Test def obj() = test("Object", ObjectType)
-  @Test def objMethod() = test("Object.f",StaticMethodItem("f",ObjectItem,Nil,VoidType,Nil))
-  @Test def clsMethod() = test("A.f",StaticMethodItem("f",NormalClassItem("A",LocalPkg,Nil),Nil,VoidType,Nil))
+  @Test def objMethod() = test("Object.f",NormalMethodItem("f",ObjectItem,Nil,VoidType,Nil,true))
+  @Test def clsMethod() = test("A.f",NormalMethodItem("f",NormalClassItem("A",LocalPkg,Nil),Nil,VoidType,Nil,true))
 }

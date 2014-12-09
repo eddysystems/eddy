@@ -30,8 +30,8 @@ object Items {
   }
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
-  case class NormalTypeVar(name: String, base: RefType, implements: List[ClassType]) extends TypeVar {
-    override def supers = base :: implements
+  case class NormalTypeVar(name: String, base: RefType, interfaces: List[ClassType]) extends TypeVar {
+    override def supers = base :: interfaces
     def lo = NullType
     def hi = glb(supers)
   }
@@ -80,8 +80,8 @@ object Items {
     def isEnum: Boolean // true only for descendants of Enum<E>
     def isFinal: Boolean
     def base: ClassType
-    def implements: List[ClassType]
-    def supers = base :: implements
+    def interfaces: List[ClassType]
+    def supers: List[RefType] = base :: interfaces
 
     // Can we unbox to a primitive type?
     def unbox: Option[PrimType] = None
@@ -130,7 +130,7 @@ object Items {
     def isFinal = false
     def tparams = Nil
     override def base = throw new RuntimeException("Object has no base")
-    def implements = Nil
+    def interfaces = Nil
     override def supers = Nil
     override val inside = ObjectType
     override def simple = ObjectType
@@ -143,7 +143,7 @@ object Items {
   }
 
   case class NormalInterfaceItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
-                                 implements: List[ClassType] = Nil) extends ClassItem {
+                                 interfaces: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
     def isClass = false
     def isEnum = false
@@ -151,7 +151,7 @@ object Items {
   }
 
   case class NormalClassItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
-                             base: ClassType = ObjectType, implements: List[ClassType] = Nil,
+                             base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
                              isFinal: Boolean = false) extends ClassItem {
     def isClass = true
     def isEnum = false
@@ -162,13 +162,13 @@ object Items {
     def isEnum = false
     val parent = PackageItem(pkgName, pkgName)
     def base = ObjectType
-    def implements = Nil
+    def interfaces = Nil
     lazy val tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
 
     def generic: ClassType = generic(args, parent)
   }
 
-  case class EnumItem(name: Name, parent: ParentItem, implements: List[ClassType]) extends ClassItem {
+  case class EnumItem(name: Name, parent: ParentItem, interfaces: List[ClassType]) extends ClassItem {
     def isClass = true
     def isEnum = true
     def isFinal = true
@@ -198,13 +198,16 @@ object Items {
     def simple = error
   }
 
+  // For Java usage
+  def memberQualifiedName(parent: PlaceItem, name: String) = parent.qualifiedName map {
+    case "" => name
+    case s => s + '.' + name
+  }
+
   trait Member extends Item {
     def name: Name
     def parent: PlaceItem // Could be a package
-    def qualifiedName = parent.qualifiedName map {
-      case "" => name
-      case s => s + '.' + name
-    }
+    def qualifiedName = memberQualifiedName(parent,name)
   }
   trait ClassMember extends Member {
     def parent: ClassItem
@@ -232,11 +235,11 @@ object Items {
     def inside = self.inside
     def isFinal = true
   }
-  case class FieldItem(name: Name, inside: Type, parent: ClassItem, isFinal: Boolean) extends Value with ClassMember {
+  abstract class FieldItem extends Value with ClassMember {
+    def inside: Type
     def item = inside.item
   }
-  case class StaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean)
-                             extends StaticValue with ClassMember
+  abstract class StaticFieldItem extends StaticValue with ClassMember
   case class ParameterItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
   case class LocalVariableItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
   case class EnumConstantItem(name: Name, parent: ClassItem) extends StaticValue with ClassMember {
@@ -246,20 +249,32 @@ object Items {
     def isFinal = true
   }
 
+  // Normal values
+  case class NormalFieldItem(name: Name, inside: Type, parent: ClassItem, isFinal: Boolean) extends FieldItem
+  case class NormalStaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean) extends StaticFieldItem
+
   // Callables
   sealed abstract class CallableItem extends Item with PlaceItem with GenericItem {
     def params: List[Type]
   }
   sealed trait CallableParentItem extends CallableItem with SimpleParentItem {
     def parent: ClassItem
-    def simple = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
+    def simple: Parent = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
   }
-  case class MethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
-                        params: List[Type]) extends CallableParentItem with ClassMember
-  case class StaticMethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
-                              params: List[Type]) extends CallableParentItem with ClassMember
-  case class ConstructorItem(parent: ClassItem, tparams: List[TypeVar], params: List[Type])
-    extends CallableParentItem with ClassMember {
+  abstract class SMethodItem extends CallableParentItem with ClassMember {
+    def retVal: Type
+    def isStatic: Boolean
+    //(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
+    //               params: List[Type])
+  }
+  abstract class ConstructorItem extends CallableParentItem with ClassMember {
+    // parent: ClassItem, tparams: List[TypeVar], params: List[Type]
     def name = parent.name
   }
+
+  // Normal callables
+  case class NormalMethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
+                              params: List[Type], isStatic: Boolean) extends SMethodItem
+  case class NormalConstructorItem(parent: ClassItem, tparams: List[TypeVar],
+                                   params: List[Type]) extends ConstructorItem
 }

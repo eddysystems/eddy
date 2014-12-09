@@ -49,12 +49,12 @@ object TestUtils {
     // Inside a function with a bunch of locals
   def localEnv(locals: Item*): Env = {
     val X = NormalClassItem("XX", LocalPkg)
-    val f = MethodItem("ff", X, Nil, VoidType, Nil)
+    val f = NormalMethodItem("ff", X, Nil, VoidType, Nil, false)
     new Env(List(f,X) ::: locals.toList, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
   }
   def localEnvWithBase(locals: Item*): Env = {
     val X = NormalClassItem("XX", LocalPkg)
-    val f = MethodItem("ff", X, Nil, VoidType, Nil)
+    val f = NormalMethodItem("ff", X, Nil, VoidType, Nil, false)
     baseEnv.addObjects(List(f,X) ::: locals.toList, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
            .move(f,inside_breakable=false,inside_continuable=false,Nil)
   }

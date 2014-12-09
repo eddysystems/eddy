@@ -12,18 +12,18 @@ import scala.collection.JavaConverters._
 
 object Tarski {
 
-  def environment(jvalues: java.util.Collection[Item]): Env =
-    Base.extraEnv.addObjects(jvalues.asScala,Map.empty)
+  def environment(jvalues: java.util.Collection[Item]): Env = {
+    val vs = jvalues.asScala.toArray // Copy because jvalues may change during addObjects due to lazy conversion
+    Base.extraEnv.addObjects(vs,Map.empty)
+  }
 
   def add_environment(env: Env, values: java.util.Collection[Item], inScope: java.util.Map[Item,Integer]): Env =
     env.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue))
 
   def localPkg(): PackageItem = Base.LocalPkg
 
-  def baseLookupJava(i: Item): Item = i.qualifiedName match {
-    case None => null
-    case Some(q) => Base.baseQualifiedNames.getOrElse(q,null)
-  }
+  def baseLookupJava(qualifiedName: String): Item =
+    Base.baseQualifiedNames.getOrElse(qualifiedName,null)
 
   def print(is: Iterable[Alt[Item]]): Unit = {
     is.foreach { case Alt(p,i) =>

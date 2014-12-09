@@ -106,8 +106,8 @@ object Environment {
         if (inScope.exists( { case (m: Member,_) => m.parent == place && m.name == name; case _ => false } ))
           fail(s"Invalid new field $name: a member with this name already exists.")
         else {
-          val x = if (isStatic) StaticFieldItem(name,t,c,isFinal)
-                  else                FieldItem(name,t,c,isFinal)
+          val x = if (isStatic) NormalStaticFieldItem(name,t,c,isFinal)
+                  else                NormalFieldItem(name,t,c,isFinal)
           val p = if (isStatic) Pr.newStaticField else Pr.newField
           single((addObjects(List(x),Map((x,0))),x),p)
         }
@@ -245,9 +245,8 @@ object Environment {
   def returnType(implicit env: Env): Scored[Type] = {
     def die(scope: String) = fail(s"Can't return from $scope scope")
     env.place match {
-      case m: MethodItem => single(m.retVal, Pr.certain)
-      case m: StaticMethodItem => single(m.retVal, Pr.certain)
-      case c: ConstructorItem => single(VoidType, Pr.certain)
+      case m:SMethodItem => single(m.retVal, Pr.certain)
+      case c:ConstructorItem => single(VoidType, Pr.certain)
       case _:PackageItem => die("package")
       case _:ClassItem => die("class or interface")
     }

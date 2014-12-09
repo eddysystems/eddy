@@ -124,9 +124,9 @@ object Pr {
   val localMethodCallable = passThrough
 
   // equivalent of fieldValue, shadowedFieldValue, superFieldValue for methods
-  def methodCallable(values: Scored[Exp], obj: Exp, f: MethodItem) = omitQualifier(values, obj, f)
-  def shadowedMethodCallable(values: Scored[Exp], obj: Exp, c: TypeItem, f: MethodItem) = methodCallable(values, obj, f)
-  def superMethodCallable(values: Scored[Exp], c: TypeItem, f: MethodItem) = Prob(.8)
+  def methodCallable(values: Scored[Exp], obj: Exp, f: SMethodItem) = omitQualifier(values, obj, f)
+  def shadowedMethodCallable(values: Scored[Exp], obj: Exp, c: TypeItem, f: SMethodItem) = methodCallable(values, obj, f)
+  def superMethodCallable(values: Scored[Exp], c: TypeItem, f: SMethodItem) = Prob(.8)
 
   val staticMethodCallable = passThrough
   val constructorCallable = passThrough

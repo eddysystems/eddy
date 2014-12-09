@@ -117,26 +117,30 @@ object Semantics {
                  (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
                   superFieldProb: (Scored[Exp],TypeItem,ItemKind) => Prob,
                   shadowedFieldProb: (Scored[Exp],Exp,TypeItem,ItemKind) => Prob,
-                  fieldProb: (Scored[Exp],Exp,ItemKind) => Prob)(implicit env: Env): Scored[FieldDen] = {
-    val c: TypeItem = i.parent
-    val objs = objectsOfItem(c) flatMap { x =>
-      if (containedIn(x,c)) fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
-      else denoteValue(x)
-    }
-
-    objs flatMap { xd => {
-      if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
-        xd match {
-          case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(combine(SuperExp(tt),i), superFieldProb(objs, c, i))
-          case _ => single(combine(CastExp(c.raw,xd),i), shadowedFieldProb(objs, xd,c,i))
-        }
-      } else {
-        single(combine(xd,i), fieldProb(objs, xd, i))
+                  fieldProb: (Scored[Exp],Exp,ItemKind) => Prob,
+                  depth: Int)(implicit env: Env): Scored[FieldDen] = {
+    if (depth >= 3) fail("Automatic field depth exceeded")
+    else {
+      val c: TypeItem = i.parent
+      val objs = objectsOfItem(c) flatMap { x =>
+        if (containedIn(x,c)) fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
+        else denoteValue(x,depth+1) // Increase depth to avoid infinite loops
       }
-    }}
+
+      objs flatMap { xd => {
+        if (shadowedInSubType(i, typeOf(xd).asInstanceOf[RefType])) {
+          xd match {
+            case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(combine(SuperExp(tt),i), superFieldProb(objs, c, i))
+            case _ => single(combine(CastExp(c.raw,xd),i), shadowedFieldProb(objs, xd,c,i))
+          }
+        } else {
+          single(combine(xd,i), fieldProb(objs, xd, i))
+        }
+      }}
+    }
   }
 
-  def denoteValue(i: Value)(implicit env: Env): Scored[Exp] = i match {
+  def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = i match {
     case i: ParameterItem if env.itemInScope(i) => single(ParameterExp(i), Pr.parameterValue)
     case i: LocalVariableItem if env.itemInScope(i) => single(LocalVariableExp(i), Pr.localValue)
 
@@ -146,15 +150,15 @@ object Semantics {
     case i: ThisItem => single(ThisExp(i), Pr.thisValue)
 
     case i: FieldItem if env.itemInScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
-    case i: FieldItem => denoteField(i, FieldExp, Pr.superFieldValue, Pr.shadowedFieldValue, Pr.fieldValue)
+    case i: FieldItem => denoteField(i, FieldExp, Pr.superFieldValue, Pr.shadowedFieldValue, Pr.fieldValue, depth)
     case _ => fail("Can't find a denotation for " + i + ", inaccessible")
   }
 
   def denoteCallable(e: AExp)(implicit env: Env): ScoredAbove[Callable] = e match {
     case NameAExp(n) => callableScores(n) flatMap {
-      case i: MethodItem if env.itemInScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
-      case i: MethodItem => denoteField(i, MethodDen, Pr.superMethodCallable, Pr.shadowedMethodCallable, Pr.methodCallable)
-      case i: StaticMethodItem => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
+      case i: SMethodItem if i.isStatic => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
+      case i: SMethodItem if env.itemInScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
+      case i: SMethodItem => denoteField(i, MethodDen, Pr.superMethodCallable, Pr.shadowedMethodCallable, Pr.methodCallable, 0)
       case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
     }
     case ParenAExp(x,_) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do
@@ -163,13 +167,13 @@ object Semantics {
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // first, the ones where x is a type
       val tdens = denoteType(x) flatMap (t => callableFieldScores(t,f) flatMap {
-        case f:StaticMethodItem => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
-        case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
+        case f:SMethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
+        case f:SMethodItem => fail(show(f)+" is not static, and is used without an object.")
         case f:ConstructorItem => single(NewDen(f), Pr.constructorFieldCallable)
       })
       val edens = denoteExp(x) flatMap (x => liftAbove(callableFieldScores(typeOf(x),f)) flatMap {
-        case f:StaticMethodItem => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
-        case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
+        case f:SMethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
+        case f:SMethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
         case f:ConstructorItem => discard(x)(single(NewDen(f),Pr.constructorFieldCallableWithObject))
       })
       tdens ++ edens
@@ -194,7 +198,7 @@ object Semantics {
   }
 
   def denoteExp(e: AExp)(implicit env: Env): ScoredAbove[Exp] = e match {
-    case NameAExp(n) => valueScores(n) flatMap denoteValue
+    case NameAExp(n) => valueScores(n) flatMap (denoteValue(_,depth=0))
     case x: ALit => denoteLit(x)
     case ParenAExp(x,_) => denoteExp(x) map ParenExp bias Pr.parenExp
 

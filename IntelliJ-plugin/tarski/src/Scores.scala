@@ -30,7 +30,7 @@ object Scores {
     def map[B](f: A => B): Scored[B] = delay(p,s map f)
 
     // f is assumed to generate conditional probabilities
-    def flatMap[B](f: A => Scored[B]): Scored[B] = delay(p,s flatMap f)
+    def flatMap[B](f: A => Scored[B]): Scored[B] = new Lazy(p,s flatMap f)
 
     def ++[B >: A](t: Scored[B]): Scored[B] =
       if (p >= t.p) delay(p,s ++ t)
@@ -54,7 +54,7 @@ object Scores {
   private final class Lazy[+A](val p: Prob, _s: => Actual[A]) extends Scored[A] {
     lazy val s = _s
   }
-  private def delay[A](p: Prob, s: => Actual[A]) = new Lazy(p,s)
+  @inline private def delay[A](p: Prob, s: => Actual[A]) = new Lazy(p,s)
 
   // When forced, Scored computes an Actual
   private sealed abstract class Actual[+A] {
@@ -128,8 +128,10 @@ object Scores {
           else        Best(q,y,delay(max(p,t.p),this ++ t))
       }
 
-    def flatMap[B](f: A => Scored[B]) =
+    def flatMap[B](f: A => Scored[B]) = {
+      //println(s"Best.flatMap: f ${f.getClass}, x $x, p $p")
       f(x).s.bias(p) ++ r.flatMap(f)
+    }
 
     def productWith[B,C](s: Scored[B])(f: (A,B) => C) = s.s match {
       case Empty => Empty

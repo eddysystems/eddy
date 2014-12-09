@@ -18,8 +18,8 @@ class TestEnvironment {
   @Test
   def testStaticShadowedByLocal() = {
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
-    val yf = StaticFieldItem("y",FloatType,main,true)
-    val f = StaticMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)))
+    val yf = NormalStaticFieldItem("y",FloatType,main,true)
+    val f = NormalMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)),true)
     val y = LocalVariableItem("y",ArrayType(DoubleType),true)
     val scope = Map[Item,Int]((LocalPkg,4),(main,3),(yf,2),(f,2),(y,1))
     implicit val env = new Env(List(main,f),scope)

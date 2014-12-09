@@ -32,7 +32,7 @@ object Base {
     def parent = JavaLangPkg
     def tparams = List(E)
     def base = ObjectType
-    def implements = List(SerializableType,comparable(E))
+    def interfaces = List(SerializableType,comparable(E))
   }
 
   // Simple classes
@@ -48,7 +48,7 @@ object Base {
   case object ThrowableItem extends SimpleClassItem {
     def name = "Throwable"
     def base = ObjectType
-    def implements = Nil
+    def interfaces = Nil
     def isFinal = false
   }
 
@@ -61,7 +61,7 @@ object Base {
     private val T = SimpleTypeVar("T")
     def parent = JavaLangPkg
     def tparams = List(T)
-    def implements = Nil
+    def interfaces = Nil
     def isFinal = false
   }
 
@@ -69,7 +69,7 @@ object Base {
   case object StringItem extends SimpleClassItem {
     def name = "String"
     def base = ObjectType
-    def implements = List(comparable(inside),CharSequenceItem.simple,SerializableType)
+    def interfaces = List(comparable(inside),CharSequenceItem.simple,SerializableType)
     def isFinal = true
   }
 
@@ -77,7 +77,7 @@ object Base {
   case object VoidItem extends SimpleClassItem {
     def name = "Void"
     def base = ObjectType
-    def implements = Nil
+    def interfaces = Nil
     def isFinal = true
   }
 
@@ -85,7 +85,7 @@ object Base {
   case object BooleanItem extends SimpleClassItem {
     def name = "Boolean"
     def base = ObjectType
-    def implements = List(comparable(inside),SerializableType)
+    def interfaces = List(comparable(inside),SerializableType)
     override def unbox = Some(BooleanType)
     override def unboxesToBoolean = true
     def isFinal = true
@@ -93,7 +93,7 @@ object Base {
   case object CharacterItem extends SimpleClassItem {
     def name = "Character"
     def base = ObjectType
-    def implements = List(comparable(inside),SerializableType)
+    def interfaces = List(comparable(inside),SerializableType)
     override def unbox = Some(CharType)
     override def unboxNumeric = Some(CharType)
     override def unboxIntegral = Some(CharType)
@@ -102,12 +102,12 @@ object Base {
   case object NumberItem extends SimpleClassItem {
     def name = "Number"
     def base = ObjectType
-    def implements = List(SerializableType)
+    def interfaces = List(SerializableType)
     def isFinal = false
   }
   sealed abstract class NumberClassItem(val name: Name, val ty: NumType) extends SimpleClassItem {
     def base = NumberItem.simple
-    def implements = List(comparable(inside),SerializableType)
+    def interfaces = List(comparable(inside),SerializableType)
     override def unbox = Some(ty)
     override def unboxNumeric = Some(ty)
     def isFinal = true
@@ -133,7 +133,7 @@ object Base {
   object ubCharItem    extends LangTypeItem(CharType)
   
   // Basic callables for test use
-  val ObjectConsItem = ConstructorItem(ObjectItem,Nil,Nil)
+  val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
 
   // Standard base environment
   val baseEnv = new Env(List(
