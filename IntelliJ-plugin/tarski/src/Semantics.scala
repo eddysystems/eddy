@@ -156,9 +156,9 @@ object Semantics {
 
   def denoteCallable(e: AExp)(implicit env: Env): ScoredAbove[Callable] = e match {
     case NameAExp(n) => callableScores(n) flatMap {
-      case i: SMethodItem if i.isStatic => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
-      case i: SMethodItem if env.itemInScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
-      case i: SMethodItem => denoteField(i, MethodDen, Pr.superMethodCallable, Pr.shadowedMethodCallable, Pr.methodCallable, 0)
+      case i: MethodItem if i.isStatic => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
+      case i: MethodItem if env.itemInScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
+      case i: MethodItem => denoteField(i, MethodDen, Pr.superMethodCallable, Pr.shadowedMethodCallable, Pr.methodCallable, 0)
       case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
     }
     case ParenAExp(x,_) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do
@@ -167,13 +167,13 @@ object Semantics {
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // first, the ones where x is a type
       val tdens = denoteType(x) flatMap (t => callableFieldScores(t,f) flatMap {
-        case f:SMethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
-        case f:SMethodItem => fail(show(f)+" is not static, and is used without an object.")
+        case f:MethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
+        case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
         case f:ConstructorItem => single(NewDen(f), Pr.constructorFieldCallable)
       })
       val edens = denoteExp(x) flatMap (x => liftAbove(callableFieldScores(typeOf(x),f)) flatMap {
-        case f:SMethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
-        case f:SMethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
+        case f:MethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
+        case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
         case f:ConstructorItem => discard(x)(single(NewDen(f),Pr.constructorFieldCallableWithObject))
       })
       tdens ++ edens

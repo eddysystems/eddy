@@ -14,9 +14,9 @@ object Denotations {
     def tparams: List[TypeVar] = f.tparams
     def params: List[Type] = f.params
   }
-  case class MethodDen(obj: Exp, override val f: SMethodItem) extends NonNewCallable
-  case class LocalMethodDen(override val f: SMethodItem) extends NonNewCallable
-  case class StaticMethodDen(obj: Option[Exp], override val f: SMethodItem) extends NonNewCallable
+  case class MethodDen(obj: Exp, override val f: MethodItem) extends NonNewCallable
+  case class LocalMethodDen(override val f: MethodItem) extends NonNewCallable
+  case class StaticMethodDen(obj: Option[Exp], override val f: MethodItem) extends NonNewCallable
   case class ForwardDen(override val f: ConstructorItem) extends NonNewCallable
   case class NewDen(override val f: ConstructorItem) extends Callable {
     def tparams = f.parent.tparams ++ f.tparams // TODO: May need to recursively include higher parent parameters

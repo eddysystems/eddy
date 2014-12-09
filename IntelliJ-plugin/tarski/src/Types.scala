@@ -124,8 +124,7 @@ object Types {
     def item: ClassItem
     def parent: Parent
     def base: ClassType = item.base.substitute(env)
-    def interfaces: List[ClassType] = item.interfaces map (_.substitute(env))
-    def supers = base :: interfaces
+    def supers = item.supers map (_.substitute(env))
     def isFinal = item.isFinal
     def substitute(implicit env: Tenv): ClassType
     def safe: Option[ClassType]

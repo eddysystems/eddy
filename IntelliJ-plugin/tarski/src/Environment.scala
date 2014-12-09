@@ -245,7 +245,7 @@ object Environment {
   def returnType(implicit env: Env): Scored[Type] = {
     def die(scope: String) = fail(s"Can't return from $scope scope")
     env.place match {
-      case m:SMethodItem => single(m.retVal, Pr.certain)
+      case m:MethodItem => single(m.retVal, Pr.certain)
       case c:ConstructorItem => single(VoidType, Pr.certain)
       case _:PackageItem => die("package")
       case _:ClassItem => die("class or interface")

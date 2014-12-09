@@ -80,8 +80,7 @@ object Items {
     def isEnum: Boolean // true only for descendants of Enum<E>
     def isFinal: Boolean
     def base: ClassType
-    def interfaces: List[ClassType]
-    def supers: List[RefType] = base :: interfaces
+    def supers: List[RefType]
 
     // Can we unbox to a primitive type?
     def unbox: Option[PrimType] = None
@@ -145,6 +144,7 @@ object Items {
   case class NormalInterfaceItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
                                  interfaces: List[ClassType] = Nil) extends ClassItem {
     def base = ObjectType
+    def supers = base :: interfaces
     def isClass = false
     def isEnum = false
     def isFinal = false
@@ -153,6 +153,7 @@ object Items {
   case class NormalClassItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
                              base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
                              isFinal: Boolean = false) extends ClassItem {
+    def supers = base :: interfaces
     def isClass = true
     def isEnum = false
   }
@@ -162,7 +163,7 @@ object Items {
     def isEnum = false
     val parent = PackageItem(pkgName, pkgName)
     def base = ObjectType
-    def interfaces = Nil
+    def supers = List(base)
     lazy val tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
 
     def generic: ClassType = generic(args, parent)
@@ -174,6 +175,7 @@ object Items {
     def isFinal = true
     def tparams = Nil
     def base = GenericType(EnumBaseItem,List(inside),JavaLangPkg)
+    def supers = base :: interfaces
   }
 
   case object ArrayItem extends RefTypeItem {
@@ -261,20 +263,17 @@ object Items {
     def parent: ClassItem
     def simple: Parent = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
   }
-  abstract class SMethodItem extends CallableParentItem with ClassMember {
+  abstract class MethodItem extends CallableParentItem with ClassMember {
     def retVal: Type
     def isStatic: Boolean
-    //(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
-    //               params: List[Type])
   }
   abstract class ConstructorItem extends CallableParentItem with ClassMember {
-    // parent: ClassItem, tparams: List[TypeVar], params: List[Type]
     def name = parent.name
   }
 
   // Normal callables
   case class NormalMethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
-                              params: List[Type], isStatic: Boolean) extends SMethodItem
+                              params: List[Type], isStatic: Boolean) extends MethodItem
   case class NormalConstructorItem(parent: ClassItem, tparams: List[TypeVar],
                                    params: List[Type]) extends ConstructorItem
 }

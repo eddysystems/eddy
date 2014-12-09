@@ -22,7 +22,7 @@ import java.util.Map;
 public class Converter {
   private final Place place;
   private final Map<PsiElement,Item> globals;
-  public final Map<PsiElement, Item> locals; // Others will add to this
+  public final Map<PsiElement, Item> locals; // We will add to this
 
   private final @NotNull Logger logger = Logger.getInstance(getClass());
 
@@ -32,19 +32,7 @@ public class Converter {
     this.locals = locals;
   }
 
-  @NotNull Item lookupFail(PsiElement e) {
-    Item i = lookupNull(e);
-    if (i != null)
-      return i;
-
-    if (e instanceof PsiClass) {
-      PsiClass c = (PsiClass)e;
-      throw new RuntimeException("Unregistered class "+e+", "+c.getQualifiedName());
-    } else
-      throw new RuntimeException("Unregistered item "+e);
-  }
-
-  @Nullable Item lookupNull(PsiElement e) {
+  @Nullable Item lookup(PsiElement e) {
     Item i = globals.get(e);
     return i != null ? i : locals.get(e);
   }
@@ -131,7 +119,7 @@ public class Converter {
 
   Item addContainer(PsiElement elem) {
     {
-      Item i = lookupNull(elem);
+      Item i = lookup(elem);
       if (i != null)
         return i;
     }
@@ -157,7 +145,9 @@ public class Converter {
   static private class LazyTypeVar extends TypeVar {
     private final Converter env;
     private final PsiTypeParameter p;
-    private RefType _hi; // Starts out null (uninitialized)
+
+    // Lazy field
+    private RefType _hi;
 
     LazyTypeVar(Converter env, PsiTypeParameter p) {
       this.env = env;
@@ -192,7 +182,7 @@ public class Converter {
 
   private TypeVar addTypeParam(PsiTypeParameter p) {
     {
-      Item i = lookupNull(p);
+      Item i = lookup(p);
       if (i != null)
         return (TypeVar)i;
     }
@@ -211,7 +201,6 @@ public class Converter {
     // Lazy fields
     private scala.collection.immutable.List<TypeVar> _tparams;
     private ClassType _base;
-    private scala.collection.immutable.List<ClassType> _interfaces;
     private scala.collection.immutable.List<RefType> _supers;
 
     LazyClass(Converter env, PsiClass cls, ParentItem parent) {
@@ -253,12 +242,6 @@ public class Converter {
       return _base;
     }
 
-    public scala.collection.immutable.List<ClassType> interfaces() {
-      if (_interfaces == null)
-        supers();
-      return _interfaces;
-    }
-
     public scala.collection.immutable.List<RefType> supers() {
       if (_supers == null) {
         PsiClass base = cls.getSuperClass();
@@ -270,8 +253,6 @@ public class Converter {
           assert stypeClass != null;
           if (base == stypeClass)
             _base = sc;
-          else
-            interfaces.add(sc);
           all.add(sc);
         }
         if (_base == null) {
@@ -279,7 +260,6 @@ public class Converter {
           assert cls.isInterface();
           _base = ObjectType$.MODULE$;
         }
-        _interfaces = JavaConversions.asScalaBuffer(interfaces).toList();
         _supers = JavaConversions.asScalaBuffer(all).toList();
       }
       return _supers;
@@ -293,7 +273,7 @@ public class Converter {
 
   TypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
     {
-      Item i = lookupNull(cls);
+      Item i = lookup(cls);
       if (i != null)
         return (TypeItem)i;
     }
@@ -310,13 +290,12 @@ public class Converter {
     // Make and add the class
     final ParentItem parent = (ParentItem)addContainer(place.containing(cls));
     ClassItem item = new LazyClass(this,cls,parent);
-    locals.put(cls,item);
-
-    // Make sure type parameters are traversed
-    item.tparams();
+    locals.put(cls, item);
 
     // Add subthings recursively
     if (recurse) {
+      // Force addition of type vars to the environment
+      item.tparams();
       for (PsiField f : cls.getFields())
         if (!place.isInaccessible(f,noProtected))
           addField(f);
@@ -386,7 +365,7 @@ public class Converter {
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
-  private static class LazyMethod extends SMethodItem {
+  private static class LazyMethod extends MethodItem {
     final Converter env;
     final PsiMethod method;
     private final scala.collection.immutable.List<TypeVar> _tparams;
@@ -441,17 +420,12 @@ public class Converter {
 
   CallableItem addMethod(PsiMethod method) {
     {
-      Item i = lookupNull(method);
+      Item i = lookup(method);
       if (i != null)
         return (CallableItem)i;
     }
 
-    // Add type parameters
-    List<TypeVar> jtparams = new ArrayList<TypeVar>();
-    for (PsiTypeParameter tp : method.getTypeParameters())
-      jtparams.add(addTypeParam(tp));
-    scala.collection.immutable.List<TypeVar> tparams = scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
-
+    scala.collection.immutable.List<TypeVar> tparams = this.tparams(method);
     ClassItem cls = (ClassItem)addClass(method.getContainingClass(),false,false);
     Option<String> qual = tarski.Items.memberQualifiedName(cls,method.getName());
     Item base = qual.isEmpty() ? null : tarski.Tarski.baseLookupJava(qual.get());
@@ -539,7 +513,7 @@ public class Converter {
 
   Value addField(PsiField f) {
     {
-      Item i = lookupNull(f);
+      Item i = lookup(f);
       if (i != null)
         return (Value)i;
     }

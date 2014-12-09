@@ -32,7 +32,7 @@ object Base {
     def parent = JavaLangPkg
     def tparams = List(E)
     def base = ObjectType
-    def interfaces = List(SerializableType,comparable(E))
+    def supers = List(base,SerializableType,comparable(E))
   }
 
   // Simple classes
@@ -42,6 +42,8 @@ object Base {
     override def tparams = Nil
     def isClass = true
     def isEnum = false
+    def interfaces: List[ClassType]
+    def supers = base :: interfaces
   }
 
   // Throwable
@@ -61,7 +63,7 @@ object Base {
     private val T = SimpleTypeVar("T")
     def parent = JavaLangPkg
     def tparams = List(T)
-    def interfaces = Nil
+    def supers = List(base)
     def isFinal = false
   }
 
