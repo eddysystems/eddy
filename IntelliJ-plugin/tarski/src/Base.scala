@@ -163,7 +163,7 @@ object Base {
   def checkEnv(env: Env): Unit = {
     val seen = mutable.Set[String]()
     env.items.foreach(t => t.qualifiedName foreach (n => baseQualifiedNames get n foreach (b => {
-      assert(!seen.contains(n),s"Two copies of $n, type ${t.getClass}")
+      assert(!seen.contains(n),s"Two copies of $n, type ${t.getClass}, t = ${t.hashCode}, CharSequenceItem: ${CharSequenceItem.hashCode}")
       assert(t eq b,s"Versions of $n in baseEnv (${b.getClass}) and env (${t.getClass}) differ")
       seen += n
     })))

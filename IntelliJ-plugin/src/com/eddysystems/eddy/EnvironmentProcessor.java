@@ -94,9 +94,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.setLevel(Level.DEBUG);
 
+    // this walks up the PSI tree, but also processes import statements
     PsiScopesUtil.treeWalkUp(this, place, this.place.getContainingFile());
-
-    // TODO: find import statements and add those to scope
   }
 
   private @Nullable PsiPackage getPackage(@NotNull PsiJavaFile file) {
@@ -131,6 +130,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       return globals.get(elem);
     if (locals.containsKey(elem))
       return locals.get(elem);
+
+    if (elem == null)
+      return tarski.Tarski.localPkg();
 
     // local classes
     if (elem instanceof PsiMethod)
@@ -184,8 +186,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       return ObjectItem$.MODULE$;
     }
 
-    PsiElement celem = containing(cls);
-    ParentItem container = celem != null ? (ParentItem) addContainer(globals, locals, celem) : Tarski.localPkg();
+    ParentItem container = (ParentItem)addContainer(globals, locals, containing(cls));
 
     // Type parameters
     ArrayList<TypeVar> j_params = new ArrayList<TypeVar>();
@@ -208,21 +209,29 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     locals.put(cls,ci);
 
     // Base
-    // TODO: Handle generics
     PsiClass scls = cls.getSuperClass();
-    assert scls != null;
-    // TODO: get actual type arguments for scls and make generic class
-    ClassType base = (ClassType) addClass(globals, locals, scls, false, false).raw();
-
-    // Interfaces
-    ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
-    for (PsiClass i : cls.getInterfaces()) {
-      // TODO: Handle generics
-      j_interfaces.add(((ClassItem) addClass(globals, locals, i, false, false)).raw());
+    PsiClassType supers[] = cls.getSuperTypes();
+    ArrayList<ClassType> jstypes = new ArrayList<ClassType>();
+    ClassType base = null;
+    for (PsiClassType stype : supers) {
+      ClassType sc = (ClassType)convertType(globals, locals, stype);
+      PsiClass stypeclass = stype.resolve();
+      assert stypeclass != null;
+      if (stypeclass == scls) {
+        base = sc;
+      } else {
+        jstypes.add(sc);
+      }
     }
-    scala.collection.immutable.List<ClassType> interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
+    scala.collection.immutable.List<ClassType> stypes = JavaConversions.asScalaBuffer(jstypes).toList();
 
-    ci.set(base, interfaces);
+    if (base == null) {
+      // Psi Interfaces don't have Object in their supers list, but we want it as base.
+      assert cls.isInterface();
+      base = ObjectType$.MODULE$;
+    }
+
+    ci.set(base, stypes);
 
     // add subthings recursively
     if (recurse) {
@@ -292,7 +301,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     return mitem;
   }
 
-  private Type convertType(Map<PsiElement, Item> globals, Map<PsiElement, Item> locals, PsiType t) {
+  // if parent is given, use it for generics resolution. If it is null, use containing().inside() instead.
+  // TODO: should this be deleted?
+  private Type convertType(Map<PsiElement, Item> global_envitems, Map<PsiElement, Item> local_envitems, PsiType t) {
+    return convertType(global_envitems, local_envitems, t, null);
+  }
+
+  private Type convertType(Map<PsiElement, Item> globals, Map<PsiElement, Item> locals, PsiType t, Parent parent) {
     // TODO: Handle modifiers
     if (t instanceof PsiArrayType)
       return new ArrayType(convertType(globals, locals, ((PsiArrayType)t).getComponentType()));
@@ -301,7 +316,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // TODO: need proper wildcard expressions
       PsiType bound = ((PsiWildcardType) t).getBound();
       if (bound != null)
-        return convertType(globals, locals, bound);
+        return convertType(globals, locals, bound, parent);
       else
         return ObjectType$.MODULE$;
     }
@@ -323,7 +338,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           qname = ((PsiClassReferenceType)t).getReference().getQualifiedName();
           if (t instanceof PsiModifierListOwner)
             isfinal = ((PsiModifierListOwner) t).hasModifierProperty(PsiModifier.FINAL);
-          // TODO: pass on type parameters
+          for (PsiType arg : ((PsiClassReferenceType) t).getParameters()) {
+            jargs.add((TypeArg)convertType(globals, locals, arg));
+          }
         }
 
         scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
@@ -333,7 +350,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       } else {
         List<TypeArg> jparams = new SmartList<TypeArg>();
         for (PsiType tp : ((PsiClassType)t).getParameters()) {
-          jparams.add((TypeArg)convertType(globals, locals, tp));
+          jparams.add((TypeArg)convertType(globals, locals, tp, parent));
         }
         scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
@@ -348,10 +365,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (item.arity() > 0 && params.isEmpty()) {
           // This happens. For instance in java.lang.SecurityManager.getClassContext()
           return item.raw();
-        } else {
+        } else if (parent == null) {
           Item container = addContainer(globals, locals, containing(tcls));
           assert container instanceof ParentItem;
           return item.generic(params, ((ParentItem)container).inside());
+        } else {
+          return item.generic(params, parent);
         }
       }
     }
