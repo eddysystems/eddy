@@ -278,21 +278,19 @@ public class Converter {
       return addTypeParam((PsiTypeParameter)cls);
 
     // Check for base classes
-    Item ciBase = tarski.Tarski.baseLookupJava(cls.getQualifiedName());
-    if (ciBase != null) {
-      locals.put(cls,ciBase);
-      return (TypeItem)ciBase;
+    ClassItem item = (ClassItem)tarski.Tarski.baseLookupJava(cls.getQualifiedName());
+    if (item == null) {
+      // Make and add the class
+      final ParentItem parent = (ParentItem)addContainer(place.containing(cls));
+      item = new LazyClass(this,cls,parent);
     }
-
-    // Make and add the class
-    final ParentItem parent = (ParentItem)addContainer(place.containing(cls));
-    ClassItem item = new LazyClass(this,cls,parent);
     locals.put(cls, item);
 
     // Add subthings recursively
     if (recurse) {
       // Force addition of type vars to the environment
       item.tparams();
+
       for (PsiField f : cls.getFields())
         if (!place.isInaccessible(f,noProtected))
           addField(f);

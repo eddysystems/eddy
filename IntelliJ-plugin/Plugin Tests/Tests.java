@@ -1,5 +1,7 @@
 import com.eddysystems.eddy.Eddy;
 import static com.eddysystems.eddy.Utility.*;
+
+import com.eddysystems.eddy.EnvironmentProcessor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
@@ -18,7 +20,6 @@ import tarski.Scores;
 import tarski.Base;
 
 import java.util.List;
-import java.util.concurrent.Callable;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
@@ -111,7 +112,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testProject() {
-    Eddy eddy = setupEddy("JSON-java/JSONObject.java",
+    EnvironmentProcessor.clearGlobalEnvironment();
+    Eddy eddy = setupEddy("dummy.java",
+                          "JSON-java/JSONObject.java",
                           "JSON-java/CDL.java",
                           "JSON-java/Cookie.java",
                           "JSON-java/CookieList.java",

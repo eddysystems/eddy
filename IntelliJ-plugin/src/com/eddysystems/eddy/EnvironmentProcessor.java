@@ -78,6 +78,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     new EnvironmentProcessor(project);
   }
 
+  static public void clearGlobalEnvironment() {
+    synchronized (globals_lock) {
+      globals_ready = false;
+      global_env = null;
+      globals = null;
+    }
+  }
+
   public EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
