@@ -87,9 +87,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.setLevel(Level.DEBUG);
 
+    // this walks up the PSI tree, but also processes import statements
     PsiScopesUtil.treeWalkUp(this, place, place.getContainingFile());
-
-    // TODO: find import statements and add those to scope
   }
 
   private Map<PsiElement,Item> getGlobals() {

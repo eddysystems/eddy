@@ -49,15 +49,20 @@ public class Converter {
     return i != null ? i : locals.get(e);
   }
 
+  // If parent is given, use it for generics resolution.  If it is null, use containing().inside() instead.
+  // TODO: The version without parent should probably be deleted.
   Type convertType(PsiType t) {
+    return convertType(t,null);
+  }
+  Type convertType(PsiType t, Parent parent) {
     // TODO: Handle modifiers
     if (t instanceof PsiArrayType)
-      return new ArrayType(convertType(((PsiArrayType) t).getComponentType()));
+      return new ArrayType(convertType(((PsiArrayType)t).getComponentType()));
 
     if (t instanceof PsiWildcardType) {
       // TODO: need proper wildcard expressions
       PsiType bound = ((PsiWildcardType) t).getBound();
-      return bound != null ? convertType(bound) : ObjectType$.MODULE$;
+      return bound != null ? convertType(bound,parent) : ObjectType$.MODULE$;
     }
 
     // Classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
@@ -77,7 +82,8 @@ public class Converter {
           qname = ((PsiClassReferenceType)t).getReference().getQualifiedName();
           if (t instanceof PsiModifierListOwner)
             isfinal = ((PsiModifierListOwner) t).hasModifierProperty(PsiModifier.FINAL);
-          // TODO: pass on type parameters
+          for (PsiType arg : ((PsiClassReferenceType)t).getParameters())
+            jargs.add((TypeArg)convertType(arg));
         }
 
         scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
@@ -87,7 +93,7 @@ public class Converter {
       } else {
         List<TypeArg> jparams = new SmartList<TypeArg>();
         for (PsiType tp : ((PsiClassType)t).getParameters())
-          jparams.add((TypeArg) convertType(tp));
+          jparams.add((TypeArg) convertType(tp,parent));
         scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
         //logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
@@ -101,10 +107,11 @@ public class Converter {
         if (item.arity() > 0 && params.isEmpty()) {
           // This happens. For instance in java.lang.SecurityManager.getClassContext()
           return item.raw();
-        } else {
+        } else if (parent == null) {
           Item container = addContainer(place.containing(tcls));
-          assert container instanceof ParentItem;
           return item.generic(params,((ParentItem)container).inside());
+        } else {
+          return item.generic(params,parent);
         }
       }
     }
@@ -128,6 +135,8 @@ public class Converter {
       if (i != null)
         return i;
     }
+    if (elem == null)
+      return tarski.Tarski.localPkg();
 
     // local classes
     if (elem instanceof PsiMethod)
@@ -239,37 +248,39 @@ public class Converter {
     }
 
     public ClassType base() {
-      if (_base == null) {
-        PsiClass base = cls.getSuperClass();
-        // TODO: get actual type arguments for base and make generic class
-        _base = (ClassType)env.addClass(base,false,false).raw();
-      }
+      if (_base == null)
+        supers();
       return _base;
     }
 
     public scala.collection.immutable.List<ClassType> interfaces() {
-      if (_interfaces == null) {
-        ArrayList<ClassType> j_interfaces = new ArrayList<ClassType>();
-        for (PsiClass i : cls.getInterfaces()) {
-          // TODO: Handle generics
-          j_interfaces.add(((ClassItem)env.addClass(i,false,false)).raw());
-        }
-        _interfaces = JavaConversions.asScalaBuffer(j_interfaces).toList();
-      }
+      if (_interfaces == null)
+        supers();
       return _interfaces;
     }
 
     public scala.collection.immutable.List<RefType> supers() {
       if (_supers == null) {
-        // It would be nice to just call ::, but I'm not sure how, so we rebuild the whole list.
-        ArrayList<RefType> supers = new ArrayList<RefType>();
-        supers.add(base());
-        scala.collection.immutable.List<ClassType> i = interfaces();
-        while (!i.isEmpty()) {
-          supers.add(i.head());
-          i = (scala.collection.immutable.List<ClassType>)i.tail();
+        PsiClass base = cls.getSuperClass();
+        ArrayList<ClassType> interfaces = new ArrayList<ClassType>();
+        ArrayList<RefType> all = new ArrayList<RefType>();
+        for (PsiClassType stype : cls.getSuperTypes()) {
+          ClassType sc = (ClassType)env.convertType(stype);
+          PsiClass stypeClass = stype.resolve();
+          assert stypeClass != null;
+          if (base == stypeClass)
+            _base = sc;
+          else
+            interfaces.add(sc);
+          all.add(sc);
         }
-        _supers = JavaConversions.asScalaBuffer(supers).toList();
+        if (_base == null) {
+          // Psi Interfaces don't have Object in their supers list, but we want it as base.
+          assert cls.isInterface();
+          _base = ObjectType$.MODULE$;
+        }
+        _interfaces = JavaConversions.asScalaBuffer(interfaces).toList();
+        _supers = JavaConversions.asScalaBuffer(all).toList();
       }
       return _supers;
     }
@@ -289,19 +300,15 @@ public class Converter {
     if (cls instanceof PsiTypeParameter)
       return addTypeParam((PsiTypeParameter)cls);
 
+    // Check for base classes
     Item ciBase = tarski.Tarski.baseLookupJava(cls.getQualifiedName());
     if (ciBase != null) {
       locals.put(cls,ciBase);
       return (TypeItem)ciBase;
     }
 
-    PsiElement celem = place.containing(cls);
-    ParentItem parent = celem != null ? (ParentItem) addContainer(celem) : tarski.Tarski.localPkg();
-
-    // Type parameters
-    scala.collection.immutable.List<TypeVar> tparams = this.tparams(cls);
-
     // Make and add the class
+    final ParentItem parent = (ParentItem)addContainer(place.containing(cls));
     ClassItem item = new LazyClass(this,cls,parent);
     locals.put(cls,item);
 

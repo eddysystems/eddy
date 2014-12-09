@@ -56,13 +56,22 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
-  private Eddy setupEddy(String filename) {
-    myFixture.configureByFile(filename);
+  private Eddy makeEddy() {
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
     Eddy eddy = new Eddy();
     eddy.process(myFixture.getEditor());
     return eddy;
+  }
+
+  private Eddy setupEddy(String... filename) {
+    myFixture.configureByFiles(filename);
+    return makeEddy();
+  }
+
+  private Eddy setupEddy(String filename) {
+    myFixture.configureByFile(filename);
+    return makeEddy();
   }
 
   private void checkResult(Eddy eddy, String expected) {
@@ -101,9 +110,31 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     }
   }
 
+  public void testProject() {
+    Eddy eddy = setupEddy("JSON-java/JSONObject.java",
+                          "JSON-java/CDL.java",
+                          "JSON-java/Cookie.java",
+                          "JSON-java/CookieList.java",
+                          "JSON-java/HTTP.java",
+                          "JSON-java/HTTPTokener.java",
+                          "JSON-java/JSONArray.java",
+                          "JSON-java/JSONException.java",
+                          "JSON-java/JSONML.java",
+                          "JSON-java/JSONString.java",
+                          "JSON-java/JSONStringer.java",
+                          "JSON-java/JSONTokener.java",
+                          "JSON-java/JSONWriter.java",
+                          "JSON-java/Kim.java",
+                          "JSON-java/Property.java",
+                          "JSON-java/README",
+                          "JSON-java/XML.java",
+                          "JSON-java/XMLTokener.java");
+    Base.checkEnv(eddy.getEnv());
+  }
+
   /* This could be handled more gracefully, but because we cannot resolve any of these types, we don't know about their
      relationships and won't find the "correct" solution.
-  public void testBigFile() {
+  public void testUnresolvedTypes() {
     Eddy eddy = setupEddy("EnvironmentProcessor.java");
     System.out.println("scope: " + eddy.getEnv().scopeMap());
     System.out.println(" getPackage:");
