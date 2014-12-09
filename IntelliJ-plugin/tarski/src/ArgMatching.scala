@@ -44,13 +44,13 @@ object ArgMatching {
       fail(show(pretty(f))+s": expected $fn arguments (${show(CommaList(f.params))}), got ${args.size} ($args)")
     else {
       // if the original order of arguments fits, don't bother trying something else
-      resolve(List(f), args.toList map Denotations.typeOf).map({case (f,ts) => single(ApplyExp(f, ts, args), Pr.certain)}).getOrElse {
+      resolve(List(f), args.toList map (_.ty)).map({case (f,ts) => single(ApplyExp(f, ts, args), Pr.certain)}).getOrElse {
         // if not, fiddle!
-        val validPermutations = permute[Exp](args, xs => resolveOptions(List(f), xs.toList map Denotations.typeOf).nonEmpty ).toList
-        val scores = multiple(validPermutations flatMap { p => resolve(List(f), p.toList map Denotations.typeOf) match {
+        val validPermutations = permute[Exp](args, xs => resolveOptions(List(f), xs.toList map (_.ty)).nonEmpty ).toList
+        val scores = multiple(validPermutations flatMap { p => resolve(List(f), p.toList map (_.ty)) match {
           case None => Nil
           case Some((_,ts)) => List(Alt(Pr.certain, ApplyExp(f, ts, p.toList)))
-        }}, show(f)+": params "+show(tokensSig(f))+" don't match arguments "+show(CommaList(args))+" with types "+show(CommaList(args map Denotations.typeOf)))
+        }}, show(f)+": params "+show(tokensSig(f))+" don't match arguments "+show(CommaList(args))+" with types "+show(CommaList(args map (_.ty))))
         scores.flatMap( x => single(x, Pr.permuteArgs(f, args, x.args)) )
       }
     }

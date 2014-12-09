@@ -101,7 +101,7 @@ object Pr {
   // Type.Type
   def typeFieldOfType(t: Type, f: Type): Prob = fieldType(t,f)
   // Exp.Type
-  def typeFieldOfExp(t: Exp, f: Type): Prob = Prob(.6) * fieldType(typeOf(t),f)
+  def typeFieldOfExp(t: Exp, f: Type): Prob = Prob(.6) * fieldType(t.ty,f)
 
   // denoteValue(Value)
   val parameterValue = passThrough

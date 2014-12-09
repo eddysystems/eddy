@@ -326,7 +326,7 @@ object Types {
     collectOne(supers(lo)){ case t:ClassType if t.item==hi => t }
 
   // Is a type throwable?
-  def isThrowable(t: Type): Boolean = isSubitem(t.item,ThrowableItem)
+  def isThrowable(t: TypeItem): Boolean = isSubitem(t,ThrowableItem)
 
   // Is a type iterable or an array?  If so, what does it contain?
   def isIterable(i: Type): Option[Type] = i match {
@@ -412,7 +412,7 @@ object Types {
 
   // Assignment contexts: 5.2
   def assignsTo(e: Exp, to: Type): Boolean =
-    assignsTo(typeOf(e),to) || (to.unbox exists (constantFits(e,_)))
+    assignsTo(e.ty,to) || (to.unbox exists (constantFits(e,_)))
   def assignsTo(e: Option[Exp], to: Type): Boolean = e match {
     case None => to==VoidType
     case Some(e) => assignsTo(e,to)
