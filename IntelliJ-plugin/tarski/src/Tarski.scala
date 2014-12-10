@@ -17,8 +17,8 @@ object Tarski {
     Base.extraEnv.addObjects(vs,Map.empty)
   }
 
-  def add_environment(env: Env, values: java.util.Collection[Item], inScope: java.util.Map[Item,Integer]): Env =
-    env.addObjects(values.asScala.toList, inScope.asScala.toMap.mapValues(_.intValue))
+  def addEnvironment(env: Env, values: Array[Item], inScope: java.util.Map[Item,Integer]): Env =
+    env.addObjects(values, inScope.asScala.toMap.mapValues(_.intValue))
 
   def localPkg(): PackageItem = Base.LocalPkg
 

@@ -1,6 +1,11 @@
 package ambiguity;
 
+import tarski.Items.*;
+import tarski.Base.*;
 import tarski.Tries.Named;
+import gnu.trove.map.hash.TObjectIntHashMap;
+
+import java.util.*;
 
 public class JavaUtils {
     // Size of common prefix of two strings
@@ -10,6 +15,131 @@ public class JavaUtils {
     while (p < n && x.charAt(p) == y.charAt(p))
       p++;
     return p;
+  }
+
+  public static Map<TypeItem,Value[]> valuesByItem(Map<TypeItem,Value[]> start, Item[] vs) {
+    // Turn debugging on or off
+    final boolean debug = false;
+
+    // Helpers for superItems loops
+    final Stack<RefTypeItem> work = new Stack<RefTypeItem>();
+    final Set<TypeItem> seen = new HashSet<TypeItem>();
+
+    // Initialize counts based on previous map
+    final TObjectIntHashMap<TypeItem> count = new TObjectIntHashMap<TypeItem>(start.size());
+    for (Map.Entry<TypeItem,Value[]> e : start.entrySet())
+      count.put(e.getKey(),e.getValue().length);
+
+    // Count values corresponding to each item
+    for (final Item i : vs) {
+      if (!(i instanceof Value))
+        continue;
+      final Value v = (Value)i;
+      final TypeItem t = v.item();
+      if (t instanceof LangTypeItem)
+        count.put(t,count.get(t)+1);
+      else {
+        seen.clear();
+        work.clear();
+        work.push((RefTypeItem)t);
+        while (!work.isEmpty()) {
+          final RefTypeItem s = work.pop();
+          if (s == ObjectItem$.MODULE$)
+            continue;
+          count.put(s,count.get(s)+1);
+          scala.collection.immutable.List<RefTypeItem> ss = s.superItems();
+          while (!ss.isEmpty()) {
+            final RefTypeItem h = ss.head();
+            if (!seen.contains(h)) {
+              seen.add(h);
+              work.push(h);
+            }
+            ss = (scala.collection.immutable.List<RefTypeItem>)ss.tail();
+          }
+        }
+      }
+    }
+
+    // Allocate new map and initialize with old values.
+    // If there are no new Value for a given TypeItem, we reuse the Value[].
+    final Map<TypeItem,Value[]> results = new HashMap<TypeItem,Value[]>(start.size());
+    for (final Map.Entry<TypeItem,Value[]> e : start.entrySet()) {
+      final TypeItem t = e.getKey();
+      int n = count.get(t);
+      final Value[] vaOld = e.getValue();
+      Value[] va;
+      if (n == vaOld.length) {
+        va = vaOld;
+        if (debug)
+          count.put(t,0);
+      } else {
+        va = results.get(t);
+        if (va == null) {
+          va = new Value[n];
+          results.put(t,va);
+        }
+        for (int i=0;i<vaOld.length;i++)
+          va[--n] = vaOld[i];
+        count.put(t,n);
+      }
+      results.put(t,va);
+    }
+
+    // Add values corresponding to each item
+    for (final Item i : vs) {
+      if (!(i instanceof Value))
+        continue;
+      final Value v = (Value)i;
+      final TypeItem t = v.item();
+      if (t instanceof LangTypeItem) {
+        final int n = count.get(t);
+        Value[] va = results.get(t);
+        if (va == null) {
+          va = new Value[n];
+          results.put(t,va);
+        }
+        va[n-1] = v;
+        count.put(t,n-1);
+      } else {
+        seen.clear();
+        work.clear();
+        work.push((RefTypeItem)t);
+        while (!work.isEmpty()) {
+          final RefTypeItem s = work.pop();
+          if (s == ObjectItem$.MODULE$)
+            continue;
+          final int n = count.get(s);
+          Value[] va = results.get(s);
+          if (va == null) {
+            va = new Value[n];
+            results.put(s,va);
+          }
+          va[n-1] = v;
+          count.put(s,n-1);
+          scala.collection.immutable.List<RefTypeItem> ss = s.superItems();
+          while (!ss.isEmpty()) {
+            final RefTypeItem h = ss.head();
+            if (!seen.contains(h)) {
+              seen.add(h);
+              work.push(h);
+            }
+            ss = (scala.collection.immutable.List<RefTypeItem>)ss.tail();
+          }
+        }
+      }
+    }
+
+    // In debug mode, check that counts are exactly zero
+    if (debug) {
+      for (Object o : count.keys()) {
+        TypeItem t = (TypeItem)o;
+        int n = count.get(t);
+        assert n==0 : "Bad count: t "+t+", n "+n;
+      }
+    }
+
+    // All done!
+    return results;
   }
 
   public static <V extends Named> int[] makeTrieStructure(V[] values) {

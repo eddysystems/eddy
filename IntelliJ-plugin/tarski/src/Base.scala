@@ -128,21 +128,21 @@ object Base {
   case object FloatItem   extends NumberClassItem("Float",FloatType)
   case object DoubleItem  extends NumberClassItem("Double",DoubleType)
 
-  object ubVoidItem    extends LangTypeItem(VoidType)
-  object ubBooleanItem extends LangTypeItem(BooleanType)
-  object ubByteItem    extends LangTypeItem(ByteType)
-  object ubShortItem   extends LangTypeItem(ShortType)
-  object ubIntItem     extends LangTypeItem(IntType)
-  object ubLongItem    extends LangTypeItem(LongType)
-  object ubFloatItem   extends LangTypeItem(FloatType)
-  object ubDoubleItem  extends LangTypeItem(DoubleType)
-  object ubCharItem    extends LangTypeItem(CharType)
+  object ubVoidItem    extends LangTypeItem { def ty = VoidType }
+  object ubBooleanItem extends LangTypeItem { def ty = BooleanType }
+  object ubByteItem    extends LangTypeItem { def ty = ByteType }
+  object ubShortItem   extends LangTypeItem { def ty = ShortType }
+  object ubIntItem     extends LangTypeItem { def ty = IntType }
+  object ubLongItem    extends LangTypeItem { def ty = LongType }
+  object ubFloatItem   extends LangTypeItem { def ty = FloatType }
+  object ubDoubleItem  extends LangTypeItem { def ty = DoubleType }
+  object ubCharItem    extends LangTypeItem { def ty = CharType }
   
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
 
   // Standard base environment
-  val baseEnv = new Env(List(
+  val baseEnv = new Env(Array(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
     // Primitive types
@@ -158,7 +158,7 @@ object Base {
   ))
 
   // Things that EnvironmentProcessor won't add on its own
-  val extraEnv = new Env(List(
+  val extraEnv = new Env(Array(
     LocalPkg,
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem))
 

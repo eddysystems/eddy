@@ -331,7 +331,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     */
 
-    Env tenv = Tarski.add_environment(global_env, local_items, scopeItems)
+    Item[] localArray = local_items.toArray(new Item[local_items.size()]);
+    Env tenv = Tarski.addEnvironment(global_env, localArray, scopeItems)
                      .move(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList());
 
     logger.info("done");

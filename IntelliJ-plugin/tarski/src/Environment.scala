@@ -3,7 +3,8 @@ package tarski
 import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
 
 import ambiguity.Utility._
-import Scores._
+import ambiguity.JavaUtils.valuesByItem
+import tarski.Scores._
 import tarski.AST.Name
 import tarski.Items._
 import tarski.Tries._
@@ -14,65 +15,54 @@ import tarski.Pretty._
 import scala.collection.mutable
 
 object Environment {
-  def valuesByItem(start: Map[TypeItem,List[Value]], vs: Iterable[Item]): Map[TypeItem,List[Value]] = {
-    val m = mutable.Map[TypeItem,List[Value]]()++start
-    def add(s: TypeItem, v: Value) = m(s) = v::m.getOrElse(s,Nil)
-    vs foreach {
-      case v:Value => v.item match {
-        case i:RefTypeItem => superItems(i) foreach (s => if (s != ObjectItem) add(s,v))
-        case i:LangTypeItem => add(i,v)
-      }
-      case _ => ()
-    }
-    m.toMap
-  }
-
   /**
    * The environment used for name resolution
    */
    case class Env(private val trie: Trie[Item],
                   private val inScope: Map[Item,Int],
-                  private val byItem: Map[TypeItem,List[Value]], // Map from item to values with matching type
+                  private val byItem: java.util.Map[TypeItem,Array[Value]], // Map from item to values with matching type
                   place: PlaceItem,
                   inside_breakable: Boolean,
                   inside_continuable: Boolean,
                   labels: List[String]) extends scala.Serializable {
 
     def items: Array[Item] = trie.values
-    def itemMap: Map[TypeItem,List[Value]] = byItem
+    def itemMap: java.util.Map[TypeItem,Array[Value]] = byItem
     def scopeMap: Map[Item,Int] = inScope
 
-    // add some new things to an existing environment, and optionally change place
-    def this(base: Env, newthings: Iterable[Item], newScope: Map[Item,Int],
-             place: PlaceItem,
-             inside_breakable: Boolean,
-             inside_continuable: Boolean,
-             labels: List[String]) = {
-      this(base.trie++newthings, base.inScope ++ newScope,
-           valuesByItem(base.byItem,newthings), place, inside_breakable, inside_continuable, labels)
-    }
-
-    // make an environment from a list of items
-    def this(things: Iterable[Item], inScope: Map[Item,Int] = Map(),
+    // Make an environment from a list of items
+    def this(things: Array[Item], inScope: Map[Item,Int] = Map(),
              place: PlaceItem = Base.LocalPkg,
              inside_breakable: Boolean = false,
              inside_continuable: Boolean = false,
              labels: List[String] = Nil) = {
       this(Trie(things), inScope,
-           valuesByItem(Map.empty,things), place, inside_breakable, inside_continuable, labels)
+           valuesByItem(new java.util.HashMap[TypeItem,Array[Value]](),things),
+           place, inside_breakable, inside_continuable, labels)
+    }
+
+    // Add some new things to an existing environment, and optionally change place
+    def this(base: Env, newthings: Array[Item], newScope: Map[Item,Int],
+             place: PlaceItem,
+             inside_breakable: Boolean,
+             inside_continuable: Boolean,
+             labels: List[String]) = {
+      this(base.trie++newthings, base.inScope ++ newScope,
+           valuesByItem(base.byItem,newthings),
+           place, inside_breakable, inside_continuable, labels)
     }
 
     // minimum probability before an object is considered a match for a query
     val minimumProbability = Prob(.01)
 
     // Add objects
-    def addObjects(xs: Iterable[Item], is: Map[Item,Int]): Env = {
+    def addObjects(xs: Array[Item], is: Map[Item,Int]): Env = {
       // TODO: filter identical things (like java.lang.String)
       new Env(this, xs, is, place, inside_breakable, inside_continuable, labels)
     }
 
     // Add local objects (they all appear in inScope with priority 1)
-    def addLocalObjects(xs: List[Item]): Env =
+    def addLocalObjects(xs: Array[Item]): Env =
       addObjects(xs, (xs map {(_,1)}).toMap)
 
     def move(newPlace: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: List[String]): Env = {
@@ -85,7 +75,7 @@ object Environment {
           fail(s"Invalid new local variable $name: already exists.")
         else {
           val x = LocalVariableItem(name,t,isFinal)
-          single((addObjects(List(x), Map((x,0))),x), Pr.newVariable)
+          single((addObjects(Array(x),Map((x,0))),x), Pr.newVariable)
         }
       case _ => fail("Cannot declare local variables outside of methods or constructors.")
     }
@@ -99,7 +89,7 @@ object Environment {
           val x = if (isStatic) NormalStaticFieldItem(name,t,c,isFinal)
                   else                NormalFieldItem(name,t,c,isFinal)
           val p = if (isStatic) Pr.newStaticField else Pr.newField
-          single((addObjects(List(x),Map((x,0))),x),p)
+          single((addObjects(Array(x),Map((x,0))),x),p)
         }
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
@@ -170,7 +160,7 @@ object Environment {
 
   // Same as objectsOfType, but without type arguments
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
-    uniform(Pr.objectOfItem, env.itemMap.getOrElse(t,Nil), s"Value of item ${show(t)} not found")
+    uniformArray(Pr.objectOfItem, env.itemMap.get(t), s"Value of item ${show(t)} not found")
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: TypeItem): Boolean = f match {
