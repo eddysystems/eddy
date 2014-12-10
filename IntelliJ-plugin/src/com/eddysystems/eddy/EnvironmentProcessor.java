@@ -9,7 +9,9 @@ import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectAndLibrariesScope;
+import com.intellij.psi.search.PsiReferenceProcessor;
 import com.intellij.psi.search.PsiShortNamesCache;
+import com.intellij.psi.util.PsiClassUtil;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
@@ -128,7 +130,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       final PsiClass cls = facade.findClass(clsName,scope);
       assert cls != null;
       final PsiMethod[] cons = cls.getConstructors();
-      assert cons.length == 1;
+      if (cons.length != 1)
+        logger.warn("found constructors for Object: #" + cons.length);
       env.locals.put(cons[0],item);
     }
 
@@ -180,7 +183,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         logger.info("global_env ready.");
 
         globals_ready = true;
-
       }
 
       return globals;

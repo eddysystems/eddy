@@ -10,7 +10,7 @@ import tarski.Tokens.show
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
   // inherits from Product => only case things or abstract classes can have this trait without implementing Product
-  sealed trait Item extends RefEq with Product {
+  sealed trait Item extends RefEq with Product with Tries.Named {
     def name: Name
     def qualifiedName: Option[Name] // A name that is valid anywhere
     override def toString: String = qualifiedName getOrElse name

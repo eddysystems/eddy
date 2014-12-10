@@ -68,11 +68,12 @@ class TestEnvironment {
   }
 
   @Test def trie() = {
-    def W(s: String) = splitWhitespace(s)
+    case class Name(name: String) extends Named
+    def W(s: String) = splitWhitespace(s) map Name
     def S(s: Int*) = s.toList
     val st = List(
       W("")                  -> S(0,0, 0),
-      List("")               -> S(0,0, 1),
+      List(Name(""))         -> S(0,0, 1),
       W("a")                 -> S(0,1,'a',4, 0,0,1),
       W("a b")               -> S(0,2,'a',6,'b',8, 0,0, 1,0, 2),
       W("a ab")              -> S(0,1,'a',4, 0,1,'b',8, 1,0, 2),
@@ -82,22 +83,22 @@ class TestEnvironment {
       W("a ab abc")          -> S(0,1,'a',4, 0,1,'b',8, 1,1,'c',12, 2,0, 3),
       W("a ab bc")           -> S(0,2,'a',6,'b',12, 0,1,'b',10, 1,0, 2,1,'c',16, 2,0, 3),
       W("a ab abc bc")       -> S(0,2,'a',6,'b',16, 0,1,'b',10, 1,1,'c',14, 2,0, 3,1,'c',20, 3,0, 4),
-      (""::W("a abc ab bc")) -> S(0,2,'a',6,'b',16, 1,1,'b',10, 2,1,'c',14, 3,0, 4,1,'c',20, 4,0, 5)
+      (Name("")::W("a abc ab bc")) -> S(0,2,'a',6,'b',16, 1,1,'b',10, 2,1,'c',14, 3,0, 4,1,'c',20, 4,0, 5)
     )
     for ((w,st) <- st) {
       println(s"\ntrie: $w")
-      val t = Trie(w)(s => s)
+      val t = Trie(w)
       assertEquals(st,t.structure.toList)
-      for ((s,ss) <- w groupBy (s => s))
+      for ((s,ss) <- w groupBy (_.name))
         assertEquals(ss,t.exact(s))
       assertEquals(Nil,t.exact("blah"))
     }
     for ((w0,_) <- st; (w1,_) <- st) {
       println(s"\nmerge: $w0, $w1")
-      val t0 = Trie(w0)(s => s)
-      val t1 = Trie(w1)(s => s)
+      val t0 = Trie(w0)
+      val t1 = Trie(w1)
       for (t <- List(t0++t1,t0++w1))
-        assertEquals((w0++w1).sorted,t.values.toList)
+        assertEquals((w0++w1).sorted(math.Ordering.by[Named,String](_.name)),t.values.toList)
     }
   }
 

@@ -150,6 +150,16 @@ public class Eddy {
     }
 
     if (elem != null) {
+
+      // bail if we're not inside a code block
+      // TODO: remove this once we can handle class/method declarations
+      PsiElement block = elem;
+      while (block != null && !(block instanceof PsiClass) && !(block instanceof PsiMethod) && !(block instanceof PsiCodeBlock)) {
+        block = block.getParent();
+      }
+      if (!(block instanceof PsiCodeBlock))
+        return;
+
       // parse beginning of the line to the end of the line
       ASTNode node = elem.getNode();
 

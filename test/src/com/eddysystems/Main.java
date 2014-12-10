@@ -2,7 +2,7 @@ package com.eddysystems;
 
 
 class A<E,F> {
-    x
+    x = 1
 }
 
 class B extends A<Integer,Float> {

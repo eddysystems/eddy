@@ -1,5 +1,8 @@
 package tarski
 
+import java.util
+
+import ambiguity.JavaUtils
 import ambiguity.Utility._
 import StringMatching.{IncrementalLevenshteinBound, EmptyIncrementalLevenshteinBound, IncrementalDistance, levenshteinDistance}
 import tarski.Scores.{Alt,Prob}
@@ -11,6 +14,11 @@ import scala.math._
 
 object Tries {
 
+  trait Named extends Comparable[Named] {
+    def name: String
+    def compareTo(o: Named) = name.compareTo(o.name)
+  }
+
   trait TrieVisitor[V,X] {
     // If you see k, do you want to continue descending?
     // Return None if no, a new visitor that has absorbed the k if yes.
@@ -20,7 +28,7 @@ object Tries {
     def found(t: TraversableOnce[V]): X
   }
 
-  class Trie[V](val structure: Array[Int], val values: Array[V], private val key: V => String) {
+  class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) {
     // structure contains tuples: (start_values,n_children,(character,start_idx)*)
 
     // A node in structure is
@@ -86,153 +94,47 @@ object Tries {
 
     // The two keys are assumed equal
     def ++(t: Trie[V])(implicit tt: ClassTag[V]): Trie[V] =
-      timed("trie merge",makeHelper(merge(values,t.values,key),key))
+      timed("trie merge",makeHelper(merge(values,t.values)))
     def ++(t: Iterable[V])(implicit tt: ClassTag[V]): Trie[V] =
-      timed("trie extend",makeHelper(merge(values,toSorted(t,key),key),key))
+      timed("trie extend",makeHelper(merge(values,toSorted(t))))
   }
 
   object Trie {
-    def apply[V](input: Iterable[V])(key: V => String)(implicit tt: ClassTag[V]): Trie[V] =
-      timed("trie create",makeHelper(toSorted(input,key),key))
+    def apply[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Trie[V] =
+      timed("trie create",makeHelper(toSorted(input)))
   }
 
   // Sort input into an array
-  private def toSorted[V](input: Iterable[V], key: V => String)(implicit tt: ClassTag[V]): Array[V] =
+  private def toSorted[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Array[V] =
     timed("sort array",{
       var values = input.toArray
-      Sorting.quickSort(values)(new Ordering[V] {
-        def compare(x: V, y: V) = key(x).compare(key(y))
-      })
+      util.Arrays.sort(values.asInstanceOf[Array[Object]])
       values
     })
 
   // Merge two sorted arrays
-  private def merge[V](v0: Array[V], v1: Array[V], key: V => String)(implicit tt: ClassTag[V]): Array[V] = {
+  private def merge[V <: Named](v0: Array[V], v1: Array[V])(implicit tt: ClassTag[V]): Array[V] = {
     val n0 = v0.size
     val n1 = v1.size
     val both = new Array[V](n0+n1)
     var i = 0
     var j = 0
     for (k <- 0 until n0+n1)
-      both(k) = if (j==n1 || (i!=n0 && key(v0(i)) <= key(v1(j)))) { i += 1; v0(i-1) }
+      both(k) = if (j==n1 || (i!=n0 && v0(i).name <= v1(j).name)) { i += 1; v0(i-1) }
                 else                                              { j += 1; v1(j-1) }
     both
   }
 
   // Assumes values is already sorted.  values must never change.
-  private def makeHelper[V](values: Array[V], key: V => String): Trie[V] = {
-    // Size of common prefix of two strings
-    def common(x: String, y: String): Int = {
-      val n = min(x.size,y.size)
-      def loop(j: Int): Int =
-        if (j==n || x(j)!=y(j)) j
-        else loop(j+1)
-      loop(0)
-    }
-
-    // Count nodes and determine maximum depth
-    //      : *0-         : 1,3
-    // a    : *1a#*0-     : 2,7
-    // a b  : *2a#b#*0*0- : 3,11
-    // a ab : *1a#*1b#*0- : 3,11
-    val (nodes,depth) = timed("count",{
-      var prev = ""
-      var nodes = 1
-      var maxSize = 0
-      for (i <- 0 until values.size) {
-        val k = key(values(i))
-        maxSize = max(maxSize,k.size)
-        nodes += k.size-common(prev,k)
-        prev = k
-      }
-      (nodes,maxSize+1)
-    })
-    val structureSize = 4*nodes-1
-
-    // Determine node information: an array of (position,start) pairs.
-    val info = timed("position",{
-      // At first, each info pair is (children,start)
-      val info = timed("allocate info",new Array[Int](2*nodes+1))
-      val stack = new Array[Int](depth)
-      var prev = ""
-      var n = 1
-      timed("children loop",for (i <- 0 until values.size) {
-        val k = key(values(i))
-        val c = common(prev,k) // Implicit truncate stack to size c+1
-        if (c < k.size) {
-          info(2*stack(c)) += 1
-          for (j <- c+1 until k.size) {
-            info(2*n) += 1
-            info(2*n+1) = i
-            stack(j) = n
-            n += 1
-          }
-          info(2*n+1) = i
-          stack(k.size) = n
-          n += 1
-        }
-        prev = k
-      })
-      assert(n == nodes)
-      // Accumulate children into position
-      var total = 0
-      timed("position loop",for (n <- 0 until nodes) {
-        val next = total+2+2*info(2*n)
-        info(2*n) = total
-        total = next
-      })
-      assert(total+1 == structureSize)
-      info(2*nodes) = total
-      info
-    })
-
-    // Allocate structure
-    val structure = timed(s"allocate structure (${4*structureSize} bytes)",
-      new Array[Int](structureSize))
-
-    // Generate tree
-    timed("structure",{
-      // Initialize value starts.  Child counts are correctly already zero.
-      for (n <- 0 until nodes)
-        structure(info(2*n)) = info(2*n+1)
-      structure(info(2*nodes)) = values.size
-      // Fill in children
-      val stack = new Array[Int](depth)
-      var prev = ""
-      var n = 1
-      for (i <- 0 until values.size) {
-        val k = key(values(i))
-        val c = common(prev,k) // Implicit truncate stack to size c+1
-        if (c < k.size) {
-          def link(parent: Int, j: Int) = {
-            val pn = info(2*parent)
-            val cn = structure(pn+1)
-            structure(pn+1) = cn+1
-            structure(pn+2+2*cn) = k(j)
-            structure(pn+2+2*cn+1) = info(2*n)
-            n += 1
-          }
-          link(stack(c),c)
-          for (j <- c+1 until k.size) {
-            stack(j) = n-1
-            link(n-1,j)
-          }
-          stack(k.size) = n-1
-        }
-        prev = k
-      }
-      assert(n == nodes)
-    })
-
-    // All done!
-    new Trie(structure,values,key)
+  private def makeHelper[V <: Named](values: Array[V]): Trie[V] = {
+    new Trie(JavaUtils.makeTrieStructure[V](values),values)
   }
 
-  def levenshteinLookup[V](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
-    case class LevenshteinVisitor[V](dist: IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
-      def next(k: Char): Option[LevenshteinVisitor[V]] = {
+  def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
+    case class LevenshteinVisitor(dist: IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
+      def next(k: Char): Option[LevenshteinVisitor] = {
         val d = new IncrementalLevenshteinBound(typed,dist,k)
-        if (d.min > maxDistance) None else Some(LevenshteinVisitor[V](d))
+        if (d.min > maxDistance) None else Some(LevenshteinVisitor(d))
       }
       def found(xs: TraversableOnce[V]): List[Alt[V]] = {
         if (dist.distance > maxDistance) Nil else {
@@ -243,6 +145,6 @@ object Tries {
         xs.toList map (Alt(p,_))}}}
       }
     }
-    t.lookup(LevenshteinVisitor[V](EmptyIncrementalLevenshteinBound))
+    t.lookup(LevenshteinVisitor(EmptyIncrementalLevenshteinBound))
   }
 }

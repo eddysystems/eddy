@@ -33,6 +33,8 @@ object Tarski {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
 
+    //println(s"fix found: empty ${r.isEmpty}, single ${r.isSingle}, best ${r.best}")
+
     // Take up to limit elements, merging duplicates and adding their probabilities if found
     def mergeTake[A](s: Stream[Alt[A]])(m: Map[A,Prob]): List[Alt[A]] =
       if (m.size == limit || s.isEmpty)

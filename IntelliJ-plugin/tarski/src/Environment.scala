@@ -66,7 +66,7 @@ object Environment {
              inside_breakable: Boolean = false,
              inside_continuable: Boolean = false,
              labels: List[String] = Nil) = {
-      this(Trie(things)(_.name), itemsToMapList(Map.empty,things), inScope,
+      this(Trie(things), itemsToMapList(Map.empty,things), inScope,
            valuesByItem(Map.empty,things), place, inside_breakable, inside_continuable, labels)
     }
 
