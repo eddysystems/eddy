@@ -18,6 +18,7 @@ import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import static com.eddysystems.eddy.Utility.*;
+import static ambiguity.JavaUtils.*;
 import tarski.*;
 
 import java.util.List;
@@ -226,12 +227,12 @@ public class Eddy {
 
       // place is just before this line
       place = prevLineEnd;
-      timeStart("environment");
+      pushScope("environment");
       env = new EnvironmentProcessor(project, place, true).getJavaEnvironment();
       final List<Tokens.Token> _tokens = tokens;
-      timeStart("fix");
+      popPushScope("fix");
       results = Tarski.fixJava(_tokens, env);
-      timeStop();
+      popScope();
 
       for (Scores.Alt<List<Denotations.Stmt>> interpretation : results) {
         // for each interpretation, compute a string
@@ -239,15 +240,13 @@ public class Eddy {
           resultStrings.add("");
         } else {
           String s = "";
-          for (Denotations.Stmt meaning : interpretation.x()) {
+          for (Denotations.Stmt meaning : interpretation.x())
             s = s + code(meaning) + " ";
-          }
           s = s.substring(0,s.length()-1); // remove trailing space
           resultStrings.add(s);
           logger.debug("eddy result: '" + s + "' existing '" + before_text + "'");
-          if (s.equals(before_text)) {
+          if (s.equals(before_text))
             found_existing = true;
-          }
         }
       }
     }

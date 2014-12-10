@@ -14,11 +14,12 @@ object Tarski {
 
   def environment(jvalues: java.util.Collection[Item]): Env = {
     val vs = jvalues.asScala.toArray // Copy because jvalues may change during addObjects due to lazy conversion
-    Base.extraEnv.addObjects(vs,Map.empty)
+    val all = vs++Base.extraEnv.allItems
+    Env(all,Map.empty)
   }
 
-  def addEnvironment(env: Env, values: Array[Item], inScope: java.util.Map[Item,Integer]): Env =
-    env.addObjects(values, inScope.asScala.toMap.mapValues(_.intValue))
+  def addEnvironment(env: Env, values: Array[Item], scope: java.util.Map[Item,Integer]): Env =
+    env.extend(values, scope.asScala.toMap.mapValues(_.intValue))
 
   def localPkg(): PackageItem = Base.LocalPkg
 

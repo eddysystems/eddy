@@ -22,7 +22,7 @@ class TestEnvironment {
     val f = NormalMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)),true)
     val y = LocalVariableItem("y",ArrayType(DoubleType),true)
     val scope = Map[Item,Int]((LocalPkg,4),(main,3),(yf,2),(f,2),(y,1))
-    implicit val env = new Env(Array(main,f),scope)
+    implicit val env = Env(Array(main,f),scope)
     assertEquals(tokens(y), List(IdentTok("y")))
     assertEquals(tokens(yf), List(IdentTok("Main"),DotTok(), IdentTok("y")))
   }
@@ -33,7 +33,7 @@ class TestEnvironment {
     val Y = NormalClassItem("Y", X, Nil, ObjectType, Nil)
     val tX = ThisItem(X)
     val tY = ThisItem(Y)
-    implicit val env = new Env(Array(X,Y,tX,tY), Map((tX,2),(X,2),(tY,1),(Y,1)))
+    implicit val env = Env(Array(X,Y,tX,tY), Map((tX,2),(X,2),(tY,1),(Y,1)))
     assertEquals(tokens(ThisExp(tX)), List(IdentTok("X"),DotTok(),ThisTok()))
     assertEquals(tokens(ThisExp(tY)), List(ThisTok()))
   }
@@ -50,7 +50,7 @@ class TestEnvironment {
     val typed = List("garbage","tes","LongLongNameTest")
     val things = Array("test","tset","verylongName","LongLongName","TestName","testName","NameTest","iTest")
       .map(s => NormalClassItem(s,LocalPkg) : Item)
-    val env = new Env(things)
+    val env = Env(things)
 
     // these should all return nothing
     for (name <- typed) {
@@ -107,12 +107,12 @@ class TestEnvironment {
     val typed = "test"
     val things = Array("test","tset","verylongName","LongLongName","TestName","testName","NameTest","iTest")
       .map(s => NormalClassItem(s,LocalPkg) : Item)
-    val env = new Env(things)
+    val env = Env(things)
 
     val qr = env.query(typed).toSet
     val lr = things.collect( Function.unlift((item:Item) => {
       val p = Pr.typoProbability(item.name, typed)
-      if (p > env.minimumProbability) Some(Alt(p,item)) else None
+      if (p > Environment.minimumProbability) Some(Alt(p,item)) else None
     })).toSet
 
     println(s"exact match for query $typed -> ${env.exactQuery(typed)}")

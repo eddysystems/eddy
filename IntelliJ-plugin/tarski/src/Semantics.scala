@@ -142,15 +142,15 @@ object Semantics {
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = i match {
-    case i: ParameterItem if env.itemInScope(i) => single(ParameterExp(i), Pr.parameterValue)
-    case i: LocalVariableItem if env.itemInScope(i) => single(LocalVariableExp(i), Pr.localValue)
+    case i: ParameterItem if env.inScope(i) => single(ParameterExp(i), Pr.parameterValue)
+    case i: LocalVariableItem if env.inScope(i) => single(LocalVariableExp(i), Pr.localValue)
 
     // We can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
     case i: StaticFieldItem => single(StaticFieldExp(None,i), Pr.staticFieldValue)
     case i: EnumConstantItem => single(EnumConstantExp(None,i), Pr.enumConstantValue)
     case i: ThisItem => single(ThisExp(i), Pr.thisValue)
 
-    case i: FieldItem if env.itemInScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
+    case i: FieldItem if env.inScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
     case i: FieldItem => denoteField(i, FieldExp, Pr.superFieldValue, Pr.shadowedFieldValue, Pr.fieldValue, depth)
     case _ => fail("Can't find a denotation for " + i + ", inaccessible")
   }
@@ -158,7 +158,7 @@ object Semantics {
   def denoteCallable(e: AExp)(implicit env: Env): ScoredAbove[Callable] = e match {
     case NameAExp(n) => callableScores(n) flatMap {
       case i: MethodItem if i.isStatic => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
-      case i: MethodItem if env.itemInScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
+      case i: MethodItem if env.inScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
       case i: MethodItem => denoteField(i, MethodDen, Pr.superMethodCallable, Pr.shadowedMethodCallable, Pr.methodCallable, 0)
       case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
     }
@@ -396,10 +396,10 @@ object Semantics {
         (env,AssertStmt(c,m))} bias Pr.assertStmt)
 
       case BreakAStmt(lab) =>
-        if (env.inside_breakable) denoteLabel(lab,(env,List(BreakStmt))) bias Pr.breakStmt
+        if (env.place.breakable) denoteLabel(lab,(env,List(BreakStmt))) bias Pr.breakStmt
         else fail("cannot break outside of a loop or switch statement.")
       case ContinueAStmt(lab) =>
-        if (env.inside_continuable) denoteLabel(lab,(env,List(ContinueStmt))) bias Pr.continueStmt
+        if (env.place.continuable) denoteLabel(lab,(env,List(ContinueStmt))) bias Pr.continueStmt
         else fail("cannot break outside of a loop")
       case ReturnAStmt(e) => above(product(liftAbove(returnType),thread(e)(denoteExp)) flatMap {case (r,e) =>
         val t = typeOf(e)

@@ -1,5 +1,6 @@
 package ambiguity;
 
+import org.apache.commons.lang.StringUtils;
 import tarski.Items.*;
 import tarski.Base.*;
 import tarski.Tries.Named;
@@ -8,7 +9,45 @@ import gnu.trove.map.hash.TObjectIntHashMap;
 import java.util.*;
 
 public class JavaUtils {
-    // Size of common prefix of two strings
+  // State for pushScope and popScope
+  private static class Scope {
+    final String name;
+    final long start;
+    boolean leaf;
+
+    Scope(String name) {
+      this.name = name;
+      this.start = System.nanoTime();
+      leaf = true;
+    }
+  }
+  private static Stack<Scope> scopes;
+
+  public static void pushScope(String name) {
+    if (scopes == null) {
+      scopes = new Stack<Scope>();
+      final Scope top = new Scope("top");
+      top.leaf = false;
+      scopes.push(top);
+    }
+    final Scope s = scopes.peek();
+    if (s.leaf) {
+      System.out.printf("%s%s\n",StringUtils.repeat("  ",scopes.size()-2),s.name);
+      s.leaf = false;
+    }
+    scopes.push(new Scope(name));
+  }
+  public static void popScope() {
+    final long end = System.nanoTime();
+    final Scope s = scopes.pop();
+    System.out.printf("%s%s = %.3g s\n",StringUtils.repeat("  ",scopes.size()-1),s.name,1e-9*(end-s.start));
+  }
+  public static void popPushScope(String name) {
+    popScope();
+    pushScope(name);
+  }
+
+  // Size of common prefix of two strings
   public static int common(String x, String y) {
     int n = Math.min(x.length(),y.length());
     int p = 0;
@@ -17,7 +56,8 @@ public class JavaUtils {
     return p;
   }
 
-  public static Map<TypeItem,Value[]> valuesByItem(Map<TypeItem,Value[]> start, Item[] vs) {
+  public static Map<TypeItem,Value[]> valuesByItem(Item[] vs) {
+    pushScope("values by item");
     // Turn debugging on or off
     final boolean debug = false;
 
@@ -25,12 +65,8 @@ public class JavaUtils {
     final Stack<RefTypeItem> work = new Stack<RefTypeItem>();
     final Set<TypeItem> seen = new HashSet<TypeItem>();
 
-    // Initialize counts based on previous map
-    final TObjectIntHashMap<TypeItem> count = new TObjectIntHashMap<TypeItem>(start.size());
-    for (Map.Entry<TypeItem,Value[]> e : start.entrySet())
-      count.put(e.getKey(),e.getValue().length);
-
     // Count values corresponding to each item
+    final TObjectIntHashMap<TypeItem> count = new TObjectIntHashMap<TypeItem>(vs.length);
     for (final Item i : vs) {
       if (!(i instanceof Value))
         continue;
@@ -60,32 +96,8 @@ public class JavaUtils {
       }
     }
 
-    // Allocate new map and initialize with old values.
-    // If there are no new Value for a given TypeItem, we reuse the Value[].
-    final Map<TypeItem,Value[]> results = new HashMap<TypeItem,Value[]>(start.size());
-    for (final Map.Entry<TypeItem,Value[]> e : start.entrySet()) {
-      final TypeItem t = e.getKey();
-      int n = count.get(t);
-      final Value[] vaOld = e.getValue();
-      Value[] va;
-      if (n == vaOld.length) {
-        va = vaOld;
-        if (debug)
-          count.put(t,0);
-      } else {
-        va = results.get(t);
-        if (va == null) {
-          va = new Value[n];
-          results.put(t,va);
-        }
-        for (int i=0;i<vaOld.length;i++)
-          va[--n] = vaOld[i];
-        count.put(t,n);
-      }
-      results.put(t,va);
-    }
-
     // Add values corresponding to each item
+    final Map<TypeItem,Value[]> results = new HashMap<TypeItem,Value[]>(count.size());
     for (final Item i : vs) {
       if (!(i instanceof Value))
         continue;
@@ -139,16 +151,19 @@ public class JavaUtils {
     }
 
     // All done!
+    popScope();
     return results;
   }
 
-  public static <V extends Named> int[] makeTrieStructure(V[] values) {
+  // Should be parameterized over V extends Named.  That causes weird build issues, so we hard code V = Named.
+  public static int[] makeTrieStructure(Named[] values) {
+    pushScope("trie structure");
     // Count nodes and determine maximum depth
     //      : *0-         : 1,3
     // a    : *1a#*0-     : 2,7
     // a b  : *2a#b#*0*0- : 3,11
     // a ab : *1a#*1b#*0- : 3,11
-    long start = System.nanoTime();
+    pushScope("count");
     int nodes = 1;
     int maxSize = 0;
     String prev = "";
@@ -161,19 +176,14 @@ public class JavaUtils {
     }
     int depth = maxSize + 1;
     int structureSize = 4*nodes-1;
-    long end = System.nanoTime();
-    System.out.println("elapsed count = "+(end-start)/1e9);
-
 
     // Determine node information: an array of (position,start) pairs.
-    start = System.nanoTime();
+    popPushScope("allocate info+stack");
     int[] info = new int[2*nodes+1];
     int[] stack = new int[depth];
-    end = System.nanoTime();
-    System.out.println("elapsed allocate info+stack = "+(end-start)/1e9);
 
     // At first, each info pair is (children,start)
-    start = System.nanoTime();
+    popPushScope("children");
     prev = "";
     int n = 1;
     for (int i = 0; i < values.length; ++i) {
@@ -194,12 +204,9 @@ public class JavaUtils {
       prev = k;
     }
     assert n == nodes;
-    end = System.nanoTime();
-    System.out.println("elapsed children loop = "+(end-start)/1e9);
-
 
     // Accumulate children into position
-    start = System.nanoTime();
+    popPushScope("position");
     int total = 0;
     for (n = 0; n < nodes; ++n) {
       int next = total+2+2*info[2*n];
@@ -208,17 +215,14 @@ public class JavaUtils {
     }
     assert(total+1 == structureSize);
     info[2*nodes] = total;
-    end = System.nanoTime();
-    System.out.println("elapsed position loop = "+(end-start)/1e9);
 
     // Allocate structure
-    start = System.nanoTime();
+    popPushScope("allocate structure");
     int[] structure = new int[structureSize];
-    end = System.nanoTime();
-    System.out.println("elapsed allocate structure = "+(end-start)/1e9);
 
     // Generate tree
     // Initialize value starts.  Child counts are correctly already zero.
+    popPushScope("structure");
     for (n = 0; n < nodes; ++n)
       structure[info[2*n]] = info[2*n+1];
     structure[info[2*nodes]] = values.length;
@@ -253,6 +257,8 @@ public class JavaUtils {
     }
     assert n == nodes;
 
+    popScope();
+    popScope();
     return structure;
   }
 

@@ -193,11 +193,10 @@ object Utility {
     }
   }
 
-  def timed[R](name: String, f: => R): R = {
-    val t0 = System.nanoTime()
+  def scoped[R](name: String, f: => R): R = {
+    JavaUtils.pushScope(name);
     val r = f
-    val t1 = System.nanoTime()
-    println(s"elapsed $name = ${1e-9*(t1-t0)} s")
+    JavaUtils.popScope();
     r
   }
 }

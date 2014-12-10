@@ -23,6 +23,7 @@ import scala.Some;
 import scala.collection.JavaConversions;
 import scala.collection.immutable.Map$;
 import tarski.Environment.Env;
+import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Types.*;
@@ -101,12 +102,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private void addBase(Converter env, GlobalSearchScope scope, boolean noProtected) {
     // Extra things don't correspond to PsiElements
     final Set<Item> extra = new HashSet<Item>();
-    for (Item i : tarski.Base.extraEnv().items())
+    for (Item i : tarski.Base.extraEnv().allItems())
       extra.add(i);
 
     // Add classes and packages
     final JavaPsiFacade facade = JavaPsiFacade.getInstance(env.place.project);
-    for (Item item : tarski.Base.baseEnv().items()) {
+    for (Item item : tarski.Base.baseEnv().allItems()) {
       if (extra.contains(item) || item instanceof ConstructorItem)
         continue;
       final String name = item.qualifiedName().get();
@@ -123,7 +124,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     // Add constructors
-    for (Item item : tarski.Base.baseEnv().items()) {
+    for (Item item : tarski.Base.baseEnv().allItems()) {
       if (!(item instanceof ConstructorItem))
         continue;
       final String clsName = ((ConstructorItem)item).parent().qualifiedName().get();
@@ -136,7 +137,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     // Add class members
-    for (Item item : tarski.Base.baseEnv().items()) {
+    for (Item item : tarski.Base.baseEnv().allItems()) {
       if (extra.contains(item) || !(item instanceof ClassItem))
         continue;
       final String name = item.qualifiedName().get();
@@ -333,7 +334,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     Item[] localArray = local_items.toArray(new Item[local_items.size()]);
     Env tenv = Tarski.addEnvironment(global_env, localArray, scopeItems)
-                     .move(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList());
+                     .move(new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
 
     logger.info("done");
 

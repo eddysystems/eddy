@@ -142,7 +142,7 @@ object Base {
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
 
   // Standard base environment
-  val baseEnv = new Env(Array(
+  val baseEnv = Env(Array(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
     // Primitive types
@@ -158,15 +158,15 @@ object Base {
   ))
 
   // Things that EnvironmentProcessor won't add on its own
-  val extraEnv = new Env(Array(
+  val extraEnv = Env(Array(
     LocalPkg,
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem))
 
   // Check that an environment has a unique copy of everything in baseEnv
   def checkEnv(env: Env): Unit = {
-    val names = baseEnv.items.map(t => t.qualifiedName.get -> t).toMap
+    val names = baseEnv.allItems.map(t => t.qualifiedName.get -> t).toMap
     val seen = mutable.Set[String]()
-    env.items.foreach(t => t.qualifiedName foreach (n => names get n foreach (b => {
+    env.allItems.foreach(t => t.qualifiedName foreach (n => names get n foreach (b => {
       assert(!seen.contains(n),s"Two copies of $n, type ${t.getClass}, t = ${t.hashCode}")
       assert(t eq b,s"Versions of $n in baseEnv (${b.getClass}) and env (${t.getClass}) differ")
       seen += n

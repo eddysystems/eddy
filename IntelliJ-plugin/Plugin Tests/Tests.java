@@ -19,6 +19,7 @@ import tarski.Denotations.Stmt;
 import tarski.Scores;
 import tarski.Base;
 import tarski.Items.*;
+import static ambiguity.JavaUtils.*;
 
 import java.util.List;
 
@@ -72,8 +73,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private Eddy setupEddy(String filename) {
+    pushScope("setup eddy");
     myFixture.configureByFile(filename);
-    return makeEddy();
+    Eddy e = makeEddy();
+    popScope();
+    return e;
   }
 
   private void checkResult(Eddy eddy, String expected) {
@@ -95,9 +99,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testCreateEddy() throws Exception {
     for (int i = 0; i < 2; i++) {
       System.out.println("iteration " + i);
-      timeStart("setupEddy");
       setupEddy("dummy.java");
-      timeStop();
     }
   }
 
@@ -105,15 +107,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     EnvironmentProcessor.clearGlobalEnvironment();
     Eddy eddy = setupEddy("denote_x.java");
     Base.checkEnv(eddy.getEnv());
-    for (Scores.Alt<List<Stmt>> result : eddy.getResults()) {
+    for (Scores.Alt<List<Stmt>> result : eddy.getResults())
       assertTrue("Probability > 1", result.p() <= 1.0);
-    }
   }
 
   public void testTypeVar() {
     Eddy eddy = setupEddy("typeVar.java");
     int As = 0, Bs = 0, Cs = 0;
-    for (Item i : eddy.getEnv().items()) {
+    for (Item i : eddy.getEnv().allItems()) {
       final String n = i.name();
       if      (n.equals("Avar")) As++;
       else if (n.equals("Bvar")) Bs++;
