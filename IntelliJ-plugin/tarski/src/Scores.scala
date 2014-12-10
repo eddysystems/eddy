@@ -26,18 +26,18 @@ object Scores {
     def best: Either[Error,A] = s.best
     def all: Either[Error,Stream[Alt[A]]] = s.all
     def stream: Stream[Alt[A]] = s.stream
-    def bias(q: Prob): Scored[A] = delay(p*q,s bias q)
-    def map[B](f: A => B): Scored[B] = delay(p,s map f)
+    def bias(q: Prob): Scored[A] = new LazyBias(this,q)
+    def map[B](f: A => B): Scored[B] = new LazyMap(this,f)
 
     // f is assumed to generate conditional probabilities
-    def flatMap[B](f: A => Scored[B]): Scored[B] = new Lazy(p,s flatMap f)
+    def flatMap[B](f: A => Scored[B]): Scored[B] = new LazyFlatMap(this,f)
 
     def ++[B >: A](t: Scored[B]): Scored[B] =
-      if (p >= t.p) delay(p,s ++ t)
-      else          delay(t.p,t.s ++ this)
+      if (p >= t.p) new LazyPlus(this,t)
+      else          new LazyPlus(t,this)
 
     // We are assumed independent of t
-    def productWith[B,C](t: Scored[B])(f: (A,B) => C): Scored[C] = delay(p*t.p,s.productWith(t)(f))
+    def productWith[B,C](t: Scored[B])(f: (A,B) => C): Scored[C] = new LazyProductWith(this,t,f)
 
     // Filter, turning Empty into given error
     def filter(f: A => Boolean, error: => String): Scored[A] = delay(p,s.filter(f,error))
@@ -55,6 +55,76 @@ object Scores {
     lazy val s = _s
   }
   @inline private def delay[A](p: Prob, s: => Actual[A]) = new Lazy(p,s)
+
+  // Lazy version of x bias q
+  private class LazyBias[A](private var x: Scored[A], private val q: Prob) extends Scored[A] {
+    val p = x.p*q
+    var _s: Actual[A] = null
+    def s = {
+      if (_s eq null) {
+        val _x = x; x = null
+        _s = _x.s bias q
+      }
+      _s
+    }
+  }
+
+  // Lazy version of x map f
+  private class LazyMap[A,B](private var x: Scored[A], private var f: A => B) extends Scored[B] {
+    val p = x.p
+    var _s: Actual[B] = null
+    def s = {
+      if (_s eq null) {
+        val _x = x; x = null
+        val _f = f; f = null
+        _s = _x.s map _f
+      }
+      _s
+    }
+  }
+
+  // Lazy version of x ++ y, assuming x.p >= y.p
+  private class LazyPlus[A](private var x: Scored[A], private var y: Scored[A]) extends Scored[A] {
+    val p = x.p
+    var _s: Actual[A] = null
+    def s = {
+      if (_s eq null) {
+        val _x = x; x = null
+        val _y = y; y = null
+        _s = _x.s ++ _y
+      }
+      _s
+    }
+  }
+
+  // Lazy version of x flatMap f
+  private class LazyFlatMap[A,B](private var x: Scored[A], private var f: A => Scored[B]) extends Scored[B] {
+    val p = x.p
+    var _s: Actual[B] = null
+    def s = {
+      if (_s eq null) {
+        val _x = x; x = null
+        val _f = f; f = null
+        _s = _x.s flatMap _f
+      }
+      _s
+    }
+  }
+
+  // Lazy version of x.productWith(y)(f)
+  private class LazyProductWith[A,B,C](private var x: Scored[A], private var y: Scored[B], private var f: (A,B) => C) extends Scored[C] {
+    val p = x.p*y.p
+    var _s: Actual[C] = null
+    def s = {
+      if (_s eq null) {
+        val _x = x; x = null
+        val _y = y; y = null
+        val _f = f; f = null
+        _s = _x.s.productWith(_y)(_f)
+      }
+      _s
+    }
+  }
 
   // When forced, Scored computes an Actual
   private sealed abstract class Actual[+A] {
@@ -122,10 +192,10 @@ object Scores {
     def ++[B >: A](s: Scored[B]): Actual[B] =
       if (p >= s.p) Best(p,x,r ++ s)
       else s.s match {
-        case Empty|_:Bad => this
         case s@Best(q,y,t) =>
           if (p >= q) Best(p,x,delay(max(q,r.p),s ++ r))
           else        Best(q,y,delay(max(p,t.p),this ++ t))
+        case Empty|_:Bad => this
       }
 
     def flatMap[B](f: A => Scored[B]) = {
