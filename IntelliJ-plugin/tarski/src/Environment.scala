@@ -14,12 +14,6 @@ import tarski.Pretty._
 import scala.collection.mutable
 
 object Environment {
-  def itemsToMapList(start: Map[String,List[Item]], bs: Iterable[Item]): Map[String,List[Item]] = {
-    val m = mutable.Map[String,List[Item]]()++start
-    bs foreach { b => m(b.name) = b :: m.getOrElse(b.name,Nil) }
-    m.toMap
-  }
-
   def valuesByItem(start: Map[TypeItem,List[Value]], vs: Iterable[Item]): Map[TypeItem,List[Value]] = {
     val m = mutable.Map[TypeItem,List[Value]]()++start
     def add(s: TypeItem, v: Value) = m(s) = v::m.getOrElse(s,Nil)
@@ -37,7 +31,6 @@ object Environment {
    * The environment used for name resolution
    */
    case class Env(private val trie: Trie[Item],
-                  private val things: Map[String,List[Item]],
                   private val inScope: Map[Item,Int],
                   private val byItem: Map[TypeItem,List[Value]], // Map from item to values with matching type
                   place: PlaceItem,
@@ -46,7 +39,6 @@ object Environment {
                   labels: List[String]) extends scala.Serializable {
 
     def items: Array[Item] = trie.values
-    def nameMap: Map[String,List[Item]] = things
     def itemMap: Map[TypeItem,List[Value]] = byItem
     def scopeMap: Map[Item,Int] = inScope
 
@@ -56,7 +48,7 @@ object Environment {
              inside_breakable: Boolean,
              inside_continuable: Boolean,
              labels: List[String]) = {
-      this(base.trie++newthings, itemsToMapList(base.things,newthings), base.inScope ++ newScope,
+      this(base.trie++newthings, base.inScope ++ newScope,
            valuesByItem(base.byItem,newthings), place, inside_breakable, inside_continuable, labels)
     }
 
@@ -66,14 +58,12 @@ object Environment {
              inside_breakable: Boolean = false,
              inside_continuable: Boolean = false,
              labels: List[String] = Nil) = {
-      this(Trie(things), itemsToMapList(Map.empty,things), inScope,
+      this(Trie(things), inScope,
            valuesByItem(Map.empty,things), place, inside_breakable, inside_continuable, labels)
     }
 
     // minimum probability before an object is considered a match for a query
     val minimumProbability = Prob(.01)
-
-    assert( place == Base.LocalPkg || things.getOrElse(place.name, Nil).contains(place) )
 
     // Add objects
     def addObjects(xs: Iterable[Item], is: Map[Item,Int]): Env = {
@@ -86,7 +76,7 @@ object Environment {
       addObjects(xs, (xs map {(_,1)}).toMap)
 
     def move(newPlace: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: List[String]): Env = {
-      Env(trie, things, inScope, byItem, newPlace, inside_breakable, inside_continuable, labels)
+      Env(trie, inScope, byItem, newPlace, inside_breakable, inside_continuable, labels)
     }
 
     def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)] = place match {
@@ -116,7 +106,7 @@ object Environment {
 
     // Fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {
-      things.getOrElse(name, Nil) collect { case x: LocalVariableItem => x } match {
+      trie.exact(name) collect { case x: LocalVariableItem => x } match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
@@ -129,12 +119,12 @@ object Environment {
 
     // Enter a new block scope
     def pushScope: Env =
-      Env(trie, things, inScope map { case (i,n) => (i,n+1) },
+      Env(trie, inScope map { case (i,n) => (i,n+1) },
           byItem, place, inside_breakable, inside_continuable, labels)
 
     // Leave a block scope
     def popScope: Env =
-      Env(trie, things, inScope collect { case (i,n) if n>1 => (i,n-1) },
+      Env(trie, inScope collect { case (i,n) if n>1 => (i,n-1) },
           byItem, place, inside_breakable, inside_continuable, labels)
 
     // get typo probabilities for string queries
@@ -148,7 +138,6 @@ object Environment {
       val e = typed.length * Pr.typingErrorRate
       val p = Pr.poissonPDF(e,0)
       trie.exact(typed) map (Alt(p,_))
-      //nameMap.getOrElse(typed, Nil) map { Alt(p, _) }
     }
 
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
