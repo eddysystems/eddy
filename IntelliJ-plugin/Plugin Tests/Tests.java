@@ -18,6 +18,7 @@ import org.jetbrains.annotations.NotNull;
 import tarski.Denotations.Stmt;
 import tarski.Scores;
 import tarski.Base;
+import tarski.Items.*;
 
 import java.util.List;
 
@@ -104,11 +105,27 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testProbLE1() {
+    EnvironmentProcessor.clearGlobalEnvironment();
     Eddy eddy = setupEddy("denote_x.java");
     Base.checkEnv(eddy.getEnv());
     for (Scores.Alt<List<Stmt>> result : eddy.getResults()) {
       assertTrue("Probability > 1", result.p() <= 1.0);
     }
+  }
+
+  public void testTypeVar() {
+    Eddy eddy = setupEddy("typeVar.java");
+    int As = 0, Bs = 0, Cs = 0;
+    for (Item i : eddy.getEnv().items()) {
+      final String n = i.name();
+      if      (n.equals("Avar")) As++;
+      else if (n.equals("Bvar")) Bs++;
+      else if (n.equals("Cvar")) Cs++;
+    }
+    System.out.println("As "+As+", Bs "+Bs+", Cs "+Cs);
+    assert As==1;
+    assert Bs==1;
+    assert Cs==0;
   }
 
   public void testProject() {

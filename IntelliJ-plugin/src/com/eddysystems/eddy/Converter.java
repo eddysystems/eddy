@@ -308,9 +308,6 @@ public class Converter {
   }
 
   void addClassMembers(PsiClass cls, ClassItem item, boolean noProtected) {
-    // Force addition of type vars to the environment
-    item.tparams();
-
     for (PsiField f : cls.getFields())
       if (!place.isInaccessible(f,noProtected))
         addField(f);
@@ -342,16 +339,15 @@ public class Converter {
   private static class LazyConstructor extends ConstructorItem {
     private final Converter env;
     private final PsiMethod method;
-    private final scala.collection.immutable.List<TypeVar> _tparams;
 
     // Lazy fields (null initially)
     private ClassItem _parent;
+    private scala.collection.immutable.List<TypeVar> _tparams;
     private scala.collection.immutable.List<Type> _params;
 
-    LazyConstructor(Converter env, PsiMethod method, scala.collection.immutable.List<TypeVar> tparams) {
+    LazyConstructor(Converter env, PsiMethod method) {
       this.env = env;
       this.method = method;
-      this._tparams = tparams;
     }
 
     // Core interface
@@ -361,6 +357,8 @@ public class Converter {
       return _parent;
     }
     public scala.collection.immutable.List<TypeVar> tparams() {
+      if (_tparams == null)
+        _tparams = env.tparams(method);
       return _tparams;
     }
     public scala.collection.immutable.List<Type> params() {
@@ -382,18 +380,17 @@ public class Converter {
   private static class LazyMethod extends MethodItem {
     final Converter env;
     final PsiMethod method;
-    private final scala.collection.immutable.List<TypeVar> _tparams;
     private final boolean _isStatic;
 
     // Lazy fields (null initially)
     private ClassItem _parent;
+    private scala.collection.immutable.List<TypeVar> _tparams;
     private scala.collection.immutable.List<Type> _params;
     private Type _retVal;
 
-    LazyMethod(Converter env, PsiMethod method, scala.collection.immutable.List<TypeVar> tparams) {
+    LazyMethod(Converter env, PsiMethod method) {
       this.env = env;
       this.method = method;
-      this._tparams = tparams;
       this._isStatic = method.hasModifierProperty(PsiModifier.STATIC);
     }
 
@@ -410,6 +407,8 @@ public class Converter {
       return _parent;
     }
     public scala.collection.immutable.List<TypeVar> tparams() {
+      if (_tparams == null)
+        _tparams = env.tparams(method);
       return _tparams;
     }
     public scala.collection.immutable.List<Type> params() {
@@ -440,9 +439,8 @@ public class Converter {
         return (CallableItem)i;
     }
 
-    scala.collection.immutable.List<TypeVar> tparams = this.tparams(method);
-    CallableItem item = method.isConstructor() ? new LazyConstructor(this,method,tparams)
-                                               : new LazyMethod(this,method,tparams);
+    CallableItem item = method.isConstructor() ? new LazyConstructor(this,method)
+                                               : new LazyMethod(this,method);
     locals.put(method,item);
     return item;
   }
