@@ -5,6 +5,7 @@ import tarski.Items._
 import tarski.Types._
 import tarski.Environment.Env
 import scala.collection.mutable
+import scala.collection.JavaConverters._
 
 object Base {
   // Basic packages
@@ -161,17 +162,15 @@ object Base {
     LocalPkg,
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem))
 
-  // Map from qualified names to base environment entries
-  val baseQualifiedNames: Map[String,Item] = baseEnv.items.map(t => t.qualifiedName.get -> t).toMap
-
   // Check that an environment has a unique copy of everything in baseEnv
   def checkEnv(env: Env): Unit = {
+    val names = baseEnv.items.map(t => t.qualifiedName.get -> t).toMap
     val seen = mutable.Set[String]()
-    env.items.foreach(t => t.qualifiedName foreach (n => baseQualifiedNames get n foreach (b => {
+    env.items.foreach(t => t.qualifiedName foreach (n => names get n foreach (b => {
       assert(!seen.contains(n),s"Two copies of $n, type ${t.getClass}, t = ${t.hashCode}")
       assert(t eq b,s"Versions of $n in baseEnv (${b.getClass}) and env (${t.getClass}) differ")
       seen += n
     })))
-    baseQualifiedNames foreach {case (n,_) => assert(seen contains n, s"env does not contain $n")}
+    names foreach {case (n,_) => assert(seen contains n, s"env does not contain $n")}
   }
 }

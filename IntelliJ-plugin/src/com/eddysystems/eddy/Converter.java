@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 public class Converter {
-  private final Place place;
+  public final Place place;
   private final Map<PsiElement,Item> globals;
   public final Map<PsiElement, Item> locals; // We will add to this
 
@@ -133,10 +133,8 @@ public class Converter {
       return addClass((PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
-      String qual = pkg.getQualifiedName();
-      Item base = tarski.Tarski.baseLookupJava(qual);
-      PackageItem item = base != null ? (PackageItem)base : new PackageItem(pkg.getName(), qual);
-      locals.put(pkg, item);
+      PackageItem item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
+      locals.put(pkg,item);
       return item;
     }
     throw new RuntimeException("weird container "+elem);
@@ -299,34 +297,32 @@ public class Converter {
     if (cls instanceof PsiTypeParameter)
       return addTypeParam((PsiTypeParameter)cls);
 
-    // Check for base classes
-    ClassItem item = (ClassItem)tarski.Tarski.baseLookupJava(cls.getQualifiedName());
-    if (item == null) {
-      // Make and add the class
-      final ParentItem parent = (ParentItem)addContainer(place.containing(cls));
-      item = new LazyClass(this,cls,parent);
-    }
-    locals.put(cls, item);
+    // Make and add the class
+    final ParentItem parent = (ParentItem)addContainer(place.containing(cls));
+    ClassItem item = new LazyClass(this,cls,parent);
+    locals.put(cls,item);
 
-    // Add subthings recursively
-    if (recurse) {
-      // Force addition of type vars to the environment
-      item.tparams();
-
-      for (PsiField f : cls.getFields())
-        if (!place.isInaccessible(f,noProtected))
-          addField(f);
-      for (PsiMethod m : cls.getMethods())
-        if (!place.isInaccessible(m,noProtected))
-          addMethod(m);
-      for (PsiMethod m : cls.getConstructors())
-        if (!place.isInaccessible(m,noProtected))
-          addMethod(m);
-      for (PsiClass c : cls.getInnerClasses())
-        if (!place.isInaccessible(c,noProtected))
-          addClass(c,true,noProtected);
-    }
+    if (recurse)
+      addClassMembers(cls,item,noProtected);
     return item;
+  }
+
+  void addClassMembers(PsiClass cls, ClassItem item, boolean noProtected) {
+    // Force addition of type vars to the environment
+    item.tparams();
+
+    for (PsiField f : cls.getFields())
+      if (!place.isInaccessible(f,noProtected))
+        addField(f);
+    for (PsiMethod m : cls.getMethods())
+      if (!place.isInaccessible(m,noProtected))
+        addMethod(m);
+    for (PsiMethod m : cls.getConstructors())
+      if (!place.isInaccessible(m,noProtected))
+        addMethod(m);
+    for (PsiClass c : cls.getInnerClasses())
+      if (!place.isInaccessible(c,noProtected))
+          addClass(c,true,noProtected);
   }
 
   private scala.collection.immutable.List<TypeVar> tparams(PsiTypeParameterListOwner owner) {
@@ -445,12 +441,8 @@ public class Converter {
     }
 
     scala.collection.immutable.List<TypeVar> tparams = this.tparams(method);
-    ClassItem cls = (ClassItem)addClass(method.getContainingClass(),false,false);
-    Option<String> qual = tarski.Items.memberQualifiedName(cls,method.getName());
-    Item base = qual.isEmpty() ? null : tarski.Tarski.baseLookupJava(qual.get());
-    CallableItem item = base != null                                   ? (CallableItem)base
-                      : method.isConstructor()                         ? new LazyConstructor(this,method,tparams)
-                                                                       : new LazyMethod(this,method,tparams);
+    CallableItem item = method.isConstructor() ? new LazyConstructor(this,method,tparams)
+                                               : new LazyMethod(this,method,tparams);
     locals.put(method,item);
     return item;
   }

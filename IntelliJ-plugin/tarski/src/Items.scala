@@ -200,16 +200,13 @@ object Items {
     def simple = error
   }
 
-  // For Java usage
-  def memberQualifiedName(parent: PlaceItem, name: String) = parent.qualifiedName map {
-    case "" => name
-    case s => s + '.' + name
-  }
-
   trait Member extends Item {
     def name: Name
     def parent: PlaceItem // Could be a package
-    def qualifiedName = memberQualifiedName(parent,name)
+    def qualifiedName = parent.qualifiedName map {
+      case "" => name
+      case s => s + "." + name
+    }
   }
   trait ClassMember extends Member {
     def parent: ClassItem

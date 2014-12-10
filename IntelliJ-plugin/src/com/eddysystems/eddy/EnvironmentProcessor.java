@@ -25,10 +25,7 @@ import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Types.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
@@ -99,6 +96,51 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PsiScopesUtil.treeWalkUp(this, place, place.getContainingFile());
   }
 
+  private void addBase(Converter env, GlobalSearchScope scope, boolean noProtected) {
+    // Extra things don't correspond to PsiElements
+    final Set<Item> extra = new HashSet<Item>();
+    for (Item i : tarski.Base.extraEnv().items())
+      extra.add(i);
+
+    // Add classes and packages
+    final JavaPsiFacade facade = JavaPsiFacade.getInstance(env.place.project);
+    for (Item item : tarski.Base.baseEnv().items()) {
+      if (extra.contains(item) || item instanceof ConstructorItem)
+        continue;
+      final String name = item.qualifiedName().get();
+      PsiElement psi;
+      if (item instanceof PackageItem)
+        psi = facade.findPackage(name);
+      else if (item instanceof ClassItem)
+        psi = facade.findClass(name,scope);
+      else
+        throw new NotImplementedError("Unknown base type "+item.getClass());
+      if (psi == null)
+        throw new RuntimeException("Couldn't find "+name);
+      env.locals.put(psi,item);
+    }
+
+    // Add constructors
+    for (Item item : tarski.Base.baseEnv().items()) {
+      if (!(item instanceof ConstructorItem))
+        continue;
+      final String clsName = ((ConstructorItem)item).parent().qualifiedName().get();
+      final PsiClass cls = facade.findClass(clsName,scope);
+      assert cls != null;
+      final PsiMethod[] cons = cls.getConstructors();
+      assert cons.length == 1;
+      env.locals.put(cons[0],item);
+    }
+
+    // Add class members
+    for (Item item : tarski.Base.baseEnv().items()) {
+      if (extra.contains(item) || !(item instanceof ClassItem))
+        continue;
+      final String name = item.qualifiedName().get();
+      env.addClassMembers(facade.findClass(name,scope),(ClassItem)item,noProtected);
+    }
+  }
+
   private Map<PsiElement,Item> getGlobals() {
     if (globals_ready) {
       return globals;
@@ -114,13 +156,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         logger.info("making globals (" + globals.size() + " items already there)");
 
         PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
-        String[] classnames = cache.getAllClassNames();
-        GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project, true);
+        GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project,true);
 
         // Add all classes.  TODO: This includes local classes, but probably shouldn't
         Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
         Converter env = new Converter(place,fake_globals,globals);
-        for (String name : classnames) {
+        addBase(env,scope,true);
+        for (String name : cache.getAllClassNames()) {
 
           // keep IDE responsive
           Utility.processEvents();

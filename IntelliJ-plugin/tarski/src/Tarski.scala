@@ -22,9 +22,6 @@ object Tarski {
 
   def localPkg(): PackageItem = Base.LocalPkg
 
-  def baseLookupJava(qualifiedName: String): Item =
-    Base.baseQualifiedNames.getOrElse(qualifiedName,null)
-
   def print(is: Iterable[Alt[Item]]): Unit = {
     is.foreach { case Alt(p,i) =>
       println(s"  $p => " + i.print)
