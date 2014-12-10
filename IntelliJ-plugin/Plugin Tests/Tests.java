@@ -95,12 +95,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testCreateEddy() throws Exception {
     for (int i = 0; i < 2; i++) {
       System.out.println("iteration " + i);
-      timed("setupEddy", new Timed<Object>() {
-        public Object call() {
-          setupEddy("dummy.java");
-          return null;
-        }
-      });
+      timeStart("setupEddy");
+      setupEddy("dummy.java");
+      timeStop();
     }
   }
 

@@ -8,12 +8,21 @@ public class Utility {
     public abstract T call();
   }
 
-  public static <T> T timed(String name, Timed<T> f) {
-    long start = System.nanoTime();
-    T x = f.call();
-    long end = System.nanoTime();
-    System.out.println("elapsed "+name+" = "+(end-start)/1e9);
-    return x;
+  // State for timeStart and timeStop
+  private static String name;
+  private static long start;
+
+  public static void timeStart(String name) {
+    timeStop();
+    Utility.name = name;
+    start = System.nanoTime();
+  }
+  public static void timeStop() {
+    final long end = System.nanoTime();
+    if (name != null) {
+      System.out.println("elapsed "+name+" = "+(end-start)/1e9);
+      name = null;
+    }
   }
 
   public static void processEvents() {

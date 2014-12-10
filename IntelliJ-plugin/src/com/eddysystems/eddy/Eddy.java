@@ -216,17 +216,12 @@ public class Eddy {
 
       // place is just before this line
       place = prevLineEnd;
-      env = timed("environment",new Timed<Environment.Env>() {
-        public Environment.Env call() {
-          return new EnvironmentProcessor(project, place, true).getJavaEnvironment();
-        }
-      });
+      timeStart("environment");
+      env = new EnvironmentProcessor(project, place, true).getJavaEnvironment();
       final List<Tokens.Token> _tokens = tokens;
-      results = timed("fix",new Timed<List<Scores.Alt<List<Denotations.Stmt>>>>() {
-        public List<Scores.Alt<List<Denotations.Stmt>>> call() {
-          return Tarski.fixJava(_tokens, env);
-        }
-      });
+      timeStart("fix");
+      results = Tarski.fixJava(_tokens, env);
+      timeStop();
 
       for (Scores.Alt<List<Denotations.Stmt>> interpretation : results) {
         // for each interpretation, compute a string
