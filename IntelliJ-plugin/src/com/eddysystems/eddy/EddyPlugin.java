@@ -17,6 +17,8 @@ public class EddyPlugin implements ProjectComponent {
 
   public EddyPlugin(Project project) {
     logger.setLevel(Level.DEBUG);
+    logger.info("available memory: total " + Runtime.getRuntime().totalMemory() + ", max " + Runtime.getRuntime().maxMemory() + ", free " + Runtime.getRuntime().freeMemory());
+
     this.project = project;
     injector = new EddyInjector(project);
 

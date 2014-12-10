@@ -25,6 +25,8 @@ import java.util.List;
 public class Eddy {
   private final @NotNull Logger logger = Logger.getInstance(getClass());
 
+  private boolean canceled;
+
   // all these are filled in process()
   // the range to be replaced
   private TextRange tokens_range;
@@ -50,7 +52,7 @@ public class Eddy {
     logger.setLevel(Level.DEBUG);
   }
 
-  public boolean ready() {
+  public static boolean ready() {
     return EnvironmentProcessor.globals_ready;
   }
 
@@ -103,11 +105,17 @@ public class Eddy {
       Environment.envToFile(env,filename);
   }
 
-  public void process(@NotNull Editor editor) {
-    this.editor = editor;
-    document = editor.getDocument();
-    project = editor.getProject();
+  public void cancel() {
+    canceled = true;
+  }
 
+  public void process(@NotNull Editor editor) {
+    Document document = editor.getDocument();
+    Project project = editor.getProject();
+
+    // reset object variables
+    this.editor = editor;
+    this.project = project;
     found_existing = false;
     results = null;
     resultStrings = new SmartList<String>();
@@ -119,6 +127,11 @@ public class Eddy {
     if (project == null)
       return;
 
+    psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
+
+    if (psifile == null)
+      return;
+
     int pos = editor.getCaretModel().getCurrentCaret().getOffset();
     int lnum = document.getLineNumber(pos);
 
@@ -128,11 +141,6 @@ public class Eddy {
 
     logger.debug("processing at " + lnum + "/" + column);
     logger.debug("  current line: " + line);
-
-    psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-
-    if (psifile == null)
-      return;
 
     // whitespace is counted toward the next token/statement, so start at the beginning of the line
 
@@ -226,6 +234,11 @@ public class Eddy {
 
       // place is just before this line
       place = prevLineEnd;
+
+      // don't do the environment if we're canceled
+      if (canceled)
+        return;
+
       timeStart("environment");
       env = new EnvironmentProcessor(project, place, true).getJavaEnvironment();
       final List<Tokens.Token> _tokens = tokens;

@@ -3,6 +3,7 @@ package com.eddysystems.eddy;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.IdeActions;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -13,6 +14,7 @@ import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.keymap.KeymapUtil;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
@@ -26,16 +28,15 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Document document;
   private final @NotNull PsiFile psifile;
   private final @NotNull Logger logger = Logger.getInstance(getClass());
-  private final @NotNull Eddy eddy = new Eddy();
 
-  private static EddyFileListener active = null;
-  private static final Object activeLock = new Object();
-
-  private boolean inChange = false;
+  private static final @NotNull Object active_lock = new Object();
+  private static EddyFileListener active_instance = null;
 
   public static EddyFileListener activeInstance() {
-    return active;
+    return active_instance;
   }
+
+  private boolean inChange = false;
 
   public EddyFileListener(@NotNull Project project, TextEditor editor, @NotNull PsiFile psifile) {
     logger.setLevel(Level.INFO);
@@ -64,19 +65,80 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected boolean enabled() {
-    // wait till eddy is reddy, and only with a single caret can we deal...
-    return eddy.ready() && editor.getCaretModel().getCaretCount() == 1;
+    return editor.getCaretModel().getCaretCount() == 1 && Eddy.ready();
   }
 
-  protected void showHint() {
-    int offset = editor.getCaretModel().getOffset();
-    String text = eddy.bestText() + (eddy.single() ? " " : " (multiple options...) ");
-    String hintText = text + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
+  private static final Object current_eddythread_lock = new Object();
+  private static EddyFileListener current_eddythread_owner = null;
+  private static EddyThread current_eddythread= null;
 
-    // whoever showed the hint last is it
-    synchronized(activeLock) {
-      HintManager.getInstance().showQuestionHint(editor, hintText, offset, offset + 1, new EddyAction(eddy));
-      active = this;
+  private void runEddyThread() {
+    synchronized (current_eddythread_lock) {
+      if (current_eddythread != null) {
+        current_eddythread.interrupt();
+      }
+      current_eddythread = new EddyThread(this);
+      current_eddythread_owner = this;
+      current_eddythread.start();
+    }
+  }
+
+  static class EddyThread extends Thread {
+    private final Eddy eddy = new Eddy();
+    private final EddyFileListener owner;
+
+    EddyThread(EddyFileListener owner) {
+      this.setName("Eddy thread " + getId());
+      this.owner = owner;
+    }
+
+    public void interrupt() {
+      System.out.println("interrupting " + this.getName());
+      eddy.cancel();
+      super.interrupt();
+    }
+
+    @Override
+    public void run() {
+      // must be in smart mode, must be inside read action
+      final long start = System.nanoTime();
+      DumbService.getInstance(owner.project).runReadActionInSmartMode(new Runnable() {
+        @Override
+        public void run() {
+          // if we waited for smart mode, don't wait too much longer
+          try {
+            int millis = new Double(200-(System.nanoTime()-start)/1e3).intValue();
+            if (millis > 0)
+              sleep(millis);
+          } catch (InterruptedException e) {
+            return;
+          }
+
+          eddy.process(owner.editor);
+
+          if (!eddy.foundSomethingUseful() || isInterrupted())
+            return;
+
+          showHint();
+        }
+      });
+    }
+
+    protected void showHint() {
+      final int offset = owner.editor.getCaretModel().getOffset();
+      final String text = eddy.bestText() + (eddy.single() ? " " : " (multiple options...) ");
+      final String hintText = text + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
+
+      // we can only show hints from the UI thread, so schedule that
+      ApplicationManager.getApplication().invokeLater(new Runnable() {
+        @Override public void run() {
+          // whoever showed the hint last is it
+          synchronized (active_lock) {
+            HintManager.getInstance().showQuestionHint(owner.editor, hintText, offset, offset + 1, new EddyAction(eddy));
+            active_instance = owner;
+          }
+        }
+      });
     }
   }
 
@@ -84,30 +146,35 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
       @Override
       public void run() {
-        eddy.process(editor);
-
-        if (!eddy.foundSomethingUseful())
-          return;
-
-        showHint();
+        runEddyThread();
       }
     });
   }
 
   public void nextResult() {
-    if (eddy.nextBestResult()) {
-      showHint();
+    synchronized (current_eddythread_lock) {
+      if (current_eddythread_owner == this) {
+        if (current_eddythread.eddy.nextBestResult())
+          current_eddythread.showHint();
+      }
     }
   }
 
   public void prevResult() {
-    if (eddy.prevBestResult()) {
-      showHint();
+    synchronized (current_eddythread_lock) {
+      if (current_eddythread_owner == this) {
+        if (current_eddythread.eddy.prevBestResult())
+          current_eddythread.showHint();
+      }
     }
   }
 
   public void dumpEnvironment(String filename) {
-    eddy.dumpEnvironment(filename);
+    synchronized (current_eddythread_lock) {
+      if (current_eddythread_owner == this) {
+        current_eddythread.eddy.dumpEnvironment(filename);
+      }
+    }
   }
 
   @Override
