@@ -124,8 +124,12 @@ object Scores {
     }
   }
 
+  // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
+  private val trackErrors = false
+
   // Failure
-  private final class Bad(_e: => Error) extends Scored[Nothing] {
+  private sealed abstract class EmptyOrBad extends Scored[Nothing]
+  private final class Bad(_e: => Error) extends EmptyOrBad {
     lazy val e = _e
     def best = Left(e)
     def all = Left(e)
@@ -146,16 +150,18 @@ object Scores {
   }
 
   // No options, but not Bad
-  private object Empty extends Scored[Nothing] {
-    def best = Left(OneError("no options"))
-    def all = Right(stream)
+  private object Empty extends EmptyOrBad {
+    def best = Left(OneError("unknown failure"))
+    def all = best
     def stream = Stream.Empty
     def map[B](f: Nothing => B) = this
     def flatMap[B](f: Nothing => Scored[B]) = this
     def ++[B](s: LazyScored[B]) = s.s
     def bias(p: Prob) = this
     def productWith[B,C](s: => Scored[B])(f: (Nothing,B) => C) = this
-    def filter(f: Nothing => Boolean, error: => String) = new Bad(OneError(error))
+    def filter(f: Nothing => Boolean, error: => String) =
+      if (trackErrors) new Bad(OneError(error))
+      else this
     def filter(f: Nothing => Boolean) = this
     def isEmpty = true
     def isSingle = false
@@ -177,7 +183,7 @@ object Scores {
         case s@Best(q,y,t) =>
           if (p >= q) Best(p,x,delay(max(q,r.p),s ++ r))
           else        Best(q,y,delay(max(p,t.p),this ++ t))
-        case Empty|_:Bad => this
+        case _:EmptyOrBad => this
       }
 
     def flatMap[B](f: A => Scored[B]) = {
@@ -186,9 +192,8 @@ object Scores {
     }
 
     def productWith[B,C](s: => Scored[B])(f: (A,B) => C) = s match {
-      case Empty => Empty
-      case s:Bad => s
       case Best(q,y,s) => Best(p*q,f(x,y),r.map(f(_,y)).bias(p) ++ s.map(f(x,_)).bias(q) ++ r.productWith(s)(f))
+      case s:EmptyOrBad => s
     }
 
     def filter(f: A => Boolean, error: => String) =
@@ -205,7 +210,9 @@ object Scores {
   // Score constructors
   val empty: Scored[Nothing] = Empty
   val strictEmpty: LazyScored[Nothing] = Strict(0,Empty)
-  def fail[A](error: => String): Scored[A] = new Bad(OneError(error))
+  @inline def fail[A](error: => String): Scored[A] =
+    if (trackErrors) new Bad(OneError(error))
+    else Empty
   def known[A](x: A): Scored[A] = Best(1,x,strictEmpty)
   def single[A](x: A, p: Prob): Scored[A] = Best(p,x,strictEmpty)
 
@@ -248,19 +255,20 @@ object Scores {
     case Alt(p,x)::xs => good(p,x,Nil,xs)
   }
 
-  def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] = {
+  @inline def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] = {
     def bad(xs: List[Alt[A]]): Scored[A] = xs match {
       case Nil => new Bad(OneError(error))
       case Alt(0,_)::xs => bad(xs)
       case Alt(p,x)::xs => good(p,x,Nil,xs)
     }
-    bad(xs)
+    if (trackErrors) bad(xs)
+    else empty(xs)
   }
   // Assume no error (use Empty instead of Bad)
   def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
     empty(xs)
 
-  def multiples[A](first: List[Alt[A]], andthen: => List[Alt[A]], error: => String): Scored[A] = {
+  @inline def multiples[A](first: List[Alt[A]], andthen: => List[Alt[A]], error: => String): Scored[A] = {
     def good(p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]], backup: List[Alt[A]]): Scored[A] = xs match {
       case Nil => Best(p,x,delay(p,possiblyEmpty(low,backup)))
       case (y@Alt(q,_))::xs if p >= q => good(p,x,y::low,xs,backup)
@@ -282,7 +290,8 @@ object Scores {
       case Alt(0,_)::xs => possiblyBad(xs,backup)
       case Alt(p,x)::xs => good(p,x,Nil,xs,backup)
     }
-    possiblyBad(first,andthen)
+    if (trackErrors) possiblyBad(first,andthen)
+    else possiblyEmpty(first,andthen)
   }
 
   // Structured errors
