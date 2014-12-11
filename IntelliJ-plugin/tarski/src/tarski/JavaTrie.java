@@ -127,7 +127,7 @@ public class JavaTrie {
       cn = meant[i+1]; 
     else 
       cn = cm;
-    if (j-1 >= 0) 
+    if (j > 0)
       cp = typed[j-1]; 
     else
       cp = cn;
@@ -172,7 +172,7 @@ public class JavaTrie {
   public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
     // make sure we have enough space
     if (typed_length+1 > d.length || meant_length+1 > d[0].length)
-      d = new float[meant_length+1][typed.length+1];
+      d = new float[Math.max(meant_length+1,d.length)][Math.max(typed.length+1,d[0].length)];
 
     // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
 
@@ -202,6 +202,14 @@ public class JavaTrie {
         // TODO: three subsequent replace actions are cheaper especially if the letters scrambled are on opposite
         // sides of the keyboard (synchronization between hands is hard)
       }
+    }
+
+    if (false && meant_length > 0) {
+      String ms = String.copyValueOf(meant,0,meant_length);
+      String ts = String.copyValueOf(typed,0,typed_length);
+      float ld = StringMatching.levenshteinDistance(ms, ts);
+      if (d[meant_length][typed_length] != ld)
+        System.out.println("d(" + ms + ", " + ts + "): " + d[meant_length][typed_length] + ", ld: " + ld);
     }
 
     return d[meant_length][typed_length];
@@ -277,13 +285,15 @@ public class JavaTrie {
       } else {
         // add this node's values
         if (current.distance <= maxDistance) {
-          double d = levenshteinDistance(prefix, level, typed, typed.length);
-          double p = tarski.Pr.poissonPDF(expected, (int) Math.ceil(d));
-          if (p >= minProb) {
-            scala.collection.mutable.IndexedSeqView<V,V[]> values = t.nodeValues(current.node_idx);
-            int l = values.length();
-            for (int i = 0; i < l; ++i) {
-              result.add(new tarski.Scores.Alt<V>(p, values.apply(i)));
+          scala.collection.mutable.IndexedSeqView<V,V[]> values = t.nodeValues(current.node_idx);
+          if (values.nonEmpty()) {
+            double d = levenshteinDistance(prefix, level, typed, typed.length);
+            double p = tarski.Pr.poissonPDF(expected, (int) Math.ceil(d));
+            if (p >= minProb) {
+              int l = values.length();
+              for (int i = 0; i < l; ++i) {
+                result.add(new tarski.Scores.Alt<V>(p, values.apply(i)));
+              }
             }
           }
         }
