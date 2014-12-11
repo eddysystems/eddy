@@ -1,6 +1,7 @@
 package ambiguity
 import ambiguity.Utility._
 import scala.collection.mutable
+import scala.util.matching.Regex
 
 object Grammar {
 
@@ -13,6 +14,7 @@ object Grammar {
                      preamble: List[String],
                      start: Symbol,
                      token: Type,
+                     simple: Regex, // Is a token simple?
                      types: Map[Symbol,Type],
                      prods: Map[Symbol,Set[Prod]]) {
     val nullable: Set[Symbol] = {
@@ -22,11 +24,12 @@ object Grammar {
     }
 
     def isToken(s: Symbol) = !types.contains(s)
-    def ty(s: Symbol): Type = if (isToken(s)) s else types(s)
+    def isSimple(t: Symbol) = simple.findFirstIn(t).isDefined
+    def ty(s: Symbol): Type = if (isToken(s)) if (isSimple(s)) "Unit" else s else types(s)
 
     def modify(types: Map[Symbol,Type],
                prods: Map[Symbol,Set[Prod]]) =
-      Grammar(name,preamble,start,token,types,prods)
+      Grammar(name,preamble,start,token,simple,types,prods)
   }
 
   def check(G: Grammar, generic: Boolean = false) = {
@@ -201,6 +204,7 @@ object Grammar {
     var preamble: List[String] = Nil
     var start: Option[Symbol] = None
     var token: Option[Type] = None
+    var simple: Option[String] = None
     var scope: Option[Symbol] = None
     val types = mutable.Map[Symbol,Type]()
     val prods = mutable.Map[Symbol,Set[Prod]]()
@@ -244,6 +248,7 @@ object Grammar {
                 case "preamble" => preamble = t :: preamble
                 case "start" => start = Some(t)
                 case "token" => token = Some(t)
+                case "simple" => simple = Some(t)
                 case "alias" => ty match {
                   case List(from,to) => aliases(from) = to
                   case _ => throw new RuntimeException(s"bad alias: '$line'")
@@ -263,7 +268,7 @@ object Grammar {
                 case List("\"\"") => Nil
                 case w => w
               }
-              prods(s) = (prods get s getOrElse Set()) + ((prod,action))
+              prods(s) = prods.getOrElse(s,Set()) + ((prod,action))
           }
       }
     }
@@ -286,6 +291,7 @@ object Grammar {
             preamble.reverse,
             unpack(start,"at least one nonterminal required"),
             unpack(token,"token type required"),
+            unpack(simple,"simple required").r,
             types.toMap,
             prods.toMap.mapValues(_ map unaliasProd))
   }

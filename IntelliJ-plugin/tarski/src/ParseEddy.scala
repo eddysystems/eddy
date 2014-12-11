@@ -14,197 +14,195 @@ object ParseEddy {
     // Functions for matching tokens
     val array = input.toArray
     def tok(i: Int) = array(i)
-    def P_PlusEqTok(i: Int) = array(i) match { case t: PlusEqTok => List(t); case _ => Nil }
-    def P_OrTok(i: Int) = array(i) match { case t: OrTok => List(t); case _ => Nil }
-    def P_SynchronizedTok(i: Int) = array(i) match { case t: SynchronizedTok => List(t); case _ => Nil }
-    def P_UntilTok(i: Int) = array(i) match { case t: UntilTok => List(t); case _ => Nil }
-    def P_ModTok(i: Int) = array(i) match { case t: ModTok => List(t); case _ => Nil }
-    def P_CommaTok(i: Int) = array(i) match { case t: CommaTok => List(t); case _ => Nil }
-    def P_InTok(i: Int) = array(i) match { case t: InTok => List(t); case _ => Nil }
-    def P_SuperTok(i: Int) = array(i) match { case t: SuperTok => List(t); case _ => Nil }
-    def P_CompTok(i: Int) = array(i) match { case t: CompTok => List(t); case _ => Nil }
-    def P_AbstractTok(i: Int) = array(i) match { case t: AbstractTok => List(t); case _ => Nil }
-    def P_ProtectedTok(i: Int) = array(i) match { case t: ProtectedTok => List(t); case _ => Nil }
-    def P_StringLitTok(i: Int) = array(i) match { case t: StringLitTok => List(t); case _ => Nil }
-    def P_DotTok(i: Int) = array(i) match { case t: DotTok => List(t); case _ => Nil }
-    def P_NotTok(i: Int) = array(i) match { case t: NotTok => List(t); case _ => Nil }
-    def P_ColonTok(i: Int) = array(i) match { case t: ColonTok => List(t); case _ => Nil }
-    def P_InstanceofTok(i: Int) = array(i) match { case t: InstanceofTok => List(t); case _ => Nil }
-    def P_ReturnTok(i: Int) = array(i) match { case t: ReturnTok => List(t); case _ => Nil }
-    def P_FinalTok(i: Int) = array(i) match { case t: FinalTok => List(t); case _ => Nil }
-    def P_FloatLitTok(i: Int) = array(i) match { case t: FloatLitTok => List(t); case _ => Nil }
-    def P_UnsignedRShiftTok(i: Int) = array(i) match { case t: UnsignedRShiftTok => List(t); case _ => Nil }
-    def P_LeTok(i: Int) = array(i) match { case t: LeTok => List(t); case _ => Nil }
-    def P_IdentTok(i: Int) = array(i) match { case t: IdentTok => List(t); case _ => Nil }
-    def P_TransientTok(i: Int) = array(i) match { case t: TransientTok => List(t); case _ => Nil }
-    def P_UnsignedRShiftEqTok(i: Int) = array(i) match { case t: UnsignedRShiftEqTok => List(t); case _ => Nil }
-    def P_LtTok(i: Int) = array(i) match { case t: LtTok => List(t); case _ => Nil }
-    def P_IntLitTok(i: Int) = array(i) match { case t: IntLitTok => List(t); case _ => Nil }
-    def P_ColonColonTok(i: Int) = array(i) match { case t: ColonColonTok => List(t); case _ => Nil }
-    def P_AndAndTok(i: Int) = array(i) match { case t: AndAndTok => List(t); case _ => Nil }
-    def P_RShiftEqTok(i: Int) = array(i) match { case t: RShiftEqTok => List(t); case _ => Nil }
-    def P_ContinueTok(i: Int) = array(i) match { case t: ContinueTok => List(t); case _ => Nil }
-    def P_VolatileTok(i: Int) = array(i) match { case t: VolatileTok => List(t); case _ => Nil }
-    def P_RCurlyTok(i: Int) = array(i) match { case t: RCurlyTok => List(t); case _ => Nil }
-    def P_NewTok(i: Int) = array(i) match { case t: NewTok => List(t); case _ => Nil }
-    def P_LCurlyTok(i: Int) = array(i) match { case t: LCurlyTok => List(t); case _ => Nil }
-    def P_XorEqTok(i: Int) = array(i) match { case t: XorEqTok => List(t); case _ => Nil }
-    def P_EqTok(i: Int) = array(i) match { case t: EqTok => List(t); case _ => Nil }
-    def P_PrivateTok(i: Int) = array(i) match { case t: PrivateTok => List(t); case _ => Nil }
-    def P_BreakTok(i: Int) = array(i) match { case t: BreakTok => List(t); case _ => Nil }
-    def P_LParenTok(i: Int) = array(i) match { case t: LParenTok => List(t); case _ => Nil }
-    def P_WhileTok(i: Int) = array(i) match { case t: WhileTok => List(t); case _ => Nil }
-    def P_MulTok(i: Int) = array(i) match { case t: MulTok => List(t); case _ => Nil }
-    def P_DoTok(i: Int) = array(i) match { case t: DoTok => List(t); case _ => Nil }
-    def P_DivTok(i: Int) = array(i) match { case t: DivTok => List(t); case _ => Nil }
-    def P_DoubleLitTok(i: Int) = array(i) match { case t: DoubleLitTok => List(t); case _ => Nil }
-    def P_PlusPlusTok(i: Int) = array(i) match { case t: PlusPlusTok => List(t); case _ => Nil }
-    def P_SemiTok(i: Int) = array(i) match { case t: SemiTok => List(t); case _ => Nil }
-    def P_StaticTok(i: Int) = array(i) match { case t: StaticTok => List(t); case _ => Nil }
-    def P_LBrackTok(i: Int) = array(i) match { case t: LBrackTok => List(t); case _ => Nil }
-    def P_XorTok(i: Int) = array(i) match { case t: XorTok => List(t); case _ => Nil }
-    def P_MinusMinusTok(i: Int) = array(i) match { case t: MinusMinusTok => List(t); case _ => Nil }
-    def P_RBrackTok(i: Int) = array(i) match { case t: RBrackTok => List(t); case _ => Nil }
-    def P_NeTok(i: Int) = array(i) match { case t: NeTok => List(t); case _ => Nil }
-    def P_RParenTok(i: Int) = array(i) match { case t: RParenTok => List(t); case _ => Nil }
-    def P_IfTok(i: Int) = array(i) match { case t: IfTok => List(t); case _ => Nil }
-    def P_AndEqTok(i: Int) = array(i) match { case t: AndEqTok => List(t); case _ => Nil }
-    def P_CharLitTok(i: Int) = array(i) match { case t: CharLitTok => List(t); case _ => Nil }
-    def P_MinusEqTok(i: Int) = array(i) match { case t: MinusEqTok => List(t); case _ => Nil }
-    def P_ForTok(i: Int) = array(i) match { case t: ForTok => List(t); case _ => Nil }
-    def P_GtTok(i: Int) = array(i) match { case t: GtTok => List(t); case _ => Nil }
-    def P_BoolLitTok(i: Int) = array(i) match { case t: BoolLitTok => List(t); case _ => Nil }
-    def P_StrictfpTok(i: Int) = array(i) match { case t: StrictfpTok => List(t); case _ => Nil }
-    def P_EqEqTok(i: Int) = array(i) match { case t: EqEqTok => List(t); case _ => Nil }
-    def P_ExtendsTok(i: Int) = array(i) match { case t: ExtendsTok => List(t); case _ => Nil }
-    def P_GeTok(i: Int) = array(i) match { case t: GeTok => List(t); case _ => Nil }
-    def P_ThrowTok(i: Int) = array(i) match { case t: ThrowTok => List(t); case _ => Nil }
-    def P_NullLitTok(i: Int) = array(i) match { case t: NullLitTok => List(t); case _ => Nil }
-    def P_ElseTok(i: Int) = array(i) match { case t: ElseTok => List(t); case _ => Nil }
-    def P_ThenTok(i: Int) = array(i) match { case t: ThenTok => List(t); case _ => Nil }
-    def P_QuestionTok(i: Int) = array(i) match { case t: QuestionTok => List(t); case _ => Nil }
-    def P_AssertTok(i: Int) = array(i) match { case t: AssertTok => List(t); case _ => Nil }
-    def P_AndTok(i: Int) = array(i) match { case t: AndTok => List(t); case _ => Nil }
-    def P_RShiftTok(i: Int) = array(i) match { case t: RShiftTok => List(t); case _ => Nil }
-    def P_OrEqTok(i: Int) = array(i) match { case t: OrEqTok => List(t); case _ => Nil }
-    def P_LShiftEqTok(i: Int) = array(i) match { case t: LShiftEqTok => List(t); case _ => Nil }
-    def P_LShiftTok(i: Int) = array(i) match { case t: LShiftTok => List(t); case _ => Nil }
-    def P_ModEqTok(i: Int) = array(i) match { case t: ModEqTok => List(t); case _ => Nil }
-    def P_PlusTok(i: Int) = array(i) match { case t: PlusTok => List(t); case _ => Nil }
-    def P_OrOrTok(i: Int) = array(i) match { case t: OrOrTok => List(t); case _ => Nil }
-    def P_LongLitTok(i: Int) = array(i) match { case t: LongLitTok => List(t); case _ => Nil }
-    def P_AtTok(i: Int) = array(i) match { case t: AtTok => List(t); case _ => Nil }
-    def P_MulEqTok(i: Int) = array(i) match { case t: MulEqTok => List(t); case _ => Nil }
-    def P_PublicTok(i: Int) = array(i) match { case t: PublicTok => List(t); case _ => Nil }
-    def P_MinusTok(i: Int) = array(i) match { case t: MinusTok => List(t); case _ => Nil }
-    def P_DivEqTok(i: Int) = array(i) match { case t: DivEqTok => List(t); case _ => Nil }
+    def P_PlusEqTok(i: Int) = array(i) match { case PlusEqTok => List(()); case _ => Nil }
+    def P_OrTok(i: Int) = array(i) match { case OrTok => List(()); case _ => Nil }
+    def P_SynchronizedTok(i: Int) = array(i) match { case SynchronizedTok => List(()); case _ => Nil }
+    def P_UntilTok(i: Int) = array(i) match { case UntilTok => List(()); case _ => Nil }
+    def P_ModTok(i: Int) = array(i) match { case ModTok => List(()); case _ => Nil }
+    def P_CommaTok(i: Int) = array(i) match { case CommaTok => List(()); case _ => Nil }
+    def P_InTok(i: Int) = array(i) match { case InTok => List(()); case _ => Nil }
+    def P_SuperTok(i: Int) = array(i) match { case SuperTok => List(()); case _ => Nil }
+    def P_CompTok(i: Int) = array(i) match { case CompTok => List(()); case _ => Nil }
+    def P_AbstractTok(i: Int) = array(i) match { case AbstractTok => List(()); case _ => Nil }
+    def P_ProtectedTok(i: Int) = array(i) match { case ProtectedTok => List(()); case _ => Nil }
+    def P_StringLitTok(i: Int) = array(i) match { case t:StringLitTok => List(t); case _ => Nil }
+    def P_DotTok(i: Int) = array(i) match { case DotTok => List(()); case _ => Nil }
+    def P_NotTok(i: Int) = array(i) match { case NotTok => List(()); case _ => Nil }
+    def P_ColonTok(i: Int) = array(i) match { case ColonTok => List(()); case _ => Nil }
+    def P_InstanceofTok(i: Int) = array(i) match { case InstanceofTok => List(()); case _ => Nil }
+    def P_ReturnTok(i: Int) = array(i) match { case ReturnTok => List(()); case _ => Nil }
+    def P_FinalTok(i: Int) = array(i) match { case FinalTok => List(()); case _ => Nil }
+    def P_FloatLitTok(i: Int) = array(i) match { case t:FloatLitTok => List(t); case _ => Nil }
+    def P_UnsignedRShiftTok(i: Int) = array(i) match { case UnsignedRShiftTok => List(()); case _ => Nil }
+    def P_LeTok(i: Int) = array(i) match { case LeTok => List(()); case _ => Nil }
+    def P_IdentTok(i: Int) = array(i) match { case t:IdentTok => List(t); case _ => Nil }
+    def P_TransientTok(i: Int) = array(i) match { case TransientTok => List(()); case _ => Nil }
+    def P_UnsignedRShiftEqTok(i: Int) = array(i) match { case UnsignedRShiftEqTok => List(()); case _ => Nil }
+    def P_LtTok(i: Int) = array(i) match { case LtTok => List(()); case _ => Nil }
+    def P_IntLitTok(i: Int) = array(i) match { case t:IntLitTok => List(t); case _ => Nil }
+    def P_ColonColonTok(i: Int) = array(i) match { case ColonColonTok => List(()); case _ => Nil }
+    def P_AndAndTok(i: Int) = array(i) match { case AndAndTok => List(()); case _ => Nil }
+    def P_RShiftEqTok(i: Int) = array(i) match { case RShiftEqTok => List(()); case _ => Nil }
+    def P_ContinueTok(i: Int) = array(i) match { case ContinueTok => List(()); case _ => Nil }
+    def P_VolatileTok(i: Int) = array(i) match { case VolatileTok => List(()); case _ => Nil }
+    def P_RCurlyTok(i: Int) = array(i) match { case RCurlyTok => List(()); case _ => Nil }
+    def P_NewTok(i: Int) = array(i) match { case NewTok => List(()); case _ => Nil }
+    def P_LCurlyTok(i: Int) = array(i) match { case LCurlyTok => List(()); case _ => Nil }
+    def P_XorEqTok(i: Int) = array(i) match { case XorEqTok => List(()); case _ => Nil }
+    def P_EqTok(i: Int) = array(i) match { case EqTok => List(()); case _ => Nil }
+    def P_PrivateTok(i: Int) = array(i) match { case PrivateTok => List(()); case _ => Nil }
+    def P_BreakTok(i: Int) = array(i) match { case BreakTok => List(()); case _ => Nil }
+    def P_LParenTok(i: Int) = array(i) match { case LParenTok => List(()); case _ => Nil }
+    def P_WhileTok(i: Int) = array(i) match { case WhileTok => List(()); case _ => Nil }
+    def P_MulTok(i: Int) = array(i) match { case MulTok => List(()); case _ => Nil }
+    def P_DoTok(i: Int) = array(i) match { case DoTok => List(()); case _ => Nil }
+    def P_DivTok(i: Int) = array(i) match { case DivTok => List(()); case _ => Nil }
+    def P_DoubleLitTok(i: Int) = array(i) match { case t:DoubleLitTok => List(t); case _ => Nil }
+    def P_PlusPlusTok(i: Int) = array(i) match { case PlusPlusTok => List(()); case _ => Nil }
+    def P_SemiTok(i: Int) = array(i) match { case SemiTok => List(()); case _ => Nil }
+    def P_StaticTok(i: Int) = array(i) match { case StaticTok => List(()); case _ => Nil }
+    def P_LBrackTok(i: Int) = array(i) match { case LBrackTok => List(()); case _ => Nil }
+    def P_XorTok(i: Int) = array(i) match { case XorTok => List(()); case _ => Nil }
+    def P_MinusMinusTok(i: Int) = array(i) match { case MinusMinusTok => List(()); case _ => Nil }
+    def P_RBrackTok(i: Int) = array(i) match { case RBrackTok => List(()); case _ => Nil }
+    def P_NeTok(i: Int) = array(i) match { case NeTok => List(()); case _ => Nil }
+    def P_RParenTok(i: Int) = array(i) match { case RParenTok => List(()); case _ => Nil }
+    def P_IfTok(i: Int) = array(i) match { case IfTok => List(()); case _ => Nil }
+    def P_AndEqTok(i: Int) = array(i) match { case AndEqTok => List(()); case _ => Nil }
+    def P_CharLitTok(i: Int) = array(i) match { case t:CharLitTok => List(t); case _ => Nil }
+    def P_MinusEqTok(i: Int) = array(i) match { case MinusEqTok => List(()); case _ => Nil }
+    def P_ForTok(i: Int) = array(i) match { case ForTok => List(()); case _ => Nil }
+    def P_GtTok(i: Int) = array(i) match { case GtTok => List(()); case _ => Nil }
+    def P_StrictfpTok(i: Int) = array(i) match { case StrictfpTok => List(()); case _ => Nil }
+    def P_EqEqTok(i: Int) = array(i) match { case EqEqTok => List(()); case _ => Nil }
+    def P_ExtendsTok(i: Int) = array(i) match { case ExtendsTok => List(()); case _ => Nil }
+    def P_GeTok(i: Int) = array(i) match { case GeTok => List(()); case _ => Nil }
+    def P_ThrowTok(i: Int) = array(i) match { case ThrowTok => List(()); case _ => Nil }
+    def P_ElseTok(i: Int) = array(i) match { case ElseTok => List(()); case _ => Nil }
+    def P_ThenTok(i: Int) = array(i) match { case ThenTok => List(()); case _ => Nil }
+    def P_QuestionTok(i: Int) = array(i) match { case QuestionTok => List(()); case _ => Nil }
+    def P_AssertTok(i: Int) = array(i) match { case AssertTok => List(()); case _ => Nil }
+    def P_AndTok(i: Int) = array(i) match { case AndTok => List(()); case _ => Nil }
+    def P_RShiftTok(i: Int) = array(i) match { case RShiftTok => List(()); case _ => Nil }
+    def P_OrEqTok(i: Int) = array(i) match { case OrEqTok => List(()); case _ => Nil }
+    def P_LShiftEqTok(i: Int) = array(i) match { case LShiftEqTok => List(()); case _ => Nil }
+    def P_LShiftTok(i: Int) = array(i) match { case LShiftTok => List(()); case _ => Nil }
+    def P_ModEqTok(i: Int) = array(i) match { case ModEqTok => List(()); case _ => Nil }
+    def P_PlusTok(i: Int) = array(i) match { case PlusTok => List(()); case _ => Nil }
+    def P_OrOrTok(i: Int) = array(i) match { case OrOrTok => List(()); case _ => Nil }
+    def P_LongLitTok(i: Int) = array(i) match { case t:LongLitTok => List(t); case _ => Nil }
+    def P_AtTok(i: Int) = array(i) match { case AtTok => List(()); case _ => Nil }
+    def P_MulEqTok(i: Int) = array(i) match { case MulEqTok => List(()); case _ => Nil }
+    def P_PublicTok(i: Int) = array(i) match { case PublicTok => List(()); case _ => Nil }
+    def P_MinusTok(i: Int) = array(i) match { case MinusTok => List(()); case _ => Nil }
+    def P_DivEqTok(i: Int) = array(i) match { case DivEqTok => List(()); case _ => Nil }
     
     // Allocate one sparse array per nonterminal
     val P_Commas2_ExpAssignNC = mutable.Map[R,List[List[AExp]]]()
-    val P_ModTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(ModTok,AExp)]]()
-    val P_IfTok__ExpAssignNP = mutable.Map[R,List[(IfTok,AExp)]]()
+    val P_ModTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_IfTok__ExpAssignNP = mutable.Map[R,List[(Unit,AExp)]]()
     val P_Right__ExpUnary_ExpJuxt = mutable.Map[R,List[(Group,AExp)]]()
     val P_ExpCond_ExpNew__Right = mutable.Map[R,List[(AExp,Group)]]()
-    val P_RShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(RShiftTok,AExp)]]()
+    val P_RShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_ForInfo__Right__Stmt = mutable.Map[R,List[(ForInfo,Group,AStmt)]]()
-    val P_SemiTok__Stmts = mutable.Map[R,List[(SemiTok,List[AStmt])]]()
-    val P_OrOrTok__ExpAndAnd_ExpJuxt = mutable.Map[R,List[(OrOrTok,AExp)]]()
+    val P_SemiTok__Stmts = mutable.Map[R,List[(Unit,List[AStmt])]]()
+    val P_OrOrTok__ExpAndAnd_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_ExpHigh__Left = mutable.Map[R,List[(AExp,Group)]]()
     val P_Type__List1_VarDecl = mutable.Map[R,List[(AExp,KList[(Name,Int,Option[AExp])])]]()
     val P_IdentDims__ForeachSep__ExpAssign = mutable.Map[R,List[((Name,Int),Unit,AExp)]]()
     val P_ForInfo = mutable.Map[R,List[ForInfo]]()
-    val P_DivTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(DivTok,AExp)]]()
-    val P_List_Type__GtTok = mutable.Map[R,List[(KList[AExp],GtTok)]]()
+    val P_DivTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_List_Type__GtTok = mutable.Map[R,List[(KList[AExp],Unit)]]()
     val P_Juxts2_ExpAssignNC = mutable.Map[R,List[List[AExp]]]()
-    val P_LShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(LShiftTok,AExp)]]()
-    val P_PlusTok__ExpMul_ExpNew = mutable.Map[R,List[(PlusTok,AExp)]]()
-    val P_DivTok__ExpUnary_ExpNew = mutable.Map[R,List[(DivTok,AExp)]]()
-    val P_AssertTok__ExpJuxt = mutable.Map[R,List[(AssertTok,AExp)]]()
-    val P_EqEqTok__ExpRel_ExpJuxt = mutable.Map[R,List[(EqEqTok,AExp)]]()
+    val P_LShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_PlusTok__ExpMul_ExpNew = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_DivTok__ExpUnary_ExpNew = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_AssertTok__ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_EqEqTok__ExpRel_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_AssignOp = mutable.Map[R,List[Option[AssignOp]]]()
     val P_ForInfo__Right = mutable.Map[R,List[(ForInfo,Group)]]()
     val P_ForeachSep__ExpAssign = mutable.Map[R,List[(Unit,AExp)]]()
     val P_WildcardBounds = mutable.Map[R,List[Option[(Bound,AExp)]]]()
-    val P_Option_ThenTok = mutable.Map[R,List[Option[ThenTok]]]()
-    val P_ColonTok__ExpCond_ExpJuxt = mutable.Map[R,List[(ColonTok,AExp)]]()
+    val P_Option_ThenTok = mutable.Map[R,List[Option[Unit]]]()
+    val P_ColonTok__ExpCond_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_PreOp = mutable.Map[R,List[UnaryOp]]()
-    val P_IfTok__ParenExp__Option_ThenTok = mutable.Map[R,List[(IfTok,(AExp,Around),Option[ThenTok])]]()
+    val P_IfTok__ParenExp__Option_ThenTok = mutable.Map[R,List[(Unit,(AExp,Around),Option[Unit])]]()
     val P_Commas2_ExpCond_ExpJuxt__Right = mutable.Map[R,List[(List[AExp],Group)]]()
-    val P_ThenTok__MaybeStmt__ElseTok = mutable.Map[R,List[(ThenTok,AStmt,ElseTok)]]()
-    val P_ElseTok__Stmt = mutable.Map[R,List[(ElseTok,AStmt)]]()
-    val P_MaybeStmt__ElseTok__Stmt = mutable.Map[R,List[(AStmt,ElseTok,AStmt)]]()
-    val P_LtTok__ExpShift_ExpJuxt = mutable.Map[R,List[(LtTok,AExp)]]()
-    val P_XorTok__ExpAnd_ExpJuxt = mutable.Map[R,List[(XorTok,AExp)]]()
-    val P_AndAndTok__ExpOr_ExpJuxt = mutable.Map[R,List[(AndAndTok,AExp)]]()
-    val P_LeTok__ExpShift_ExpJuxt = mutable.Map[R,List[(LeTok,AExp)]]()
+    val P_ThenTok__MaybeStmt__ElseTok = mutable.Map[R,List[(Unit,AStmt,Unit)]]()
+    val P_ElseTok__Stmt = mutable.Map[R,List[(Unit,AStmt)]]()
+    val P_MaybeStmt__ElseTok__Stmt = mutable.Map[R,List[(AStmt,Unit,AStmt)]]()
+    val P_LtTok__ExpShift_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_XorTok__ExpAnd_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_AndAndTok__ExpOr_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_LeTok__ExpShift_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_ParenExp = mutable.Map[R,List[(AExp,Around)]]()
-    val P_ParenExp__Option_ThenTok = mutable.Map[R,List[((AExp,Around),Option[ThenTok])]]()
-    val P_NeTok__ExpRel_ExpJuxt = mutable.Map[R,List[(NeTok,AExp)]]()
-    val P_OrTok__ExpXor_ExpJuxt = mutable.Map[R,List[(OrTok,AExp)]]()
+    val P_ParenExp__Option_ThenTok = mutable.Map[R,List[((AExp,Around),Option[Unit])]]()
+    val P_NeTok__ExpRel_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_OrTok__ExpXor_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_Juxts2_ExpNew = mutable.Map[R,List[List[AExp]]]()
-    val P_IfTok__ParenExp = mutable.Map[R,List[(IfTok,(AExp,Around))]]()
+    val P_IfTok__ParenExp = mutable.Map[R,List[(Unit,(AExp,Around))]]()
     val P_PostOp = mutable.Map[R,List[UnaryOp]]()
-    val P_CommaTok__Commas1_VarDecl = mutable.Map[R,List[(CommaTok,List[(Name,Int,Option[AExp])])]]()
-    val P_Option_DoTok = mutable.Map[R,List[Option[DoTok]]]()
-    val P_AndTok__ExpEq_ExpJuxt = mutable.Map[R,List[(AndTok,AExp)]]()
-    val P_MinusTok__ExpMul_ExpJuxt = mutable.Map[R,List[(MinusTok,AExp)]]()
-    val P_CommaTok__Commas1_ExpCond_ExpJuxt = mutable.Map[R,List[(CommaTok,List[AExp])]]()
-    val P_Commas0_StmtHelperBS__SemiTok = mutable.Map[R,List[(List[AStmt],SemiTok)]]()
-    val P_ExpHigh__DotTok = mutable.Map[R,List[(AExp,DotTok)]]()
+    val P_CommaTok__Commas1_VarDecl = mutable.Map[R,List[(Unit,List[(Name,Int,Option[AExp])])]]()
+    val P_Option_DoTok = mutable.Map[R,List[Option[Unit]]]()
+    val P_AndTok__ExpEq_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_MinusTok__ExpMul_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_CommaTok__Commas1_ExpCond_ExpJuxt = mutable.Map[R,List[(Unit,List[AExp])]]()
+    val P_Commas0_StmtHelperBS__SemiTok = mutable.Map[R,List[(List[AStmt],Unit)]]()
+    val P_ExpHigh__DotTok = mutable.Map[R,List[(AExp,Unit)]]()
     val P_Commas2_Type = mutable.Map[R,List[List[AExp]]]()
-    val P_CommaTok__Commas1_Type = mutable.Map[R,List[(CommaTok,List[AExp])]]()
-    val P_ModTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(ModTok,AExp)]]()
-    val P_MinusTok__ExpMul_ExpNew = mutable.Map[R,List[(MinusTok,AExp)]]()
+    val P_CommaTok__Commas1_Type = mutable.Map[R,List[(Unit,List[AExp])]]()
+    val P_ModTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_MinusTok__ExpMul_ExpNew = mutable.Map[R,List[(Unit,AExp)]]()
     val P_Juxts2_ExpNewNA = mutable.Map[R,List[List[AExp]]]()
     val P_ExpParens = mutable.Map[R,List[AExp]]()
     val P_TypeArgs = mutable.Map[R,List[KList[AExp]]]()
     val P_Option_TypeArgs = mutable.Map[R,List[Option[KList[AExp]]]]()
-    val P_UnsignedRShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(UnsignedRShiftTok,AExp)]]()
+    val P_UnsignedRShiftTok__ExpAdd_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_Juxts2_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
-    val P_LBrackTok__Right = mutable.Map[R,List[(LBrackTok,Group)]]()
-    val P_PlusTok__ExpMul_ExpJuxtNP = mutable.Map[R,List[(PlusTok,AExp)]]()
+    val P_LBrackTok__Right = mutable.Map[R,List[(Unit,Group)]]()
+    val P_PlusTok__ExpMul_ExpJuxtNP = mutable.Map[R,List[(Unit,AExp)]]()
     val P_MaybeParenExp__Block = mutable.Map[R,List[((AExp,Around),List[AStmt])]]()
-    val P_MulTok__ExpUnary_ExpNew = mutable.Map[R,List[(MulTok,AExp)]]()
-    val P_ColonTok__ExpJuxt = mutable.Map[R,List[(ColonTok,AExp)]]()
+    val P_MulTok__ExpUnary_ExpNew = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_ColonTok__ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_LeftNP = mutable.Map[R,List[Group]]()
-    val P_ExpAssignNP__ThenTok = mutable.Map[R,List[(AExp,ThenTok)]]()
-    val P_ForTok__Left = mutable.Map[R,List[(ForTok,Group)]]()
+    val P_ExpAssignNP__ThenTok = mutable.Map[R,List[(AExp,Unit)]]()
+    val P_ForTok__Left = mutable.Map[R,List[(Unit,Group)]]()
     val P_ExpAssign__Right = mutable.Map[R,List[(AExp,Group)]]()
-    val P_MaybeStmt__ElseTok = mutable.Map[R,List[(AStmt,ElseTok)]]()
-    val P_Option_ThenTok__MaybeStmt__ElseTok = mutable.Map[R,List[(Option[ThenTok],AStmt,ElseTok)]]()
+    val P_MaybeStmt__ElseTok = mutable.Map[R,List[(AStmt,Unit)]]()
+    val P_Option_ThenTok__MaybeStmt__ElseTok = mutable.Map[R,List[(Option[Unit],AStmt,Unit)]]()
     val P_Left = mutable.Map[R,List[Group]]()
     val P_WhileUntil = mutable.Map[R,List[Boolean]]()
     val P_Mod = mutable.Map[R,List[Mod]]()
     val P_Juxts1_Mod = mutable.Map[R,List[List[Mod]]]()
     val P_Juxts0_Mod = mutable.Map[R,List[List[Mod]]]()
-    val P_SemiTok__Commas0_ExpAssignNC = mutable.Map[R,List[(SemiTok,List[AExp])]]()
-    val P_Option_ExpAssign__SemiTok__Commas0_ExpAssignNC = mutable.Map[R,List[(Option[AExp],SemiTok,List[AExp])]]()
-    val P_IfTok__ExpAssignNP__ThenTok = mutable.Map[R,List[(IfTok,AExp,ThenTok)]]()
-    val P_DoTok__MaybeStmt = mutable.Map[R,List[(DoTok,AStmt)]]()
-    val P_EqTok__ExpCommas = mutable.Map[R,List[(EqTok,AExp)]]()
+    val P_SemiTok__Commas0_ExpAssignNC = mutable.Map[R,List[(Unit,List[AExp])]]()
+    val P_Option_ExpAssign__SemiTok__Commas0_ExpAssignNC = mutable.Map[R,List[(Option[AExp],Unit,List[AExp])]]()
+    val P_IfTok__ExpAssignNP__ThenTok = mutable.Map[R,List[(Unit,AExp,Unit)]]()
+    val P_DoTok__MaybeStmt = mutable.Map[R,List[(Unit,AStmt)]]()
+    val P_EqTok__ExpCommas = mutable.Map[R,List[(Unit,AExp)]]()
     val P_ExpAssignNC__Right = mutable.Map[R,List[(AExp,Group)]]()
     val P_Right__Stmt = mutable.Map[R,List[(Group,AStmt)]]()
     val P_Commas2_ExpCond_ExpJuxt = mutable.Map[R,List[List[AExp]]]()
     val P_Juxts2_Type = mutable.Map[R,List[List[AExp]]]()
-    val P_DivTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(DivTok,AExp)]]()
-    val P_LParenTok__Type = mutable.Map[R,List[(LParenTok,AExp)]]()
-    val P_CommaTok__Commas1_ExpAssignNC = mutable.Map[R,List[(CommaTok,List[AExp])]]()
-    val P_PlusTok__ExpMul_ExpJuxt = mutable.Map[R,List[(PlusTok,AExp)]]()
-    val P_CommaTok__Commas1_StmtHelperBS = mutable.Map[R,List[(CommaTok,List[AStmt])]]()
+    val P_DivTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_LParenTok__Type = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_CommaTok__Commas1_ExpAssignNC = mutable.Map[R,List[(Unit,List[AExp])]]()
+    val P_PlusTok__ExpMul_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_CommaTok__Commas1_StmtHelperBS = mutable.Map[R,List[(Unit,List[AStmt])]]()
     val P_AssignOp__ExpAssign = mutable.Map[R,List[(Option[AssignOp],AExp)]]()
-    val P_MinusTok__ExpMul_ExpJuxtNP = mutable.Map[R,List[(MinusTok,AExp)]]()
-    val P_MulTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(MulTok,AExp)]]()
+    val P_MinusTok__ExpMul_ExpJuxtNP = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_MulTok__ExpUnary_ExpJuxtNP = mutable.Map[R,List[(Unit,AExp)]]()
     val P_Lit = mutable.Map[R,List[ALit]]()
-    val P_DoTok__Stmt = mutable.Map[R,List[(DoTok,AStmt)]]()
-    val P_GeTok__ExpShift_ExpJuxt = mutable.Map[R,List[(GeTok,AExp)]]()
-    val P_InstanceofTok__Type = mutable.Map[R,List[(InstanceofTok,AExp)]]()
-    val P_ModTok__ExpUnary_ExpNew = mutable.Map[R,List[(ModTok,AExp)]]()
-    val P_ExpAssign__ColonTok__ExpCond_ExpJuxt = mutable.Map[R,List[(AExp,ColonTok,AExp)]]()
+    val P_DoTok__Stmt = mutable.Map[R,List[(Unit,AStmt)]]()
+    val P_GeTok__ExpShift_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_InstanceofTok__Type = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_ModTok__ExpUnary_ExpNew = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_ExpAssign__ColonTok__ExpCond_ExpJuxt = mutable.Map[R,List[(AExp,Unit,AExp)]]()
     val P_WhileUntil__ParenExp = mutable.Map[R,List[(Boolean,(AExp,Around))]]()
-    val P_MulTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(MulTok,AExp)]]()
-    val P_ExpOrOr_ExpJuxt__QuestionTok = mutable.Map[R,List[(AExp,QuestionTok)]]()
+    val P_MulTok__ExpUnary_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
+    val P_ExpOrOr_ExpJuxt__QuestionTok = mutable.Map[R,List[(AExp,Unit)]]()
     val P_Block = mutable.Map[R,List[List[AStmt]]]()
-    val P_ThenTok__Stmt = mutable.Map[R,List[(ThenTok,AStmt)]]()
+    val P_ThenTok__Stmt = mutable.Map[R,List[(Unit,AStmt)]]()
     val P_Right = mutable.Map[R,List[Group]]()
     val P_List_ExpAssignNC__Right = mutable.Map[R,List[(KList[AExp],Group)]]()
     val P_Stmts__Right = mutable.Map[R,List[(List[AStmt],Group)]]()
@@ -252,9 +250,9 @@ object ParseEddy {
     val P_Commas0_StmtHelperBS = mutable.Map[R,List[List[AStmt]]]()
     val P_StmtHelper = mutable.Map[R,List[AStmt]]()
     val P_Stmt = mutable.Map[R,List[AStmt]]()
-    val P_Option_DoTok__Stmt = mutable.Map[R,List[(Option[DoTok],AStmt)]]()
+    val P_Option_DoTok__Stmt = mutable.Map[R,List[(Option[Unit],AStmt)]]()
     val P_MaybeStmt = mutable.Map[R,List[AStmt]]()
-    val P_Option_ThenTok__Stmt = mutable.Map[R,List[(Option[ThenTok],AStmt)]]()
+    val P_Option_ThenTok__Stmt = mutable.Map[R,List[(Option[Unit],AStmt)]]()
     val P_Stmts = mutable.Map[R,List[List[AStmt]]]()
     val P_Option_ExpAssign = mutable.Map[R,List[Option[AExp]]]()
     val P_Commas1_ExpCond_ExpJuxt = mutable.Map[R,List[List[AExp]]]()
@@ -283,8 +281,8 @@ object ParseEddy {
     val P_ExpCond_ExpJuxtNP = mutable.Map[R,List[AExp]]()
     val P_ExpAssignNP = mutable.Map[R,List[AExp]]()
     val P_MaybeParenExp = mutable.Map[R,List[(AExp,Around)]]()
-    val P_MaybeParenExp__Option_ThenTok = mutable.Map[R,List[((AExp,Around),Option[ThenTok])]]()
-    val P_MaybeParenExp__Option_DoTok = mutable.Map[R,List[((AExp,Around),Option[DoTok])]]()
+    val P_MaybeParenExp__Option_ThenTok = mutable.Map[R,List[((AExp,Around),Option[Unit])]]()
+    val P_MaybeParenExp__Option_DoTok = mutable.Map[R,List[((AExp,Around),Option[Unit])]]()
     val P_ExpNewNA = mutable.Map[R,List[AExp]]()
     val P_Juxts1_ExpNewNA = mutable.Map[R,List[List[AExp]]]()
     val P_SingleJuxt1_ExpNewNA = mutable.Map[R,List[KList[AExp]]]()
@@ -295,15 +293,15 @@ object ParseEddy {
     val P_Juxts1_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
     val P_Commas1_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
     val P_ForeachSep = mutable.Map[R,List[Unit]]()
-    val P_ExpHigh__ColonColonTok = mutable.Map[R,List[(AExp,ColonColonTok)]]()
+    val P_ExpHigh__ColonColonTok = mutable.Map[R,List[(AExp,Unit)]]()
     val P_Commas2_VarDecl = mutable.Map[R,List[List[(Name,Int,Option[AExp])]]]()
     val P_List1_VarDecl = mutable.Map[R,List[KList[(Name,Int,Option[AExp])]]]()
     val P_WhileUntil__MaybeParenExp = mutable.Map[R,List[(Boolean,(AExp,Around))]]()
-    val P_ForTok__ForInfo = mutable.Map[R,List[(ForTok,ForInfo)]]()
-    val P_GtTok__ExpShift_ExpJuxt = mutable.Map[R,List[(GtTok,AExp)]]()
+    val P_ForTok__ForInfo = mutable.Map[R,List[(Unit,ForInfo)]]()
+    val P_GtTok__ExpShift_ExpJuxt = mutable.Map[R,List[(Unit,AExp)]]()
     val P_WhileUntil__ExpAssignNP = mutable.Map[R,List[(Boolean,AExp)]]()
     val P_Juxts2_ExpNew__Right = mutable.Map[R,List[(List[AExp],Group)]]()
-    val P_Option_TypeArgs__NewTok = mutable.Map[R,List[(Option[KList[AExp]],NewTok)]]()
+    val P_Option_TypeArgs__NewTok = mutable.Map[R,List[(Option[KList[AExp]],Unit)]]()
     
     // Parse bottom up for each nonterminal
     val n = input.length
@@ -462,7 +460,7 @@ object ParseEddy {
       P_StmtHelper((lo,lo)) = List()
       P_Stmt((lo,lo)) = List()
       P_Option_DoTok__Stmt((lo,lo)) = List()
-      P_MaybeStmt((lo,lo)) = List(HoleAStmt())
+      P_MaybeStmt((lo,lo)) = List(HoleAStmt)
       P_Option_ThenTok__Stmt((lo,lo)) = List()
       P_Stmts((lo,lo)) = List(Nil)
       P_Option_ExpAssign((lo,lo)) = List(None)
@@ -557,7 +555,7 @@ object ParseEddy {
       P_AssignOp((lo,hi)) = t(P_LShiftEqTok)(x => Some(LShiftOp)) ::: t(P_ModEqTok)(x => Some(ModOp)) ::: t(P_MinusEqTok)(x => Some(SubOp)) ::: t(P_EqTok)(x => None) ::: t(P_RShiftEqTok)(x => Some(RShiftOp)) ::: t(P_UnsignedRShiftEqTok)(x => Some(UnsignedRShiftOp)) ::: t(P_PlusEqTok)(x => Some(AddOp)) ::: t(P_DivEqTok)(x => Some(DivOp)) ::: t(P_AndEqTok)(x => Some(AndOp)) ::: t(P_OrEqTok)(x => Some(OrOp)) ::: t(P_XorEqTok)(x => Some(XorOp)) ::: t(P_MulEqTok)(x => Some(MulOp)); d("AssignOp",P_AssignOp)
       P_ForInfo__Right((lo,hi)) = ss(P_ForInfo,P_Right)((x,y) => (x,y)); d("ForInfo__Right",P_ForInfo__Right)
       P_ForeachSep__ExpAssign((lo,hi)) = ss(P_ForeachSep,P_ExpAssign)((x,y) => (x,y)); d("ForeachSep__ExpAssign",P_ForeachSep__ExpAssign)
-      P_WildcardBounds((lo,hi)) = ts(P_SuperTok,P_Type)((x,y) => Some((Super(),y))) ::: ts(P_ColonTok,P_Type)((x,y) => Some((Extends(),y))) ::: ts(P_ExtendsTok,P_Type)((x,y) => Some((Extends(),y))); d("WildcardBounds",P_WildcardBounds)
+      P_WildcardBounds((lo,hi)) = ts(P_SuperTok,P_Type)((x,y) => Some((Super,y))) ::: ts(P_ColonTok,P_Type)((x,y) => Some((Extends,y))) ::: ts(P_ExtendsTok,P_Type)((x,y) => Some((Extends,y))); d("WildcardBounds",P_WildcardBounds)
       P_Option_ThenTok((lo,hi)) = t(P_ThenTok)(x => Some(x)); d("Option_ThenTok",P_Option_ThenTok)
       P_ColonTok__ExpCond_ExpJuxt((lo,hi)) = ts(P_ColonTok,P_ExpCond_ExpJuxt)((x,y) => (x,y)); d("ColonTok__ExpCond_ExpJuxt",P_ColonTok__ExpCond_ExpJuxt)
       P_PreOp((lo,hi)) = t(P_MinusTok)(x => NegOp) ::: t(P_CompTok)(x => CompOp) ::: t(P_PlusTok)(x => PosOp) ::: t(P_PlusPlusTok)(x => PreIncOp) ::: t(P_NotTok)(x => NotOp) ::: t(P_MinusMinusTok)(x => PreDecOp); d("PreOp",P_PreOp)
@@ -627,7 +625,7 @@ object ParseEddy {
       P_AssignOp__ExpAssign((lo,hi)) = ss(P_AssignOp,P_ExpAssign)((x,y) => (x,y)); d("AssignOp__ExpAssign",P_AssignOp__ExpAssign)
       P_MinusTok__ExpMul_ExpJuxtNP((lo,hi)) = ts(P_MinusTok,P_ExpMul_ExpJuxtNP)((x,y) => (x,y)); d("MinusTok__ExpMul_ExpJuxtNP",P_MinusTok__ExpMul_ExpJuxtNP)
       P_MulTok__ExpUnary_ExpJuxtNP((lo,hi)) = ts(P_MulTok,P_ExpUnary_ExpJuxtNP)((x,y) => (x,y)); d("MulTok__ExpUnary_ExpJuxtNP",P_MulTok__ExpUnary_ExpJuxtNP)
-      P_Lit((lo,hi)) = t(P_StringLitTok)(x => StringALit(x.v)) ::: t(P_DoubleLitTok)(x => DoubleALit(x.v)) ::: t(P_CharLitTok)(x => CharALit(x.v)) ::: t(P_NullLitTok)(x => NullALit()) ::: t(P_LongLitTok)(x => LongALit(x.v)) ::: t(P_FloatLitTok)(x => FloatALit(x.v)) ::: t(P_BoolLitTok)(x => BoolALit(x.v)) ::: t(P_IntLitTok)(x => IntALit(x.v)); d("Lit",P_Lit)
+      P_Lit((lo,hi)) = t(P_StringLitTok)(x => StringALit(x.v)) ::: t(P_DoubleLitTok)(x => DoubleALit(x.v)) ::: t(P_CharLitTok)(x => CharALit(x.v)) ::: t(P_LongLitTok)(x => LongALit(x.v)) ::: t(P_FloatLitTok)(x => FloatALit(x.v)) ::: t(P_IntLitTok)(x => IntALit(x.v)); d("Lit",P_Lit)
       P_DoTok__Stmt((lo,hi)) = ts(P_DoTok,P_Stmt)((x,y) => (x,y)); d("DoTok__Stmt",P_DoTok__Stmt)
       P_GeTok__ExpShift_ExpJuxt((lo,hi)) = ts(P_GeTok,P_ExpShift_ExpJuxt)((x,y) => (x,y)); d("GeTok__ExpShift_ExpJuxt",P_GeTok__ExpShift_ExpJuxt)
       P_InstanceofTok__Type((lo,hi)) = ts(P_InstanceofTok,P_Type)((x,y) => (x,y)); d("InstanceofTok__Type",P_InstanceofTok__Type)
@@ -680,15 +678,15 @@ object ParseEddy {
       P_Juxts1_ExpAssignNC((lo,hi)) = ss(P_ExpAssignNC,P_Juxts1_ExpAssignNC)((x,y) => x :: y) ::: s(P_ExpAssignNC)(x => List(x)); d("Juxts1_ExpAssignNC",P_Juxts1_ExpAssignNC)
       P_ExpCommas((lo,hi)) = s(P_Commas2_ExpCond_ExpJuxt)(x => ArrayAExp(CommaList(x),NoAround)) ::: s(P_ExpCond_ExpJuxt)(x => x); d("ExpCommas",P_ExpCommas)
       P_ExpAssign((lo,hi)) = ss(P_ExpJuxt,P_AssignOp__ExpAssign)((x,y) => AssignAExp(y._1,x,y._2)) ::: s(P_ExpCommas)(x => x); d("ExpAssign",P_ExpAssign)
-      P_StmtHelperBS((lo,hi)) = ss(P_WhileUntil__ParenExp,P_Option_DoTok__Stmt)((x,y) => WhileAStmt(x._2._1,y._2,x._1,x._2._2)) ::: tn(P_BreakTok,P_Option_Ident)((x,y) => BreakAStmt(y)) ::: ss(P_IfTok__ExpAssignNP__ThenTok,P_MaybeStmt__ElseTok__Stmt)((x,y) => IfElseAStmt(x._2,y._1,y._3,NoAround)) ::: ss(P_IfTok__ParenExp__Option_ThenTok,P_MaybeStmt__ElseTok__Stmt)((x,y) => IfElseAStmt(x._2._1,y._1,y._3,x._2._2)) ::: ss(P_DoTok__MaybeStmt,P_WhileUntil__MaybeParenExp)((x,y) => DoAStmt(x._2,y._2._1,y._1,y._2._2)) ::: ts(P_ThrowTok,P_ExpJuxt)((x,y) => ThrowAStmt(y)) ::: ss(P_IfTok__ParenExp,P_Option_ThenTok__Stmt)((x,y) => IfAStmt(x._2._1,y._2,x._2._2)) ::: ns(P_Juxts0_Mod,P_Type__List1_VarDecl)((x,y) => VarAStmt(x,y._1,y._2)) ::: ss(P_IfTok__ExpAssignNP,P_ThenTok__Stmt)((x,y) => IfAStmt(x._2,y._2,NoAround)) ::: ts(P_IfTok,P_ExpAssignNP)((x,y) => IfAStmt(y,EmptyAStmt(),NoAround)) ::: ts(P_AssertTok,P_ExpJuxt)((x,y) => AssertAStmt(y,None)) ::: tn(P_ContinueTok,P_Option_Ident)((x,y) => ContinueAStmt(y)) ::: ss(P_WhileUntil__ExpAssignNP,P_DoTok__Stmt)((x,y) => WhileAStmt(x._2,y._2,x._1,NoAround)) ::: ss(P_ForTok__Left,P_ForInfo__Right__Stmt)((x,y) => ForAStmt(y._1,y._3,Grouped(x._2,y._2))) ::: ts(P_IfTok,P_ExpAssignNP)((x,y) => IfElseAStmt(y,EmptyAStmt(),HoleAStmt(),NoAround)) ::: s(P_ExpAssign)(x => ExpAStmt(x)) ::: tn(P_ReturnTok,P_Option_ExpJuxt)((x,y) => ReturnAStmt(y)) ::: ss(P_AssertTok__ExpJuxt,P_ColonTok__ExpJuxt)((x,y) => AssertAStmt(x._2,Some(y._2))) ::: ss(P_ForTok__ForInfo,P_DoTok__Stmt)((x,y) => ForAStmt(x._2,y._2,NoAround)) ::: ts(P_SynchronizedTok,P_MaybeParenExp__Block)((x,y) => SyncAStmt(y._1._1,BlockAStmt(y._2),y._1._2)) ::: ss(P_WhileUntil,P_ExpAssignNP)((x,y) => WhileAStmt(y,EmptyAStmt(),x,NoAround)) ::: s(P_Block)(x => BlockAStmt(x)); d("StmtHelperBS",P_StmtHelperBS)
+      P_StmtHelperBS((lo,hi)) = ss(P_WhileUntil__ParenExp,P_Option_DoTok__Stmt)((x,y) => WhileAStmt(x._2._1,y._2,x._1,x._2._2)) ::: tn(P_BreakTok,P_Option_Ident)((x,y) => BreakAStmt(y)) ::: ss(P_IfTok__ExpAssignNP__ThenTok,P_MaybeStmt__ElseTok__Stmt)((x,y) => IfElseAStmt(x._2,y._1,y._3,NoAround)) ::: ss(P_IfTok__ParenExp__Option_ThenTok,P_MaybeStmt__ElseTok__Stmt)((x,y) => IfElseAStmt(x._2._1,y._1,y._3,x._2._2)) ::: ss(P_DoTok__MaybeStmt,P_WhileUntil__MaybeParenExp)((x,y) => DoAStmt(x._2,y._2._1,y._1,y._2._2)) ::: ts(P_ThrowTok,P_ExpJuxt)((x,y) => ThrowAStmt(y)) ::: ss(P_IfTok__ParenExp,P_Option_ThenTok__Stmt)((x,y) => IfAStmt(x._2._1,y._2,x._2._2)) ::: ss(P_WhileUntil,P_ExpAssignNP)((x,y) => WhileAStmt(y,EmptyAStmt,x,NoAround)) ::: ns(P_Juxts0_Mod,P_Type__List1_VarDecl)((x,y) => VarAStmt(x,y._1,y._2)) ::: ss(P_IfTok__ExpAssignNP,P_ThenTok__Stmt)((x,y) => IfAStmt(x._2,y._2,NoAround)) ::: ts(P_AssertTok,P_ExpJuxt)((x,y) => AssertAStmt(y,None)) ::: tn(P_ContinueTok,P_Option_Ident)((x,y) => ContinueAStmt(y)) ::: ss(P_WhileUntil__ExpAssignNP,P_DoTok__Stmt)((x,y) => WhileAStmt(x._2,y._2,x._1,NoAround)) ::: ss(P_ForTok__Left,P_ForInfo__Right__Stmt)((x,y) => ForAStmt(y._1,y._3,Grouped(x._2,y._2))) ::: ts(P_IfTok,P_ExpAssignNP)((x,y) => IfElseAStmt(y,EmptyAStmt,HoleAStmt,NoAround)) ::: s(P_ExpAssign)(x => ExpAStmt(x)) ::: tn(P_ReturnTok,P_Option_ExpJuxt)((x,y) => ReturnAStmt(y)) ::: ts(P_IfTok,P_ExpAssignNP)((x,y) => IfAStmt(y,EmptyAStmt,NoAround)) ::: ss(P_AssertTok__ExpJuxt,P_ColonTok__ExpJuxt)((x,y) => AssertAStmt(x._2,Some(y._2))) ::: ss(P_ForTok__ForInfo,P_DoTok__Stmt)((x,y) => ForAStmt(x._2,y._2,NoAround)) ::: ts(P_SynchronizedTok,P_MaybeParenExp__Block)((x,y) => SyncAStmt(y._1._1,BlockAStmt(y._2),y._1._2)) ::: s(P_Block)(x => BlockAStmt(x)); d("StmtHelperBS",P_StmtHelperBS)
       P_Commas1_StmtHelperBS((lo,hi)) = ss(P_StmtHelperBS,P_CommaTok__Commas1_StmtHelperBS)((x,y) => x :: y._2) ::: s(P_StmtHelperBS)(x => List(x)); d("Commas1_StmtHelperBS",P_Commas1_StmtHelperBS)
       P_Commas0_StmtHelperBS((lo,hi)) = s(P_Commas1_StmtHelperBS)(x => x); d("Commas0_StmtHelperBS",P_Commas0_StmtHelperBS)
-      P_StmtHelper((lo,hi)) = ss(P_WhileUntil,P_MaybeParenExp__Option_DoTok)((x,y) => WhileAStmt(y._1._1,HoleAStmt(),x,y._1._2)) ::: ts(P_IfTok,P_MaybeParenExp__Option_ThenTok)((x,y) => IfAStmt(y._1._1,HoleAStmt(),y._1._2)) ::: ss(P_ForTok__Left,P_ForInfo__Right)((x,y) => ForAStmt(y._1,HoleAStmt(),Grouped(x._2,y._2))) ::: ss(P_IfTok__ExpAssignNP,P_ThenTok__MaybeStmt__ElseTok)((x,y) => IfElseAStmt(x._2,y._2,HoleAStmt(),NoAround)) ::: ts(P_SynchronizedTok,P_MaybeParenExp)((x,y) => SyncAStmt(y._1,HoleAStmt(),y._2)) ::: ts(P_ForTok,P_ForInfo)((x,y) => ForAStmt(y,HoleAStmt(),NoAround)) ::: s(P_StmtHelperBS)(x => x) ::: ss(P_IfTok__ParenExp,P_Option_ThenTok__MaybeStmt__ElseTok)((x,y) => IfElseAStmt(x._2._1,y._2,HoleAStmt(),x._2._2)); d("StmtHelper",P_StmtHelper)
-      P_Stmt((lo,hi)) = st(P_StmtHelperBS,P_SemiTok)((x,y) => x) ::: s(P_StmtHelper)(x => x) ::: t(P_SemiTok)(x => EmptyAStmt()); d("Stmt",P_Stmt)
+      P_StmtHelper((lo,hi)) = ss(P_ForTok__Left,P_ForInfo__Right)((x,y) => ForAStmt(y._1,HoleAStmt,Grouped(x._2,y._2))) ::: ts(P_SynchronizedTok,P_MaybeParenExp)((x,y) => SyncAStmt(y._1,HoleAStmt,y._2)) ::: ss(P_IfTok__ParenExp,P_Option_ThenTok__MaybeStmt__ElseTok)((x,y) => IfElseAStmt(x._2._1,y._2,HoleAStmt,x._2._2)) ::: ts(P_IfTok,P_MaybeParenExp__Option_ThenTok)((x,y) => IfAStmt(y._1._1,HoleAStmt,y._1._2)) ::: ss(P_IfTok__ExpAssignNP,P_ThenTok__MaybeStmt__ElseTok)((x,y) => IfElseAStmt(x._2,y._2,HoleAStmt,NoAround)) ::: ss(P_WhileUntil,P_MaybeParenExp__Option_DoTok)((x,y) => WhileAStmt(y._1._1,HoleAStmt,x,y._1._2)) ::: s(P_StmtHelperBS)(x => x) ::: ts(P_ForTok,P_ForInfo)((x,y) => ForAStmt(y,HoleAStmt,NoAround)); d("StmtHelper",P_StmtHelper)
+      P_Stmt((lo,hi)) = st(P_StmtHelperBS,P_SemiTok)((x,y) => x) ::: s(P_StmtHelper)(x => x) ::: t(P_SemiTok)(x => EmptyAStmt); d("Stmt",P_Stmt)
       P_Option_DoTok__Stmt((lo,hi)) = ns(P_Option_DoTok,P_Stmt)((x,y) => (x,y)); d("Option_DoTok__Stmt",P_Option_DoTok__Stmt)
       P_MaybeStmt((lo,hi)) = s(P_Stmt)(x => x); d("MaybeStmt",P_MaybeStmt)
       P_Option_ThenTok__Stmt((lo,hi)) = ns(P_Option_ThenTok,P_Stmt)((x,y) => (x,y)); d("Option_ThenTok__Stmt",P_Option_ThenTok__Stmt)
-      P_Stmts((lo,hi)) = ss(P_StmtHelperBS,P_SemiTok__Stmts)((x,y) => x :: y._2) ::: s(P_StmtHelper)(x => List(x)) ::: tn(P_SemiTok,P_Stmts)((x,y) => EmptyAStmt() :: y); d("Stmts",P_Stmts)
+      P_Stmts((lo,hi)) = ss(P_StmtHelperBS,P_SemiTok__Stmts)((x,y) => x :: y._2) ::: s(P_StmtHelper)(x => List(x)) ::: tn(P_SemiTok,P_Stmts)((x,y) => EmptyAStmt :: y); d("Stmts",P_Stmts)
       P_Option_ExpAssign((lo,hi)) = s(P_ExpAssign)(x => Some(x)); d("Option_ExpAssign",P_Option_ExpAssign)
       P_Commas1_ExpCond_ExpJuxt((lo,hi)) = ss(P_ExpCond_ExpJuxt,P_CommaTok__Commas1_ExpCond_ExpJuxt)((x,y) => x :: y._2) ::: s(P_ExpCond_ExpJuxt)(x => List(x)); d("Commas1_ExpCond_ExpJuxt",P_Commas1_ExpCond_ExpJuxt)
       P_Option_TypeArgs__ExpJuxt((lo,hi)) = ns(P_Option_TypeArgs,P_ExpJuxt)((x,y) => (x,y)); d("Option_TypeArgs__ExpJuxt",P_Option_TypeArgs__ExpJuxt)

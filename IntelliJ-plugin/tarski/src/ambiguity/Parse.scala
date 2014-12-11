@@ -35,6 +35,7 @@ object Parse {
     def kind(s: Symbol) = if (G.isToken(s)) "t" else if (G.nullable(s)) "n" else "s"
     val debug = true
     def ifNull(s: Symbol): Option[String] = if (G.nullable(s)) Some(s"P_$s((lo,lo)).head") else None
+    def tokPattern(t: Symbol) = if (G.isSimple(t)) s"$t => List(())" else s"t:$t => List(t)"
     var f =
       function("parse", List(("input",s"List[${G.token}]")), s"List[${G.types(G.start)}]",
             "type R = (Int,Int)"
@@ -44,7 +45,7 @@ object Parse {
         ::  "// Functions for matching tokens"
         ::  "val array = input.toArray"
         ::  "def tok(i: Int) = array(i)"
-        ::  toks.toList.map {t => s"def P_$t(i: Int) = array(i) match { case t: $t => List(t); case _ => Nil }"}
+        ::  toks.toList.map {t => s"def P_$t(i: Int) = array(i) match { case ${tokPattern(t)}; case _ => Nil }"}
         ::: ""
         ::  "// Allocate one sparse array per nonterminal"
         ::  nons.toList.map(n => s"val P_$n = mutable.Map[R,List[${G.types(n)}]]()")

@@ -15,8 +15,8 @@ object Mismatch {
   case class Other(t: Token) extends Part
 
   def part(t: Token): Part = t match {
-    case LParenTok()|LBrackTok()|LCurlyTok() => Left(t)
-    case RParenTok()|RBrackTok()|RCurlyTok() => Right(t)
+    case LParenTok|LBrackTok|LCurlyTok => Left(t)
+    case RParenTok|RBrackTok|RCurlyTok => Right(t)
     case _ => Other(t)
   }
   type Runs = List[(Part,Int)]
@@ -47,8 +47,8 @@ object Mismatch {
       }
       if (startsWith(ps)) ps else (t,0)::ps
     }
-    def L(t: () => Token, r: Runs) = add(Left(t()),r)
-    def R(t: () => Token, r: Runs) = add(Right(t()),r)
+    def L(t: Token, r: Runs) = add(Left(t),r)
+    def R(t: Token, r: Runs) = add(Right(t),r)
     L(LCurlyTok,L(LParenTok,L(LBrackTok,
     R(RCurlyTok,R(RParenTok,R(RBrackTok,ps.reverse))).reverse)))
   }

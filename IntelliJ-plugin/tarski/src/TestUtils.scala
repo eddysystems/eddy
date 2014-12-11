@@ -14,7 +14,7 @@ object TestUtils {
   // AST implicit conversions
   implicit def toAExp(i: Int): AExp = IntALit(i.toString)
   implicit def toAExp(s: String): AExp = NameAExp(s)
-  implicit def toAExp(b: Boolean): AExp = BoolALit(b)
+  implicit def toAExp(b: Boolean): AExp = NameAExp(if (b) "true" else "false")
   implicit def toAExps(e: AExp): List[AExp] = List(e)
   implicit def toAStmt(e: AExp): AStmt = ExpAStmt(e)
   implicit def toAStmts(e: AExp): List[AStmt] = List(ExpAStmt(e))

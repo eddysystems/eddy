@@ -106,6 +106,7 @@ object Pr {
   // denoteValue(Value)
   val parameterValue = passThrough
   val localValue = passThrough
+  val litValue = passThrough
   val staticFieldValue = passThrough
   val enumConstantValue = passThrough
   val thisValue = passThrough

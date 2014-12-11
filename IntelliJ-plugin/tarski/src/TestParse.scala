@@ -23,7 +23,7 @@ class TestParse {
     def check(name: String, cons: String => Token, options: String) =
       assertEquals(spaced(splitWhitespace(options) map cons),lex(options))
 
-    assertEquals(spaced(List(AbstractTok(),FinalTok(),DoTok())),lex("abstract final do"))
+    assertEquals(spaced(List(AbstractTok,FinalTok,DoTok)),lex("abstract final do"))
     check("ints",IntLitTok,"0 1 17 0x81 07_43 0b1010_110")
     check("longs",LongLitTok,"0l 1L 17l 0x81L 07_43l 0b1010_110L")
     check("floats",FloatLitTok,"0f 5F 5.3f .4e-8F 0x4.aP1_7f")
@@ -98,9 +98,9 @@ class TestParse {
   @Test def mulAdd() = testAST("1 * 2 + 3", add(mul(1,2),3))
 
   // Compound statements
-  val t = BoolALit(true)
-  val e = EmptyAStmt()
-  val h = HoleAStmt()
+  val t = NameAExp("true")
+  val e = EmptyAStmt
+  val h = HoleAStmt
   @Test def ifStmt()      = testAST("if (true);",IfAStmt(t,e,ParenAround))
   @Test def ifBare()      = testAST("if true;",IfAStmt(t,e,NoAround),IfElseAStmt(t,e,h,NoAround))
   @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(t,h,h,ParenAround))
@@ -108,11 +108,12 @@ class TestParse {
   @Test def doWhileBare() = testAST("do; while true", DoAStmt(e,t,false,NoAround))
   @Test def whileHole()   = testAST("while true", WhileAStmt(t,h,false,NoAround), WhileAStmt(t,e,false,NoAround))
   @Test def untilHole()   = testAST("until true", WhileAStmt(t,h,true,NoAround), WhileAStmt(t,e,true,NoAround),
-                                                  ApplyAExp("until",SingleList(true),NoAround))
-  @Test def forever()     = testAST("for (;;);", ForAStmt(For(Nil,None,Nil),EmptyAStmt(),ParenAround))
-  @Test def foreverHole() = testAST("for (;;)", ForAStmt(For(Nil,None,Nil),HoleAStmt(),ParenAround))
+                                                  ApplyAExp("until",SingleList(true),NoAround),
+                                                  VarAStmt(Nil,"until",SingleList(("true",0,None))))
+  @Test def forever()     = testAST("for (;;);", ForAStmt(For(Nil,None,Nil),e,ParenAround))
+  @Test def foreverHole() = testAST("for (;;)", ForAStmt(For(Nil,None,Nil),h,ParenAround))
   @Test def forSimple()   = testAST("for (x=7;true;x++)",
-    ForAStmt(For(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp,"x")),HoleAStmt(),ParenAround))
+    ForAStmt(For(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp,"x")),h,ParenAround))
 
   @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
     ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround),ParenAround),None,"f"),EmptyList,ParenAround)))

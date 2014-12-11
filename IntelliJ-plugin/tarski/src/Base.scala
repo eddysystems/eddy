@@ -1,6 +1,7 @@
 package tarski
 
 import tarski.AST.Name
+import tarski.Denotations.{NullLit, BooleanLit}
 import tarski.Items._
 import tarski.Types._
 import tarski.Environment.Env
@@ -137,7 +138,12 @@ object Base {
   object ubFloatItem   extends LangTypeItem { def ty = FloatType }
   object ubDoubleItem  extends LangTypeItem { def ty = DoubleType }
   object ubCharItem    extends LangTypeItem { def ty = CharType }
-  
+
+  // Literals
+  val trueLit = LitValue(BooleanLit(true))
+  val falseLit = LitValue(BooleanLit(false))
+  val nullLit = LitValue(NullLit)
+
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
 
@@ -154,12 +160,14 @@ object Base {
     // Interfaces
     CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem,
     // Constructors
-    ObjectConsItem
+    ObjectConsItem,
+    // Literals
+    trueLit,falseLit,nullLit
   ))
 
   // Things that EnvironmentProcessor won't add on its own
   val extraEnv = Env(Array(
-    LocalPkg,
+    LocalPkg,trueLit,falseLit,nullLit,
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem))
 
   // Check that an environment has a unique copy of everything in baseEnv

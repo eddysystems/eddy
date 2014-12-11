@@ -29,10 +29,8 @@ object Semantics {
       case LongALit(v) =>   single(f(v,_.dropRight(1).toLong)(LongLit), Pr.longLit)
       case FloatALit(v) =>  single(f(v,_.toFloat)(FloatLit), Pr.floatLit)
       case DoubleALit(v) => single(f(v,_.toDouble)(DoubleLit), Pr.doubleLit)
-      case BoolALit(b) =>   single(BooleanLit(b), Pr.booleanLit)
       case CharALit(v) =>   single(CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v), Pr.charLit)
       case StringALit(v) => single(StringLit(unescapeJava(v.slice(1,v.size-1)),v), Pr.stringLit)
-      case NullALit() =>    single(NullLit, Pr.nullLit)
     }
   }
 
@@ -132,13 +130,13 @@ object Semantics {
     case i: LocalVariableItem if env.inScope(i) => single(LocalVariableExp(i), Pr.localValue)
 
     // We can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
+    case LitValue(x) => single(x, Pr.litValue)
     case i: StaticFieldItem => single(StaticFieldExp(None,i), Pr.staticFieldValue)
     case i: EnumConstantItem => single(EnumConstantExp(None,i), Pr.enumConstantValue)
     case i: ThisItem => single(ThisExp(i), Pr.thisValue)
 
     case i: FieldItem if env.inScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
     case i: FieldItem => denoteField(i, FieldExp, Pr.superFieldValue, Pr.shadowedFieldValue, Pr.fieldValue, depth)
-    case _ => fail("Can't find a denotation for " + i + ", inaccessible")
   }
 
   def denoteCallable(e: AExp)(implicit env: Env): Scored[Callable] = e match {
@@ -342,8 +340,8 @@ object Semantics {
   def denoteStmt(s: AStmt)(env: Env): Scored[(Env,List[Stmt])] = {
     implicit val imp = env
     s match {
-      case EmptyAStmt() => single((env,List(EmptyStmt)), Pr.emptyStmt)
-      case HoleAStmt() => single((env,List(HoleStmt)), Pr.holeStmt)
+      case EmptyAStmt => single((env,List(EmptyStmt)), Pr.emptyStmt)
+      case HoleAStmt => single((env,List(HoleStmt)), Pr.holeStmt)
       case VarAStmt(m,t,ds) =>
         val isFinal = modifiers(m,Final)
         above(denoteType(t)(env) flatMap (at => {
@@ -432,7 +430,7 @@ object Semantics {
       }
       case ForAStmt(info@Foreach(m,t,v,n,e),s,a) => {
         val isFinal = modifiers(m,Final) || t.isEmpty
-        def hole = show(ForAStmt(info,HoleAStmt(),a))
+        def hole = show(ForAStmt(info,HoleAStmt,a))
         above(product(thread(t)(denoteType),denoteExp(e)) flatMap {case (at,e) =>
           val t = at map (_.beneath)
           val tc = e.ty

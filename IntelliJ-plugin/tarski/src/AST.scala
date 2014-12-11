@@ -25,8 +25,8 @@ object AST {
   case object Synchronized extends Mod
 
   sealed abstract class Bound
-  case class Extends() extends Bound
-  case class Super() extends Bound
+  case object Extends extends Bound
+  case object Super extends Bound
 
   sealed abstract class KList[+A] {
     def list: List[A]
@@ -65,7 +65,8 @@ object AST {
   type AVarDecl = (Name,ADims,Option[AExp])
 
   sealed abstract class AStmt
-  case class EmptyAStmt() extends AStmt
+  case object EmptyAStmt extends AStmt
+  case object HoleAStmt extends AStmt
   case class VarAStmt(m: List[Mod], t: AExp, v: KList[AVarDecl]) extends AStmt
   case class BlockAStmt(b: Block) extends AStmt
   case class ExpAStmt(e: AExp) extends AStmt
@@ -80,7 +81,6 @@ object AST {
   case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean, a: Around) extends AStmt
   case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean, a: Around) extends AStmt
   case class ForAStmt(i: ForInfo, s: AStmt, a: Around) extends AStmt
-  case class HoleAStmt() extends AStmt
 
   sealed abstract class ForInfo
   case class For(i: List[AStmt], cond: Option[AExp], u: List[AExp]) extends ForInfo
@@ -109,8 +109,6 @@ object AST {
   case class LongALit(v: String) extends ALit
   case class FloatALit(v: String) extends ALit
   case class DoubleALit(v: String) extends ALit
-  case class BoolALit(v: Boolean) extends ALit
   case class CharALit(v: String) extends ALit
   case class StringALit(v: String) extends ALit
-  case class NullALit() extends ALit
 }
