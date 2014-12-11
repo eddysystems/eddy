@@ -3,8 +3,10 @@ package ambiguity;
 import gnu.trove.TObjectIntHashMap;
 import org.apache.commons.lang.StringUtils;
 import tarski.Items.*;
-
+import tarski.Scores.*;
+import scala.Function1;
 import java.util.*;
+import static java.lang.Math.max;
 
 public class JavaUtils {
   // State for pushScope and popScope
@@ -153,4 +155,137 @@ public class JavaUtils {
     return results;
   }
 
+  // Best(p,x,r).bias(q)
+  static final class Biased<B> extends AltBase {
+    final double _p;
+    final B x;
+    final LazyScored<B> r;
+    final double _q;
+
+    Biased(double p, B x, LazyScored<B> r, double q) {
+      this._p = p;
+      this.x = x;
+      this.r = r;
+      this._q = q;
+    }
+
+    public double p() {
+      return _p*_q;
+    }
+  }
+
+  static public final class FlatMapState<A,B> {
+    public FlatMapState(Scored<A> input, Function1<A,Scored<B>> f) {
+      this.as = input;
+      this.f = f;
+    }
+
+    // Our flatMap function
+    private final Function1<A,Scored<B>> f;
+
+    // Exactly one of as and asLazy is null
+    private Scored<A> as;
+    private LazyScored<A> asLazy;
+
+    // Sorted strict and unsorted lazy bs
+    // The AltBase is either Biased<B> or Alt<LazyScored<B>>
+    private PriorityQueue<AltBase> bs;
+
+    // Grab the next as
+    private Scored<A> nextAs() {
+      if (as == null) {
+        LazyScored<A> r = asLazy;
+        asLazy = null;
+        return r.s();
+      } else {
+        Scored<A> r = as;
+        as = null;
+        return r;
+      }
+    }
+
+    // Our current probability bound
+    private double p() {
+      double p = as != null ? as.p() : asLazy.p();
+      if (bs != null && !bs.isEmpty())
+        p = max(p,bs.peek().p());
+      return p;
+    }
+
+    // Invariant: This class will go out of scope after extract(), unless we do otherwise
+    public Scored<B> extract() {
+      for (;;) {
+        // If bs is better than as, we're done
+        if (bs != null) {
+          while (!bs.isEmpty()) {
+            final AltBase ab = bs.peek();
+            if (ab instanceof Alt) {
+              // The best bs is lazy, so force it and keep going
+              bs.poll();
+              Alt<LazyScored<B>> pb = (Alt)ab;
+              Scored<B> _b = pb.x().s();
+              if (_b instanceof Best) {
+                final Best<B> b = (Best<B>)_b;
+                bs.add(new Biased<B>(b.p(),b.x(),b.r(),pb.p()));
+              }
+            } else {
+              final Biased<B> b = (Biased<B>)ab;
+              final double bp = b.p();
+              boolean done;
+              if (as != null)
+                done = bp >= as.p();
+              else if (bp >= asLazy.p())
+                done = true;
+              else {
+                as = asLazy.s();
+                asLazy = null;
+                done = bp >= as.p();
+              }
+              if (done) {
+                bs.poll();
+                bs.add(new Alt<LazyScored<B>>(b._q,b.r));
+                return new Best<B>(bp,b.x,new DelayExtract<A,B>(this));
+              }
+              break;
+            }
+          }
+        }
+
+        // Otherwise, dig into as
+        final Scored<A> _as = nextAs();
+        if (_as instanceof EmptyOrBad)
+          return (Scored)Empty$.MODULE$;
+        final Best<A> as = (Best<A>)_as;
+        asLazy = as.r();
+        final Scored<B> _fx = f.apply(as.x());
+        if (_fx instanceof Best) {
+          final Best<B> fx = (Best<B>)_fx;
+          if (bs == null)
+            bs = new PriorityQueue<AltBase>();
+          bs.add(new Biased<B>(fx.p(),fx.x(),fx.r(),as.p()));
+        }
+      }
+    }
+  }
+
+  static final class DelayExtract<A,B> extends LazyScored<B> {
+    private FlatMapState<A,B> state;
+    private Scored<B> _s;
+
+    DelayExtract(FlatMapState<A,B> state) {
+      this.state = state;
+    }
+
+    public double p() {
+      return _s != null ? _s.p() : state.p();
+    }
+
+    public Scored<B> s() {
+      if (_s == null) {
+        _s = state.extract();
+        state = null;
+      }
+      return _s;
+    }
+  }
 }

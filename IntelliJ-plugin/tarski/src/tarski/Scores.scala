@@ -1,10 +1,8 @@
 package tarski
 
 import scala.math._
+import ambiguity.JavaUtils.FlatMapState
 
-/**
- * Created by martin on 11.12.14.
- */
 object Scores {
   /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability
    *
@@ -16,9 +14,18 @@ object Scores {
   // Wrapper around probabilities
   type Prob = Double
   def Prob(p: Prob): Prob = p
-  case class Alt[+A](p: Prob, x: A) // Explicit class to avoid boxing the probability
+  abstract class AltBase extends Comparable[AltBase] {
+    def p: Prob
+    def compareTo(o: AltBase): Int = {
+      val p0: Double = p
+      val p1: Double = o.p
+      if (p0 > p1) -1 else if (p0 < p1) 1 else 0
+    }
+  }
+  case class Alt[+A](p: Prob, x: A) extends AltBase // Explicit class to avoid boxing the probability
 
   sealed abstract class Scored[+A] {
+    def p: Prob
     def best: Either[Error,A]
     def all: Either[Error,Stream[Alt[A]]]
     def stream: Stream[Alt[A]]
@@ -133,9 +140,10 @@ object Scores {
     println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
 
   // Failure
-  private sealed abstract class EmptyOrBad extends Scored[Nothing]
+  sealed abstract class EmptyOrBad extends Scored[Nothing]
   private final class Bad(_e: => Error) extends EmptyOrBad {
     lazy val e = _e
+    def p = 0
     def best = Left(e)
     def all = Left(e)
     def stream = Stream.Empty
@@ -155,7 +163,8 @@ object Scores {
   }
 
   // No options, but not Bad
-  private object Empty extends EmptyOrBad {
+  object Empty extends EmptyOrBad {
+    def p = 0
     def best = Left(OneError("unknown failure"))
     def all = best
     def stream = Stream.Empty
@@ -173,7 +182,7 @@ object Scores {
   }
 
   // One best possibility, then lazily more
-  private case class Best[+A](p: Prob, x: A, r: LazyScored[A]) extends Scored[A] {
+  case class Best[+A](p: Prob, x: A, r: LazyScored[A]) extends Scored[A] {
     def best = Right(x)
     def all = Right(stream)
     def stream = Alt(p,x) #:: r.s.stream
@@ -191,10 +200,7 @@ object Scores {
         case _:EmptyOrBad => this
       }
 
-    def flatMap[B](f: A => Scored[B]) = {
-      //println(s"Best.flatMap: f ${f.getClass}, x $x, p $p")
-      f(x).bias(p) ++ r.flatMap(f)
-    }
+    def flatMap[B](f: A => Scored[B]) = new FlatMapState(this,f).extract()
 
     def productWith[B,C](s: => Scored[B])(f: (A,B) => C) = s match {
       case Best(q,y,s) => Best(p*q,f(x,y),r.map(f(_,y)).bias(p) ++ s.map(f(x,_)).bias(q) ++ r.productWith(s)(f))
