@@ -21,9 +21,11 @@ object Scores {
     def best: Either[Error,A]
     def all: Either[Error,Stream[Alt[A]]]
     def stream: Stream[Alt[A]]
-    def ++[B >: A](s: LazyScored[B]): Scored[B]
     def bias(p: Prob): Scored[A]
     def map[B](f: A => B): Scored[B]
+
+    // Either this or s
+    def ++[B >: A](s: LazyScored[B]): Scored[B]
 
     // f is assumed to generate conditional probabilities
     def flatMap[B](f: A => Scored[B]): Scored[B]
@@ -126,6 +128,8 @@ object Scores {
 
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
   private val trackErrors = false
+  if (trackErrors)
+    println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
 
   // Failure
   private sealed abstract class EmptyOrBad extends Scored[Nothing]

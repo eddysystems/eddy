@@ -6,6 +6,7 @@ import tarski.Types._
 import tarski.Base.{JavaLangPkg,EnumBaseItem,SerializableItem,CloneableItem}
 import tarski.Pretty.pretty
 import tarski.Tokens.show
+import tarski.Denotations.Lit
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
@@ -254,6 +255,13 @@ object Items {
     assert(parent.isEnum) // TODO: make a separate maker for enums?
     override def item = parent
     def ty = parent.simple
+    def isFinal = true
+  }
+  case class LitValue(x: Lit) extends StaticValue {
+    val name = show(x)
+    val qualifiedName = Some(name)
+    val ty = x.ty
+    override val item = x.item
     def isFinal = true
   }
 

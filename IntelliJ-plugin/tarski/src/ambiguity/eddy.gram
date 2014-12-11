@@ -1,6 +1,7 @@
 name ParseEddy
 start Stmts
 token Token
+simple (?<!Lit|Ident)Tok
 
 preamble package tarski
 preamble import tarski.Tokens._
@@ -81,9 +82,9 @@ TypeArgs KList[AExp]
   LtTok List[Type] GtTok            { $2 }
 WildcardBounds Option[(Bound,AExp)]
   ""                                { None }
-  ExtendsTok Type                   { Some((Extends(),$2)) }
-  ColonTok Type                     { Some((Extends(),$2)) }
-  SuperTok Type                     { Some((Super(),$2)) }
+  ExtendsTok Type                   { Some((Extends,$2)) }
+  ColonTok Type                     { Some((Extends,$2)) }
+  SuperTok Type                     { Some((Super,$2)) }
 
 // Type parameters
 //TypeParam
@@ -103,28 +104,28 @@ Block List[AStmt]
   LCurlyTok Stmts Right          { $2 }
 Stmts List[AStmt]
   ""                             { Nil }
-  SemiTok Stmts                  { EmptyAStmt() :: $2 }
+  SemiTok Stmts                  { EmptyAStmt :: $2 }
   StmtHelper                     { List($1) }
   StmtHelperBS SemiTok Stmts     { $1 :: $3 }
 
 // Statement
 // Suffix BS means before semicolon
 Stmt AStmt
-  SemiTok                                                    { EmptyAStmt() }
+  SemiTok                                                    { EmptyAStmt }
   StmtHelper                                                 { $1 }
   StmtHelperBS SemiTok                                       { $1 }
 MaybeStmt AStmt
-  ""                                                         { HoleAStmt() }
+  ""                                                         { HoleAStmt }
   Stmt                                                       { $1 }
 StmtHelper AStmt
   StmtHelperBS                                               { $1 }
-  IfTok MaybeParenExp Option[ThenTok]                        { IfAStmt($2._1,HoleAStmt(),$2._2) }
-  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok           { IfElseAStmt($2._1,$4,HoleAStmt(),$2._2) }
-  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok                { IfElseAStmt($2,$4,HoleAStmt(),NoAround) }
-  WhileUntil MaybeParenExp Option[DoTok]                     { WhileAStmt($2._1,HoleAStmt(),$1,$2._2) }
-  ForTok Left ForInfo Right                                  { ForAStmt($3,HoleAStmt(),Grouped($2,$4)) }
-  ForTok ForInfo                                             { ForAStmt($2,HoleAStmt(),NoAround) }
-  SynchronizedTok MaybeParenExp                              { SyncAStmt($2._1,HoleAStmt(),$2._2) }
+  IfTok MaybeParenExp Option[ThenTok]                        { IfAStmt($2._1,HoleAStmt,$2._2) }
+  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok           { IfElseAStmt($2._1,$4,HoleAStmt,$2._2) }
+  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok                { IfElseAStmt($2,$4,HoleAStmt,NoAround) }
+  WhileUntil MaybeParenExp Option[DoTok]                     { WhileAStmt($2._1,HoleAStmt,$1,$2._2) }
+  ForTok Left ForInfo Right                                  { ForAStmt($3,HoleAStmt,Grouped($2,$4)) }
+  ForTok ForInfo                                             { ForAStmt($2,HoleAStmt,NoAround) }
+  SynchronizedTok MaybeParenExp                              { SyncAStmt($2._1,HoleAStmt,$2._2) }
 StmtHelperBS AStmt
   Juxts0[Mod] Type List1[VarDecl]                            { VarAStmt($1,$2,$3) }
   Block                                                      { BlockAStmt($1) }
@@ -138,13 +139,13 @@ StmtHelperBS AStmt
   // LabelStmt
   IfTok ParenExp Option[ThenTok] Stmt                        { IfAStmt($2._1,$4,$2._2) }
   IfTok ExpAssignNP ThenTok Stmt                             { IfAStmt($2,$4,NoAround) }
-  IfTok ExpAssignNP                                          { IfAStmt($2,EmptyAStmt(),NoAround) }
-  IfTok ExpAssignNP                                          { IfElseAStmt($2,EmptyAStmt(),HoleAStmt(),NoAround) }
+  IfTok ExpAssignNP                                          { IfAStmt($2,EmptyAStmt,NoAround) }
+  IfTok ExpAssignNP                                          { IfElseAStmt($2,EmptyAStmt,HoleAStmt,NoAround) }
   IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok Stmt      { IfElseAStmt($2._1,$4,$6,$2._2) }
   IfTok ExpAssignNP ThenTok MaybeStmt ElseTok Stmt           { IfElseAStmt($2,$4,$6,NoAround) }
   WhileUntil ParenExp Option[DoTok] Stmt                     { WhileAStmt($2._1,$4,$1,$2._2) }
   WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($2,$4,$1,NoAround) }
-  WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt(),$1,NoAround) }
+  WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt,$1,NoAround) }
   DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($2,$4._1,$3,$4._2) }
   ForTok Left ForInfo Right Stmt                             { ForAStmt($3,$5,Grouped($2,$4)) }
   ForTok ForInfo DoTok Stmt                                  { ForAStmt($2,$4,NoAround) }
@@ -300,10 +301,8 @@ Lit ALit
   LongLitTok    { LongALit($1.v) }
   FloatLitTok   { FloatALit($1.v) }
   DoubleLitTok  { DoubleALit($1.v) }
-  BoolLitTok    { BoolALit($1.v) }
   CharLitTok    { CharALit($1.v) }
   StringLitTok  { StringALit($1.v) }
-  NullLitTok    { NullALit() }
 
 PostOp UnaryOp
   PlusPlusTok    { PostIncOp }

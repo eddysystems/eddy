@@ -24,7 +24,7 @@ class TestEnvironment {
     val scope = Map[Item,Int]((LocalPkg,4),(main,3),(yf,2),(f,2),(y,1))
     implicit val env = Env(Array(main,f),scope)
     assertEquals(tokens(y), List(IdentTok("y")))
-    assertEquals(tokens(yf), List(IdentTok("Main"),DotTok(), IdentTok("y")))
+    assertEquals(tokens(yf), List(IdentTok("Main"),DotTok, IdentTok("y")))
   }
 
   @Test
@@ -34,8 +34,8 @@ class TestEnvironment {
     val tX = ThisItem(X)
     val tY = ThisItem(Y)
     implicit val env = Env(Array(X,Y,tX,tY), Map((tX,2),(X,2),(tY,1),(Y,1)))
-    assertEquals(tokens(ThisExp(tX)), List(IdentTok("X"),DotTok(),ThisTok()))
-    assertEquals(tokens(ThisExp(tY)), List(ThisTok()))
+    assertEquals(tokens(ThisExp(tX)), List(IdentTok("X"),DotTok,ThisTok))
+    assertEquals(tokens(ThisExp(tY)), List(ThisTok))
   }
 
   @Test

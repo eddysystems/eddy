@@ -336,7 +336,7 @@ class TestDen {
   val h = HoleStmt
   def testDenX(input: String, best: (Stmt,Stmt) => Stmt) = {
     val x = LocalVariableItem("x",IntType,false)
-    implicit val env = localEnv(x)
+    implicit val env = extraEnv.extendLocal(Array(x))
     testDen(input,best(AssignExp(None,x,1),AssignExp(None,x,2)))
   }
   @Test def ifStmt()       = testDen ("if (true);", IfStmt(t,e))
@@ -400,8 +400,13 @@ class TestDen {
 
   @Test def sideEffectsSplit() = {
     val x = LocalVariableItem("x",IntType,false)
-    implicit val env = localEnv(x)
+    implicit val env = extraEnv.extendLocal(Array(x))
     testDen("true ? x = 1 : (x = 2)", IfElseStmt(true,AssignExp(None,x,1),AssignExp(None,x,2)))
+  }
+
+  @Test def trueTypo() = {
+    implicit val env = localEnvWithBase()
+    testDen("x = tru", "x", x => VarStmt(BooleanType,(x,true)))
   }
 
   // Synchronized

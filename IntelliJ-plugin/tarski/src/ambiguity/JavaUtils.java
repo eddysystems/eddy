@@ -63,7 +63,7 @@ public class JavaUtils {
     return p;
   }
 
-  public static Map<TypeItem,Value[]> valuesByItem(Item[] vs) {
+  public static <V extends Item> Map<TypeItem,Value[]> valuesByItem(V[] vs) {
     pushScope("values by item");
     // Turn debugging on or off
     final boolean debug = false;

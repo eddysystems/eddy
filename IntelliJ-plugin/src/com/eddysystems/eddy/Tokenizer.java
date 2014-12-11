@@ -61,212 +61,212 @@ public class Tokenizer {
     if (type == JavaTokenType.FALSE_KEYWORD)
       return new BoolLitTok(false);
     if (type == JavaTokenType.NULL_KEYWORD)
-      return new NullLitTok();
+      return NullTok$.MODULE$;
 
     if (type == JavaTokenType.ABSTRACT_KEYWORD)
-      return new AbstractTok();
+      return AbstractTok$.MODULE$;
     if (type == JavaTokenType.ASSERT_KEYWORD)
-      return new AssertTok();
+      return AssertTok$.MODULE$;
     if (type == JavaTokenType.BOOLEAN_KEYWORD)
-      return new BooleanTok();
+      return BooleanTok$.MODULE$;
     if (type == JavaTokenType.BREAK_KEYWORD)
-      return new BreakTok();
+      return BreakTok$.MODULE$;
     if (type == JavaTokenType.BYTE_KEYWORD)
-      return new ByteTok();
+      return ByteTok$.MODULE$;
     if (type == JavaTokenType.CASE_KEYWORD)
-      return new CaseTok();
+      return CaseTok$.MODULE$;
     if (type == JavaTokenType.CATCH_KEYWORD)
-      return new CatchTok();
+      return CatchTok$.MODULE$;
     if (type == JavaTokenType.CHAR_KEYWORD)
-      return new CharTok();
+      return CharTok$.MODULE$;
     if (type == JavaTokenType.CLASS_KEYWORD)
-      return new ClassTok();
+      return ClassTok$.MODULE$;
     if (type == JavaTokenType.CONST_KEYWORD)
-      return new ConstTok();
+      return ConstTok$.MODULE$;
     if (type == JavaTokenType.CONTINUE_KEYWORD)
-      return new ContinueTok();
+      return ContinueTok$.MODULE$;
     if (type == JavaTokenType.DEFAULT_KEYWORD)
-      return new DefaultTok();
+      return DefaultTok$.MODULE$;
     if (type == JavaTokenType.DO_KEYWORD)
-      return new DoTok();
+      return DoTok$.MODULE$;
     if (type == JavaTokenType.DOUBLE_KEYWORD)
-      return new DoubleTok();
+      return DoubleTok$.MODULE$;
     if (type == JavaTokenType.ELSE_KEYWORD)
-      return new ElseTok();
+      return ElseTok$.MODULE$;
     if (type == JavaTokenType.ENUM_KEYWORD)
-      return new EnumTok();
+      return EnumTok$.MODULE$;
     if (type == JavaTokenType.EXTENDS_KEYWORD)
-      return new ExtendsTok();
+      return ExtendsTok$.MODULE$;
     if (type == JavaTokenType.FINAL_KEYWORD)
-      return new FinalTok();
+      return FinalTok$.MODULE$;
     if (type == JavaTokenType.FINALLY_KEYWORD)
-      return new FinallyTok();
+      return FinallyTok$.MODULE$;
     if (type == JavaTokenType.FLOAT_KEYWORD)
-      return new FloatTok();
+      return FloatTok$.MODULE$;
     if (type == JavaTokenType.FOR_KEYWORD)
-      return new ForTok();
+      return ForTok$.MODULE$;
     if (type == JavaTokenType.GOTO_KEYWORD)
-      return new GotoTok();
+      return GotoTok$.MODULE$;
     if (type == JavaTokenType.IF_KEYWORD)
-      return new IfTok();
+      return IfTok$.MODULE$;
     if (type == JavaTokenType.IMPLEMENTS_KEYWORD)
-      return new ImplementsTok();
+      return ImplementsTok$.MODULE$;
     if (type == JavaTokenType.IMPORT_KEYWORD)
-      return new ImportTok();
+      return ImportTok$.MODULE$;
     if (type == JavaTokenType.INSTANCEOF_KEYWORD)
-      return new InstanceofTok();
+      return InstanceofTok$.MODULE$;
     if (type == JavaTokenType.INT_KEYWORD)
-      return new IntTok();
+      return IntTok$.MODULE$;
     if (type == JavaTokenType.INTERFACE_KEYWORD)
-      return new InterfaceTok();
+      return InterfaceTok$.MODULE$;
     if (type == JavaTokenType.LONG_KEYWORD)
-      return new LongTok();
+      return LongTok$.MODULE$;
     if (type == JavaTokenType.NATIVE_KEYWORD)
-      return new NativeTok();
+      return NativeTok$.MODULE$;
     if (type == JavaTokenType.NEW_KEYWORD)
-      return new NewTok();
+      return NewTok$.MODULE$;
     if (type == JavaTokenType.PACKAGE_KEYWORD)
-      return new PackageTok();
+      return PackageTok$.MODULE$;
     if (type == JavaTokenType.PRIVATE_KEYWORD)
-      return new PrivateTok();
+      return PrivateTok$.MODULE$;
     if (type == JavaTokenType.PUBLIC_KEYWORD)
-      return new PublicTok();
+      return PublicTok$.MODULE$;
     if (type == JavaTokenType.SHORT_KEYWORD)
-      return new ShortTok();
+      return ShortTok$.MODULE$;
     if (type == JavaTokenType.SUPER_KEYWORD)
-      return new SuperTok();
+      return SuperTok$.MODULE$;
     if (type == JavaTokenType.SWITCH_KEYWORD)
-      return new SwitchTok();
+      return SwitchTok$.MODULE$;
     if (type == JavaTokenType.SYNCHRONIZED_KEYWORD)
-      return new SynchronizedTok();
+      return SynchronizedTok$.MODULE$;
     if (type == JavaTokenType.THIS_KEYWORD)
-      return new ThisTok();
+      return ThisTok$.MODULE$;
     if (type == JavaTokenType.THROW_KEYWORD)
-      return new ThrowTok();
+      return ThrowTok$.MODULE$;
     if (type == JavaTokenType.PROTECTED_KEYWORD)
-      return new ProtectedTok();
+      return ProtectedTok$.MODULE$;
     if (type == JavaTokenType.TRANSIENT_KEYWORD)
-      return new TransientTok();
+      return TransientTok$.MODULE$;
     if (type == JavaTokenType.RETURN_KEYWORD)
-      return new ReturnTok();
+      return ReturnTok$.MODULE$;
     if (type == JavaTokenType.VOID_KEYWORD)
-      return new VoidTok();
+      return VoidTok$.MODULE$;
     if (type == JavaTokenType.STATIC_KEYWORD)
-      return new StaticTok();
+      return StaticTok$.MODULE$;
     if (type == JavaTokenType.STRICTFP_KEYWORD)
-      return new StrictfpTok();
+      return StrictfpTok$.MODULE$;
     if (type == JavaTokenType.WHILE_KEYWORD)
-      return new WhileTok();
+      return WhileTok$.MODULE$;
     if (type == JavaTokenType.TRY_KEYWORD)
-      return new TryTok();
+      return TryTok$.MODULE$;
     if (type == JavaTokenType.VOLATILE_KEYWORD)
-      return new VolatileTok();
+      return VolatileTok$.MODULE$;
     if (type == JavaTokenType.THROWS_KEYWORD)
-      return new ThrowsTok();
+      return ThrowsTok$.MODULE$;
 
     if (type == JavaTokenType.LPARENTH)
-      return new LParenTok();
+      return LParenTok$.MODULE$;
     if (type == JavaTokenType.RPARENTH)
-      return new RParenTok();
+      return RParenTok$.MODULE$;
     if (type == JavaTokenType.LBRACE)
-      return new LCurlyTok();
+      return LCurlyTok$.MODULE$;
     if (type == JavaTokenType.RBRACE)
-      return new RCurlyTok();
+      return RCurlyTok$.MODULE$;
     if (type == JavaTokenType.LBRACKET)
-      return new LBrackTok();
+      return LBrackTok$.MODULE$;
     if (type == JavaTokenType.RBRACKET)
-      return new RBrackTok();
+      return RBrackTok$.MODULE$;
     if (type == JavaTokenType.SEMICOLON)
-      return new SemiTok();
+      return SemiTok$.MODULE$;
     if (type == JavaTokenType.COMMA)
-      return new CommaTok();
+      return CommaTok$.MODULE$;
     if (type == JavaTokenType.DOT)
-      return new DotTok();
+      return DotTok$.MODULE$;
     if (type == JavaTokenType.ELLIPSIS)
-      return new EllipsisTok();
+      return EllipsisTok$.MODULE$;
     if (type == JavaTokenType.AT)
-      return new AtTok();
+      return AtTok$.MODULE$;
 
     if (type == JavaTokenType.EQ)
-      return new EqTok();
+      return EqTok$.MODULE$;
     if (type == JavaTokenType.GT)
-      return new GtTok();
+      return GtTok$.MODULE$;
     if (type == JavaTokenType.LT)
-      return new LtTok();
+      return LtTok$.MODULE$;
     if (type == JavaTokenType.EXCL)
-      return new NotTok();
+      return NotTok$.MODULE$;
     if (type == JavaTokenType.TILDE)
-      return new CompTok();
+      return CompTok$.MODULE$;
     if (type == JavaTokenType.QUEST)
-      return new QuestionTok();
+      return QuestionTok$.MODULE$;
     if (type == JavaTokenType.COLON)
-      return new ColonTok();
+      return ColonTok$.MODULE$;
     if (type == JavaTokenType.PLUS)
-      return new PlusTok();
+      return PlusTok$.MODULE$;
     if (type == JavaTokenType.MINUS)
-      return new MinusTok();
+      return MinusTok$.MODULE$;
     if (type == JavaTokenType.ASTERISK)
-      return new MulTok();
+      return MulTok$.MODULE$;
     if (type == JavaTokenType.DIV)
-      return new DivTok();
+      return DivTok$.MODULE$;
     if (type == JavaTokenType.AND)
-      return new AndTok();
+      return AndTok$.MODULE$;
     if (type == JavaTokenType.OR)
-      return new OrTok();
+      return OrTok$.MODULE$;
     if (type == JavaTokenType.XOR)
-      return new XorTok();
+      return XorTok$.MODULE$;
     if (type == JavaTokenType.PERC)
-      return new ModTok();
+      return ModTok$.MODULE$;
 
     if (type == JavaTokenType.EQEQ)
-      return new EqEqTok();
+      return EqEqTok$.MODULE$;
     if (type == JavaTokenType.LE)
-      return new LeTok();
+      return LeTok$.MODULE$;
     if (type == JavaTokenType.GE)
-      return new GeTok();
+      return GeTok$.MODULE$;
     if (type == JavaTokenType.NE)
-      return new NeTok();
+      return NeTok$.MODULE$;
     if (type == JavaTokenType.ANDAND)
-      return new AndAndTok();
+      return AndAndTok$.MODULE$;
     if (type == JavaTokenType.OROR)
-      return new OrOrTok();
+      return OrOrTok$.MODULE$;
     if (type == JavaTokenType.PLUSPLUS)
-      return new PlusPlusTok();
+      return PlusPlusTok$.MODULE$;
     if (type == JavaTokenType.MINUSMINUS)
-      return new MinusMinusTok();
+      return MinusMinusTok$.MODULE$;
     if (type == JavaTokenType.LTLT)
-      return new LShiftTok();
+      return LShiftTok$.MODULE$;
     if (type == JavaTokenType.GTGT)
-      return new RShiftTok();
+      return RShiftTok$.MODULE$;
     if (type == JavaTokenType.GTGTGT)
-      return new UnsignedRShiftTok();
+      return UnsignedRShiftTok$.MODULE$;
     if (type == JavaTokenType.PLUSEQ)
-      return new PlusEqTok();
+      return PlusEqTok$.MODULE$;
     if (type == JavaTokenType.MINUSEQ)
-      return new MinusEqTok();
+      return MinusEqTok$.MODULE$;
     if (type == JavaTokenType.ASTERISKEQ)
-      return new MulEqTok();
+      return MulEqTok$.MODULE$;
     if (type == JavaTokenType.DIVEQ)
-      return new DivEqTok();
+      return DivEqTok$.MODULE$;
     if (type == JavaTokenType.ANDEQ)
-      return new AndEqTok();
+      return AndEqTok$.MODULE$;
     if (type == JavaTokenType.OREQ)
-      return new OrEqTok();
+      return OrEqTok$.MODULE$;
     if (type == JavaTokenType.XOREQ)
-      return new XorEqTok();
+      return XorEqTok$.MODULE$;
     if (type == JavaTokenType.PERCEQ)
-      return new ModEqTok();
+      return ModEqTok$.MODULE$;
     if (type == JavaTokenType.LTLTEQ)
-      return new LShiftEqTok();
+      return LShiftEqTok$.MODULE$;
     if (type == JavaTokenType.GTGTEQ)
-      return new RShiftEqTok();
+      return RShiftEqTok$.MODULE$;
     if (type == JavaTokenType.GTGTGTEQ)
-      return new UnsignedRShiftEqTok();
+      return UnsignedRShiftEqTok$.MODULE$;
 
     if (type == JavaTokenType.DOUBLE_COLON)
-      return new ColonColonTok();
+      return ColonColonTok$.MODULE$;
     if (type == JavaTokenType.ARROW)
-      return new ArrowTok();
+      return ArrowTok$.MODULE$;
 
     if (type == TokenType.WHITE_SPACE)
       return new WhitespaceTok(text);

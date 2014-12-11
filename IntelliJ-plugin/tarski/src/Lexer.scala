@@ -11,7 +11,7 @@ import scala.util.matching.Regex.Match
 object Lexer {
   private val (pattern,factories): (Regex,List[(Int,String => Token)]) = {
     // Fixed tokens
-    val fixed: List[() => Token] = List(
+    val fixed: List[Token] = List(
       // Keywords
       AbstractTok,AssertTok,BooleanTok,BreakTok,ByteTok,CaseTok,CatchTok,CharTok,ClassTok,ConstTok,ContinueTok,
       DefaultTok,DoTok,DoubleTok,ElseTok,EnumTok,ExtendsTok,FinalTok,FinallyTok,FloatTok,ForTok,IfTok,GotoTok,
@@ -19,14 +19,14 @@ object Lexer {
       ProtectedTok,PublicTok,ReturnTok,ShortTok,StaticTok,StrictfpTok,SuperTok,SwitchTok,SynchronizedTok,ThisTok,
       ThrowTok,ThrowsTok,TransientTok,TryTok,VoidTok,VolatileTok,WhileTok,
       // Literals and separators
-      NullLitTok,() => BoolLitTok(true),() => BoolLitTok(false),LParenTok,RParenTok,LCurlyTok,RCurlyTok,LBrackTok,
+      NullTok,BoolLitTok(true),BoolLitTok(false),LParenTok,RParenTok,LCurlyTok,RCurlyTok,LBrackTok,
       RBrackTok,SemiTok,CommaTok,DotTok,EllipsisTok,AtTok,ColonColonTok,
       // Operators
       EqTok,GtTok,LtTok,NotTok,CompTok,QuestionTok,ColonTok,ArrowTok,EqEqTok,GeTok,LeTok,NeTok,AndAndTok,OrOrTok,
       PlusPlusTok,MinusMinusTok,PlusTok,MinusTok,MulTok,DivTok,AndTok,OrTok,XorTok,ModTok,LShiftTok,RShiftTok,
       UnsignedRShiftTok,PlusEqTok,MinusEqTok,MulEqTok,DivEqTok,AndEqTok,OrEqTok,XorEqTok,ModEqTok,LShiftEqTok,
       RShiftEqTok,UnsignedRShiftEqTok)
-    val fixedMap = fixed.map(t => (show(t()),t())).toMap
+    val fixedMap = fixed.map(t => (show(t),t)).toMap
 
     // Regular expressions to factories
     val subs = List(
