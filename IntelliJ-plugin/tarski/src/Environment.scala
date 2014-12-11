@@ -54,16 +54,16 @@ object Environment {
     def popScope: Env
 
     // Add variables and fields
-    def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)]
-    def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean): Scored[(Env,Value)]
+    def newVariable(name: String, t: Type, isFinal: Boolean): Actual[(Env,LocalVariableItem)]
+    def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean): Actual[(Env,Value)]
 
     // Get exact and typo probabilities for string queries
     def query(typed: String): List[Alt[Item]]
     def exactQuery(typed: String): List[Alt[Item]]
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A]
+    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Actual[A]
 
     // Lookup by type.item
-    def byItem(t: TypeItem): Scored[Value]
+    def byItem(t: TypeItem): Actual[Value]
 
     // Fragile or slow, only use for tests
     def exactLocal(name: String): LocalVariableItem
@@ -158,24 +158,27 @@ object Environment {
       (trie1.exact(typed) ++ trie0.exact(typed)) map (Alt(p,_))
     }
 
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
+    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Actual[A] = {
       val _f = Function.unlift( (x:Alt[Item]) => { if (filter.isDefinedAt(x.x)) Some(Alt(x.p, filter.apply(x.x))) else None } )
       multiples(exactQuery(typed) collect _f map { case Alt(p,t) => Alt(exactProb,t) },
                 query(typed) collect _f map { case Alt(p,t) => Alt((1-exactProb)*p,t) },
                 error)
     }
 
-    def byItem(t: TypeItem): Scored[Value] = {
+    def byItem(t: TypeItem): Actual[Value] = {
       implicit val env: Env = this
-      def error = s"Value of item ${show(t)} not found"
-      (   uniformArray(Pr.objectOfItem, byItem1.get(t), error)
-       ++ uniformArray(Pr.objectOfItem, byItem0.get(t), error))
+      val v0 = byItem1.get(t)
+      val v1 = byItem0.get(t)
+      val v = if      ((v0 eq null) || v0.isEmpty) v1
+              else if ((v1 eq null) || v1.isEmpty) v0
+              else v1++v0
+      uniformArray(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
     }
   }
 
   // What could this name be, assuming it is a type?
   // TODO: Handle generics
-  def typeScores(name: String)(implicit env: Env): Scored[Type] = {
+  def typeScores(name: String)(implicit env: Env): Actual[Type] = {
     // TODO other things that influence probability:
     // - kind (Primitive Types are more likely, java.lang types are more likely)
     // - things that are in scope are more likely
@@ -186,15 +189,15 @@ object Environment {
   }
 
   // What could it be, given it's a callable?
-  def callableScores(name: String)(implicit env: Env): Scored[CallableItem] =
+  def callableScores(name: String)(implicit env: Env): Actual[CallableItem] =
     env.combinedQuery(name, Pr.exactCallable, { case t:CallableItem => t }, s"Callable $name not found")
 
   // What could this be, we know it's a value
-  def valueScores(name: String)(implicit env: Env): Scored[Value] =
+  def valueScores(name: String)(implicit env: Env): Actual[Value] =
     env.combinedQuery(name, Pr.exactValue, { case t:Value => t }, s"Value $name not found")
 
   // Look up values by their type
-  def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
+  def objectsOfItem(t: TypeItem)(implicit env: Env): Actual[Value] =
     env.byItem(t)
 
   // Does a member belong to a type?
@@ -240,24 +243,24 @@ object Environment {
   }
 
   // What could this be, assuming it's a callable field of the given type?
-  def callableFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[CallableItem] =
+  def callableFieldScores(t: TypeItem, name: String)(implicit env: Env): Actual[CallableItem] =
     env.combinedQuery(name, Pr.exactCallableField, { case f:CallableItem if memberIn(f,t) => f }, s"Type ${show(t)} has no callable field $name")
 
   // What could this name be, assuming it is a member of the given type?
-  def fieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[Value with Member] =
+  def fieldScores(t: TypeItem, name: String)(implicit env: Env): Actual[Value with Member] =
     env.combinedQuery(name, Pr.exactField, { case f: Value with Member if memberIn(f,t) => f }, s"Type ${show(t)} has no field $name")
 
   // what could this be, assuming it's a static member of the given type?
-  def staticFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[StaticValue with Member] =
+  def staticFieldScores(t: TypeItem, name: String)(implicit env: Env): Actual[StaticValue with Member] =
     env.combinedQuery(name, Pr.exactStaticField, { case f:StaticFieldItem if memberIn(f,t) => f case f: EnumConstantItem if memberIn(f,t) => f },
                       s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?
-  def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =
+  def typeFieldScores(t: Type, name: String)(implicit env: Env): Actual[Type] =
     env.combinedQuery(name, Pr.exactTypeField, { case f: TypeItem if memberIn(f,t.item) => typeIn(f,t) }, s"Type ${show(t)} has no type field $name")
 
   // The return type of our ambient function
-  def returnType(implicit env: Env): Scored[Type] = {
+  def returnType(implicit env: Env): Actual[Type] = {
     def die(scope: String) = fail(s"Can't return from $scope scope")
     env.place.place match {
       case m:MethodItem => single(m.retVal, Pr.certain)

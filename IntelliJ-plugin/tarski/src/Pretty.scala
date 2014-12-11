@@ -8,6 +8,7 @@ import Base.{LocalPkg,JavaLangPkg}
 import Types._
 import Tokens._
 import Denotations._
+import ambiguity.Utility._
 
 import scala.language.implicitConversions
 import scala.collection.mutable
@@ -403,6 +404,7 @@ object Pretty {
         case StaticMethodDen(Some(x),f) => method(x,f)
         case NewDen(c) => NewTok() :: t ::: tokens(c.parent) // TODO: ts splits into two lists in different places
         case ForwardDen(c) => ThisTok() :: t
+        case DiscardCallableDen(_,_) => impossible
       }) ::: LParenTok() :: separate(a.map(tokens(_)),List(CommaTok())) ::: List(RParenTok()))
     }
     case FieldExp(x,f) => prettyField(x,f)
@@ -458,6 +460,7 @@ object Pretty {
     case ForeachStmt(t,v,e,s) => (SemiFix, ForTok() :: parens(
       tokens(t) ::: tokens(v) ::: ColonTok() :: tokens(e)) ::: tokens(s))
     case SyncStmt(e,s) => (SemiFix, SynchronizedTok() :: parens(e) ::: tokens(s))
+    case _:DiscardStmt => impossible
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyVar(v: (LocalVariableItem,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
@@ -477,6 +480,7 @@ object Pretty {
       case StaticMethodDen(Some(x),f) => method(x,f)
       case NewDen(f) => (ApplyFix,NewTok() :: tokens(f))
       case ForwardDen(f) => (HighestFix,List(ThisTok()))
+      case _:DiscardCallableDen => impossible
     }
   }
 }

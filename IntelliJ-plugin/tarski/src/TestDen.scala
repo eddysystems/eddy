@@ -10,7 +10,7 @@ import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Lexer._
 import tarski.Operators._
-import tarski.Scores.{Alt, Prob, Scored}
+import tarski.Scores.{Alt, Prob, Scored, Actual}
 import tarski.Tarski.fix
 import tarski.TestUtils._
 import tarski.Types._
@@ -52,7 +52,7 @@ class TestDen {
     }
   }
 
-  def getProb[A](s: Scored[A], a: A): Prob = {
+  def getProb[A](s: Actual[A], a: A): Prob = {
     if (s.all.isLeft)
       Prob(0.0)
     else

@@ -6,12 +6,14 @@ import tarski.Base._
 import tarski.Denotations.{Exp,typeOf}
 import tarski.Constants.constantFits
 import tarski.Operators._
+import tarski.Denotations.{HasDiscard, HasDiscards}
+import tarski.Scores.Actual
 import ambiguity.Utility._
 
 // Properties of types according to the Java spec, without extra intelligence
 object Types {
   // Types
-  sealed abstract class Type {
+  sealed abstract class Type extends AboveType {
     def item: TypeItem
     def supers: List[RefType] // Immediate super classes
     def isSimple: Boolean // Do we depend on any type parameters?
@@ -37,6 +39,12 @@ object Types {
 
     // If we're generic, become raw
     def raw: Type
+
+    // AboveType support
+    def beneath = this
+    def discards: List[Denotations.Stmt] = Nil
+    def stripDiscards = this
+    def discard(ds: List[Denotations.Stmt]) = DiscardType(ds,this)
   }
   sealed abstract class LangType extends Type { // Primitive or void
     def supers = Nil
@@ -256,6 +264,15 @@ object Types {
     def substitute(implicit env: Tenv) = ArrayType(t.substitute)
     def safe = t.safe map ArrayType
     def raw = ArrayType(t.raw)
+  }
+
+  // Support for attaching expressions to the top of types
+  sealed abstract class AboveType extends HasDiscard[AboveType] with HasDiscards[Type] {
+    def beneath: Type
+  }
+  case class DiscardType(discards: List[Denotations.Stmt], beneath: Type) extends AboveType {
+    def stripDiscards = beneath
+    def discard(ds: List[Denotations.Stmt]) = DiscardType(ds++discards,beneath)
   }
 
   // Type environments

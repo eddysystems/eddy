@@ -13,28 +13,12 @@ import tarski.Base._
 import tarski.Tokens._
 import tarski.Pretty._
 import ambiguity.Utility._
-import ambiguity.Products._
 import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 object Semantics {
-  // We support generating prior statements above expressions as expressions are parsed.
-  case class ScoredAbove[+A](x: Scored[(List[Stmt],A)]) extends HasProduct[A,ScoredAbove] {
-    def bias(p: Prob) = ScoredAbove(x bias p)
-    def ++[B>:A](y: ScoredAbove[B]) = ScoredAbove(x++y.x)
-    def map[B](f: A => B): ScoredAbove[B] = ScoredAbove(x map {case (s,a) => (s,f(a))})
-    def flatMap[B](f: A => ScoredAbove[B]) =
-      ScoredAbove(x flatMap {case (s,a) => f(a).x map {case (t,b) => (t++s,b)}})
-    def productWith[B,C](t: ScoredAbove[B])(f: (A,B) => C) =
-      ScoredAbove(x.productWith(t.x)((a,b) => (b._1++a._1,f(a._2,b._2))))
-  }
-  implicit def liftAbove[A](x: Scored[A]): ScoredAbove[A] = ScoredAbove(x map ((Nil,_)))
-  implicit object ScoredAboveHasOne extends HasOne[ScoredAbove] {
-    def one[A](x: A) = ScoredAbove(known((Nil,x)))
-  }
-
   // Literals
-  def denoteLit(x: ALit): Scored[Lit] = {
+  def denoteLit(x: ALit): Actual[Lit] = {
     def under(v: String): String = v.replaceAllLiterally("_","")
     def f[A,B](v: String, c: String => A)(t: (A,String) => B) = t(c(under(v)),v)
     x match {
@@ -70,25 +54,27 @@ object Semantics {
   }
 
   // If an expression has side effects, evaluate it above
-  def discard[A,B](e: List[Exp])(f: ScoredAbove[B]): ScoredAbove[B] = {
-    val s = e flatMap effects
-    ScoredAbove(known((s,()))) flatMap (u => f)
+  def discard[B,A <: HasDiscard[B] with B](e: Exp, f: Actual[A]): Actual[B] = effects(e) match {
+    case Nil => f
+    case ds => f map (_.discard(ds))
   }
-  def discard[A,B](e: Exp)(f: ScoredAbove[B]): ScoredAbove[B] =
-    discard(List(e))(f)
+  def mapDiscards[B,A <: HasDiscard[B] with B](t: AboveType, f: Type => Scores.Actual[A]): Scores.Actual[B] = t match {
+    case t:Type => f(t)
+    case DiscardType(ds,t) => f(t) map (_.discard(ds))
+  }
 
   // Types
-  def denoteType(e: AExp)(implicit env: Env): ScoredAbove[Type] = e match {
+  def denoteType(e: AExp)(implicit env: Env): Actual[AboveType] = e match {
     case NameAExp(n) => typeScores(n)
     case x: ALit => fail("literals are not types.")
-    case ParenAExp(x,_) => denoteType(x) flatMap { x => single(x,Pr.parensAroundType(x)) } // Java doesn't allow parentheses around types, but we do
+    case ParenAExp(x,_) => denoteType(x) bias Pr.parensAroundType // Java doesn't allow parentheses around types, but we do
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // First, the ones where x is a type
-      val tdens = denoteType(x) flatMap (t => typeFieldScores(t,f) flatMap (f => single(f,Pr.typeFieldOfType(t,f))))
-      val edens = denoteExp(x) flatMap (x => discard(x)(typeFieldScores(x.ty,f) flatMap (f => single(f,Pr.typeFieldOfExp(x,f)))))
-      tdens ++ edens
+      val tdens = biased(Pr.typeFieldOfType, denoteType(x) flatMap (t => mapDiscards[AboveType,Type](t,typeFieldScores(_,f))))
+      val edens = biased(Pr.typeFieldOfExp,  denoteExp(x) flatMap (x => discard[AboveType,Type](x,typeFieldScores(x.ty,f))))
+      (tdens ++ edens).s
     }
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
@@ -116,10 +102,10 @@ object Semantics {
 
   def denoteField[ItemKind <: ClassMember,FieldDen]
                  (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
-                  superFieldProb: (Scored[Exp],TypeItem,ItemKind) => Prob,
-                  shadowedFieldProb: (Scored[Exp],Exp,TypeItem,ItemKind) => Prob,
-                  fieldProb: (Scored[Exp],Exp,ItemKind) => Prob,
-                  depth: Int)(implicit env: Env): Scored[FieldDen] = {
+                  superFieldProb: (Actual[Exp],TypeItem,ItemKind) => Prob,
+                  shadowedFieldProb: (Actual[Exp],Exp,TypeItem,ItemKind) => Prob,
+                  fieldProb: (Actual[Exp],Exp,ItemKind) => Prob,
+                  depth: Int)(implicit env: Env): Actual[FieldDen] = {
     if (depth >= 3) fail("Automatic field depth exceeded")
     else {
       val c: TypeItem = i.parent
@@ -141,7 +127,7 @@ object Semantics {
     }
   }
 
-  def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = i match {
+  def denoteValue(i: Value, depth: Int)(implicit env: Env): Actual[Exp] = i match {
     case i: ParameterItem if env.inScope(i) => single(ParameterExp(i), Pr.parameterValue)
     case i: LocalVariableItem if env.inScope(i) => single(LocalVariableExp(i), Pr.localValue)
 
@@ -155,7 +141,7 @@ object Semantics {
     case _ => fail("Can't find a denotation for " + i + ", inaccessible")
   }
 
-  def denoteCallable(e: AExp)(implicit env: Env): ScoredAbove[Callable] = e match {
+  def denoteCallable(e: AExp)(implicit env: Env): Actual[Callable] = e match {
     case NameAExp(n) => callableScores(n) flatMap {
       case i: MethodItem if i.isStatic => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
       case i: MethodItem if env.inScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
@@ -167,17 +153,23 @@ object Semantics {
     // x is either a type or an expression, f is a method, static method, or constructor
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // first, the ones where x is a type
-      val tdens = denoteType(x) flatMap (t => callableFieldScores(t.item,f) flatMap {
-        case f:MethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
-        case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
-        case f:ConstructorItem => single(NewDen(f), Pr.constructorFieldCallable)
+      val tdens = denoteType(x) flatMap (t => {
+        val c = callableFieldScores(t.beneath.item,f) flatMap {
+          case f:MethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
+          case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
+          case f:ConstructorItem => single(NewDen(f), Pr.constructorFieldCallable)
+        }
+        t match {
+          case _:Type => c
+          case DiscardType(ds,_) => c map (DiscardCallableDen(ds,_))
+        }
       })
-      val edens = denoteExp(x) flatMap (x => liftAbove(callableFieldScores(x.item,f)) flatMap {
+      val edens = denoteExp(x) flatMap (x => callableFieldScores(x.item,f) flatMap {
         case f:MethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
         case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
-        case f:ConstructorItem => discard(x)(single(NewDen(f),Pr.constructorFieldCallableWithObject))
+        case f:ConstructorItem => discard[Callable,Callable](x,single(NewDen(f),Pr.constructorFieldCallableWithObject))
       })
-      tdens ++ edens
+      tdens ++ delay(1,edens) // TODO: Make more lazy
     }
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
@@ -198,7 +190,7 @@ object Semantics {
     case InstanceofAExp(_,_) => fail("expressions are not callable")
   }
 
-  def denoteExp(e: AExp)(implicit env: Env): ScoredAbove[Exp] = e match {
+  def denoteExp(e: AExp)(implicit env: Env): Actual[Exp] = e match {
     case NameAExp(n) => valueScores(n) flatMap (denoteValue(_,depth=0))
     case x: ALit => denoteLit(x)
     case ParenAExp(x,_) => denoteExp(x) map ParenExp bias Pr.parenExp
@@ -207,17 +199,17 @@ object Semantics {
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // First, the ones where x is a type
       // TODO: penalize unnecessarily qualified field expressions?
-      val tdens = denoteType(x) flatMap (t => staticFieldScores(t.item,f) flatMap {
+      val tdens = denoteType(x) flatMap (t => mapDiscards[Exp,Exp](t,t => staticFieldScores(t.item,f) flatMap {
         case f: EnumConstantItem => single(EnumConstantExp(None,f), Pr.enumFieldExp)
         case f: StaticFieldItem => single(StaticFieldExp(None,f), Pr.staticFieldExp)
-      })
+      }))
       // Now, x is an expression
       val edens = denoteExp(x) flatMap (x => fieldScores(x.item,f) flatMap {
         case f: EnumConstantItem => single(EnumConstantExp(Some(x),f), Pr.enumFieldExpWithObject)
         case f: StaticFieldItem => single(StaticFieldExp(Some(x),f), Pr.staticFieldExpWithObject)
         case f: FieldItem => single(FieldExp(x,f), Pr.fieldExp)
       })
-      tdens++edens
+      tdens++delay(1,edens) // TODO: be lazier
     }
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
@@ -229,9 +221,9 @@ object Semantics {
     case ApplyAExp(f,xsn,around) => {
       val xsl = xsn.list map denoteExp
       val n = xsl.size
-      def call(f: Callable): ScoredAbove[Exp] =
-        product(xsl) flatMap { xl => ArgMatching.fiddleArgs(f,xl) bias Pr.callExp(xsn,around) }
-      def index(f: Exp, ft: Type): ScoredAbove[Exp] = {
+      def call(f: Callable): Actual[Exp] =
+        product(xsl) flatMap { xl => ArgMatching.fiddleArgs(f,xl) } bias Pr.callExp(xsn,around)
+      def index(f: Exp, ft: Type): Actual[Exp] = {
         @tailrec
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
           case ArrayType(t) => hasDims(t,d-1)
@@ -248,7 +240,7 @@ object Semantics {
       }
       val adens = denoteArray(f) flatMap (a => index(a,a.ty))
       val cdens = denoteCallable(f) flatMap call
-      adens ++ cdens
+      adens ++ delay(1,cdens) // TODO: be lazier
     }
 
     case UnaryAExp(op,x) => denoteExp(x) flatMap {
@@ -266,11 +258,11 @@ object Semantics {
       else fail("${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
     }}
 
-    case CastAExp(t,x) => product(denoteType(t),denoteExp(x)) flatMap {case (t,x) => {
+    case CastAExp(t,x) => product(denoteType(t),denoteExp(x)) flatMap {case (t,x) => mapDiscards[Exp,Exp](t,t => {
       val tx = x.ty
       if (castsTo(tx,t)) single(CastExp(t,x), Pr.castExp)
       else fail("${show(e)}: can't cast ${show(tx)} to ${show(t)}")
-    }}
+    })}
 
     case CondAExp(c,x,y) =>
       product(denoteBool(c),denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
@@ -294,7 +286,7 @@ object Semantics {
   }
 
   // Expressions with type restrictions
-  def denoteBool(n: AExp)(implicit env: Env): ScoredAbove[Exp] = denoteExp(n) flatMap {e =>
+  def denoteBool(n: AExp)(implicit env: Env): Actual[Exp] = denoteExp(n) flatMap {e =>
     val t = e.ty
     if (t.unboxesToBoolean) single(e, Pr.boolExp)
     else if (t.unboxesToNumeric) single(BinaryExp(NeOp, e, IntLit(0, "0")), Pr.insertComparison(t))
@@ -302,19 +294,19 @@ object Semantics {
     else if (t.isInstanceOf[RefType]) single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
     else fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
   }
-  def denoteNonVoid(n: AExp)(implicit env: Env): ScoredAbove[Exp] = denoteExp(n) flatMap {e =>
+  def denoteNonVoid(n: AExp)(implicit env: Env): Actual[Exp] = denoteExp(n) flatMap {e =>
     if (e.item != VoidItem) single(e, Pr.nonVoidExp)
     else fail(s"${show(n)}: expected non-void expression")
   }
-  def denoteArray(e: AExp)(implicit env: Env): ScoredAbove[Exp] = denoteExp(e) flatMap {e => {
+  def denoteArray(e: AExp)(implicit env: Env): Actual[Exp] = denoteExp(e) flatMap {e => {
     if (e.item == ArrayItem) single(e, Pr.arrayTypeExp)
     else fail(s"${show(e)} has non-array type ${show(e.ty)}")
   }}
-  def denoteRef(e: AExp)(implicit env: Env): ScoredAbove[Exp] = denoteExp(e) flatMap {e => {
+  def denoteRef(e: AExp)(implicit env: Env): Actual[Exp] = denoteExp(e) flatMap {e => {
     if (e.item.isInstanceOf[RefTypeItem]) single(e, Pr.refExp)
     else fail(s"${show(e)} has non-reference type ${show(e.ty)}")
   }}
-  def denoteVariable(e: AExp)(implicit env: Env): ScoredAbove[Exp] = {
+  def denoteVariable(e: AExp)(implicit env: Env): Actual[Exp] = {
     denoteExp(e) flatMap { x =>
       if (isVariable(x)) single(x, Pr.variableExp)
       else fail(s"${show(e)}: ${show(x)} cannot be assigned to")
@@ -343,34 +335,36 @@ object Semantics {
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
     case ArrayExp(_,_) => false
     case EmptyArrayExp(_,_) => false
+    case DiscardExp(_,e) => isVariable(e)
   }
 
   // Statements
-  def denoteStmt(s: AStmt)(env: Env): Scored[(Env,List[Stmt])] = {
+  def denoteStmt(s: AStmt)(env: Env): Actual[(Env,List[Stmt])] = {
     implicit val imp = env
     s match {
       case EmptyAStmt() => single((env,List(EmptyStmt)), Pr.emptyStmt)
       case HoleAStmt() => single((env,List(HoleStmt)), Pr.holeStmt)
       case VarAStmt(m,t,ds) =>
         val isFinal = modifiers(m,Final)
-        above(denoteType(t)(env) flatMap (t => {
-          def init(t: Type, v: Name, i: Option[AExp], env: Env): ScoredAbove[Option[Exp]] = i match {
+        above(denoteType(t)(env) flatMap (at => {
+          val t = at.beneath
+          def init(t: Type, v: Name, i: Option[AExp], env: Env): Actual[Option[Exp]] = i match {
             case None => single(None, Pr.varInitNone)
             case Some(e) => denoteExp(e)(env) flatMap {e =>
               if (assignsTo(e,t)) single(Some(e), Pr.varInit)
               else fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
             }
           }
-          def define(env: Env, ds: List[AVarDecl]): ScoredAbove[(Env,List[VarDecl])] = ds match {
+          def define(env: Env, ds: List[AVarDecl]): Actual[(Env,List[VarDecl])] = ds match {
             case Nil => single((env,Nil), Pr.varDeclNil)
             case (v,k,i)::ds =>
               val tk = arrays(t,k)
-              product(liftAbove(env.newVariable(v,tk,isFinal)),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
+              product(env.newVariable(v,tk,isFinal),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
                 define(env,ds) flatMap {case (env,ds) => single((env,(v,k,i)::ds), Pr.varDecl)}}
           }
           val st = t.safe
           if (st.isDefined)
-            define(env,ds.list) flatMap {case (env,ds) => single((env,VarStmt(st.get,ds)), Pr.varStmt) }
+            define(env,ds.list) flatMap {case (env,ds) => single((env,VarStmt(st.get,ds).discard(at.discards)), Pr.varStmt) }
           else
             fail(s"cannot make variables of type $t.")
         }))
@@ -382,14 +376,14 @@ object Semantics {
             case ss => single((env,blocked(ss)),Pr.expStmtsSplit)
           }
         }
-        val stmts: ScoredAbove[(Env,Stmt)] = e match {
+        val stmts: Actual[(Env,Stmt)] = e match {
           case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => y.ty.safe match {
             case Some(t) => env.newVariable(x,t,false) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
             case None => fail(s"expression $y does not return anything usable (${y.ty})")
           }}
           case _ => fail(show(e)+": expression doesn't look like a statement")
         }
-        above(exps++stmts)
+        above(exps++delay(1,stmts)) // TODO: be lazier
       }
       case BlockAStmt(b) => denoteStmts(b)(env) flatMap {case (e,ss) => single((e,List(BlockStmt(ss))), Pr.blockStmt)}
       case AssertAStmt(c,m) => above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
@@ -401,7 +395,7 @@ object Semantics {
       case ContinueAStmt(lab) =>
         if (env.place.continuable) denoteLabel(lab,(env,List(ContinueStmt))) bias Pr.continueStmt
         else fail("cannot break outside of a loop")
-      case ReturnAStmt(e) => above(product(liftAbove(returnType),thread(e)(denoteExp)) flatMap {case (r,e) =>
+      case ReturnAStmt(e) => above(product(returnType,thread(e)(denoteExp)) flatMap {case (r,e) =>
         val t = typeOf(e)
         if (assignsTo(e,r)) single((env,ReturnStmt(e)), Pr.returnStmt)
         else fail(s"${show(s)}: type ${show(t)} incompatible with return type ${show(r)}")
@@ -410,19 +404,19 @@ object Semantics {
         if (isThrowable(e.item)) single((env,ThrowStmt(e)), Pr.throwStmt)
         else fail(s"${show(s)}: type ${e.ty} is not throwable")
       })
-      case SyncAStmt(e,b,_) => above(product(denoteRef(e),liftAbove(denoteScoped(b)(env))) flatMap {
+      case SyncAStmt(e,b,_) => above(product(denoteRef(e),denoteScoped(b)(env)) flatMap {
         case (e,(env,b)) => single((env,SyncStmt(e,b)), Pr.syncStmt) })
-      case IfAStmt(c,x,_) => above(product(denoteBool(c),liftAbove(denoteScoped(x)(env))) flatMap {
+      case IfAStmt(c,x,_) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {
         case (c,(env,x)) => single((env,IfStmt(c,x)), Pr.ifStmt) })
-      case IfElseAStmt(c,x,y,_) => above(product(denoteBool(c),liftAbove(denoteScoped(x)(env))) flatMap {case (c,(env,x)) =>
+      case IfElseAStmt(c,x,y,_) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>
         denoteScoped(y)(env) flatMap {case (env,y) => single((env,IfElseStmt(c,x,y)), Pr.ifElseStmt) }})
-      case WhileAStmt(c,s,flip,_) => above(product(denoteBool(c),liftAbove(denoteScoped(s)(env))) flatMap {case (c,(env,s)) =>
+      case WhileAStmt(c,s,flip,_) => above(product(denoteBool(c),denoteScoped(s)(env)) flatMap {case (c,(env,s)) =>
         single((env,WhileStmt(xor(flip,c),s)), Pr.whileStmt) })
-      case DoAStmt(s,c,flip,_) => above(product(liftAbove(denoteScoped(s)(env)),denoteBool(c)) flatMap {case ((env,s),c) =>
+      case DoAStmt(s,c,flip,_) => above(product(denoteScoped(s)(env),denoteBool(c)) flatMap {case ((env,s),c) =>
         single((env,DoStmt(s,xor(flip,c))), Pr.doStmt) })
       case ForAStmt(For(i,c,u),s,_) => {
         // Sanitize an initializer into valid Java
-        def init(i: List[Stmt]): Scored[(Option[Exp],List[Exp],Stmt) => Stmt] = i match {
+        def init(i: List[Stmt]): Actual[(Option[Exp],List[Exp],Stmt) => Stmt] = i match {
           case List(i:VarStmt) => single((c,u,s) => ForStmt(i,c,u,s), Pr.forStmt)
           case _ => allSome(i map {case ExpStmt(e) => Some(e); case _ => None}) match {
             case Some(es) => single((c,u,s) => ForStmt(ForExps(es),c,u,s), Pr.expForStmt)
@@ -430,8 +424,8 @@ object Semantics {
           }
         }
         denoteStmts(i)(env.pushScope) flatMap {case (env,i) => init(i) flatMap (i => {
-          product(noAbove(thread(c)(c => noAbove(denoteBool(c)(env)))),
-                  noAbove(thread(u)(u => noAbove(denoteExp(u)(env)))),
+          product(thread(c)(c => noAbove(denoteBool(c)(env))),
+                  thread(u)(u => noAbove(denoteExp(u)(env))),
                   denoteScoped(s)(env))
             .map {case (c,u,(env,s)) => (env.popScope,List(i(c,u,s)))}
         })}
@@ -439,7 +433,8 @@ object Semantics {
       case ForAStmt(info@Foreach(m,t,v,n,e),s,a) => {
         val isFinal = modifiers(m,Final) || t.isEmpty
         def hole = show(ForAStmt(info,HoleAStmt(),a))
-        above(product(thread(t)(denoteType),denoteExp(e)) flatMap {case (t,e) =>
+        above(product(thread(t)(denoteType),denoteExp(e)) flatMap {case (at,e) =>
+          val t = at map (_.beneath)
           val tc = e.ty
           isIterable(tc) match {
             case None => fail(s"${show(e)}: type ${show(tc)} is not Iterable or an Array")
@@ -454,7 +449,7 @@ object Semantics {
                   if (ne >= n) single(te, Pr.forEachArrayNoType)
                   else fail(s"$hole: expected $n array dimensions, got type ${show(te)} with $ne")
               }) flatMap (t => env.pushScope.newVariable(v,t,isFinal) flatMap {case (env,v) => denoteStmt(s)(env) map {case (env,s) =>
-                (env.popScope,ForeachStmt(t,v,e,blocked(s)))
+                (env.popScope,ForeachStmt(t,v,e,blocked(s)).discard(discardsOption(at)))
               }})
           }
         })
@@ -462,28 +457,29 @@ object Semantics {
     }
   }
 
-  def above(s: ScoredAbove[(Env,Stmt)]): Scored[(Env,List[Stmt])] =
-    s.x map {case (above,(env,s)) => (env,(s::above).reverse)}
-  def noAbove[A](s: ScoredAbove[A]): Scored[A] =
-    s.x map {case (above,a) => {
-      if (above.nonEmpty) fail("No room for above statements in this context")
-      a
+  def above(s: Actual[(Env,Stmt)]): Actual[(Env,List[Stmt])] = s map { case (env,s) =>
+    s.discards match {
+      case Nil => (env,List(s))
+      case ds => (env,(s.stripDiscards::ds).reverse)
     }}
+  def noAbove(s: Actual[Exp]): Actual[Exp] = s flatMap (a =>
+    if (a.discards.nonEmpty) fail("No room for above statements in this context")
+    else known(a))
 
   def xor(x: Boolean, y: Exp): Exp =
     if (x) NonImpExp(NotOp,y) else y
 
-  def denoteLabel[A](lab: Option[Name], x: => A): Scored[A] = lab match {
+  def denoteLabel[A](lab: Option[Name], x: => A): Actual[A] = lab match {
     case None => single(x, Pr.labelNone)
     case Some(_) => notImplemented
   }
 
-  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
+  def denoteStmts(s: List[AStmt])(env: Env): Actual[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)} bias Pr.stmtList
 
   // Statement whose environment is discarded
-  def denoteScoped(s: AStmt)(env: Env): Scored[(Env,Stmt)] =
+  def denoteScoped(s: AStmt)(env: Env): Actual[(Env,Stmt)] =
     denoteStmt(s)(env.pushScope) map {case (env,ss) => (env.popScope,blocked(ss))}
-  def denoteScoped(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
+  def denoteScoped(s: List[AStmt])(env: Env): Actual[(Env,List[Stmt])] =
     denoteStmts(s)(env.pushScope) map {case (env,s) => (env.popScope,s)}
 }

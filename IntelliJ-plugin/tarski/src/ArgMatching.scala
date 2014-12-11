@@ -37,7 +37,7 @@ object ArgMatching {
     permuteHelper[A](Nil, in.size, map, prefixLegal)
   }
 
-  def fiddleArgs(f: Callable, args: List[Exp])(implicit env: Env): Scored[Exp] = {
+  def fiddleArgs(f: Callable, args: List[Exp])(implicit env: Env): Actual[Exp] = {
     // TODO: allow inserting or dropping arguments
     val fn = f.params.size
     if (fn != args.size)
@@ -51,7 +51,7 @@ object ArgMatching {
           case None => Nil
           case Some((_,ts)) => List(Alt(Pr.certain, ApplyExp(f, ts, p.toList)))
         }}, show(f)+": params "+show(tokensSig(f))+" don't match arguments "+show(CommaList(args))+" with types "+show(CommaList(args map (_.ty))))
-        scores.flatMap( x => single(x, Pr.permuteArgs(f, args, x.args)) )
+        scores flatMap (x => single(x, Pr.permuteArgs(f, args, x.args)))
       }
     }
   }
