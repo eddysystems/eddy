@@ -1,12 +1,12 @@
 package tarski
 
-import tarski.AST.Name
-import tarski.Denotations.{NullLit, BooleanLit}
+import tarski.AST._
+import tarski.Denotations.{BooleanLit, NullLit}
+import tarski.Environment.Env
 import tarski.Items._
 import tarski.Types._
-import tarski.Environment.Env
+
 import scala.collection.mutable
-import scala.collection.JavaConverters._
 
 object Base {
   // Basic packages

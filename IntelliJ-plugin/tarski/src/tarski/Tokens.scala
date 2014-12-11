@@ -2,6 +2,9 @@ package tarski
 
 import tarski.Pretty._
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object Tokens {
 
   sealed abstract class Token

@@ -4,10 +4,11 @@ import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Base._
 import tarski.Denotations._
-import tarski.Environment.{Env,PlaceInfo}
+import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
-import tarski.Types.{ClassType, LangType, TypeVar, VoidType}
+import tarski.Types.{ClassType, LangType, VoidType}
+
 import scala.language.implicitConversions
 
 object TestUtils {

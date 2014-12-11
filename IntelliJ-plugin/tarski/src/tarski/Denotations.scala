@@ -1,12 +1,14 @@
 package tarski
 
-import tarski.Operators._
-import tarski.Items._
-import tarski.Types._
-import tarski.Base._
 import ambiguity.Utility._
-import scala.language.implicitConversions
+import tarski.Base._
+import tarski.Items._
+import tarski.Operators._
+import tarski.Types._
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object Denotations {
   // Support for keeping track of side effects
   trait HasDiscard[B] {

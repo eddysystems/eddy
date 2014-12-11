@@ -1,6 +1,6 @@
 DIR = tarski/src/ambiguity
 GRAM = tarski/src/ambiguity/eddy.gram
-PARSE = tarski/src/ParseEddy.scala
+PARSE = tarski/src/tarski/ParseEddy.scala
 AMBIGUITY = out/artifacts/tarski_jar/tarski.jar
 
 all: $(PARSE)

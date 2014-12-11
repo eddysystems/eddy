@@ -1,9 +1,10 @@
 package tarski
 
-import ambiguity.Utility.impossible
-import scala.language.implicitConversions
 import scala.math._
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object Scores {
   /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability
    *

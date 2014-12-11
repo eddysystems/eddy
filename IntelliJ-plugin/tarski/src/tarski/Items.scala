@@ -2,12 +2,15 @@ package tarski
 
 import ambiguity.Utility._
 import tarski.AST._
-import tarski.Types._
-import tarski.Base.{JavaLangPkg,EnumBaseItem,SerializableItem,CloneableItem}
-import tarski.Pretty.pretty
-import tarski.Tokens.show
+import tarski.Base._
 import tarski.Denotations.Lit
+import tarski.Pretty._
+import tarski.Tokens._
+import tarski.Types._
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
   // inherits from Product => only case things or abstract classes can have this trait without implementing Product

@@ -1,12 +1,12 @@
 package tarski
 
-import Environment._
-import Tokens._
-import Items._
-import Scores._
-import Denotations._
-import Semantics._
-import Pretty._
+import tarski.Denotations.Stmt
+import tarski.Environment.Env
+import tarski.Items.{Item, PackageItem}
+import tarski.Pretty._
+import tarski.Scores._
+import tarski.Semantics._
+import tarski.Tokens._
 
 import scala.collection.JavaConverters._
 

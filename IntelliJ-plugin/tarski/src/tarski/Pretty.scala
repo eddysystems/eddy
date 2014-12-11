@@ -1,17 +1,18 @@
 package tarski
 
-import AST._
-import Operators._
-import Environment.Env
-import Items._
-import Base.{LocalPkg,JavaLangPkg}
-import Types._
-import Tokens._
-import Denotations._
-import ambiguity.Utility._
+import tarski.AST._
+import tarski.Base._
+import tarski.Denotations._
+import tarski.Environment.Env
+import tarski.Items._
+import tarski.Operators._
+import tarski.Tokens._
+import tarski.Types._
 
-import scala.language.implicitConversions
+import ambiguity.Utility.impossible
+
 import scala.collection.mutable
+import scala.language.implicitConversions
 
 object Pretty {
   // Fixity and precedence: to parenthesize or not to parenthesize

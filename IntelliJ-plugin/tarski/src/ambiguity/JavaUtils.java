@@ -1,17 +1,8 @@
 package ambiguity;
 
-import com.intellij.util.SmartList;
 import gnu.trove.TObjectIntHashMap;
 import org.apache.commons.lang.StringUtils;
 import tarski.Items.*;
-import tarski.Pr;
-import tarski.Scores.Alt;
-import tarski.StringMatching;
-import tarski.StringMatching.EmptyIncrementalLevenshteinBound$;
-import tarski.StringMatching.IncrementalDistance;
-import tarski.StringMatching.IncrementalLevenshteinBound;
-import tarski.Tries.Named;
-import tarski.Tries.Trie;
 
 import java.util.*;
 

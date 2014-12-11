@@ -7,10 +7,10 @@ import tarski.AST._
 import tarski.Lexer._
 import tarski.Operators._
 import tarski.Pretty._
+import tarski.Scores._
 import tarski.TestUtils._
 import tarski.Tokens._
 import tarski.Types._
-import tarski.Scores._
 
 class TestParse {
   @Test

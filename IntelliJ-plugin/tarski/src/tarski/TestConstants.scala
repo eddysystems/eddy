@@ -5,8 +5,8 @@ import org.testng.annotations.Test
 import tarski.Constants._
 import tarski.Denotations._
 import tarski.Operators._
-import tarski.Types._
 import tarski.TestUtils._
+import tarski.Types._
 
 import scala.language.implicitConversions
 

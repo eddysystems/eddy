@@ -1,8 +1,8 @@
 package tarski
 
+import ambiguity.Utility._
 import org.testng.AssertJUnit._
 import org.testng.annotations.Test
-import ambiguity.Utility._
 import tarski.Base._
 import tarski.Denotations.ThisExp
 import tarski.Environment._

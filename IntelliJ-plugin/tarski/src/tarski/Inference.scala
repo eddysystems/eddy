@@ -1,12 +1,11 @@
 package tarski
 
-import tarski.Items.{ClassItem, PackageItem}
-import tarski.Types._
 import ambiguity.Utility._
+import tarski.Types._
 
-// TODO: Handle infinite types correctly.  Some useful examples are here:
-// http://stackoverflow.com/questions/3451519/when-does-java-type-inference-produce-an-infinite-type
-
+/**
+ * Created by martin on 11.12.14.
+ */
 object Inference {
   // Bounds: 18.1.3.  Each of these refers to an ambient type variable s
   type Var = TypeVar

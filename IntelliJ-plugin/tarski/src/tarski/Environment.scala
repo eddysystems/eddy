@@ -1,19 +1,19 @@
 package tarski
 
-import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
+import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 
+import ambiguity.JavaUtils._
 import ambiguity.Utility._
-import ambiguity.JavaUtils.valuesByItem
-import tarski.Scores._
-import tarski.AST.Name
+import tarski.AST._
 import tarski.Items._
+import tarski.Scores._
+import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
-import tarski.Tokens.show
-import tarski.Pretty._
 
-import scala.collection.mutable
-
+/**
+ * Created by martin on 11.12.14.
+ */
 object Environment {
   // Minimum probability before an object is considered a match for a query
   val minimumProbability = Prob(.01)
@@ -41,7 +41,7 @@ object Environment {
 
     // Add more objects
     def extend(things: Array[Item], scope: Map[Item,Int]): Env
-    
+
     // Add local objects (they all appear in inScope with priority 1)
     def extendLocal(things: Array[Item]): Env =
       extend(things,(things map ((_,1))).toMap)

@@ -33,7 +33,7 @@ import java.util.Map;
 /**
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
  */
-public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
+public class EnvironmentProcessorTest extends BaseScopeProcessor implements ElementClassHint {
 
   private final @NotNull
   Project project;
@@ -73,7 +73,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private boolean honorPrivate;
 
   // setup only for statics initialization -- the result of this cannot be used
-  private EnvironmentProcessor(@NotNull Project project) {
+  private EnvironmentProcessorTest(@NotNull Project project) {
     this.project = project;
     this.place = null;
 
@@ -81,10 +81,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   }
 
   static public void initGlobalEnvironment(@NotNull Project project) {
-    new EnvironmentProcessor(project);
+    new EnvironmentProcessorTest(project);
   }
 
-  public EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
+  public EnvironmentProcessorTest(@NotNull Project project, PsiElement place, boolean honorPrivate) {
     this.project = project;
     this.place = place;
     this.honorPrivate = honorPrivate;

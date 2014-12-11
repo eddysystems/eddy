@@ -1,6 +1,4 @@
 import com.eddysystems.eddy.Eddy;
-import static com.eddysystems.eddy.Utility.*;
-
 import com.eddysystems.eddy.EnvironmentProcessor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
@@ -15,13 +13,12 @@ import com.intellij.pom.java.LanguageLevel;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
-import tarski.Denotations.Stmt;
-import tarski.Scores;
 import tarski.Base;
-import tarski.Items.*;
-import static ambiguity.JavaUtils.*;
+import tarski.Items.Item;
+import tarski.Scores;
 
-import java.util.List;
+import static ambiguity.JavaUtils.popScope;
+import static ambiguity.JavaUtils.pushScope;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
@@ -153,7 +150,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   /* This could be handled more gracefully, but because we cannot resolve any of these types, we don't know about their
      relationships and won't find the "correct" solution.
   public void testUnresolvedTypes() {
-    Eddy eddy = setupEddy("EnvironmentProcessor.java");
+    Eddy eddy = setupEddy("EnvironmentProcessorTest.java");
     System.out.println("scope: " + eddy.getEnv().scopeMap());
     System.out.println(" getPackage:");
     tarski.Tarski.print(eddy.getEnv().exactQuery("getPackage"));

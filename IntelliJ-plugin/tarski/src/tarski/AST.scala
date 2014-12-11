@@ -1,10 +1,12 @@
 package tarski
 
-import Tokens.Token
-import Environment.Env
-import tarski.Types.PrimType
-import tarski.Operators._
+import tarski.Environment.Env
+import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
+import tarski.Tokens.Token
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object AST {
 
   def parse(tokens: java.util.List[Token], env: Env) = println("scala: " + tokens)

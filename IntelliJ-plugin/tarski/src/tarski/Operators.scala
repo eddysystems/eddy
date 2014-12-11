@@ -1,5 +1,8 @@
 package tarski
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object Operators {
   sealed abstract class UnaryOp
   sealed abstract class ImpOp extends UnaryOp

@@ -6,10 +6,6 @@ import com.intellij.util.SmartList;
 import java.util.ArrayList;
 import java.util.List;
 
-import Tries;
-import StringMatching;
-import
-
 public class JavaTrie {
 
   // Should be parameterized over V extends Named.  That causes weird build issues, so we hard code V = Named.

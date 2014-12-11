@@ -1,14 +1,12 @@
 package tarski
 
-import tarski.AST._
-import tarski.Items._
-import tarski.Base._
-import tarski.Denotations.{Exp,typeOf}
-import tarski.Constants.constantFits
-import tarski.Operators._
-import tarski.Denotations.{HasDiscard, HasDiscards}
-import tarski.Scores.Scored
 import ambiguity.Utility._
+import tarski.AST._
+import tarski.Base._
+import tarski.Constants._
+import tarski.Denotations.{Exp, HasDiscard, HasDiscards}
+import tarski.Items._
+import tarski.Operators._
 
 // Properties of types according to the Java spec, without extra intelligence
 object Types {

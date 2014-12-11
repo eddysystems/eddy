@@ -1,20 +1,19 @@
 package tarski
 
-import org.apache.commons.lang.StringEscapeUtils.unescapeJava
-
-import AST._
-import Types._
-import Operators._
-import Environment._
-import Items._
-import Denotations._
-import Scores._
-import tarski.Base._
-import tarski.Tokens._
-import tarski.Pretty._
 import ambiguity.Utility._
+import org.apache.commons.lang.StringEscapeUtils._
+import tarski.AST._
+import tarski.Base.VoidItem
+import tarski.Denotations._
+import tarski.Environment._
+import tarski.Items._
+import tarski.Operators._
+import tarski.Pretty._
+import tarski.Scores._
+import tarski.Tokens._
+import tarski.Types._
+
 import scala.annotation.tailrec
-import scala.language.implicitConversions
 
 object Semantics {
   // Literals

@@ -1,13 +1,16 @@
 package tarski
 
 import tarski.AST.CommaList
-import tarski.Denotations.{ApplyExp, Exp, Callable}
+import tarski.Denotations.{ApplyExp, Callable, Exp}
 import tarski.Environment.Env
 import tarski.Pretty._
 import tarski.Scores._
 import tarski.Tokens._
 import tarski.Types._
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object ArgMatching {
   def permuteHelper[A](prefix: Seq[A], length: Int, end: Map[A,Int], prefixLegal: Seq[A] => Boolean): Seq[Seq[A]] = {
     if (prefix.size == length)

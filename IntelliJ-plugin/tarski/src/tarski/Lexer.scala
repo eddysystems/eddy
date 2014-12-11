@@ -2,12 +2,15 @@ package tarski
 
 import java.util.regex.Pattern
 
-import Tokens._
 import ambiguity.Utility._
+import tarski.Tokens._
 
 import scala.util.matching.Regex
 import scala.util.matching.Regex.Match
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object Lexer {
   private val (pattern,factories): (Regex,List[(Int,String => Token)]) = {
     // Fixed tokens

@@ -1,11 +1,14 @@
 package tarski
 
 import tarski.AST.CommaList
-import tarski.Scores.{LazyScored, Scored, Prob}
-import tarski.Denotations.{Callable, Exp, typeOf}
-import tarski.Items._
+import tarski.Denotations.{Callable, Exp}
+import tarski.Items.{ClassMember, FieldItem, MethodItem, TypeItem}
+import tarski.Scores._
 import tarski.Types.Type
 
+/**
+ * Created by martin on 11.12.14.
+ */
 object Pr {
 
   val typingErrorRate = .15

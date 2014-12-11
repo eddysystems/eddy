@@ -2,12 +2,9 @@ package tarski
 
 import java.util
 
-import _root_.JavaTrie.levenshteinLookup
-import _root_.JavaTrie.makeTrieStructure
-import ambiguity.JavaUtils
 import ambiguity.Utility._
-import StringMatching.{IncrementalLevenshteinBound, EmptyIncrementalLevenshteinBound, IncrementalDistance, levenshteinDistance}
-import tarski.Scores.{Alt,Prob}
+import tarski.Scores._
+
 import scala.annotation.tailrec
 import scala.reflect.ClassTag
 
@@ -129,11 +126,11 @@ object Tries {
 
   // Assumes values is already sorted.  values must never change.
   private def makeHelper[V <: Named](values: Array[V]): Trie[V] = {
-    new Trie(JavaUtils.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
+    new Trie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
   }
 
   def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
-    JavaUtils.levenshteinLookup(t,typed,maxDistance,expected,minProb)
+    JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
 
     /*
     case class LevenshteinVisitor(dist: IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
