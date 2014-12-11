@@ -123,6 +123,7 @@ public class JavaTrie {
     List<TriePos> pos = new ArrayList<TriePos>();
     int typed_length = typed.length();
     pos.add(new TriePos(typed_length, s, 0, tarski.StringMatching.EmptyIncrementalLevenshteinBound$.MODULE$));
+
     String prefix = "";
     int level = 0;
 
@@ -145,20 +146,30 @@ public class JavaTrie {
         String newprefix = prefix + c;
 
         // compute distance array in childPos and fill in distance and min_distance
-        tarski.StringMatching.IncrementalDistance cdist = new tarski.StringMatching.IncrementalLevenshteinBound(typed,current.dist,c);
+        StringMatching.IncrementalDistance cdist = new StringMatching.IncrementalLevenshteinBound(typed,current.dist,c);
 
-        childPos.d[0] = current.d[0] + tarski.StringMatching.deleteCost(newprefix, level, "", 0);
+        childPos.d[0] = current.d[0] + StringMatching.deleteCost(newprefix, level, "", 0);
         for (int j = 1; j <= typed_length; ++j) {
-          float del = current.d[j] + tarski.StringMatching.deleteCost(newprefix, level, typed, j - 1); // omit a character of what we intended to write
-          float ins = childPos.d[j-1] + tarski.StringMatching.insertCost(newprefix, level, typed, j - 1); // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
-          float rep = current.d[j-1] + tarski.StringMatching.replaceCost(newprefix, level, typed, j - 1); // type a character (maybe getting it wrong)
+          float del = current.d[j] + StringMatching.deleteCost(newprefix, level, typed, j - 1); // omit a character of what we intended to write
+          float ins = childPos.d[j-1] + StringMatching.insertCost(newprefix, level, typed, j - 1); // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
+          float rep = current.d[j-1] + StringMatching.replaceCost(newprefix, level, typed, j - 1); // type a character (maybe getting it wrong)
           childPos.d[j] = Math.min(Math.min(del, ins), rep);
           if (j > 1 && last != null) {
-            float swp = last.d[j-2] + tarski.StringMatching.swapCost(newprefix, level - 1, typed, j - 2); // swapped two characters
+            float swp = last.d[j-2] + StringMatching.swapCost(newprefix, level - 1, typed, j - 2); // swapped two characters
             childPos.d[j] = Math.min(childPos.d[j], swp);
           }
         }
 
+        childPos.distance = childPos.d[typed_length];
+        childPos.min_distance = 0.f;
+        for (int i = 0; i <= typed_length; ++i) {
+          assert childPos.d[i] == cdist.d(i);
+
+          childPos.min_distance = Math.min(childPos.min_distance, childPos.d[i]);
+          if (i < typed_length-1) {
+            childPos.min_distance = Math.min(childPos.min_distance, current.d[i] + StringMatching.minSwapCost());
+          }
+        }
         assert childPos.min_distance == cdist.min();
         assert childPos.distance == cdist.distance();
 
@@ -171,7 +182,7 @@ public class JavaTrie {
       } else {
         // add this node's values
         if (current.dist.distance() <= maxDistance) {
-          double d = tarski.StringMatching.levenshteinDistance(typed, current.dist.current());
+          double d = StringMatching.levenshteinDistance(typed, current.dist.current());
           double p = tarski.Pr.poissonPDF(expected, (int) Math.ceil(d));
           if (p >= minProb) {
             scala.collection.mutable.IndexedSeqView<V,V[]> values = t.nodeValues(current.node_idx);
@@ -183,7 +194,8 @@ public class JavaTrie {
         }
         // pop this node
         level--;
-        prefix = prefix.substring(0,level);
+        if (level >= 0)
+          prefix = prefix.substring(0,level);
       }
     }
 
@@ -199,17 +211,23 @@ public class JavaTrie {
     public float[] d;
     public float min_distance, distance;
 
-    public tarski.StringMatching.IncrementalDistance dist;
+    public StringMatching.IncrementalDistance dist;
 
     public TriePos(int typed_length) {
       d = new float[typed_length+1];
     }
 
-    public TriePos(int typed_length, int[] structure, int node, tarski.StringMatching.IncrementalDistance dist) {
+    public TriePos(int typed_length, int[] structure, int node, StringMatching.IncrementalDistance dist) {
       this(typed_length);
       node_idx = node;
       n_children = structure[node_idx+1];
       child = -1;
+
+      // init distance for empty string
+      for (int i = 0; i <= typed_length; ++i)
+        d[i] = i * StringMatching.minInsertCost();
+      min_distance = 0.f;
+      distance = d[typed_length];
 
       this.dist = dist;
     }
@@ -232,7 +250,7 @@ public class JavaTrie {
       return (char)structure[node_idx+2+2*child];
     }
 
-    public void descend(TriePos pos, int[] structure, tarski.StringMatching.IncrementalDistance dist) {
+    public void descend(TriePos pos, int[] structure, StringMatching.IncrementalDistance dist) {
       pos.node_idx = structure[node_idx+2+2*child+1];
       pos.n_children = structure[pos.node_idx+1];
       pos.child = -1;

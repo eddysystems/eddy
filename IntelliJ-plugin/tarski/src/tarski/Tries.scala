@@ -130,24 +130,22 @@ object Tries {
   }
 
   def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
-    JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
+    //JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
 
-    /*
-    case class LevenshteinVisitor(dist: IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
+    case class LevenshteinVisitor(dist: StringMatching.IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
       def next(k: Char): Option[LevenshteinVisitor] = {
-        val d = new IncrementalLevenshteinBound(typed,dist,k)
+        val d = new StringMatching.IncrementalLevenshteinBound(typed,dist,k)
         if (d.min > maxDistance) None else Some(LevenshteinVisitor(d))
       }
       def found(xs: TraversableOnce[V]): List[Alt[V]] = {
         if (dist.distance > maxDistance) Nil else {
-        val d = levenshteinDistance(typed,dist.current)
+        val d = StringMatching.levenshteinDistance(typed,dist.current)
         if (d > maxDistance) Nil else {
         val p = Pr.poissonPDF(expected,math.ceil(d).toInt)
         if (p < minProb) Nil else {
         xs.toList map (Alt(p,_))}}}
       }
     }
-    t.lookup(LevenshteinVisitor(EmptyIncrementalLevenshteinBound))
-    */
+    t.lookup(LevenshteinVisitor(StringMatching.EmptyIncrementalLevenshteinBound))
   }
 }
