@@ -35,10 +35,8 @@ object Mismatch {
   // Penalty turning from parens into to parens
   def pr(from: Int, to: Int): Prob =
     if (from == to) 1
-    else
-    if (from < to) .3
-    else if (from > to) .3
-    else 1
+    else if (from == 0) 1.0 / to // Adding parentheses on the ends is more likely
+    else .5 / (from+abs(from-to))
 
   // Ensure that ps starts and ends with all kinds of parentheses
   def ensure(ps: Runs): Runs = {
@@ -71,11 +69,8 @@ object Mismatch {
     val rs = ensure(runs(ts map part))
     if (matched(rs)) known(ts)
     else {
-      // Mutate at most limit times
-      val limit = 2
-      val s = mutate(rs,limit).filter(matched,"Mismatched parentheses") map (unruns(_) map (_.t))
-      println(s"ts ${ts.size}, ts ${show(ts)}, rs ${rs.size}, s ${s.stream.size}")
-      s
+      // Mutate at most 2 times
+      mutate(rs,2).filter(matched,"Mismatched parentheses") map (unruns(_) map (_.t))
     }
   }
 }
