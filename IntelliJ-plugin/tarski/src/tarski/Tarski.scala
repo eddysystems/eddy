@@ -29,7 +29,7 @@ object Tarski {
     }
   }
 
-  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[String]] = {
+  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[java.util.List[String]]] = {
     val limit = 4 // Report at most this many alternatives
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
@@ -45,7 +45,7 @@ object Tarski {
         mergeTake(s.tail)(m+((a,p+m.getOrElse(a,0.0))))
       }
 
-    (r.map { case (env,s) => { implicit val e = env; show(s) } }.all match {
+    (r.map { case (env,s) => { implicit val e = env; s.map(show(_)).asJava } }.all match {
       case Left(error) => Nil
       case Right(all) => mergeTake(all)(Map.empty) map {case Alt(p,a) => Alt(p,a)}
     }).asJava

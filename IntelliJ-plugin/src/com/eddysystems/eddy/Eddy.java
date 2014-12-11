@@ -17,10 +17,14 @@ import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
-import static ambiguity.JavaUtils.*;
-import tarski.*;
+import tarski.Environment;
+import tarski.Scores;
+import tarski.Tarski;
+import tarski.Tokens;
 
 import java.util.List;
+
+import static ambiguity.JavaUtils.*;
 
 public class Eddy {
   private final @NotNull Logger logger = Logger.getInstance(getClass());
@@ -40,7 +44,7 @@ public class Eddy {
 
   // the results of the interpretation
   private Environment.Env env = null;
-  private List<Scores.Alt<String>> results;
+  private List<Scores.Alt<List<String>>> results;
   private List<String> resultStrings;
   private boolean found_existing;
 
@@ -98,7 +102,7 @@ public class Eddy {
 
   public List<String> getResultStrings() { return resultStrings; }
 
-  public List<Scores.Alt<String>> getResults() { return results; }
+  public List<Scores.Alt<List<String>>> getResults() { return results; }
 
   public Environment.Env getEnv() {
     assert env != null;
@@ -257,11 +261,14 @@ public class Eddy {
     }
   }
 
-  private List<String> reformat(List<Scores.Alt<String>> results, String before_text) {
+  private List<String> reformat(List<Scores.Alt<List<String>>> results, String before_text) {
     List<String> resultStrings = new SmartList<String>();
-    for (Scores.Alt<String> interpretation : results) {
-      String s = reformat(interpretation.x());
-      resultStrings.add(s);
+    for (Scores.Alt<List<String>> interpretation : results) {
+      String s = "";
+      for (String ss : interpretation.x()) {
+        s += reformat(ss) + " ";
+      }
+      resultStrings.add(s.substring(0,s.length()-1));
       logger.info("eddy result: '" + s + "' existing '" + before_text + "'");
       if (s.equals(before_text))
         found_existing = true;
