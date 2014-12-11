@@ -89,7 +89,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       System.out.println(s);
     }
     System.out.println("result denotations: ");
-    for (tarski.Scores.Alt<List<tarski.Denotations.Stmt>> r : eddy.getResults()) {
+    for (tarski.Scores.Alt<String> r : eddy.getResults()) {
       System.out.println(r);
     }
     assertTrue("eddy did not find correct solution: " + expected, found);
@@ -107,7 +107,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     EnvironmentProcessor.clearGlobalEnvironment();
     Eddy eddy = setupEddy("denote_x.java");
     Base.checkEnv(eddy.getEnv());
-    for (Scores.Alt<List<Stmt>> result : eddy.getResults())
+    for (Scores.Alt<String> result : eddy.getResults())
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 

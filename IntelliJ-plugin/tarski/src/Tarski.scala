@@ -29,7 +29,7 @@ object Tarski {
     }
   }
 
-  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[java.util.List[Stmt]]] = {
+  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[String]] = {
     val limit = 4 // Report at most this many alternatives
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
@@ -38,16 +38,16 @@ object Tarski {
 
     // Take up to limit elements, merging duplicates and adding their probabilities if found
     def mergeTake[A](s: Stream[Alt[A]])(m: Map[A,Prob]): List[Alt[A]] =
-      if (m.size == limit || s.isEmpty)
+      if (m.size == limit || s.isEmpty) {
         m.toList map {case (a,p) => Alt(p,a)} sortBy (-_.p)
-      else {
+      } else {
         val Alt(p,a) = s.head
         mergeTake(s.tail)(m+((a,p+m.getOrElse(a,0.0))))
       }
 
-    (r.map(_._2.asJava).all match {
+    (r.map { case (env,s) => { implicit val e = env; show(s) } }.all match {
       case Left(error) => Nil
-      case Right(all) => mergeTake(all)(Map.empty)
+      case Right(all) => mergeTake(all)(Map.empty) map {case Alt(p,a) => Alt(p,a)}
     }).asJava
   }
 

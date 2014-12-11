@@ -40,7 +40,7 @@ public class Eddy {
 
   // the results of the interpretation
   private Environment.Env env = null;
-  private List<Scores.Alt<List<Denotations.Stmt>>> results;
+  private List<Scores.Alt<String>> results;
   private List<String> resultStrings;
   private boolean found_existing;
 
@@ -49,7 +49,7 @@ public class Eddy {
   boolean selectedExplicitly = true;
 
   public Eddy() {
-    logger.setLevel(Level.INFO);
+    logger.setLevel(Level.DEBUG);
   }
 
   public static boolean ready() {
@@ -98,7 +98,7 @@ public class Eddy {
 
   public List<String> getResultStrings() { return resultStrings; }
 
-  public List<Scores.Alt<List<Denotations.Stmt>>> getResults() { return results; }
+  public List<Scores.Alt<String>> getResults() { return results; }
 
   public Environment.Env getEnv() {
     assert env != null;
@@ -253,22 +253,20 @@ public class Eddy {
       results = Tarski.fixJava(_tokens, env);
       popScope();
 
-      for (Scores.Alt<List<Denotations.Stmt>> interpretation : results) {
-        // for each interpretation, compute a string
-        if (interpretation.x().isEmpty()) {
-          resultStrings.add("");
-        } else {
-          String s = "";
-          for (Denotations.Stmt meaning : interpretation.x())
-            s = s + code(meaning) + " ";
-          s = s.substring(0,s.length()-1); // remove trailing space
-          resultStrings.add(s);
-          logger.info("eddy result: '" + s + "' existing '" + before_text + "'");
-          if (s.equals(before_text))
-            found_existing = true;
-        }
-      }
+      resultStrings = reformat(results, before_text);
     }
+  }
+
+  private List<String> reformat(List<Scores.Alt<String>> results, String before_text) {
+    List<String> resultStrings = new SmartList<String>();
+    for (Scores.Alt<String> interpretation : results) {
+      String s = reformat(interpretation.x());
+      resultStrings.add(s);
+      logger.info("eddy result: '" + s + "' existing '" + before_text + "'");
+      if (s.equals(before_text))
+        found_existing = true;
+    }
+    return resultStrings;
   }
 
   public boolean foundSomethingUseful() {
@@ -305,10 +303,6 @@ public class Eddy {
 
   private String code(int i) {
     return resultStrings.get(i);
-  }
-
-  private String code(Denotations.Stmt stmt) {
-    return reformat(Tarski.pretty(stmt, env));
   }
 
   // the string should be a single syntactically valid statement
