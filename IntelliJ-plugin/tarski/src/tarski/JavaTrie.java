@@ -114,20 +114,77 @@ public class JavaTrie {
     JavaUtils.popScope();
     return structure;
   }
+  
+  private static float deleteCost(char[] meant, int i, char[] typed, int j) {
+    return StringMatching.deleteCostConst();
+  }
 
-  public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>> levenshteinLookup(Tries.Trie<V> t, String typed, float maxDistance, double expected, double minProb) {
+  private static float replaceCost(char[] meant, int i, char[] typed, int j, boolean lookahead) {
+    char cm = meant[i];
+    char ct = typed[j];
+    char cn, cp;
+    if (lookahead && i+1 < meant.length) 
+      cn = meant[i+1]; 
+    else 
+      cn = cm;
+    if (j-1 >= 0) 
+      cp = typed[j-1]; 
+    else
+      cp = cn;
+    return StringMatching.replaceShiftCost(Character.isUpperCase(cp), Character.isUpperCase(ct), Character.isUpperCase(cm), Character.isUpperCase(cn))
+         + StringMatching.charDistance(cm,ct);
+  }
+
+  private static float swapCost(char[] meant, int i, char[] typed, int j) {
+    // cost for swapping i, i+1 to j, j+1
+    // what would the cost be if we hadn't swapped?
+
+    // swap i and i+1
+    char tmp = meant[i];
+    meant[i] = meant[i+1];
+    meant[i+1] = tmp;
+
+    float cost = StringMatching.swapCostConst() + replaceCost(meant, i, typed, j, true) + replaceCost(meant, i+1, typed, j+1, false);
+
+    // swap back
+    tmp = meant[i];
+    meant[i] = meant[i+1];
+    meant[i+1] = tmp;
+
+    return cost;
+  }
+
+  private static float insertCost(char[] meant, int i, char[] typed, int j) {
+    // accidentally hit a key next to the key before or after?
+    char ca = meant[i]; // the key we mean to press
+    char ci = typed[j]; // this is the key we're inserting (accidentally)
+
+    if (j == 0) {
+      return StringMatching.doubleTypeCost(Math.max(1.0f, StringMatching.charDistance(ca, ci)));
+    } else {
+      char cb = typed[j-1]; // the key we just pressed
+      return StringMatching.insertShiftCost(Character.isUpperCase(cb), Character.isUpperCase(ci), Character.isUpperCase(ca))
+           + StringMatching.doubleTypeCost(Math.min(Math.max(StringMatching.charDistance(cb, ci),1.0f), Math.max(1.0f,StringMatching.charDistance(ca, ci))));
+    }
+  }
+
+  public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>> levenshteinLookup(Tries.Trie<V> t, String query, float maxDistance, double expected, double minProb) {
     List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
+
+    // convert typed string to array of int to avoid dealing with string allocations all the time
+    char[] empty = new char[0];
+    char[] typed = query.toCharArray();
+    int typed_length = typed.length;
 
     int[] s = t.structure();
 
+    // allocate enough space for at least the query
     List<TriePos> pos = new ArrayList<TriePos>();
-    int typed_length = typed.length();
-    pos.add(new TriePos(typed_length, s, 0, tarski.StringMatching.EmptyIncrementalLevenshteinBound$.MODULE$));
+    pos.add(new TriePos(typed_length, s, 0));
 
-    String prefix = "";
+    // plan for at least this much, increase as needed
+    char[] prefix = new char[typed_length];
     int level = 0;
-
-    System.out.println("finding " + typed);
 
     while (level >= 0) {
       TriePos current = pos.get(level);
@@ -141,48 +198,48 @@ public class JavaTrie {
           pos.add(new TriePos(typed_length));
         TriePos childPos = pos.get(level+1);
 
+        // make sure we have prefix space to work with
+        if (level >= prefix.length) {
+          char[] newprefix = new char[(int)(1.5*(level+1))];
+          System.arraycopy(prefix,0,newprefix,0,prefix.length);
+          prefix = newprefix;
+        }
+                
         // next char
         char c = current.current(s);
-        String newprefix = prefix + c;
+        prefix[level] = c;
 
         // compute distance array in childPos and fill in distance and min_distance
-        StringMatching.IncrementalDistance cdist = new StringMatching.IncrementalLevenshteinBound(typed,current.dist,c);
-
-        childPos.d[0] = current.d[0] + StringMatching.deleteCost(newprefix, level, "", 0);
+        childPos.d[0] = current.d[0] + StringMatching.deleteCostConst(); //deleteCost(prefix, level, empty, 0);
         for (int j = 1; j <= typed_length; ++j) {
-          float del = current.d[j] + StringMatching.deleteCost(newprefix, level, typed, j - 1); // omit a character of what we intended to write
-          float ins = childPos.d[j-1] + StringMatching.insertCost(newprefix, level, typed, j - 1); // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
-          float rep = current.d[j-1] + StringMatching.replaceCost(newprefix, level, typed, j - 1); // type a character (maybe getting it wrong)
+          float del = current.d[j] + StringMatching.deleteCostConst(); // deleteCost(prefix, level, typed, j - 1); // omit a character of what we intended to write
+          float ins = childPos.d[j-1] + insertCost(prefix, level, typed, j - 1); // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
+          float rep = current.d[j-1] + replaceCost(prefix, level, typed, j - 1, false); // type a character (maybe getting it wrong)
           childPos.d[j] = Math.min(Math.min(del, ins), rep);
           if (j > 1 && last != null) {
-            float swp = last.d[j-2] + StringMatching.swapCost(newprefix, level - 1, typed, j - 2); // swapped two characters
+            float swp = last.d[j-2] + swapCost(prefix, level - 1, typed, j - 2); // swapped two characters
             childPos.d[j] = Math.min(childPos.d[j], swp);
           }
         }
 
         childPos.distance = childPos.d[typed_length];
-        childPos.min_distance = 0.f;
+        childPos.min_distance = Float.MAX_VALUE;
         for (int i = 0; i <= typed_length; ++i) {
-          assert childPos.d[i] == cdist.d(i);
-
           childPos.min_distance = Math.min(childPos.min_distance, childPos.d[i]);
           if (i < typed_length-1) {
             childPos.min_distance = Math.min(childPos.min_distance, current.d[i] + StringMatching.minSwapCost());
           }
         }
-        assert childPos.min_distance == cdist.min();
-        assert childPos.distance == cdist.distance();
 
         // descend into child if bound ok
         if (childPos.min_distance <= maxDistance) {
-          prefix = newprefix;
-          current.descend(childPos, s, cdist);
+          current.descend(childPos, s);
           level++;
         }
       } else {
         // add this node's values
-        if (current.dist.distance() <= maxDistance) {
-          double d = StringMatching.levenshteinDistance(typed, current.dist.current());
+        if (current.distance <= maxDistance) {
+          double d = StringMatching.levenshteinDistance(query, String.copyValueOf(prefix,0,level));
           double p = tarski.Pr.poissonPDF(expected, (int) Math.ceil(d));
           if (p >= minProb) {
             scala.collection.mutable.IndexedSeqView<V,V[]> values = t.nodeValues(current.node_idx);
@@ -194,8 +251,6 @@ public class JavaTrie {
         }
         // pop this node
         level--;
-        if (level >= 0)
-          prefix = prefix.substring(0,level);
       }
     }
 
@@ -211,13 +266,11 @@ public class JavaTrie {
     public float[] d;
     public float min_distance, distance;
 
-    public StringMatching.IncrementalDistance dist;
-
     public TriePos(int typed_length) {
       d = new float[typed_length+1];
     }
 
-    public TriePos(int typed_length, int[] structure, int node, StringMatching.IncrementalDistance dist) {
+    public TriePos(int typed_length, int[] structure, int node) {
       this(typed_length);
       node_idx = node;
       n_children = structure[node_idx+1];
@@ -228,8 +281,6 @@ public class JavaTrie {
         d[i] = i * StringMatching.minInsertCost();
       min_distance = 0.f;
       distance = d[typed_length];
-
-      this.dist = dist;
     }
 
     // to iterate over children:
@@ -250,12 +301,10 @@ public class JavaTrie {
       return (char)structure[node_idx+2+2*child];
     }
 
-    public void descend(TriePos pos, int[] structure, StringMatching.IncrementalDistance dist) {
+    public void descend(TriePos pos, int[] structure) {
       pos.node_idx = structure[node_idx+2+2*child+1];
       pos.n_children = structure[pos.node_idx+1];
       pos.child = -1;
-
-      pos.dist = dist;
     }
   }
 }

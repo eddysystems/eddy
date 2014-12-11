@@ -130,8 +130,8 @@ object Tries {
   }
 
   def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
-    //JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
-
+    JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
+/*
     case class LevenshteinVisitor(dist: StringMatching.IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
       def next(k: Char): Option[LevenshteinVisitor] = {
         val d = new StringMatching.IncrementalLevenshteinBound(typed,dist,k)
@@ -147,5 +147,8 @@ object Tries {
       }
     }
     t.lookup(LevenshteinVisitor(StringMatching.EmptyIncrementalLevenshteinBound))
+  */
+
   }
 }
+
