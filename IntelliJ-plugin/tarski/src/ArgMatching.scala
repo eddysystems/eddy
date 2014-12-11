@@ -37,7 +37,7 @@ object ArgMatching {
     permuteHelper[A](Nil, in.size, map, prefixLegal)
   }
 
-  def fiddleArgs(f: Callable, args: List[Exp])(implicit env: Env): Actual[Exp] = {
+  def fiddleArgs(f: Callable, args: List[Exp])(implicit env: Env): Scored[Exp] = {
     // TODO: allow inserting or dropping arguments
     val fn = f.params.size
     if (fn != args.size)

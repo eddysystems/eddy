@@ -56,7 +56,7 @@ object Mismatch {
   }
 
   // Make at most n mutations to a kind stream
-  def mutate(rs: List[(Part,Int)], n: Int): Actual[List[(Part,Int)]] =
+  def mutate(rs: List[(Part,Int)], n: Int): Scored[List[(Part,Int)]] =
     if (n == 0) known(rs)
     else rs match {
       case Nil => known(Nil)
@@ -67,7 +67,7 @@ object Mismatch {
       }
     }
 
-  def repair(ts: List[Token]): Actual[List[Token]] = {
+  def repair(ts: List[Token]): Scored[List[Token]] = {
     val rs = ensure(runs(ts map part))
     if (matched(rs)) known(ts)
     else {

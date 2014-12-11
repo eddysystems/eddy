@@ -62,7 +62,7 @@ object Tarski {
   def pretty(ss: java.util.List[Stmt])(implicit env: Env): String =
     show(tokens(ss.asScala.toList))
 
-  def fix(tokens: List[Token])(implicit env: Env): Actual[(Env,List[Stmt])] = {
+  def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     val clean = tokens.filterNot(isSpace).map(fake)
     val asts = Mismatch.repair(clean) flatMap (ts => {
       val asts = ParseEddy.parse(ts)

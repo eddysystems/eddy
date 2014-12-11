@@ -7,7 +7,7 @@ import tarski.Denotations.{Exp,typeOf}
 import tarski.Constants.constantFits
 import tarski.Operators._
 import tarski.Denotations.{HasDiscard, HasDiscards}
-import tarski.Scores.Actual
+import tarski.Scores.Scored
 import ambiguity.Utility._
 
 // Properties of types according to the Java spec, without extra intelligence
