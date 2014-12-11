@@ -1,9 +1,17 @@
 package ambiguity;
 
+import com.intellij.util.SmartList;
 import gnu.trove.TObjectIntHashMap;
 import org.apache.commons.lang.StringUtils;
 import tarski.Items.*;
+import tarski.Pr;
+import tarski.Scores.Alt;
+import tarski.StringMatching;
+import tarski.StringMatching.EmptyIncrementalLevenshteinBound$;
+import tarski.StringMatching.IncrementalDistance;
+import tarski.StringMatching.IncrementalLevenshteinBound;
 import tarski.Tries.Named;
+import tarski.Tries.Trie;
 
 import java.util.*;
 
@@ -152,113 +160,6 @@ public class JavaUtils {
     // All done!
     popScope();
     return results;
-  }
-
-  // Should be parameterized over V extends Named.  That causes weird build issues, so we hard code V = Named.
-  public static int[] makeTrieStructure(Named[] values) {
-    pushScope("trie structure");
-    // Count nodes and determine maximum depth
-    //      : *0-         : 1,3
-    // a    : *1a#*0-     : 2,7
-    // a b  : *2a#b#*0*0- : 3,11
-    // a ab : *1a#*1b#*0- : 3,11
-    pushScope("count");
-    int nodes = 1;
-    int maxSize = 0;
-    String prev = "";
-    for (int i = 0; i < values.length; ++i) {
-      String k = values[i].name();
-      int kl = k.length();
-      maxSize = Math.max(maxSize, kl);
-      nodes += kl - JavaUtils.common(prev,k);
-      prev = k;
-    }
-    int depth = maxSize + 1;
-    int structureSize = 4*nodes-1;
-
-    // Determine node information: an array of (position,start) pairs.
-    popPushScope("allocate info+stack");
-    int[] info = new int[2*nodes+1];
-    int[] stack = new int[depth];
-
-    // At first, each info pair is (children,start)
-    popPushScope("children");
-    prev = "";
-    int n = 1;
-    for (int i = 0; i < values.length; ++i) {
-      String k = values[i].name();
-      int c = JavaUtils.common(prev,k); // Implicit truncate stack to size c+1
-      if (c < k.length()) {
-        info[2*stack[c]] += 1;
-        for (int j = c+1; j < k.length(); ++j) {
-          info[2*n] += 1;
-          info[2*n+1] = i;
-          stack[j] = n;
-          n += 1;
-        }
-        info[2*n+1]= i;
-        stack[k.length()] = n;
-        n += 1;
-      }
-      prev = k;
-    }
-    assert n == nodes;
-
-    // Accumulate children into position
-    popPushScope("position");
-    int total = 0;
-    for (n = 0; n < nodes; ++n) {
-      int next = total+2+2*info[2*n];
-      info[2*n] = total;
-      total = next;
-    }
-    assert(total+1 == structureSize);
-    info[2*nodes] = total;
-
-    // Allocate structure
-    popPushScope("allocate structure");
-    int[] structure = new int[structureSize];
-
-    // Generate tree
-    // Initialize value starts.  Child counts are correctly already zero.
-    popPushScope("structure");
-    for (n = 0; n < nodes; ++n)
-      structure[info[2*n]] = info[2*n+1];
-    structure[info[2*nodes]] = values.length;
-    // Fill in children
-    // stack is already the right size and I don't need to reinitialize
-    prev = "";
-    n = 1;
-    for (int i = 0; i < values.length; ++i) {
-      String k = values[i].name();
-      int kl = k.length();
-      int c = JavaUtils.common(prev,k); // Implicit truncate stack to size c+1
-      if (c < kl) {
-        int pn = info[2*stack[c]];
-        int cn = structure[pn+1];
-        structure[pn+1] = cn+1;
-        structure[pn+2+2*cn] = k.charAt(c);
-        structure[pn+2+2*cn+1] = info[2*n];
-        n++;
-
-        for (int j = c+1; j < kl; ++j) {
-          stack[j] = n-1;
-          pn = info[2*(n-1)];
-          cn = structure[pn+1];
-          structure[pn+1] = cn+1;
-          structure[pn+2+2*cn] = k.charAt(j);
-          structure[pn+2+2*cn+1] = info[2*n];
-          n++;
-        }
-        stack[kl] = n-1;
-      }
-      prev = k;
-    }
-    assert n == nodes;
-
-    popScope();
-    popScope();
-    return structure;
   }
 
 }

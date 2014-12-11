@@ -49,7 +49,7 @@ public class Eddy {
   boolean selectedExplicitly = true;
 
   public Eddy() {
-    logger.setLevel(Level.DEBUG);
+    logger.setLevel(Level.INFO);
   }
 
   public static boolean ready() {

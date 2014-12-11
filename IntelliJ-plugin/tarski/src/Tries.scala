@@ -2,15 +2,14 @@ package tarski
 
 import java.util
 
+import _root_.JavaTrie.levenshteinLookup
+import _root_.JavaTrie.makeTrieStructure
 import ambiguity.JavaUtils
 import ambiguity.Utility._
 import StringMatching.{IncrementalLevenshteinBound, EmptyIncrementalLevenshteinBound, IncrementalDistance, levenshteinDistance}
 import tarski.Scores.{Alt,Prob}
 import scala.annotation.tailrec
-import scala.collection.mutable
 import scala.reflect.ClassTag
-import scala.util.Sorting
-import scala.math._
 
 object Tries {
 
@@ -134,6 +133,9 @@ object Tries {
   }
 
   def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
+    JavaUtils.levenshteinLookup(t,typed,maxDistance,expected,minProb)
+
+    /*
     case class LevenshteinVisitor(dist: IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
       def next(k: Char): Option[LevenshteinVisitor] = {
         val d = new IncrementalLevenshteinBound(typed,dist,k)
@@ -149,5 +151,6 @@ object Tries {
       }
     }
     t.lookup(LevenshteinVisitor(EmptyIncrementalLevenshteinBound))
+    */
   }
 }

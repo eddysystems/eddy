@@ -78,6 +78,7 @@ public class EddyPlugin implements ProjectComponent {
                       EnvironmentProcessor.initGlobalEnvironment(project);
 
                       if (sbar != null) {
+                        sbar.setInfo("eddy initialized.");
                         widget.lessBusy();
                       }
                     }

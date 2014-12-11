@@ -88,12 +88,19 @@ object StringMatching {
     swapCostConst + replaceCost(unswapped, i, typed, j) + replaceCost(unswapped, i+1, typed, j+1)
   }
 
+  def levenshteinDistance(meant: CharSequence, typed: CharSequence): Float =
+    levenshteinDistance(meant, typed,
+                        insertCost,
+                        deleteCost,
+                        replaceCost,
+                        swapCost)
+
   // user intends to write meant, how likely is it he wrote to typed? Return is a cost: lower is more likely
   def levenshteinDistance(meant: CharSequence, typed: CharSequence,
-                          insertCost: (CharSequence, Int, CharSequence, Int) => Float = insertCost,
-                          deleteCost: (CharSequence, Int, CharSequence, Int) => Float = deleteCost,
-                          replaceCost: (CharSequence, Int, CharSequence, Int) => Float = replaceCost,
-                          swapCost: (CharSequence, Int, CharSequence, Int) => Float = swapCost): Float = {
+                          insertCost: (CharSequence, Int, CharSequence, Int) => Float,
+                          deleteCost: (CharSequence, Int, CharSequence, Int) => Float,
+                          replaceCost: (CharSequence, Int, CharSequence, Int) => Float,
+                          swapCost: (CharSequence, Int, CharSequence, Int) => Float): Float = {
     // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
     val d = ArrayBuffer.fill(meant.length + 1, typed.length + 1)(0.0f)
 
