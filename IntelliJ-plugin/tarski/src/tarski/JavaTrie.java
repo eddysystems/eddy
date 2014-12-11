@@ -168,11 +168,49 @@ public class JavaTrie {
     }
   }
 
+  private static float[][] d = new float[10][10];
+  public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
+    // make sure we have enough space
+    if (typed_length+1 > d.length || meant_length+1 > d[0].length)
+      d = new float[meant_length+1][typed.length+1];
+
+    // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
+
+    // fill first column (moving down equals deletion of a character in meant
+    for (int i = 0; i <= meant_length; ++i) {
+      d[i][0] = i * StringMatching.deleteCostConst(); // d[i-1][0] + deleteCost(meant, i-1, "", 0);
+    }
+
+    // fill first row (moving right equals inserting a character into typed)
+    for (int i = 1; i <= typed_length; ++i) {
+      d[0][i] = d[0][i-1] + insertCost(meant, 0, typed, i-1);
+    }
+
+    for (int i = 1; i <= meant_length; ++i) {
+      for (int j = 1; j <= typed_length; ++j) {
+        // we're mentally at character i of what we intended to write, and we have already written j characters
+        float del = d[i-1][j] + StringMatching.deleteCostConst(); // deleteCost(meant, i-1, typed, j-1), // omit a character of what we intended to write
+        float ins = d[i][j-1] + insertCost(meant, i-1, typed, j-1); // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
+        float rep = d[i-1][j-1] + replaceCost(meant, i-1, typed, j-1, meant_length > i); // type a character (maybe getting it wrong)
+        d[i][j] = Math.min(Math.min(del, ins), rep);
+        // swapped two characters?
+        if (j > 1 && i > 1) {
+          float swp = d[i-1][j-2] + swapCost(meant, i-2, typed, j-2);
+          d[i][j] = Math.min(d[i][j], swp);
+        }
+
+        // TODO: three subsequent replace actions are cheaper especially if the letters scrambled are on opposite
+        // sides of the keyboard (synchronization between hands is hard)
+      }
+    }
+
+    return d[meant_length][typed_length];
+  }
+
   public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>> levenshteinLookup(Tries.Trie<V> t, String query, float maxDistance, double expected, double minProb) {
     List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
 
     // convert typed string to array of int to avoid dealing with string allocations all the time
-    char[] empty = new char[0];
     char[] typed = query.toCharArray();
     int typed_length = typed.length;
 
@@ -239,7 +277,7 @@ public class JavaTrie {
       } else {
         // add this node's values
         if (current.distance <= maxDistance) {
-          double d = StringMatching.levenshteinDistance(query, String.copyValueOf(prefix,0,level));
+          double d = levenshteinDistance(prefix, level, typed, typed.length);
           double p = tarski.Pr.poissonPDF(expected, (int) Math.ceil(d));
           if (p >= minProb) {
             scala.collection.mutable.IndexedSeqView<V,V[]> values = t.nodeValues(current.node_idx);

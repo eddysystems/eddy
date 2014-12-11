@@ -1,20 +1,18 @@
 package com.eddysystems.eddy;
 
+import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.psi.*;
+import com.intellij.psi.impl.source.PsiClassReferenceType;
+import com.intellij.util.SmartList;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import scala.Option;
 import scala.Some;
 import scala.collection.JavaConversions;
 import scala.collection.immutable.Map$;
-import scala.collection.immutable.Nil;
 import tarski.Items.*;
 import tarski.Types.*;
-
-import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.psi.impl.source.PsiClassReferenceType;
-import com.intellij.psi.*;
-import com.intellij.util.SmartList;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -210,6 +208,7 @@ public class Converter {
   private static class LazyClass extends ClassItem {
     private final Converter env;
     private final PsiClass cls;
+    private final String _name;
     private final ParentItem _parent;
     private final boolean _isFinal;
 
@@ -222,12 +221,13 @@ public class Converter {
     LazyClass(Converter env, PsiClass cls, ParentItem parent) {
       this.env = env;
       this.cls = cls;
+      this._name = cls.getName();
       this._parent = parent;
       this._isFinal = cls.hasModifierProperty(PsiModifier.FINAL);
     }
 
     public String name() {
-      return cls.getName();
+      return _name;
     }
 
     public scala.collection.immutable.List<TypeVar> tparams() {
@@ -386,6 +386,7 @@ public class Converter {
   private static class LazyMethod extends MethodItem {
     final Converter env;
     final PsiMethod method;
+    private final String _name;
     private final boolean _isStatic;
 
     // Lazy fields (null initially)
@@ -397,12 +398,13 @@ public class Converter {
     LazyMethod(Converter env, PsiMethod method) {
       this.env = env;
       this.method = method;
+      this._name = method.getName();
       this._isStatic = method.hasModifierProperty(PsiModifier.STATIC);
     }
 
     // Core interface
     public String name() {
-      return method.getName();
+      return _name;
     }
     public boolean isStatic() {
       return _isStatic;
@@ -454,6 +456,7 @@ public class Converter {
   private static class LazyField extends FieldItem {
     private final Converter env;
     private final PsiField f;
+    private final String _name;
     private final boolean _isFinal;
 
     // Lazy fields
@@ -462,11 +465,12 @@ public class Converter {
     LazyField(Converter env, PsiField f, boolean isFinal) {
       this.env = env;
       this.f = f;
+      this._name = f.getName();
       this._isFinal = isFinal;
     }
 
     public String name() {
-      return f.getName();
+      return _name;
     }
     public boolean isFinal() {
       return _isFinal;
@@ -495,6 +499,7 @@ public class Converter {
   private static class LazyStaticField extends StaticFieldItem {
     private final Converter env;
     private final PsiField f;
+    private final String _name;
     private final boolean _isFinal;
 
     // Lazy fields
@@ -503,11 +508,12 @@ public class Converter {
     LazyStaticField(Converter env, PsiField f, boolean isFinal) {
       this.env = env;
       this.f = f;
+      this._name = f.getName();
       this._isFinal = isFinal;
     }
 
     public String name() {
-      return f.getName();
+      return _name;
     }
     public boolean isFinal() {
       return _isFinal;

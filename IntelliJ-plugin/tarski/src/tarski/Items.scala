@@ -8,9 +8,6 @@ import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
 
-/**
- * Created by martin on 11.12.14.
- */
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
   // inherits from Product => only case things or abstract classes can have this trait without implementing Product
@@ -67,7 +64,7 @@ object Items {
   }
   abstract class LangTypeItem extends TypeItem {
     def ty: LangType
-    def name = show(pretty(ty))
+    val name = show(pretty(ty))
     def qualifiedName = Some(name)
     def supers = Nil
     def superItems = Nil
