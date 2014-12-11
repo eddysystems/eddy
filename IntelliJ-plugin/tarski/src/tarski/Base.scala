@@ -32,10 +32,10 @@ object Base {
     def isFinal = false
     private val E = SimpleTypeVar("E")
     def parent = JavaLangPkg
-    def tparams = List(E)
+    val tparams = List(E)
     def base = ObjectType
-    def supers = List(base,SerializableType,comparable(E))
-    def superItems = List(ObjectItem,SerializableItem,ComparableItem)
+    val supers = List(base,SerializableType,comparable(E))
+    val superItems = List(ObjectItem,SerializableItem,ComparableItem)
   }
 
   // Simple classes
@@ -45,16 +45,19 @@ object Base {
     override def tparams = Nil
     def isClass = true
     def isEnum = false
-    def interfaces: List[ClassType]
-    def supers = base :: interfaces
-    lazy val superItems = supers map (_.item)
+    val interfaces: List[ClassType]
+    val base: ClassType
+    val supers: List[ClassType]
+    val superItems: List[RefTypeItem]
   }
 
   // Throwable
   case object ThrowableItem extends SimpleClassItem {
     def name = "Throwable"
-    def base = ObjectType
-    def interfaces = Nil
+    val base = ObjectType
+    val interfaces = Nil
+    val supers = base :: interfaces
+    val superItems = supers map (_.item)
     def isFinal = false
   }
 
@@ -63,44 +66,52 @@ object Base {
     def name = "Iterable"
     def isClass = false
     def isEnum = false
-    def base = ObjectType
+    val base = ObjectType
     private val T = SimpleTypeVar("T")
     def parent = JavaLangPkg
-    def tparams = List(T)
-    def supers = List(base)
-    def superItems = List(ObjectItem)
+    val tparams = List(T)
+    val supers = List(base)
+    val superItems = List(ObjectItem)
     def isFinal = false
   }
 
   // Class String
   case object StringItem extends SimpleClassItem {
     def name = "String"
-    def base = ObjectType
-    def interfaces = List(comparable(inside),CharSequenceItem.simple,SerializableType)
+    val base = ObjectType
+    lazy val interfaces = List(comparable(inside),CharSequenceItem.simple,SerializableType)
+    lazy val supers = base :: interfaces
+    val superItems = List(ObjectItem,ComparableItem,CharSequenceItem,SerializableItem)
     def isFinal = true
   }
 
   // java.lang.Void
   case object VoidItem extends SimpleClassItem {
     def name = "Void"
-    def base = ObjectType
-    def interfaces = Nil
+    val base = ObjectType
+    val interfaces = Nil
+    val supers = base :: interfaces
+    val superItems = supers map (_.item)
     def isFinal = true
   }
 
   // Reference wrappers around primitive types
   case object BooleanItem extends SimpleClassItem {
     def name = "Boolean"
-    def base = ObjectType
-    def interfaces = List(comparable(inside),SerializableType)
+    val base = ObjectType
+    val interfaces = List(comparable(inside),SerializableType)
+    val supers = base :: interfaces
+    val superItems = supers map (_.item)
     override def unbox = Some(BooleanType)
     override def unboxesToBoolean = true
     def isFinal = true
   }
   case object CharacterItem extends SimpleClassItem {
     def name = "Character"
-    def base = ObjectType
-    def interfaces = List(comparable(inside),SerializableType)
+    val base = ObjectType
+    val interfaces = List(comparable(inside),SerializableType)
+    val supers = base :: interfaces
+    val superItems = supers map (_.item)
     override def unbox = Some(CharType)
     override def unboxNumeric = Some(CharType)
     override def unboxIntegral = Some(CharType)
@@ -108,13 +119,17 @@ object Base {
   }
   case object NumberItem extends SimpleClassItem {
     def name = "Number"
-    def base = ObjectType
-    def interfaces = List(SerializableType)
+    val base = ObjectType
+    val interfaces = List(SerializableType)
+    val supers = base :: interfaces
+    val superItems = supers map (_.item)
     def isFinal = false
   }
   sealed abstract class NumberClassItem(val name: Name, val ty: NumType) extends SimpleClassItem {
-    def base = NumberItem.simple
-    def interfaces = List(comparable(inside),SerializableType)
+    val base = NumberItem.simple
+    val interfaces = List(comparable(inside),SerializableType)
+    val supers = base :: interfaces
+    val superItems = supers map (_.item)
     override def unbox = Some(ty)
     override def unboxNumeric = Some(ty)
     def isFinal = true
