@@ -127,7 +127,7 @@ object Scores {
   }
 
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
-  private val trackErrors = true
+  private val trackErrors = false
   if (trackErrors)
     println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
 
