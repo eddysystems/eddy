@@ -10,7 +10,7 @@ import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Lexer._
 import tarski.Operators._
-import tarski.Scores.{Alt, Prob, Scored}
+import tarski.Scores.{Alt, Prob, LazyScored, Scored}
 import tarski.Tarski.fix
 import tarski.TestUtils._
 import tarski.Types._

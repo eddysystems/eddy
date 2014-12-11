@@ -167,9 +167,12 @@ object Environment {
 
     def byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
-      def error = s"Value of item ${show(t)} not found"
-      (   uniformArray(Pr.objectOfItem, byItem1.get(t), error)
-       ++ uniformArray(Pr.objectOfItem, byItem0.get(t), error))
+      val v0 = byItem1.get(t)
+      val v1 = byItem0.get(t)
+      val v = if      ((v0 eq null) || v0.isEmpty) v1
+              else if ((v1 eq null) || v1.isEmpty) v0
+              else v1++v0
+      uniformArray(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
     }
   }
 

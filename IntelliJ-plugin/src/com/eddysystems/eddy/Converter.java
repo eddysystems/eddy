@@ -6,6 +6,7 @@ import scala.Option;
 import scala.Some;
 import scala.collection.JavaConversions;
 import scala.collection.immutable.Map$;
+import scala.collection.immutable.Nil;
 import tarski.Items.*;
 import tarski.Types.*;
 
@@ -185,8 +186,13 @@ public class Converter {
     public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public Some safe() { return new Some<RefType>(this); }
+    public scala.collection.immutable.List<tarski.Denotations.Stmt> discards() { return _discards; }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
+
+    // For use above
+    static scala.collection.immutable.List<tarski.Denotations.Stmt> _discards =
+      JavaConversions.asScalaBuffer(new ArrayList<tarski.Denotations.Stmt>()).toList();
   }
 
   private TypeVar addTypeParam(PsiTypeParameter p) {

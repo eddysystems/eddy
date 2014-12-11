@@ -1,7 +1,7 @@
 package tarski
 
 import tarski.AST.CommaList
-import tarski.Scores.{Scored, Prob}
+import tarski.Scores.{LazyScored, Scored, Prob}
 import tarski.Denotations.{Callable, Exp, typeOf}
 import tarski.Items._
 import tarski.Types.Type
@@ -91,17 +91,17 @@ object Pr {
 
   // denoteType(AType)
   // Type.Type
-  def fieldType(t: Type, f: Type): Prob = base // given Types t and f, how likely is a type expression t.f (can assume t.f is legal)
+  val fieldType = base // Given Types t and f, how likely is a type expression t.f (can assume t.f is legal)
   // Type[]
   def arrayType(t: Type): Prob = base // given type t, how likely is t[]
 
   // denoteType(AExp)
   // (Type)
-  def parensAroundType(t: Type): Prob = Prob(.8) // given type t, how likely is (t) (maybe more likely for generic types)
+  val parensAroundType = Prob(.8) // given type t, how likely is (t) (maybe more likely for generic types)
   // Type.Type
-  def typeFieldOfType(t: Type, f: Type): Prob = fieldType(t,f)
+  val typeFieldOfType = fieldType
   // Exp.Type
-  def typeFieldOfExp(t: Exp, f: Type): Prob = Prob(.6) * fieldType(t.ty,f)
+  val typeFieldOfExp = Prob(.6) * fieldType
 
   // denoteValue(Value)
   val parameterValue = passThrough
