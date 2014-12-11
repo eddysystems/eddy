@@ -3,7 +3,8 @@ package tarski
 import java.io.{ObjectInputStream, FileInputStream, ObjectOutputStream, FileOutputStream}
 
 import ambiguity.Utility._
-import Scores._
+import ambiguity.JavaUtils.valuesByItem
+import tarski.Scores._
 import tarski.AST.Name
 import tarski.Items._
 import tarski.Tries._
@@ -14,99 +15,118 @@ import tarski.Pretty._
 import scala.collection.mutable
 
 object Environment {
-  def valuesByItem(start: Map[TypeItem,List[Value]], vs: Iterable[Item]): Map[TypeItem,List[Value]] = {
-    val m = mutable.Map[TypeItem,List[Value]]()++start
-    def add(s: TypeItem, v: Value) = m(s) = v::m.getOrElse(s,Nil)
-    vs foreach {
-      case v:Value => v.item match {
-        case i:RefTypeItem => superItems(i) foreach (s => if (s != ObjectItem) add(s,v))
-        case i:LangTypeItem => add(i,v)
-      }
-      case _ => ()
-    }
-    m.toMap
+  // Minimum probability before an object is considered a match for a query
+  val minimumProbability = Prob(.01)
+
+  // Lookup a string, approximately
+  private def typoQuery(trie: Trie[Item], typed: String): List[Alt[Item]] = {
+    val expected = typed.length * Pr.typingErrorRate
+    val maxErrors = Pr.poissonQuantile(expected,minimumProbability) // Never discards anything because it has too few errors
+    levenshteinLookup(trie,typed,maxErrors,expected,minimumProbability)
   }
 
-  /**
-   * The environment used for name resolution
-   */
-   case class Env(private val trie: Trie[Item],
-                  private val inScope: Map[Item,Int],
-                  private val byItem: Map[TypeItem,List[Value]], // Map from item to values with matching type
-                  place: PlaceItem,
-                  inside_breakable: Boolean,
-                  inside_continuable: Boolean,
-                  labels: List[String]) extends scala.Serializable {
+  // Information about where we are
+  case class PlaceInfo(place: PlaceItem,
+                       breakable: Boolean = false,
+                       continuable: Boolean = false,
+                       labels: List[String] = Nil)
+  val localPlace = PlaceInfo(Base.LocalPkg)
 
-    def items: Array[Item] = trie.values
-    def itemMap: Map[TypeItem,List[Value]] = byItem
-    def scopeMap: Map[Item,Int] = inScope
+  // An environment for name resolution
+  abstract class Env {
+    // Where we are
+    def scope: Map[Item,Int]
+    def place: PlaceInfo
+    def move(to: PlaceInfo): Env
 
-    // add some new things to an existing environment, and optionally change place
-    def this(base: Env, newthings: Iterable[Item], newScope: Map[Item,Int],
-             place: PlaceItem,
-             inside_breakable: Boolean,
-             inside_continuable: Boolean,
-             labels: List[String]) = {
-      this(base.trie++newthings, base.inScope ++ newScope,
-           valuesByItem(base.byItem,newthings), place, inside_breakable, inside_continuable, labels)
-    }
-
-    // make an environment from a list of items
-    def this(things: Iterable[Item], inScope: Map[Item,Int] = Map(),
-             place: PlaceItem = Base.LocalPkg,
-             inside_breakable: Boolean = false,
-             inside_continuable: Boolean = false,
-             labels: List[String] = Nil) = {
-      this(Trie(things), inScope,
-           valuesByItem(Map.empty,things), place, inside_breakable, inside_continuable, labels)
-    }
-
-    // minimum probability before an object is considered a match for a query
-    val minimumProbability = Prob(.01)
-
-    // Add objects
-    def addObjects(xs: Iterable[Item], is: Map[Item,Int]): Env = {
-      // TODO: filter identical things (like java.lang.String)
-      new Env(this, xs, is, place, inside_breakable, inside_continuable, labels)
-    }
-
+    // Add more objects
+    def extend(things: Array[Item], scope: Map[Item,Int]): Env
+    
     // Add local objects (they all appear in inScope with priority 1)
-    def addLocalObjects(xs: List[Item]): Env =
-      addObjects(xs, (xs map {(_,1)}).toMap)
+    def extendLocal(things: Array[Item]): Env =
+      extend(things,(things map ((_,1))).toMap)
 
-    def move(newPlace: PlaceItem, inside_breakable: Boolean, inside_continuable: Boolean, labels: List[String]): Env = {
-      Env(trie, inScope, byItem, newPlace, inside_breakable, inside_continuable, labels)
-    }
+    // Is an item in scope?
+    def inScope(i: Item): Boolean
 
-    def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)] = place match {
+    // Enter and leave block scopes
+    def pushScope: Env
+    def popScope: Env
+
+    // Add variables and fields
+    def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)]
+    def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean): Scored[(Env,Value)]
+
+    // Get exact and typo probabilities for string queries
+    def query(typed: String): List[Alt[Item]]
+    def exactQuery(typed: String): List[Alt[Item]]
+    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A]
+
+    // Lookup by type.item
+    def byItem(t: TypeItem): Scored[Value]
+
+    // Fragile or slow, only use for tests
+    def exactLocal(name: String): LocalVariableItem
+    def allItems: Array[Item]
+  }
+
+  // Constructors for Env
+  object Env {
+    def apply(items: Array[Item], scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace): Env =
+      scoped("make env",
+        TwoEnv(Trie(items),Trie.empty,
+               valuesByItem(items),new java.util.HashMap[TypeItem,Array[Value]](),
+               scope,place))
+  }
+
+  // Store two tries and two byItems: one large one for globals, one small one for locals.
+  case class TwoEnv(private val trie0: Trie[Item],
+                    private val trie1: Trie[Item],
+                    private val byItem0: java.util.Map[TypeItem,Array[Value]],
+                    private val byItem1: java.util.Map[TypeItem,Array[Value]],
+                    scope: Map[Item,Int],
+                    place: PlaceInfo) extends Env {
+    // Slow, use only for tests
+    def allItems: Array[Item] = trie0.values++trie1.values
+
+    // Add some new things to an existing environment
+    def extend(things: Array[Item], scope: Map[Item,Int]) =
+      TwoEnv(trie0,trie1++things,
+             byItem0,valuesByItem(trie1.values++things),
+             scope++scope,place)
+
+    def move(to: PlaceInfo) =
+      TwoEnv(trie0,trie1,byItem0,byItem1,scope,to)
+
+    def newVariable(name: String, t: Type, isFinal: Boolean) = place.place match {
       case c: CallableItem =>
-        if (inScope.exists( { case (v:LocalVariableItem,_) => v.name == name; case _ => false } ))
+        if (scope exists { case (v:LocalVariableItem,_) => v.name == name; case _ => false })
           fail(s"Invalid new local variable $name: already exists.")
         else {
           val x = LocalVariableItem(name,t,isFinal)
-          single((addObjects(List(x), Map((x,0))),x), Pr.newVariable)
+          single((extend(Array(x),Map((x,0))),x), Pr.newVariable)
         }
       case _ => fail("Cannot declare local variables outside of methods or constructors.")
     }
 
-    def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean): Scored[(Env,Value)] = place match {
+    def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean) = place.place match {
       case c: ClassItem =>
-        // if there's already a member of the same name (for our place)
-        if (inScope.exists( { case (m: Member,_) => m.parent == place && m.name == name; case _ => false } ))
+        // Check if there's already a member of the same name (for our place)
+        if (scope exists { case (m: Member,_) => m.parent == place && m.name == name; case _ => false })
           fail(s"Invalid new field $name: a member with this name already exists.")
         else {
           val x = if (isStatic) NormalStaticFieldItem(name,t,c,isFinal)
                   else                NormalFieldItem(name,t,c,isFinal)
           val p = if (isStatic) Pr.newStaticField else Pr.newField
-          single((addObjects(List(x),Map((x,0))),x),p)
+          single((extend(Array(x),Map((x,0))),x),p)
         }
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
 
     // Fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {
-      trie.exact(name) collect { case x: LocalVariableItem => x } match {
+      def options(t: Trie[Item]) = t exact name collect { case x: LocalVariableItem => x }
+      options(trie0)++options(trie1) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
@@ -114,37 +134,42 @@ object Environment {
     }
 
     // Check if an item is in scope and not shadowed by another item
-    def itemInScope(i: Item): Boolean =
-      inScope.contains(i) && !inScope.exists { case (ii,p) => p < inScope.get(i).get && i.name == ii.name }
+    def inScope(i: Item): Boolean =
+      scope.contains(i) && !scope.exists { case (ii,p) => p < scope.get(i).get && i.name == ii.name }
 
     // Enter a new block scope
     def pushScope: Env =
-      Env(trie, inScope map { case (i,n) => (i,n+1) },
-          byItem, place, inside_breakable, inside_continuable, labels)
+      TwoEnv(trie0,trie1,byItem0,byItem1,
+             scope map { case (i,n) => (i,n+1) },
+             place)
 
     // Leave a block scope
     def popScope: Env =
-      Env(trie, inScope collect { case (i,n) if n>1 => (i,n-1) },
-          byItem, place, inside_breakable, inside_continuable, labels)
+      TwoEnv(trie0,trie1,byItem0,byItem1,
+             scope collect { case (i,n) if n>1 => (i,n-1) },
+             place)
 
-    // get typo probabilities for string queries
-    def query(typed: String): List[Alt[Item]] = {
-      val e = typed.length * Pr.typingErrorRate
-      val maxErrors = Pr.poissonQuantile(e, minimumProbability) // this never discards anything because it has too few errors
-      levenshteinLookup(trie,typed,maxErrors,e,minimumProbability)
-    }
+    // Get typo probabilities for string queries
+    def query(typed: String): List[Alt[Item]] =
+      typoQuery(trie1,typed)++typoQuery(trie0,typed)
 
     def exactQuery(typed: String): List[Alt[Item]] = {
-      val e = typed.length * Pr.typingErrorRate
-      val p = Pr.poissonPDF(e,0)
-      trie.exact(typed) map (Alt(p,_))
+      val p = Pr.poissonPDF(typed.length*Pr.typingErrorRate,0)
+      (trie1.exact(typed) ++ trie0.exact(typed)) map (Alt(p,_))
     }
 
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
       val _f = Function.unlift( (x:Alt[Item]) => { if (filter.isDefinedAt(x.x)) Some(Alt(x.p, filter.apply(x.x))) else None } )
       multiples(exactQuery(typed) collect _f map { case Alt(p,t) => Alt(exactProb,t) },
-               { query(typed) collect _f map { case Alt(p,t) => Alt((1-exactProb)*p,t) } },
-               error)
+                query(typed) collect _f map { case Alt(p,t) => Alt((1-exactProb)*p,t) },
+                error)
+    }
+
+    def byItem(t: TypeItem): Scored[Value] = {
+      implicit val env: Env = this
+      def error = s"Value of item ${show(t)} not found"
+      (   uniformArray(Pr.objectOfItem, byItem1.get(t), error)
+       ++ uniformArray(Pr.objectOfItem, byItem0.get(t), error))
     }
   }
 
@@ -168,9 +193,9 @@ object Environment {
   def valueScores(name: String)(implicit env: Env): Scored[Value] =
     env.combinedQuery(name, Pr.exactValue, { case t:Value => t }, s"Value $name not found")
 
-  // Same as objectsOfType, but without type arguments
+  // Look up values by their type
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
-    uniform(Pr.objectOfItem, env.itemMap.getOrElse(t,Nil), s"Value of item ${show(t)} not found")
+    env.byItem(t)
 
   // Does a member belong to a type?
   def memberIn(f: Item, t: TypeItem): Boolean = f match {
@@ -234,7 +259,7 @@ object Environment {
   // The return type of our ambient function
   def returnType(implicit env: Env): Scored[Type] = {
     def die(scope: String) = fail(s"Can't return from $scope scope")
-    env.place match {
+    env.place.place match {
       case m:MethodItem => single(m.retVal, Pr.certain)
       case c:ConstructorItem => single(VoidType, Pr.certain)
       case _:PackageItem => die("package")

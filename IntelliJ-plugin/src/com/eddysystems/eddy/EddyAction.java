@@ -1,9 +1,11 @@
 package com.eddysystems.eddy;
 
 import com.intellij.codeInsight.hint.QuestionAction;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
+import com.intellij.openapi.util.TextRange;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -11,9 +13,13 @@ import javax.swing.*;
 public class EddyAction implements QuestionAction {
 
   private Eddy eddy;
+  private final @NotNull Editor editor;
+  private final @NotNull TextRange replace_range;
 
   EddyAction(Eddy eddy) {
     this.eddy = eddy;
+    this.editor = eddy.getEditor();
+    this.replace_range = eddy.getRange();
   }
 
   @Override
@@ -25,7 +31,7 @@ public class EddyAction implements QuestionAction {
     } else {
       // show selection dialog
       final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy suggests:", eddy.getResultStrings()) {
+        new BaseListPopupStep<String>("eddy thinks:", eddy.getResultStrings()) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;
@@ -38,36 +44,18 @@ public class EddyAction implements QuestionAction {
 
           @Override
           public PopupStep onChosen(String selectedValue, boolean finalChoice) {
+            System.out.println("selected: " + selectedValue);
             if (selectedValue == null) {
               return FINAL_CHOICE;
             }
 
             if (finalChoice) {
-              eddy.apply(selectedValue);
+              System.out.println("applying: " + selectedValue);
+              Eddy.apply(selectedValue, editor, replace_range);
               return FINAL_CHOICE;
             }
 
             return FINAL_CHOICE;
-
-            /*
-            List<String> toExclude = getAllExcludableStrings(qname);
-            return new BaseListPopupStep<String>(null, toExclude) {
-              @NotNull
-              @Override
-              public String getTextFor(String value) {
-                return "Exclude '" + value + "' from auto-import";
-              }
-
-              @Override
-              public PopupStep onChosen(String selectedValue, boolean finalChoice) {
-                if (finalChoice) {
-                  excludeFromImport(myProject, selectedValue);
-                }
-
-                return super.onChosen(selectedValue, finalChoice);
-              }
-            };
-            */
           }
 
           @Override
@@ -87,7 +75,6 @@ public class EddyAction implements QuestionAction {
           }
         };
       JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(eddy.getEditor());
-
     }
     return true;
   }

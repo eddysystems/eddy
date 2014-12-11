@@ -172,6 +172,16 @@ object Scores {
       delay(p,good(xs))
     }
 
+  def uniformArray[A](p: Prob, xs: Array[A], error: => String): Scored[A] =
+    if (p == 0.0 || (xs eq null) || (xs.length == 0))
+      fail(error)
+    else {
+      def good(i: Int): Actual[A] =
+        if (i == xs.length) Empty
+        else Best(p,xs(i),delay(p,good(i+1)))
+      delay(p,good(0))
+    }
+
   // Helpers for multiple and multipleGood
   private def good[A](p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]]): Actual[A] = xs match {
     case Nil => Best(p,x,delay(p,empty(low)))

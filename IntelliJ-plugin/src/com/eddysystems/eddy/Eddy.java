@@ -17,7 +17,7 @@ import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
-import static com.eddysystems.eddy.Utility.*;
+import static ambiguity.JavaUtils.*;
 import tarski.*;
 
 import java.util.List;
@@ -49,34 +49,37 @@ public class Eddy {
   boolean selectedExplicitly = true;
 
   public Eddy() {
-    logger.setLevel(Level.DEBUG);
+    logger.setLevel(Level.INFO);
   }
 
   public static boolean ready() {
     return EnvironmentProcessor.globals_ready;
   }
 
-  // applies a result by modifying the psifile
+  // applies a result in the editor
   public void apply(int i) {
-    apply(code(i));
+    apply(code(i), editor, tokens_range);
   }
 
-  public void apply(final @NotNull String code) {
+  static public void apply(final @NotNull String code,
+                           final @NotNull Editor editor,
+                           final @NotNull TextRange replace_range) {
     ApplicationManager.getApplication().runWriteAction(new Runnable() {
       @Override
       public void run() {
+        final Project project = editor.getProject();
+        final Document document = editor.getDocument();
+        final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
+        assert psifile != null;
+
         new WriteCommandAction(project, psifile) {
           @Override
           public void run(@NotNull Result result) {
-            if (document != null) {
-              int newoffset = tokens_range.getEndOffset() - tokens_range.getLength() + code.length();
-              logger.debug("replacing '" + document.getText(tokens_range) + "' with '" + code + "'");
-              document.replaceString(tokens_range.getStartOffset(), tokens_range.getEndOffset(), code);
-              editor.getCaretModel().moveToOffset(newoffset);
-              PsiDocumentManager.getInstance(project).commitDocument(document);
-              // if we apply, we know we shouldn't show again
-              found_existing = true;
-            }
+            int newoffset = replace_range.getEndOffset() - replace_range.getLength() + code.length();
+            System.out.println("replacing '" + document.getText(replace_range) + "' with '" + code + "'");
+            document.replaceString(replace_range.getStartOffset(), replace_range.getEndOffset(), code);
+            editor.getCaretModel().moveToOffset(newoffset);
+            PsiDocumentManager.getInstance(project).commitDocument(document);
           }
         }.execute();
       }
@@ -90,6 +93,8 @@ public class Eddy {
   public Editor getEditor() {
     return editor;
   }
+
+  public TextRange getRange() { return tokens_range; }
 
   public List<String> getResultStrings() { return resultStrings; }
 
@@ -110,6 +115,8 @@ public class Eddy {
   }
 
   public void process(@NotNull Editor editor) {
+    logger.info("processing eddy@" + hashCode() + "...");
+
     Document document = editor.getDocument();
     Project project = editor.getProject();
 
@@ -139,7 +146,7 @@ public class Eddy {
     final TextRange lrange = TextRange.create(document.getLineStartOffset(lnum), document.getLineEndOffset(lnum));
     String line = document.getText(lrange);
 
-    logger.debug("processing at " + lnum + "/" + column);
+    logger.info("processing at " + lnum + "/" + column);
     logger.debug("  current line: " + line);
 
     // whitespace is counted toward the next token/statement, so start at the beginning of the line
@@ -239,12 +246,12 @@ public class Eddy {
       if (canceled)
         return;
 
-      timeStart("environment");
+      pushScope("environment");
       env = new EnvironmentProcessor(project, place, true).getJavaEnvironment();
       final List<Tokens.Token> _tokens = tokens;
-      timeStart("fix");
+      popPushScope("fix");
       results = Tarski.fixJava(_tokens, env);
-      timeStop();
+      popScope();
 
       for (Scores.Alt<List<Denotations.Stmt>> interpretation : results) {
         // for each interpretation, compute a string
@@ -252,15 +259,13 @@ public class Eddy {
           resultStrings.add("");
         } else {
           String s = "";
-          for (Denotations.Stmt meaning : interpretation.x()) {
+          for (Denotations.Stmt meaning : interpretation.x())
             s = s + code(meaning) + " ";
-          }
           s = s.substring(0,s.length()-1); // remove trailing space
           resultStrings.add(s);
-          logger.debug("eddy result: '" + s + "' existing '" + before_text + "'");
-          if (s.equals(before_text)) {
+          logger.info("eddy result: '" + s + "' existing '" + before_text + "'");
+          if (s.equals(before_text))
             found_existing = true;
-          }
         }
       }
     }

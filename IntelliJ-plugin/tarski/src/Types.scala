@@ -39,7 +39,6 @@ object Types {
     def raw: Type
   }
   sealed abstract class LangType extends Type { // Primitive or void
-    def item = LangTypeItem(this)
     def supers = Nil
     def isSimple = true
     def isFinal = true
@@ -48,18 +47,21 @@ object Types {
     def safe = Some(this)
     def raw = this
   }
-  case object VoidType extends LangType
+  case object VoidType extends LangType {
+    def item = ubVoidItem
+  }
 
   // Primitive types
   sealed abstract class PrimType extends LangType {
     override def unbox = Some(this)
-    val box: SimpleType
+    def box: SimpleType
     def isIntegral: Boolean
     def isNumeric: Boolean
     def isBoolean: Boolean
   }
   case object BooleanType extends PrimType {
-    val box = BooleanItem.simple
+    def item = ubBooleanItem
+    def box = BooleanItem.simple
     override def unboxesToBoolean = true
     def isNumeric = false
     def isIntegral = false
@@ -76,13 +78,13 @@ object Types {
     def isIntegral = true
   }
   sealed abstract class FloatingType extends NumType { def isIntegral = false }
-  case object ByteType    extends IntegralType { val box = ByteItem.simple }
-  case object ShortType   extends IntegralType { val box = ShortItem.simple }
-  case object IntType     extends IntegralType { val box = IntegerItem.simple }
-  case object LongType    extends IntegralType { val box = LongItem.simple }
-  case object FloatType   extends FloatingType { val box = FloatItem.simple }
-  case object DoubleType  extends FloatingType { val box = DoubleItem.simple }
-  case object CharType    extends IntegralType { val box = CharacterItem.simple }
+  case object ByteType    extends IntegralType { def box = ByteItem.simple;      def item = ubByteItem }
+  case object ShortType   extends IntegralType { def box = ShortItem.simple;     def item = ubShortItem }
+  case object IntType     extends IntegralType { def box = IntegerItem.simple;   def item = ubIntItem }
+  case object LongType    extends IntegralType { def box = LongItem.simple;      def item = ubLongItem }
+  case object FloatType   extends FloatingType { def box = FloatItem.simple;     def item = ubFloatItem }
+  case object DoubleType  extends FloatingType { def box = DoubleItem.simple;    def item = ubDoubleItem }
+  case object CharType    extends IntegralType { def box = CharacterItem.simple; def item = ubCharItem }
 
   // Parents of classes (either classes or packages, or callables for local classes)
   // Inherited by SimpleItem and ClassType

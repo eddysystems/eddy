@@ -4,7 +4,7 @@ import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Base._
 import tarski.Denotations._
-import tarski.Environment.Env
+import tarski.Environment.{Env,PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
 import tarski.Types.{ClassType, LangType, TypeVar, VoidType}
@@ -50,13 +50,13 @@ object TestUtils {
   def localEnv(locals: Item*): Env = {
     val X = NormalClassItem("XX", LocalPkg)
     val f = NormalMethodItem("ff", X, Nil, VoidType, Nil, false)
-    new Env(List(f,X) ::: locals.toList, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], f)
+    Env(Array(f,X) ++ locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int], PlaceInfo(f))
   }
   def localEnvWithBase(locals: Item*): Env = {
     val X = NormalClassItem("XX", LocalPkg)
     val f = NormalMethodItem("ff", X, Nil, VoidType, Nil, false)
-    baseEnv.addObjects(List(f,X) ::: locals.toList, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
-           .move(f,inside_breakable=false,inside_continuable=false,Nil)
+    baseEnv.extend(Array(f,X) ++ locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
+           .move(PlaceInfo(f))
   }
 
   def assertIn[A](x: A, xs: Set[A]): Unit =

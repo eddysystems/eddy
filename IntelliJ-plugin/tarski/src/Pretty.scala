@@ -337,7 +337,7 @@ object Pretty {
     def cls(t: ClassType): (Fixity,Tokens) = {
       val ts = if (t.args.isEmpty) pretty(t.item)
                else (ApplyFix, tokens(t.item) ::: LtTok() :: tokens(CommaList(t.args)) ::: List(GtTok()))
-      if (env.itemInScope(t.item) && t.item.parent.inside==t.parent) ts
+      if (env.inScope(t.item) && t.item.parent.inside==t.parent) ts
       else {
         t.parent match {
           case LocalPkg|JavaLangPkg => ts
@@ -385,8 +385,8 @@ object Pretty {
     case LocalVariableExp(x) => pretty(x)
     case EnumConstantExp(None,f) => pretty(f)
     case EnumConstantExp(Some(x),f) => prettyField(x,f)
-    case ThisExp(i) => if (env.itemInScope(i)) (HighestFix,List(ThisTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(ThisTok()))
-    case SuperExp(i) => if (env.itemInScope(i)) (HighestFix,List(SuperTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(SuperTok()))
+    case ThisExp(i) => if (env.inScope(i)) (HighestFix,List(ThisTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(ThisTok()))
+    case SuperExp(i) => if (env.inScope(i)) (HighestFix,List(SuperTok())) else (FieldFix, tokens(i.self) ::: DotTok() :: List(SuperTok()))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
     case ImpExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
     case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(token(e.op)))

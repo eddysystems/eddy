@@ -7,15 +7,30 @@ import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupManager;
+import com.intellij.openapi.wm.StatusBar;
+import com.intellij.openapi.wm.WindowManager;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class EddyPlugin implements ProjectComponent {
   private Project project;
   private Logger logger = Logger.getInstance(getClass());
   private EddyInjector injector;
+  private EddyWidget widget = new EddyWidget(this);
+
+  private static Map<Project,EddyPlugin> projectMap = new HashMap<Project, EddyPlugin>();
+
+  static EddyPlugin getInstance(Project project) {
+    return projectMap.get(project);
+  }
 
   public EddyPlugin(Project project) {
+
+    projectMap.put(project, this);
+
     logger.setLevel(Level.DEBUG);
     logger.info("available memory: total " + Runtime.getRuntime().totalMemory() + ", max " + Runtime.getRuntime().maxMemory() + ", free " + Runtime.getRuntime().freeMemory());
 
@@ -25,7 +40,12 @@ public class EddyPlugin implements ProjectComponent {
     // TODO: talk to server to send usage info
   }
 
+  public EddyWidget getWidget() {
+    return widget;
+  }
+
   public void initComponent() {
+
     // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
 
@@ -44,7 +64,22 @@ public class EddyPlugin implements ProjectComponent {
                   ApplicationManager.getApplication().runReadAction(new Runnable() {
                     @Override
                     public void run() {
+                      final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+                      if (sbar != null) {
+                        ApplicationManager.getApplication().invokeLater(new Runnable() {
+                          @Override public void run() {
+                            sbar.setInfo("Initializing eddy...");
+                            sbar.addWidget(widget);
+                            widget.moreBusy();
+                          }
+                        });
+                      }
+
                       EnvironmentProcessor.initGlobalEnvironment(project);
+
+                      if (sbar != null) {
+                        widget.lessBusy();
+                      }
                     }
                   });
                 }
@@ -57,7 +92,10 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void disposeComponent() {
-    // called before the apocalypse
+    projectMap.remove(project);
+    StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+    if (sbar != null)
+      sbar.removeWidget(widget.ID());
   }
 
   @NotNull
@@ -72,4 +110,5 @@ public class EddyPlugin implements ProjectComponent {
   public void projectClosed() {
     // called when project is being closed
   }
+
 }

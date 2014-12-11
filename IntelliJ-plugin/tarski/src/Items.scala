@@ -1,6 +1,6 @@
 package tarski
 
-import ambiguity.Utility.RefEq
+import ambiguity.Utility._
 import tarski.AST._
 import tarski.Types._
 import tarski.Base.{JavaLangPkg,EnumBaseItem,SerializableItem,CloneableItem}
@@ -61,14 +61,23 @@ object Items {
     def raw: Type
     def simple: Type
   }
-  case class LangTypeItem(t: LangType) extends TypeItem {
-    def name = show(pretty(t))
+  abstract class LangTypeItem extends TypeItem {
+    def ty: LangType
+    def name = show(pretty(ty))
     def qualifiedName = Some(name)
     def supers = Nil
     def superItems = Nil
-    def inside = t
-    def raw = t
-    def simple = t
+    def inside = ty
+    def raw = ty
+    def simple = ty
+
+    // Not sure why we need these
+    def canEqual(x: Any) = x match {
+      case x:AnyRef => this eq x
+      case _ => false
+    }
+    def productArity = notImplemented
+    def productElement(n: Int) = notImplemented
   }
 
   trait GenericItem {

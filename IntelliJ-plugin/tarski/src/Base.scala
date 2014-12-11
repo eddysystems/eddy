@@ -128,21 +128,21 @@ object Base {
   case object FloatItem   extends NumberClassItem("Float",FloatType)
   case object DoubleItem  extends NumberClassItem("Double",DoubleType)
 
-  object ubVoidItem    extends LangTypeItem(VoidType)
-  object ubBooleanItem extends LangTypeItem(BooleanType)
-  object ubByteItem    extends LangTypeItem(ByteType)
-  object ubShortItem   extends LangTypeItem(ShortType)
-  object ubIntItem     extends LangTypeItem(IntType)
-  object ubLongItem    extends LangTypeItem(LongType)
-  object ubFloatItem   extends LangTypeItem(FloatType)
-  object ubDoubleItem  extends LangTypeItem(DoubleType)
-  object ubCharItem    extends LangTypeItem(CharType)
+  object ubVoidItem    extends LangTypeItem { def ty = VoidType }
+  object ubBooleanItem extends LangTypeItem { def ty = BooleanType }
+  object ubByteItem    extends LangTypeItem { def ty = ByteType }
+  object ubShortItem   extends LangTypeItem { def ty = ShortType }
+  object ubIntItem     extends LangTypeItem { def ty = IntType }
+  object ubLongItem    extends LangTypeItem { def ty = LongType }
+  object ubFloatItem   extends LangTypeItem { def ty = FloatType }
+  object ubDoubleItem  extends LangTypeItem { def ty = DoubleType }
+  object ubCharItem    extends LangTypeItem { def ty = CharType }
   
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
 
   // Standard base environment
-  val baseEnv = new Env(List(
+  val baseEnv = Env(Array(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
     // Primitive types
@@ -158,15 +158,15 @@ object Base {
   ))
 
   // Things that EnvironmentProcessor won't add on its own
-  val extraEnv = new Env(List(
+  val extraEnv = Env(Array(
     LocalPkg,
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem))
 
   // Check that an environment has a unique copy of everything in baseEnv
   def checkEnv(env: Env): Unit = {
-    val names = baseEnv.items.map(t => t.qualifiedName.get -> t).toMap
+    val names = baseEnv.allItems.map(t => t.qualifiedName.get -> t).toMap
     val seen = mutable.Set[String]()
-    env.items.foreach(t => t.qualifiedName foreach (n => names get n foreach (b => {
+    env.allItems.foreach(t => t.qualifiedName foreach (n => names get n foreach (b => {
       assert(!seen.contains(n),s"Two copies of $n, type ${t.getClass}, t = ${t.hashCode}")
       assert(t eq b,s"Versions of $n in baseEnv (${b.getClass}) and env (${t.getClass}) differ")
       seen += n

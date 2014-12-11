@@ -94,19 +94,22 @@ object Tries {
 
     // The two keys are assumed equal
     def ++(t: Trie[V])(implicit tt: ClassTag[V]): Trie[V] =
-      timed("trie merge",makeHelper(merge(values,t.values)))
+      scoped("trie merge",makeHelper(merge(values,t.values)))
     def ++(t: Iterable[V])(implicit tt: ClassTag[V]): Trie[V] =
-      timed("trie extend",makeHelper(merge(values,toSorted(t))))
+      scoped("trie extend",makeHelper(merge(values,toSorted(t))))
   }
 
   object Trie {
     def apply[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Trie[V] =
-      timed("trie create",makeHelper(toSorted(input)))
+      scoped("trie create",makeHelper(toSorted(input)))
+
+    def empty[V <: Named](implicit tt: ClassTag[V]): Trie[V] =
+      makeHelper(Array.empty)
   }
 
   // Sort input into an array
   private def toSorted[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Array[V] =
-    timed("sort array",{
+    scoped("sort array",{
       var values = input.toArray
       util.Arrays.sort(values.asInstanceOf[Array[Object]])
       values
@@ -127,7 +130,7 @@ object Tries {
 
   // Assumes values is already sorted.  values must never change.
   private def makeHelper[V <: Named](values: Array[V]): Trie[V] = {
-    new Trie(JavaUtils.makeTrieStructure[V](values),values)
+    new Trie(JavaUtils.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
   }
 
   def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {

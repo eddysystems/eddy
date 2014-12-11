@@ -8,6 +8,7 @@
       <sourceFolder url="file://$MODULE_DIR$/Plugin Tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/Test Data" type="java-test-resource" />
       <sourceFolder url="file://$MODULE_DIR$/test-data" type="java-test-resource" />
+      <sourceFolder url="file://$MODULE_DIR$/resources" type="java-resource" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

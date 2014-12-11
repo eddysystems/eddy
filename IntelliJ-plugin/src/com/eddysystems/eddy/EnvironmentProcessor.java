@@ -23,6 +23,7 @@ import scala.Some;
 import scala.collection.JavaConversions;
 import scala.collection.immutable.Map$;
 import tarski.Environment.Env;
+import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Types.*;
@@ -33,11 +34,9 @@ import java.util.*;
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
  */
 public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
+  private static final @NotNull Logger logger = Logger.getInstance("EnvironmentProcessor");
 
   private final @NotNull Place place;
-
-  private final @NotNull Logger logger = Logger.getInstance(getClass());
-
   public class ShadowElement<E> {
     public final E e;
     public final int shadowingPriority;
@@ -67,14 +66,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private PsiElement currentFileContext;
   private boolean honorPrivate;
 
-  // setup only for statics initialization -- the result of this cannot be used
-  private EnvironmentProcessor(@NotNull Project project) {
-    this.place = new Place(project,null);
-    getGlobals();
-  }
-
   static public void initGlobalEnvironment(@NotNull Project project) {
-    new EnvironmentProcessor(project);
+    getGlobals(new Place(project,null));
   }
 
   static public void clearGlobalEnvironment() {
@@ -92,21 +85,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // this is set to null when we go to java.lang
     this.currentFileContext = place;
 
-    logger.setLevel(Level.DEBUG);
-
     // this walks up the PSI tree, but also processes import statements
     PsiScopesUtil.treeWalkUp(this, place, place.getContainingFile());
   }
 
-  private void addBase(Converter env, GlobalSearchScope scope, boolean noProtected) {
+  static private void addBase(Converter env, GlobalSearchScope scope, boolean noProtected) {
     // Extra things don't correspond to PsiElements
     final Set<Item> extra = new HashSet<Item>();
-    for (Item i : tarski.Base.extraEnv().items())
+    for (Item i : tarski.Base.extraEnv().allItems())
       extra.add(i);
 
     // Add classes and packages
     final JavaPsiFacade facade = JavaPsiFacade.getInstance(env.place.project);
-    for (Item item : tarski.Base.baseEnv().items()) {
+    for (Item item : tarski.Base.baseEnv().allItems()) {
       if (extra.contains(item) || item instanceof ConstructorItem)
         continue;
       final String name = item.qualifiedName().get();
@@ -123,7 +114,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     // Add constructors
-    for (Item item : tarski.Base.baseEnv().items()) {
+    for (Item item : tarski.Base.baseEnv().allItems()) {
       if (!(item instanceof ConstructorItem))
         continue;
       final String clsName = ((ConstructorItem)item).parent().qualifiedName().get();
@@ -136,7 +127,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     // Add class members
-    for (Item item : tarski.Base.baseEnv().items()) {
+    for (Item item : tarski.Base.baseEnv().allItems()) {
       if (extra.contains(item) || !(item instanceof ClassItem))
         continue;
       final String name = item.qualifiedName().get();
@@ -144,7 +135,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
   }
 
-  private Map<PsiElement,Item> getGlobals() {
+  private static Map<PsiElement,Item> getGlobals(Place place) {
     if (globals_ready) {
       return globals;
     } else {
@@ -156,7 +147,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           globals = new HashMap<PsiElement, Item>();
         }
 
-        logger.info("making globals (" + globals.size() + " items already there)");
+        logger.info("making globals...");
 
         PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
         GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project,true);
@@ -194,12 +185,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
    */
   public Env getJavaEnvironment() {
 
-    Map<PsiElement, Item> globals = getGlobals();
+    Map<PsiElement, Item> globals = getGlobals(place);
     Map<PsiElement, Item> locals = new HashMap<PsiElement, Item>();
     Map<Item, Integer> scopeItems = new HashMap<Item, Integer>();
     Converter env = new Converter(place,globals,locals);
 
-    logger.info("adding local items...");
+    logger.info("getting local items...");
 
     // register locally visible items (each item will register things it contains, inherits from, etc.)
     for (ShadowElement<PsiPackage> spkg : packages) {
@@ -331,8 +322,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     */
 
-    Env tenv = Tarski.add_environment(global_env, local_items, scopeItems)
-                     .move(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList());
+    Item[] localArray = local_items.toArray(new Item[local_items.size()]);
+    Env tenv = Tarski.addEnvironment(global_env, localArray, scopeItems)
+                     .move(new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
 
     logger.info("done");
 
