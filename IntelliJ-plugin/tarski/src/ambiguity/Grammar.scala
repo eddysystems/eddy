@@ -2,6 +2,7 @@ package ambiguity
 import ambiguity.Utility._
 import scala.collection.mutable
 import scala.util.matching.Regex
+import scala.math.min
 
 object Grammar {
 
@@ -30,6 +31,16 @@ object Grammar {
     lazy val minSize: Symbol => Int = fixpoint(0, s =>
       if (isToken(s)) 1 else prods(s).map({case (ss,_) => (ss map minSize).sum}).min
     )
+    val maxSize: Symbol => Option[Int] = {
+      val cap = 32
+      lazy val loop: Symbol => Int = fixpoint(0, s =>
+        if (isToken(s)) 1 else min(cap,prods(s).map({case (ss,_) => (ss map loop).sum}).max))
+      def f(s: Symbol) = {
+        val n = loop(s)
+        if (n >= cap) None else Some(n)
+      }
+      f
+    }
 
     def ty(s: Symbol): Type =
       if (isSimple(s)) throw new RuntimeException(s"Simple token $s has no useful type")

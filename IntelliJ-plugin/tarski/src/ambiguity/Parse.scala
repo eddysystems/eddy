@@ -130,7 +130,6 @@ object Parse {
       separate(List(fields,init,toplevel,ids,types,nulls,nonnulls) ::: (nons map nonnull)))
 
     lazy val fields = List(
-      s"int n;",
       s"${G.token}[] input;",
       s"byte[] type;",
       s"ArrayList<Object> values = new ArrayList<Object>();",
@@ -140,7 +139,7 @@ object Parse {
 
     lazy val init: Code = "// Convert input and allocate working memory" ::
       method("","Parser",List("_input" -> s"List<${G.token}>"),List(
-        s"n = _input.size();",
+        s"final int n = _input.size();",
         s"assert n+1<(1<<$posBits);",
         s"input = new ${G.token}[n];",
         s"for (int i=0;i<n;i++) {",
@@ -159,7 +158,7 @@ object Parse {
         s"nonnulls();" ::
         s"" ::
         s"// All done!" ::
-        s"final long s = slices.get(${slice(G.start,"0","n")});" ::
+        s"final long s = slices.get(${slice(G.start,"0","input.length")});" ::
         ("List<"+ty+"> xs = (List)Nil$.MODULE$;") ::
         loop(G.start,"k","s",v => List(
           "xs = $colon$colon$.MODULE$.<"+ty+">apply("+(v ::: List("xs")).mkString(",")+");")) :::
@@ -174,6 +173,7 @@ object Parse {
 
     lazy val types: Code = "// Determine token types" ::
       method("private void","types",Nil,
+        "final int n = input.length;" ::
         block("for (int i=0;i<n;i++)", s"final ${G.token} t = input[i];" :: "type[i] = (byte)(" ::
           (toks.toList.zipWithIndex map {case (t,i) =>
             s"  ${if (i==0) " " else ":"} t instanceof $t${if (G.isSimple(t)) "$" else ""} ? ${id(t)}"
@@ -197,6 +197,7 @@ object Parse {
 
     lazy val nulls: Code = "// Parse null productions" ::
       method("private void","nulls",Nil,
+        s"final int n = input.length;" ::
         s"long slice;" ::
         s"int next = values.size();" ::
         (nons collect {case n if G.nullable(n) => {
@@ -224,6 +225,7 @@ object Parse {
 
     lazy val nonnulls: Code = "// Parse nonnull productions" ::
       method("private void","nonnulls",Nil,
+        "final int n = input.length;" ::
         block("for (int lo=n;lo>=0;lo--) for (int hi=lo+1;hi<=n;hi++)", nons map (n =>
           s"$n(lo,hi);")))
 
@@ -249,15 +251,24 @@ object Parse {
           if (G.isSimple(n)) "found = true;"
           else s"values.add(${act(n,prod,vs.toList.flatten)});")
         def parse(prod: Prod, d: Divide): Code = {
+          val range = {
+            val lo = prod._1.map(G.minSize).sum
+            val hi = allSome(prod._1.map(G.maxSize)) map (_.sum)
+            hi match {
+              case None => s"hi-lo>=$lo"
+              case Some(hi) if lo==hi => s"hi-lo==$lo"
+              case Some(hi) => s"$lo<=hi-lo && hi-lo<=$hi"
+            }
+          }
           d match {
             case (Nil,Nil) => Nil
             case (t0,Nil) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
-              ifs(s"hi-lo==${t0.size}" :: checks(ti0),add(prod,gets(ti0)))
+              ifs(range :: checks(ti0),add(prod,gets(ti0)))
             case (t0,List((n1,t2))) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
               val ti2 = t2.zipWithIndex map {case (t,i) => (t,s"hi-${t2.size-i}")}
-              ifs(s"hi-lo>=${t0.size+G.minSize(n1)+t2.size}" :: checks(ti0) ::: checks(ti2), {
+              ifs(range :: checks(ti0) ::: checks(ti2), {
                 s"final long s1 = slices.get(${slice(n1,lo(t0.size),hi(t2.size))});" ::
                 block(s"if (s1 != 0)", cached(ti0++ti2,v02 => {
                   val (v0,v2) = v02.splitAt(t0.size)
@@ -267,19 +278,17 @@ object Parse {
             case (t0,List((n1,t2),(n3,t4))) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
               val ti4 = t4.zipWithIndex map {case (t,i) => (t,s"hi-${t4.size-i}")}
-              ifs(s"hi-lo>=${t0.size+G.minSize(n1)+t2.size+G.minSize(n3)+t4.size}" :: checks(ti0) ::: checks(ti4),
-                cached(ti0++ti4,v04 => {
-                  val (v0,v4) = v04.splitAt(t0.size)
-                  block(s"for (int j=${lo(t0.size+G.minSize(n1))};j<=${hi(t2.size+G.minSize(n3)+t4.size)};j++)", {
-                    val ti2 = t2.zipWithIndex map {case (t,i) => (t,j(i))}
-                    ifs(checks(ti2),{
-                      List(s"final long s1 = slices.get(${slice(n1,lo(t0.size),"j")}); if (s1 == 0) continue;",
-                           s"final long s3 = slices.get(${slice(n3,j(t2.size),hi(t4.size))}); if (s3 == 0) continue;") :::
-                      cached(ti2,v2 => loop(n1,"k1","s1",v1 => loop(n3,"k3","s3",v3 => add(prod,v0,v1,v2,v3,v4))))
-                    })
+              ifs(range :: checks(ti0) ::: checks(ti4), cached(ti0++ti4,v04 => {
+                val (v0,v4) = v04.splitAt(t0.size)
+                block(s"for (int j=${lo(t0.size+G.minSize(n1))};j<=${hi(t2.size+G.minSize(n3)+t4.size)};j++)", {
+                  val ti2 = t2.zipWithIndex map {case (t,i) => (t,j(i))}
+                  ifs(checks(ti2),{
+                    List(s"final long s1 = slices.get(${slice(n1,lo(t0.size),"j")}); if (s1 == 0) continue;",
+                         s"final long s3 = slices.get(${slice(n3,j(t2.size),hi(t4.size))}); if (s3 == 0) continue;") :::
+                    cached(ti2,v2 => loop(n1,"k1","s1",v1 => loop(n3,"k3","s3",v3 => add(prod,v0,v1,v2,v3,v4))))
                   })
                 })
-              )
+              }))
             case _ => impossible
           }
         }
