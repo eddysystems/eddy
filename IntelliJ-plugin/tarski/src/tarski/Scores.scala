@@ -1,7 +1,9 @@
 package tarski
 
 import scala.math._
-import ambiguity.JavaUtils.FlatMapState
+import ambiguity.JavaUtils.{FlatMapState,MultipleState,UniformState}
+
+import scala.reflect.ClassTag
 
 object Scores {
   /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability
@@ -233,77 +235,22 @@ object Scores {
   }
   def biased[A](p: Prob, s: => Scored[A]): LazyScored[A] = new LazyBiased(p,s)
 
-  def uniform[A](p: Prob, xs: List[A], error: => String): Scored[A] =
-    if (p == 0.0 || xs.isEmpty)
-      fail(error)
-    else {
-      def good(xs: List[A]): Scored[A] = xs match {
-        case Nil => Empty
-        case x::xs => Best(p,x,delay(p,good(xs)))
-      }
-      good(xs)
-    }
+  @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
+    new UniformState[A](p,xs).extract()
 
-  def uniformArray[A](p: Prob, xs: Array[A], error: => String): Scored[A] =
-    if (p == 0.0 || (xs eq null) || (xs.length == 0))
-      fail(error)
-    else {
-      def good(i: Int): Scored[A] =
-        if (i == xs.length) Empty
-        else Best(p,xs(i),delay(p,good(i+1)))
-      good(0)
-    }
+  @inline def uniform[A <: AnyRef](p: Prob, xs: Seq[A], error: => String)(implicit t: ClassTag[A]): Scored[A] =
+    new UniformState[A](p,xs.toArray).extract()
 
-  // Helpers for multiple and multipleGood
-  private def good[A](p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]]): Scored[A] = xs match {
-    case Nil => Best(p,x,delay(p,empty(low)))
-    case (y@Alt(q,_))::xs if p >= q => good(p,x,y::low,xs)
-    case Alt(q,y)::xs => good(q,y,Alt(p,x)::low,xs)
-  }
-  private def empty[A](xs: List[Alt[A]]): Scored[A] = xs match {
-    case Nil => Empty
-    case Alt(0,_)::xs => empty(xs)
-    case Alt(p,x)::xs => good(p,x,Nil,xs)
-  }
+  @inline def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] =
+    new MultipleState[A](xs,null).extract()
 
-  @inline def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] = {
-    def bad(xs: List[Alt[A]]): Scored[A] = xs match {
-      case Nil => new Bad(OneError(error))
-      case Alt(0,_)::xs => bad(xs)
-      case Alt(p,x)::xs => good(p,x,Nil,xs)
-    }
-    if (trackErrors) bad(xs)
-    else empty(xs)
-  }
   // Assume no error (use Empty instead of Bad)
-  def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
-    empty(xs)
+  @inline def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
+    new MultipleState[A](xs,null).extract()
 
-  @inline def multiples[A](first: List[Alt[A]], andthen: => List[Alt[A]], error: => String): Scored[A] = {
-    def good(p: Prob, x: A, low: List[Alt[A]], xs: List[Alt[A]], backup: List[Alt[A]]): Scored[A] = xs match {
-      case Nil => Best(p,x,delay(p,possiblyEmpty(low,backup)))
-      case (y@Alt(q,_))::xs if p >= q => good(p,x,y::low,xs,backup)
-      case Alt(q,y)::xs => good(q,y,Alt(p,x)::low,xs,backup)
-    }
-    def possiblyEmpty(xs: List[Alt[A]], backup: => List[Alt[A]]): Scored[A] = xs match {
-      case Nil => backup match { // if xs is empty, switch to backup
-        case Nil => Empty
-        case xs => possiblyEmpty(xs, Nil)
-      }
-      case Alt(0,_)::xs => possiblyEmpty(xs,backup)
-      case Alt(p,x)::xs => good(p,x,Nil,xs,backup)
-    }
-    def possiblyBad(xs: List[Alt[A]], backup: => List[Alt[A]]): Scored[A] = xs match {
-      case Nil => backup match { // if xs is empty, switch to backup
-        case Nil => new Bad(OneError(error))
-        case xs => possiblyBad(xs, Nil)
-      }
-      case Alt(0,_)::xs => possiblyBad(xs,backup)
-      case Alt(p,x)::xs => good(p,x,Nil,xs,backup)
-    }
-    if (trackErrors) possiblyBad(first,andthen)
-    else possiblyEmpty(first,andthen)
-  }
+  // Requires: prob first >= prob andThen
+  @inline def multiples[A](first: List[Alt[A]], andthen: () => List[Alt[A]], error: => String): Scored[A] =
+    new MultipleState[A](first,andthen).extract()
 
   // Structured errors
   sealed abstract class Error {

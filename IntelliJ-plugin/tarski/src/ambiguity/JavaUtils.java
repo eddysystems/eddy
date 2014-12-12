@@ -4,7 +4,9 @@ import gnu.trove.TObjectIntHashMap;
 import org.apache.commons.lang.StringUtils;
 import tarski.Items.*;
 import tarski.Scores.*;
+import scala.Function0;
 import scala.Function1;
+import scala.collection.immutable.List;
 import java.util.*;
 import static java.lang.Math.max;
 
@@ -83,14 +85,14 @@ public class JavaUtils {
           if (s == ObjectItem$.MODULE$)
             continue;
           count.put(s,count.get(s)+1);
-          scala.collection.immutable.List<RefTypeItem> ss = s.superItems();
+          List<RefTypeItem> ss = s.superItems();
           while (!ss.isEmpty()) {
             final RefTypeItem h = ss.head();
             if (!seen.contains(h)) {
               seen.add(h);
               work.push(h);
             }
-            ss = (scala.collection.immutable.List<RefTypeItem>)ss.tail();
+            ss = (List<RefTypeItem>)ss.tail();
           }
         }
       }
@@ -128,14 +130,14 @@ public class JavaUtils {
           }
           va[n-1] = v;
           count.put(s,n-1);
-          scala.collection.immutable.List<RefTypeItem> ss = s.superItems();
+          List<RefTypeItem> ss = s.superItems();
           while (!ss.isEmpty()) {
             final RefTypeItem h = ss.head();
             if (!seen.contains(h)) {
               seen.add(h);
               work.push(h);
             }
-            ss = (scala.collection.immutable.List<RefTypeItem>)ss.tail();
+            ss = (List<RefTypeItem>)ss.tail();
           }
         }
       }
@@ -174,7 +176,36 @@ public class JavaUtils {
     }
   }
 
-  static public final class FlatMapState<A,B> {
+  static abstract public class State<A> {
+    // Current probability bound
+    abstract public double p();
+
+    // After extract, the state should be discarded
+    abstract public Scored<A> extract();
+  }
+
+  static final class Extractor<A> extends LazyScored<A> {
+    private State<A> state;
+    private Scored<A> _s;
+
+    Extractor(State<A> state) {
+      this.state = state;
+    }
+
+    public double p() {
+      return _s != null ? _s.p() : state.p();
+    }
+
+    public Scored<A> s() {
+      if (_s == null) {
+        _s = state.extract();
+        state = null;
+      }
+      return _s;
+    }
+  }
+
+  static public final class FlatMapState<A,B> extends State<B> {
     public FlatMapState(Scored<A> input, Function1<A,Scored<B>> f) {
       this.as = input;
       this.f = f;
@@ -205,7 +236,7 @@ public class JavaUtils {
     }
 
     // Our current probability bound
-    private double p() {
+    public double p() {
       double p = as != null ? as.p() : asLazy.p();
       if (bs != null && !bs.isEmpty())
         p = max(p,bs.peek().p());
@@ -244,7 +275,7 @@ public class JavaUtils {
               if (done) {
                 bs.poll();
                 bs.add(new Alt<LazyScored<B>>(b._q,b.r));
-                return new Best<B>(bp,b.x,new DelayExtract<A,B>(this));
+                return new Best<B>(bp,b.x,new Extractor<B>(this));
               }
               break;
             }
@@ -268,24 +299,68 @@ public class JavaUtils {
     }
   }
 
-  static final class DelayExtract<A,B> extends LazyScored<B> {
-    private FlatMapState<A,B> state;
-    private Scored<B> _s;
+  // Requires: prob first >= prob andThen
+  static public final class MultipleState<A> extends State<A> {
+    private PriorityQueue<Alt<A>> heap;
+    private Function0<List<Alt<A>>> more;
 
-    DelayExtract(FlatMapState<A,B> state) {
-      this.state = state;
+    public MultipleState(List<Alt<A>> list, Function0<List<Alt<A>>> more) {
+      heap = new PriorityQueue<Alt<A>>();
+      absorb(list);
+      if (heap.isEmpty())
+        absorb(more.apply());
+      else
+        this.more = more;
+    }
+
+    private void absorb(List<Alt<A>> list) {
+      while (!list.isEmpty()) {
+        heap.add(list.head());
+        list = (List<Alt<A>>)list.tail();
+      }
+    }
+
+    // Current probability bound
+    public double p() {
+      Alt<A> a = heap.peek();
+      return a == null ? 0 : a.p();
+    }
+
+    public Scored<A> extract() {
+      if (heap.isEmpty()) {
+        if (more != null) {
+          absorb(more.apply());
+          more = null;
+        }
+        if (heap.isEmpty())
+          return (Scored<A>)Empty$.MODULE$;
+      }
+      Alt<A> a = heap.poll();
+      return new Best<A>(a.p(),a.x(),new Extractor<A>(this));
+    }
+  }
+
+  static public final class UniformState<A> extends State<A> {
+    private final double _p;
+    private A[] xs;
+    private int i;
+
+    public UniformState(double p, A[] xs) {
+      this._p = p;
+      this.xs = xs == null || xs.length == 0 ? null : xs;
     }
 
     public double p() {
-      return _s != null ? _s.p() : state.p();
+      return xs == null ? 0 : _p;
     }
 
-    public Scored<B> s() {
-      if (_s == null) {
-        _s = state.extract();
-        state = null;
-      }
-      return _s;
+    public Scored<A> extract() {
+      if (xs == null)
+        return (Scored<A>)Empty$.MODULE$;
+      final A x = xs[i++];
+      if (i == xs.length)
+        xs = null;
+      return new Best<A>(_p,x,new Extractor<A>(this));
     }
   }
 }

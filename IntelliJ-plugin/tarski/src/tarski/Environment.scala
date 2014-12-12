@@ -161,7 +161,7 @@ object Environment {
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
       val _f = Function.unlift( (x:Alt[Item]) => { if (filter.isDefinedAt(x.x)) Some(Alt(x.p, filter.apply(x.x))) else None } )
       multiples(exactQuery(typed) collect _f map { case Alt(p,t) => Alt(exactProb,t) },
-                query(typed) collect _f map { case Alt(p,t) => Alt((1-exactProb)*p,t) },
+                () => query(typed) collect _f map { case Alt(p,t) => Alt((1-exactProb)*p,t) },
                 error)
     }
 
@@ -172,7 +172,7 @@ object Environment {
       val v = if      ((v0 eq null) || v0.isEmpty) v1
               else if ((v1 eq null) || v1.isEmpty) v0
               else v1++v0
-      uniformArray(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
+      uniform(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
     }
   }
 
