@@ -257,7 +257,7 @@ object Parse {
             case (t0,List((n1,t2))) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
               val ti2 = t2.zipWithIndex map {case (t,i) => (t,s"hi-${t2.size-i}")}
-              ifs(s"hi-lo>=${t0.size+t2.size}" :: checks(ti0) ::: checks(ti2), {
+              ifs(s"hi-lo>=${t0.size+G.minSize(n1)+t2.size}" :: checks(ti0) ::: checks(ti2), {
                 s"final long s1 = slices.get(${slice(n1,lo(t0.size),hi(t2.size))});" ::
                 block(s"if (s1 != 0)", cached(ti0++ti2,v02 => {
                   val (v0,v2) = v02.splitAt(t0.size)
@@ -267,17 +267,19 @@ object Parse {
             case (t0,List((n1,t2),(n3,t4))) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
               val ti4 = t4.zipWithIndex map {case (t,i) => (t,s"hi-${t4.size-i}")}
-              ifs(s"hi-lo>=${t0.size+t2.size+t4.size}" :: checks(ti0) ::: checks(ti4), cached(ti0++ti4,v04 => {
-                val (v0,v4) = v04.splitAt(t0.size)
-                block(s"for (int j=${lo(t0.size)};j<=${hi(t2.size+t4.size)};j++)", {
-                  val ti2 = t2.zipWithIndex map {case (t,i) => (t,j(i))}
-                  ifs(checks(ti2),{
-                    List(s"final long s1 = slices.get(${slice(n1,lo(t0.size),"j")}); if (s1 == 0) continue;",
-                         s"final long s3 = slices.get(${slice(n3,j(t2.size),hi(t4.size))}); if (s3 == 0) continue;") :::
-                    cached(ti2,v2 => loop(n1,"k1","s1",v1 => loop(n3,"k3","s3",v3 => add(prod,v0,v1,v2,v3,v4))))
+              ifs(s"hi-lo>=${t0.size+G.minSize(n1)+t2.size+G.minSize(n3)+t4.size}" :: checks(ti0) ::: checks(ti4),
+                cached(ti0++ti4,v04 => {
+                  val (v0,v4) = v04.splitAt(t0.size)
+                  block(s"for (int j=${lo(t0.size+G.minSize(n1))};j<=${hi(t2.size+G.minSize(n3)+t4.size)};j++)", {
+                    val ti2 = t2.zipWithIndex map {case (t,i) => (t,j(i))}
+                    ifs(checks(ti2),{
+                      List(s"final long s1 = slices.get(${slice(n1,lo(t0.size),"j")}); if (s1 == 0) continue;",
+                           s"final long s3 = slices.get(${slice(n3,j(t2.size),hi(t4.size))}); if (s3 == 0) continue;") :::
+                      cached(ti2,v2 => loop(n1,"k1","s1",v1 => loop(n3,"k3","s3",v3 => add(prod,v0,v1,v2,v3,v4))))
+                    })
                   })
                 })
-              }))
+              )
             case _ => impossible
           }
         }

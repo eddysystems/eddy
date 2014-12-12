@@ -17,14 +17,19 @@ object Grammar {
                      simple: Regex, // Is a token simple?
                      types: Map[Symbol,Type],
                      prods: Map[Symbol,Set[Prod]]) {
+
+    def isToken(s: Symbol) = !types.contains(s)
+    def isSimple(t: Symbol) = if (isToken(t)) simple.findFirstIn(t).isDefined else types(t) == "Unit"
+
     val nullable: Set[Symbol] = {
       lazy val f: Symbol => Boolean = fixpoint(false, s =>
         prods.contains(s) && prods(s).exists(_._1.forall(f)))
       prods.keySet.filter(f)
     }
 
-    def isToken(s: Symbol) = !types.contains(s)
-    def isSimple(t: Symbol) = if (isToken(t)) simple.findFirstIn(t).isDefined else types(t) == "Unit"
+    lazy val minSize: Symbol => Int = fixpoint(0, s =>
+      if (isToken(s)) 1 else prods(s).map({case (ss,_) => (ss map minSize).sum}).min
+    )
 
     def ty(s: Symbol): Type =
       if (isSimple(s)) throw new RuntimeException(s"Simple token $s has no useful type")
