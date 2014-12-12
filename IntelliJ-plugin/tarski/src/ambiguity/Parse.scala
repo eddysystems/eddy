@@ -99,18 +99,6 @@ object Parse {
   // Convert a preamble line to Java
   def javaPreamble(p: String): String = p.replaceAllLiterally("_","*")+";"
 
-  // Split a list of symbols by terminals (t) and nonterminals (n)
-  private sealed abstract class Div
-  private case class NilDiv(t: List[Symbol]) extends Div
-  private case class ConsDiv(t: List[Symbol], n: Symbol, d: Div) extends Div
-  private def div(G: Grammar, ss: List[Symbol]): Div = {
-    val (t,r) = ss span G.isToken
-    r match {
-      case Nil => NilDiv(t)
-      case n::ss => ConsDiv(t,n,div(G,ss))
-    }
-  }
-
   def parseGen(G: Grammar, nop: Boolean = false): Code = {
     implicit val _G = G
     val toks = (for ((n,ps) <- G.prods; (p,a) <- ps; t <- p if G.isToken(t)) yield t).toSet
@@ -260,13 +248,13 @@ object Parse {
         def add(prod: Prod, vs: List[String]*): Code = List(
           if (G.isSimple(n)) "found = true;"
           else s"values.add(${act(n,prod,vs.toList.flatten)});")
-        def parse(prod: Prod, d: Div): Code = {
+        def parse(prod: Prod, d: Divide): Code = {
           d match {
-            case NilDiv(Nil) => Nil
-            case NilDiv(t0) =>
+            case (Nil,Nil) => Nil
+            case (t0,Nil) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
               ifs(s"hi-lo==${t0.size}" :: checks(ti0),add(prod,gets(ti0)))
-            case ConsDiv(t0,n1,NilDiv(t2)) =>
+            case (t0,List((n1,t2))) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
               val ti2 = t2.zipWithIndex map {case (t,i) => (t,s"hi-${t2.size-i}")}
               ifs(s"hi-lo>=${t0.size+t2.size}" :: checks(ti0) ::: checks(ti2), {
@@ -276,7 +264,7 @@ object Parse {
                   loop(n1,"k","s1",v1 => add(prod,v0,v1,v2))
                 }))
               })
-            case ConsDiv(t0,n1,ConsDiv(t2,n3,NilDiv(t4))) =>
+            case (t0,List((n1,t2),(n3,t4))) =>
               val ti0 = t0.zipWithIndex map {case (t,i) => (t,lo(i))}
               val ti4 = t4.zipWithIndex map {case (t,i) => (t,s"hi-${t4.size-i}")}
               ifs(s"hi-lo>=${t0.size+t2.size+t4.size}" :: checks(ti0) ::: checks(ti4), cached(ti0++ti4,v04 => {
@@ -293,7 +281,7 @@ object Parse {
             case _ => impossible
           }
         }
-        val ps = G.prods(n).toList flatMap {case prod@(ss,_) => parse(prod,div(G,ss))}
+        val ps = G.prods(n).toList flatMap {case prod@(ss,_) => parse(prod,divide(G,ss))}
         val (start,finish) = {
           val s = slice(n,"lo","hi")
           val dump = if (debug) "System.out.println(lo+\":\"+hi+\" "+n+"\"); " else ""

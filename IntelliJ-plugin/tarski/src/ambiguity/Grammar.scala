@@ -36,6 +36,16 @@ object Grammar {
       Grammar(name,preamble,start,token,simple,types,prods)
   }
 
+  // Split a list of symbols by terminals (t) and nonterminals (n)
+  type Divide = (List[Symbol],List[(Symbol,List[Symbol])])
+  def divide(G: Grammar, ss: List[Symbol]): Divide = {
+    val (t,r) = ss span G.isToken
+    (t,r match {
+      case Nil => Nil
+      case n::ss => { val (a,b) = divide(G,ss); (n,a)::b }
+    })
+  }
+
   def check(G: Grammar, generic: Boolean = false) = {
     // Nonterminal lists must match
     val typeOnly = G.types.keySet -- G.prods.keySet
@@ -126,11 +136,24 @@ object Grammar {
   def binarize(G: Grammar): Grammar = {
     def sym(ss: List[Symbol]) = ss mkString "__"
     def split(n: Symbol, t: Type, p: List[Symbol], a: Action): (List[(Symbol,Type)],List[(Symbol,Prod)]) = {
-      val k = p.length
-      if (k <= 2)
+      val d = divide(G,p)
+      if (d._2.size <= 2)
         (List((n,t)),List((n,(p,a))))
       else {
-        val (p0, p1) = p splitAt k/2
+        // Chop p in half as equitably as possible
+        val (p0,p1): (List[Symbol],List[Symbol]) = {
+          val (t0,s) = d
+          val (s1,s2) = s splitAt (s.size/2)
+          val s10 = s1.init
+          val (n11,t12) = s1.last
+          val (t120,t121) = t12 splitAt (t12.size/2)
+          def f(ss: List[(Symbol,List[Symbol])]) = ss flatMap (s => s._1 :: s._2)
+          val p0 = t0:::f(s10):::n11::t120
+          val p1 = t121:::f(s2)
+          assert(p0++p1==p)
+          (p0,p1)
+        }
+        val k = p0.size
         def sub(p: List[Symbol]): (Symbol,Int=>String,(List[(Symbol,Type)],List[(Symbol,Prod)])) = p match {
           case List(x) => (x,i=>"",(Nil,Nil))
           case _ =>
@@ -151,7 +174,7 @@ object Grammar {
         val (n1,f1,(t1,r1)) = sub(p1)
         def convert(m: scala.util.matching.Regex.Match): String = {
           val i = m.group(1).toInt
-          if (i-1 < k/2) "\\$1"+f0(i) else "\\$2"+f1(i-k/2)
+          if (i-1 < k) "\\$1"+f0(i) else "\\$2"+f1(i-k)
         }
         val r = (n,(List(n0,n1),"""\$(\d+)""".r.replaceAllIn(a,convert(_))))
         ((n,t)::t0:::t1,r::r0:::r1)
