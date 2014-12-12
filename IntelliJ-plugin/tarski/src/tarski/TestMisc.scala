@@ -24,7 +24,7 @@ class TestMisc {
 
     // Make some alternatives
     case class D(s: Int, f: Int)
-    var scores = scoped("start",multiple((0 until n map (i => Alt(p(i,0),D(i,0)))).toList, "unlikely"))
+    var scores = scoped("start",listScored((0 until n map (i => Alt(p(i,0),D(i,0)))).toList, "unlikely"))
 
     // Repeatedly flatMap
     def f(d: D) = d match { case D(i,j) => single(D(i,j+1),p(i,j+1)) }

@@ -160,7 +160,7 @@ object Environment {
 
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
       val _f = Function.unlift( (x:Alt[Item]) => { if (filter.isDefinedAt(x.x)) Some(Alt(x.p, filter.apply(x.x))) else None } )
-      multiples(exactQuery(typed) collect _f map { case Alt(p,t) => Alt(exactProb,t) },
+      orderedAlternative(exactQuery(typed) collect _f map { case Alt(p,t) => Alt(exactProb,t) },
                 () => query(typed) collect _f map { case Alt(p,t) => Alt((1-exactProb)*p,t) },
                 error)
     }

@@ -2,12 +2,15 @@ package ambiguity;
 
 import gnu.trove.TObjectIntHashMap;
 import org.apache.commons.lang.StringUtils;
-import tarski.Items.*;
-import tarski.Scores.*;
 import scala.Function0;
 import scala.Function1;
 import scala.collection.immutable.List;
+import scala.runtime.AbstractFunction0;
+import tarski.Items.*;
+import tarski.Scores.*;
+
 import java.util.*;
+
 import static java.lang.Math.max;
 
 public class JavaUtils {
@@ -299,15 +302,15 @@ public class JavaUtils {
     }
   }
 
-  // Requires: prob first >= prob andThen
-  static public final class MultipleState<A> extends State<A> {
+  static public final class OrderedAlternativeState<A> extends State<A> {
     private PriorityQueue<Alt<A>> heap;
     private Function0<List<Alt<A>>> more;
 
-    public MultipleState(List<Alt<A>> list, Function0<List<Alt<A>>> more) {
+    // Requires: prob first >= prob andThen
+    public OrderedAlternativeState(List<Alt<A>> list, Function0<List<Alt<A>>> more) {
       heap = new PriorityQueue<Alt<A>>();
       absorb(list);
-      if (heap.isEmpty())
+      if (more != null && heap.isEmpty())
         absorb(more.apply());
       else
         this.more = more;
@@ -363,4 +366,73 @@ public class JavaUtils {
       return new Best<A>(_p,x,new Extractor<A>(this));
     }
   }
+
+  static public final class MultipleState<A> extends State<A> {
+    private PriorityQueue<Alt<AbstractFunction0<Scored<A>>>> heap;
+
+    class LazyScoredFunction<A> extends AbstractFunction0<Scored<A>> {
+      LazyScored<A> ls;
+      LazyScoredFunction(LazyScored<A> ls) { this.ls = ls; }
+      @Override public Scored<A> apply() { return ls.s(); }
+    }
+
+    class Constant<T> extends AbstractFunction0<T> {
+      T a;
+      Constant(T a) { this.a = a; }
+      @Override public T apply() { return a; }
+    }
+
+    class FunctionWrapper<T> extends AbstractFunction0<T> {
+      Function0<T> a;
+      FunctionWrapper(Function0<T> a) { this.a = a; }
+      @Override public T apply() { return a.apply(); }
+    }
+
+    // the results of the functions are biased with the probability in the top-level alt list
+    public MultipleState(List<Alt<Function0<Scored<A>>>> options) {
+      java.util.List<Alt<AbstractFunction0<Scored<A>>>> ls = new ArrayList<Alt<AbstractFunction0<Scored<A>>>>(options.size());
+      while (options.nonEmpty()) {
+        Alt<Function0<Scored<A>>> a = options.head();
+        ls.add(new Alt<AbstractFunction0<Scored<A>>>(a.p(), new FunctionWrapper<Scored<A>>(a.x())));
+        options = (List<Alt<Function0<Scored<A>>>>)options.tail();
+      }
+      heap = new PriorityQueue<Alt<AbstractFunction0<Scored<A>>>>(ls);
+    }
+
+    // Current probability bound
+    public double p() {
+      Alt<AbstractFunction0<Scored<A>>> a = heap.peek();
+      return a == null ? 0 : a.p();
+    }
+
+    public Scored<A> extract() {
+      while (true) {
+        if (heap.isEmpty()) {
+          return (Scored<A>)Empty$.MODULE$;
+        }
+
+        // get the top of the heap, evaluate it, and check if we need to check the next best one
+        Alt<AbstractFunction0<Scored<A>>> a = heap.poll();
+        Scored<A> s = a.x().apply();
+
+        if (s instanceof EmptyOrBad) {
+          // TODO: this will turn errors into empties.
+          continue;
+        }
+
+        Best<A> best = (Best<A>)s.bias(a.p());
+
+        if (p() < best.p()) {
+          // put the rest of best back on the heap
+          LazyScored<A> ls = best.r();
+          heap.add(new Alt<AbstractFunction0<Scored<A>>>(ls.p(), new LazyScoredFunction<A>(ls)));
+          return new Best<A>(best.p(), best.x(), new Extractor<A>(this));
+        } else {
+          // adjust the bound on best and put it back on the heap (next iteration will pick a different part of the heap)
+          heap.add(new Alt<AbstractFunction0<Scored<A>>>(best.p(), new Constant<Scored<A>>(best)));
+        }
+      }
+    }
+  }
+
 }

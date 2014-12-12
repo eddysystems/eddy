@@ -69,6 +69,9 @@ class TestParse {
   }
 
   @Test
+  def hole() = testAST("", List())
+
+  @Test
   def nestApply() =
     testAST("x = A(Object())",
       AssignAExp(None,"x",ApplyAExp("A",SingleList(ApplyAExp("Object",EmptyList)))),

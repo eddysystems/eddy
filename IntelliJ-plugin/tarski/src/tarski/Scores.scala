@@ -1,7 +1,7 @@
 package tarski
 
 import scala.math._
-import ambiguity.JavaUtils.{FlatMapState,MultipleState,UniformState}
+import ambiguity.JavaUtils._
 
 import scala.reflect.ClassTag
 
@@ -36,6 +36,7 @@ object Scores {
 
     // Either this or s
     def ++[B >: A](s: LazyScored[B]): Scored[B]
+    def ++[B >: A](s: Scored[B]): Scored[B]
 
     // f is assumed to generate conditional probabilities
     def flatMap[B](f: A => Scored[B]): Scored[B]
@@ -154,6 +155,11 @@ object Scores {
       case Empty => this
       case s:Best[_] => s
     }
+    def ++[B](s: Scored[B]) = s match {
+      case s:Bad => new Bad(NestError("++ failed",List(e,s.e)))
+      case Empty => this
+      case s:Best[_] => s
+    }
     def map[B](f: Nothing => B) = this
     def flatMap[B](f: Nothing => Scored[B]) = this
     def bias(p: Prob) = this
@@ -173,6 +179,7 @@ object Scores {
     def map[B](f: Nothing => B) = this
     def flatMap[B](f: Nothing => Scored[B]) = this
     def ++[B](s: LazyScored[B]) = s.s
+    def ++[B](s: Scored[B]) = s
     def bias(p: Prob) = this
     def productWith[B,C](s: => Scored[B])(f: (Nothing,B) => C) = this
     def filter(f: Nothing => Boolean, error: => String) =
@@ -196,6 +203,15 @@ object Scores {
     def ++[B >: A](s: LazyScored[B]): Scored[B] =
       if (p >= s.p) Best(p,x,r ++ s)
       else s.s match {
+        case s@Best(q,y,t) =>
+          if (p >= q) Best(p,x,delay(max(q,r.p),s ++ r))
+          else        Best(q,y,delay(max(p,t.p),this ++ t))
+        case _:EmptyOrBad => this
+      }
+
+    def ++[B >: A](s: Scored[B]): Scored[B] =
+      if (p >= s.p) Best(p,x,r ++ delay(s.p,s))
+      else s match {
         case s@Best(q,y,t) =>
           if (p >= q) Best(p,x,delay(max(q,r.p),s ++ r))
           else        Best(q,y,delay(max(p,t.p),this ++ t))
@@ -241,16 +257,20 @@ object Scores {
   @inline def uniform[A <: AnyRef](p: Prob, xs: Seq[A], error: => String)(implicit t: ClassTag[A]): Scored[A] =
     new UniformState[A](p,xs.toArray).extract()
 
-  @inline def multiple[A](xs: List[Alt[A]], error: => String): Scored[A] =
-    new MultipleState[A](xs,null).extract()
+  @inline def listScored[A](xs: List[Alt[A]], error: => String): Scored[A] =
+    new OrderedAlternativeState[A](xs,null).extract()
 
   // Assume no error (use Empty instead of Bad)
   @inline def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
-    new MultipleState[A](xs,null).extract()
+    new OrderedAlternativeState[A](xs,null).extract()
 
   // Requires: prob first >= prob andThen
-  @inline def multiples[A](first: List[Alt[A]], andthen: () => List[Alt[A]], error: => String): Scored[A] =
-    new MultipleState[A](first,andthen).extract()
+  @inline def orderedAlternative[A](first: List[Alt[A]], andthen: () => List[Alt[A]], error: => String): Scored[A] =
+    new OrderedAlternativeState[A](first,andthen).extract()
+
+  // several options, each with a maximum probability
+  @inline def multiple[A](ls: List[Alt[ () => Scored[A] ]]): Scored[A] =
+    new MultipleState[A](ls).extract()
 
   // Structured errors
   sealed abstract class Error {

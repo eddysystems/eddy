@@ -6,9 +6,6 @@ import tarski.Items.{ClassMember, FieldItem, MethodItem, TypeItem}
 import tarski.Scores._
 import tarski.Types.Type
 
-/**
- * Created by martin on 11.12.14.
- */
 object Pr {
 
   val typingErrorRate = .15
@@ -49,14 +46,15 @@ object Pr {
   }
 
   def typoProbability(meant: String, typed: String): Prob = {
-    val d = StringMatching.levenshteinDistance(meant, typed)
+    val d = JavaTrie.levenshteinDistance(meant.toCharArray, meant.length, typed.toCharArray, typed.length)
     typoProbability(d, typed.length) // could be meant.length, but that's inconsistent with when we don't have meant available
   }
 
   // generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
   // for the qualifying objects, and the object chosen as qualifier
   def omitQualifier[A <: ClassMember](probs: Scored[Exp], choice: Exp, item: A): Prob = {
-    if (probs.isSingle) Prob(.8) // One choice
+    if (probs.isSingle) Prob(.8) // Only choice
+    else if (choice.item.qualifiedName.nonEmpty && choice.item.qualifiedName.get.startsWith("java.lang.")) Prob(.8) // stuff in java.lang (like System.*)
     else Prob(.3) // TODO: make this probability higher if there's only one option in values with high likelihood?
   }
 
@@ -142,10 +140,10 @@ object Pr {
   val staticFieldCallableWithObject = Prob(.9)
   // Exp.method
   val methodFieldCallable = base
-  // Type.constructor
-  val constructorFieldCallable = Prob(.8)
-  // Exp.constructor
-  val constructorFieldCallableWithObject = Prob(.6)
+  // Type.constructor (not legal in Java. Also makes no sense)
+  val constructorFieldCallable = Prob(.5)
+  // Exp.constructor (not legal, and makes even less sense)
+  val constructorFieldCallableWithObject = Prob(.4)
 
   // denoteExp(AExp)
   val parenExp = base
@@ -155,8 +153,8 @@ object Pr {
   val enumFieldExpWithObject = Prob(.6) // enum {BLAH} x; x.BLAH ... really?
   val fieldExp = base
   def permuteArgs(f: Callable, typedargs: List[Exp], permutedargs: List[Exp]) = swapArgs(permutedargs, typedargs)
-  def callExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.ParenAround && (list.list.size < 2 || list.isInstanceOf[CommaList[AST.AExp]])) base else Prob(.8)
-  def indexCallExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.BrackAround && list.list.size == 1) base else Prob(.8)
+  def callExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.ParenAround && (list.list.size < 2 || list.isInstanceOf[CommaList[AST.AExp]])) base else Prob(.6)
+  def indexCallExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.BrackAround && list.list.size == 1) base else if (around == AST.BrackAround) Prob(.6) else Prob(.5)
   val unaryExp = base // should be a function of operator and types
   val binaryExp = base // should be a function of operator and types
   val castExp = base // should be a function of from/to types
@@ -173,6 +171,9 @@ object Pr {
 
   // denoteArray(AExp)
   val arrayTypeExp = passThrough
+
+  // denoteIndex
+  val indexExp = passThrough
 
   // denoteRef
   val refExp = passThrough

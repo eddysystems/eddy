@@ -168,6 +168,7 @@ public class JavaTrie {
     }
   }
 
+  // TODO: this is not thread-safe, these functions should be a part of the Trie class, and d should be a field.
   private static float[][] d = new float[10][10];
   public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
     // make sure we have enough space

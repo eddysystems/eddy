@@ -169,7 +169,8 @@ object Semantics {
         case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
         case f:ConstructorItem => discard[Callable,Callable](x,single(NewDen(f),Pr.constructorFieldCallableWithObject))
       })
-      tdens ++ delay(1,edens) // TODO: Make more lazy
+
+      tdens ++ edens
     }
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
@@ -209,7 +210,7 @@ object Semantics {
         case f: StaticFieldItem => single(StaticFieldExp(Some(x),f), Pr.staticFieldExpWithObject)
         case f: FieldItem => single(FieldExp(x,f), Pr.fieldExp)
       })
-      tdens++delay(1,edens) // TODO: be lazier
+      tdens++edens
     }
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
@@ -219,10 +220,7 @@ object Semantics {
     case WildAExp(b) => throw new NotImplementedError("wildcard expressions not implemented: " + e)
 
     case ApplyAExp(f,xsn,around) => {
-      val xsl = xsn.list map denoteExp
-      val n = xsl.size
-      def call(f: Callable): Scored[Exp] =
-        product(xsl) flatMap { xl => ArgMatching.fiddleArgs(f,xl) } bias Pr.callExp(xsn,around)
+      val n = xsn.list.size
       def index(f: Exp, ft: Type): Scored[Exp] = {
         @tailrec
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
@@ -230,17 +228,13 @@ object Semantics {
           case _ => false
         })
         if (!hasDims(ft,n)) fail(show(e)+s": expected >= $n dimensions, got ${dimensions(ft)}")
-        else {
-          val filtered = xsl map (_ flatMap {x => x.ty.unboxIntegral match {
-            case Some(p) if promote(p) == IntType => single(x, Pr.indexCallExp(xsn, around))
-            case _ => fail(s"Index ${show(x)} doesn't convert to int")
-          }})
-          product(filtered) map (_.foldLeft(f)(IndexExp))
-        }
+        else product(xsn.list map denoteIndex) map (_.foldLeft(f)(IndexExp))
       }
-      val adens = denoteArray(f) flatMap (a => index(a,a.ty))
-      val cdens = denoteCallable(f) flatMap call
-      adens ++ delay(1,cdens) // TODO: be lazier
+
+      multiple(List(
+        Alt(Pr.indexCallExp(xsn, around), () => denoteArray(f) flatMap { a => index(a,a.ty) } ),
+        Alt(Pr.callExp(xsn, around), () => denoteCallable(f) bias Pr.callExp(xsn,around) flatMap { ArgMatching.fiddleCall(_, xsn.list) } )
+      ))
     }
 
     case UnaryAExp(op,x) => denoteExp(x) flatMap {
@@ -294,24 +288,29 @@ object Semantics {
     else if (t.isInstanceOf[RefType]) single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
     else fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
   }
+  def denoteIndex(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {x =>
+    x.ty.unboxIntegral match {
+      case Some(p) if promote(p) == IntType => single(x, Pr.indexExp)
+      case _ => fail(s"Index ${show(x)} doesn't convert to int")
+    }
+  }
   def denoteNonVoid(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     if (e.item != VoidItem) single(e, Pr.nonVoidExp)
     else fail(s"${show(n)}: expected non-void expression")
   }
-  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e => {
+  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e =>
     if (e.item == ArrayItem) single(e, Pr.arrayTypeExp)
     else fail(s"${show(e)} has non-array type ${show(e.ty)}")
-  }}
-  def denoteRef(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e => {
+  }
+  def denoteRef(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e =>
     if (e.item.isInstanceOf[RefTypeItem]) single(e, Pr.refExp)
     else fail(s"${show(e)} has non-reference type ${show(e.ty)}")
-  }}
-  def denoteVariable(e: AExp)(implicit env: Env): Scored[Exp] = {
-    denoteExp(e) flatMap { x =>
-      if (isVariable(x)) single(x, Pr.variableExp)
-      else fail(s"${show(e)}: ${show(x)} cannot be assigned to")
-    }
   }
+  def denoteVariable(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap { x =>
+    if (isVariable(x)) single(x, Pr.variableExp)
+    else fail(s"${show(e)}: ${show(x)} cannot be assigned to")
+  }
+
 
   @tailrec
   def isVariable(e: Exp): Boolean = e match {
