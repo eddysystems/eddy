@@ -25,7 +25,7 @@ object Base {
   private def comparable(t: RefType): ClassType = GenericType(ComparableItem,List(t),JavaLangPkg)
 
   // Class Enum
-  case object EnumBaseItem extends ClassItem {
+  case object EnumBaseItem extends BaseItem {
     def name = "Enum"
     def isClass = true
     def isEnum = true
@@ -39,7 +39,7 @@ object Base {
   }
 
   // Simple classes
-  sealed abstract class SimpleClassItem extends ClassItem {
+  sealed abstract class SimpleClassItem extends BaseItem {
     override def simple: SimpleType = SimpleType(this, parent.simple)
     override def parent = JavaLangPkg
     override def tparams = Nil
@@ -48,7 +48,7 @@ object Base {
     val interfaces: List[ClassType]
     val base: ClassType
     val supers: List[ClassType]
-    val superItems: List[RefTypeItem]
+    val superItems: List[ClassItem]
   }
 
   // Throwable
@@ -62,7 +62,7 @@ object Base {
   }
 
   // Iterable
-  case object IterableItem extends ClassItem {
+  case object IterableItem extends BaseItem {
     def name = "Iterable"
     def isClass = false
     def isEnum = false

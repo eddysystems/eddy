@@ -239,9 +239,9 @@ class TestDen {
     val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, Set("f"))
     val Xf = NormalFieldItem("f",Q.simple,X,true)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil)
+    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, Set("f"))
     val Yf = NormalFieldItem("f",R.simple,Y,true)
 
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
@@ -273,9 +273,9 @@ class TestDen {
     val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, Set("f"))
     val Xf = NormalFieldItem("f",Q.simple,X,true)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil)
+    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, Set("f"))
     val Yf = NormalFieldItem("f",R.simple,Y,true)
 
     val m = NormalMethodItem("m", Y, Nil, VoidType, List(Q.simple), false)

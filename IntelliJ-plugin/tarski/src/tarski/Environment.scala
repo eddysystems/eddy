@@ -220,26 +220,15 @@ object Environment {
     case _ => throw new RuntimeException("typeIn didn't find parent")
   }
 
-  // Does an item declare a member of the given name
-  def declaresName(i: Item, name: Name)(implicit env: Env): Boolean = {
-    env.exactQuery(name) exists { case Alt(_,f: Member) if f.parent == i => true; case _ => false }
-  }
-
-  def shadowedInSubType(i: Member, t: RefTypeItem)(implicit env: Env): Boolean = {
-    i.parent match {
-      case c: RefTypeItem => {
-        assert(isSubitem(t,c))
-        def loop(t: RefTypeItem): Boolean = t match {
-          case _ if c == t => false
-          case t:ClassItem => declaresName(t,i.name) || t.superItems.exists(s => isSubitem(s,c) && loop(s))
-          case _ => false
-        }
-        loop(t)
-      }
-      case _:PackageItem => false // member of package, no subtypes of packages, we're safe
-      case v: Value => throw new RuntimeException(s"container of $i cannot be a value: $v")
-      case _ => notImplemented // TODO: there can be local classes in methods
+  def shadowedInSubType(i: FieldItem, t: ClassItem)(implicit env: Env): Boolean = {
+    val c = i.parent
+    assert(isSubitem(t,c))
+    def loop(t: RefTypeItem): Boolean = t match {
+      case _ if c == t => false
+      case t:ClassItem => t.declaresField(i.name) || t.superItems.exists(s => isSubitem(s,c) && loop(s))
+      case _ => false
     }
+    loop(t)
   }
 
   // What could this be, assuming it's a callable field of the given type?

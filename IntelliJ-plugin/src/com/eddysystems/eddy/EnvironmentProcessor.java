@@ -9,24 +9,16 @@ import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectAndLibrariesScope;
-import com.intellij.psi.search.PsiReferenceProcessor;
 import com.intellij.psi.search.PsiShortNamesCache;
-import com.intellij.psi.util.PsiClassUtil;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.SmartList;
-import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
-import scala.Option;
-import scala.Some;
 import scala.collection.JavaConversions;
-import scala.collection.immutable.Map$;
 import tarski.Environment.Env;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
 import tarski.Tarski;
-import tarski.Types.*;
+import tarski.Types.Type;
 
 import java.util.*;
 

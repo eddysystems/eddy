@@ -23,7 +23,7 @@ public class Main {
                     X.this.x = 1;
                     x = 1; x = 2;
                     int q = 0
-                    f;
+                    f = "";
                 }
             }
         }

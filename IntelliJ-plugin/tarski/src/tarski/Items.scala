@@ -133,9 +133,17 @@ object Items {
     }
 
     def generic(args: List[TypeArg]): ClassType = generic(args,parent.simple)
+
+    // true if this class (not its supers) declare a field with this name
+    def declaresField(kid: Name): Boolean
   }
 
-  case object ObjectItem extends ClassItem {
+  trait BaseItem extends ClassItem {
+    val fieldNames: java.util.Set[String] = new java.util.HashSet[String]()
+    def declaresField(kid: Name) = fieldNames.contains(kid)
+  }
+
+  case object ObjectItem extends BaseItem {
     def name = "Object"
     def parent = JavaLangPkg
     def isClass = true
@@ -156,22 +164,24 @@ object Items {
   }
 
   case class NormalInterfaceItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
-                                 interfaces: List[ClassType] = Nil) extends ClassItem {
+                                 interfaces: List[ClassType] = Nil, fields: Set[String] = Set()) extends ClassItem {
     def base = ObjectType
     def supers = base :: interfaces
     def superItems = supers map (_.item)
     def isClass = false
     def isEnum = false
     def isFinal = false
+    def declaresField(kid: Name) = fields contains kid
   }
 
   case class NormalClassItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
                              base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
-                             isFinal: Boolean = false) extends ClassItem {
+                             isFinal: Boolean = false, fields: Set[String] = Set()) extends ClassItem {
     def supers = base :: interfaces
     def superItems = supers map (_.item)
     def isClass = true
     def isEnum = false
+    def declaresField(kid: Name) = fields contains kid
   }
 
   case class UnresolvedClassItem(name: Name, pkgName: Name, args: List[TypeArg], isFinal: Boolean) extends ClassItem {
@@ -184,6 +194,8 @@ object Items {
     lazy val tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
 
     def generic: ClassType = generic(args, parent)
+
+    def declaresField(kid: Name) = false
   }
 
   case object ArrayItem extends RefTypeItem {

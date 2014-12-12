@@ -97,30 +97,33 @@ object Semantics {
     case _ => false
   }
 
-  def denoteField[ItemKind <: ClassMember,FieldDen]
-                 (i: ItemKind, combine: (Exp,ItemKind) => FieldDen,
-                  superFieldProb: (Scored[Exp],TypeItem,ItemKind) => Prob,
-                  shadowedFieldProb: (Scored[Exp],Exp,TypeItem,ItemKind) => Prob,
-                  fieldProb: (Scored[Exp],Exp,ItemKind) => Prob,
-                  depth: Int)(implicit env: Env): Scored[FieldDen] = {
+  def valuesOfItem(c: TypeItem, i: Item, depth: Int)(implicit env: Env): Scored[Exp] =
     if (depth >= 3) fail("Automatic field depth exceeded")
-    else {
-      val c: TypeItem = i.parent
-      val objs = objectsOfItem(c) flatMap { x =>
-        if (containedIn(x,c)) fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
-        else denoteValue(x,depth+1) // Increase depth to avoid infinite loops
-      }
+    else objectsOfItem(c) flatMap { x =>
+      if (containedIn(x,c)) fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
+      else denoteValue(x,depth+1) // Increase depth to avoid infinite loops
+    }
 
-      objs flatMap { xd => {
-        if (shadowedInSubType(i,xd.item.asInstanceOf[RefTypeItem])) {
-          xd match {
-            case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(combine(SuperExp(tt),i), superFieldProb(objs, c, i))
-            case _ => single(combine(CastExp(c.raw,xd),i), shadowedFieldProb(objs, xd,c,i))
-          }
-        } else {
-          single(combine(xd,i), fieldProb(objs, xd, i))
+  def denoteField(i: FieldItem, depth: Int)(implicit env: Env): Scored[FieldExp] = {
+    val c = i.parent
+    val objs = valuesOfItem(c,i,depth)
+    objs flatMap { xd => {
+      if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
+        xd match {
+          case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(FieldExp(SuperExp(tt),i), Pr.superFieldValue(objs, c, i))
+          case _ => single(FieldExp(CastExp(c.raw,xd),i), Pr.shadowedFieldValue(objs, xd,c,i))
         }
-      }}
+      } else
+        single(FieldExp(xd,i), Pr.fieldValue(objs, xd, i))
+    }}
+  }
+
+  def denoteMethod(i: MethodItem, depth: Int)(implicit env: Env): Scored[MethodDen] = {
+    val c: TypeItem = i.parent
+    val objs = valuesOfItem(c,i,depth)
+    objs flatMap {
+      case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(MethodDen(SuperExp(tt),i), Pr.superMethodCallable(objs, c, i))
+      case xd => single(MethodDen(xd,i), Pr.methodCallable(objs, xd, i))
     }
   }
 
@@ -135,14 +138,14 @@ object Semantics {
     case i: ThisItem => single(ThisExp(i), Pr.thisValue)
 
     case i: FieldItem if env.inScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
-    case i: FieldItem => denoteField(i, FieldExp, Pr.superFieldValue, Pr.shadowedFieldValue, Pr.fieldValue, depth)
+    case i: FieldItem => denoteField(i, depth)
   }
 
   def denoteCallable(e: AExp)(implicit env: Env): Scored[Callable] = e match {
     case NameAExp(n) => callableScores(n) flatMap {
       case i: MethodItem if i.isStatic => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
       case i: MethodItem if env.inScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
-      case i: MethodItem => denoteField(i, MethodDen, Pr.superMethodCallable, Pr.shadowedMethodCallable, Pr.methodCallable, 0)
+      case i: MethodItem => denoteMethod(i, 0)
       case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
     }
     case ParenAExp(x,_) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do

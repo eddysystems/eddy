@@ -17,6 +17,7 @@ import tarski.Types.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class Converter {
   public final Place place;
@@ -287,6 +288,10 @@ public class Converter {
       return _superItems;
     }
 
+    public boolean declaresField(String kid) {
+      return cls.findFieldByName(kid, false) != null;
+    }
+
     // Necessary only due to screwy Java/Scala interop
     public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
@@ -314,9 +319,13 @@ public class Converter {
   }
 
   void addClassMembers(PsiClass cls, ClassItem item, boolean noProtected) {
+    final Set<String> set = item instanceof BaseItem ? ((BaseItem)item).fieldNames() : null;
     for (PsiField f : cls.getFields())
-      if (!place.isInaccessible(f,noProtected))
+      if (!place.isInaccessible(f,noProtected)) {
+        if (set != null)
+          set.add(f.getName());
         addField(f);
+      }
     for (PsiMethod m : cls.getMethods())
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
@@ -325,7 +334,7 @@ public class Converter {
         addMethod(m);
     for (PsiClass c : cls.getInnerClasses())
       if (!place.isInaccessible(c,noProtected))
-          addClass(c,true,noProtected);
+        addClass(c,true,noProtected);
   }
 
   private scala.collection.immutable.List<TypeVar> tparams(PsiTypeParameterListOwner owner) {
