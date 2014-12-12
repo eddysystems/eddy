@@ -4,10 +4,14 @@ import tarski.Tokens.*;
 import tarski.AST.*;
 import tarski.Types.*;
 import tarski.Operators.*;
+
+// Internal imports
 import scala.collection.immutable.*;
 import gnu.trove.TIntLongHashMap;
 import java.util.ArrayList;
-import scala.*;
+import scala.Tuple2;
+import scala.Tuple3;
+import scala.Option;
 import static tarski.ParseEddyActions.*;
 
 class ParseEddy {
