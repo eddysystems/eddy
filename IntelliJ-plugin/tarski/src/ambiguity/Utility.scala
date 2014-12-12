@@ -51,6 +51,12 @@ object Utility {
       case x => x
     }
 
+  def intersperse[A](s: A, xs: List[A]): List[A] = xs match {
+    case Nil => Nil
+    case List(_) => xs
+    case x::xs => x :: s :: intersperse(s,xs)
+  }
+
   // Run-length encode a list
   def runs[A](xs: List[A]): List[(A,Int)] = {
     def loop(next: List[A], prev: List[(A,Int)]): List[(A,Int)] = next match {

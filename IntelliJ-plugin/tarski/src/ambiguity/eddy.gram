@@ -10,7 +10,7 @@ preamble import tarski.Types._
 preamble import tarski.Operators._
 
 // Identifiers, including fake keywords
-Ident Name
+Ident String
   IdentTok { $1.name }
   ThenTok  { "then" }
   UntilTok { "until" }
@@ -70,7 +70,7 @@ Commas0[a] List[a]
   Commas1[a]                     { $1 }
 
 // Dims
-IdentDims (Name,Int)
+IdentDims (String,Int)
   Ident                          { ($1,0) }
   IdentDims LBrackTok Right      { ($1._1,$1._2+1) }
 
@@ -119,10 +119,10 @@ MaybeStmt AStmt
   Stmt                                                       { $1 }
 StmtHelper AStmt
   StmtHelperBS                                               { $1 }
-  IfTok MaybeParenExp Option[ThenTok]                        { IfAStmt($2._1,HoleAStmt,$2._2) }
-  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok           { IfElseAStmt($2._1,$4,HoleAStmt,$2._2) }
+  IfTok MaybeParenExp MaybeThen                              { IfAStmt($2._1,HoleAStmt,$2._2) }
+  IfTok ParenExp MaybeThen MaybeStmt ElseTok                 { IfElseAStmt($2._1,$4,HoleAStmt,$2._2) }
   IfTok ExpAssignNP ThenTok MaybeStmt ElseTok                { IfElseAStmt($2,$4,HoleAStmt,NoAround) }
-  WhileUntil MaybeParenExp Option[DoTok]                     { WhileAStmt($2._1,HoleAStmt,$1,$2._2) }
+  WhileUntil MaybeParenExp MaybeDo                           { WhileAStmt($2._1,HoleAStmt,$1,$2._2) }
   ForTok Left ForInfo Right                                  { ForAStmt($3,HoleAStmt,Grouped($2,$4)) }
   ForTok ForInfo                                             { ForAStmt($2,HoleAStmt,NoAround) }
   SynchronizedTok MaybeParenExp                              { SyncAStmt($2._1,HoleAStmt,$2._2) }
@@ -137,13 +137,13 @@ StmtHelperBS AStmt
   ReturnTok Option[ExpJuxt]                                  { ReturnAStmt($2) }
   ThrowTok ExpJuxt                                           { ThrowAStmt($2) }
   // LabelStmt
-  IfTok ParenExp Option[ThenTok] Stmt                        { IfAStmt($2._1,$4,$2._2) }
+  IfTok ParenExp MaybeThen Stmt                              { IfAStmt($2._1,$4,$2._2) }
   IfTok ExpAssignNP ThenTok Stmt                             { IfAStmt($2,$4,NoAround) }
   IfTok ExpAssignNP                                          { IfAStmt($2,EmptyAStmt,NoAround) }
   IfTok ExpAssignNP                                          { IfElseAStmt($2,EmptyAStmt,HoleAStmt,NoAround) }
-  IfTok ParenExp Option[ThenTok] MaybeStmt ElseTok Stmt      { IfElseAStmt($2._1,$4,$6,$2._2) }
+  IfTok ParenExp MaybeThen MaybeStmt ElseTok Stmt            { IfElseAStmt($2._1,$4,$6,$2._2) }
   IfTok ExpAssignNP ThenTok MaybeStmt ElseTok Stmt           { IfElseAStmt($2,$4,$6,NoAround) }
-  WhileUntil ParenExp Option[DoTok] Stmt                     { WhileAStmt($2._1,$4,$1,$2._2) }
+  WhileUntil ParenExp MaybeDo Stmt                           { WhileAStmt($2._1,$4,$1,$2._2) }
   WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($2,$4,$1,NoAround) }
   WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt,$1,NoAround) }
   DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($2,$4._1,$3,$4._2) }
@@ -152,12 +152,18 @@ StmtHelperBS AStmt
   SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2._1,BlockAStmt($3),$2._2) }
   // Try
   // Switch
-VarDecl (Name,Int,Option[AExp])
+VarDecl (String,Int,Option[AExp])
   IdentDims                      { ($1._1,$1._2,None) }
   IdentDims EqTok ExpCommas      { ($1._1,$1._2,Some($3)) }
 WhileUntil Boolean
   WhileTok                                                   { false }
   UntilTok                                                   { true }
+MaybeThen Unit
+  ""                                                         { () }
+  ThenTok                                                    { () }
+MaybeDo Unit
+  ""                                                         { () }
+  DoTok                                                      { () }
 ForInfo ForInfo
   Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { For($1,$3,$5) }
   Juxts0[Mod] Option[Type] IdentDims ForeachSep ExpAssign                       { Foreach($1,$2,$3._1,$3._2,$5) }

@@ -24,8 +24,12 @@ object Grammar {
     }
 
     def isToken(s: Symbol) = !types.contains(s)
-    def isSimple(t: Symbol) = simple.findFirstIn(t).isDefined
-    def ty(s: Symbol): Type = if (isToken(s)) if (isSimple(s)) "Unit" else s else types(s)
+    def isSimple(t: Symbol) = if (isToken(t)) simple.findFirstIn(t).isDefined else types(t) == "Unit"
+
+    def ty(s: Symbol): Type =
+      if (isSimple(s)) throw new RuntimeException(s"Simple token $s has no useful type")
+      else if (isToken(s)) s
+      else types(s)
 
     def modify(types: Map[Symbol,Type],
                prods: Map[Symbol,Set[Prod]]) =
@@ -98,7 +102,8 @@ object Grammar {
     def close(s: Symbol): Symbol = s match {
       case pat(g,to) =>
         val t = close(to)
-        var n = s"${g}_$t"
+        if (G.isSimple(t)) throw new RuntimeException(s"Can't close on simple type: s $s, g $g, to $to, t $t")
+        val n = s"${g}_$t"
         if (!types.contains(n)) {
           val v = generics(g)
           def sub(u: Symbol, rep: String) = s"\\b$v\\b".r.replaceAllIn(u,rep)
@@ -127,13 +132,20 @@ object Grammar {
       else {
         val (p0, p1) = p splitAt k/2
         def sub(p: List[Symbol]): (Symbol,Int=>String,(List[(Symbol,Type)],List[(Symbol,Prod)])) = p match {
-          case List(x) => (x,(i=>""),(Nil,Nil))
+          case List(x) => (x,i=>"",(Nil,Nil))
           case _ =>
-            var n = sym(p)
-            var t = "(" + p.map(G.ty).mkString(",") + ")"
-            var i = p.length
-            var a = "(" + (1 to i).map("$"+_).mkString(",") + ")"
-            (n,(j=>s"._$j"),split(n,t,p,a))
+            val n = sym(p)
+            def tup(ss: List[String]) = ss match {
+              case List(s) => s
+              case _ => s"(${ss mkString ","})"
+            }
+            val t = tup(p collect {case s if !G.isSimple(s) => G.ty(s)})
+            val a = tup(p.zipWithIndex collect {case (s,i) if !G.isSimple(s) => "$"+(i+1)})
+            def fj(j: Int) =
+              if (G.isSimple(p(j-1))) throw new RuntimeException("Binarize: bad action")
+              else if ((p count (!G.isSimple(_))) == 1) ""
+              else "._"+(1+(p take j-1 count (!G.isSimple(_))))
+            (n,fj,split(n,t,p,a))
         }
         val (n0,f0,(t0,r0)) = sub(p0)
         val (n1,f1,(t1,r1)) = sub(p1)
@@ -187,14 +199,14 @@ object Grammar {
     if (sorted.length != nons.length) {
       def cycles(bad: List[Symbol], s: Symbol): Unit = {
         if (bad.contains(s))
-          throw new RuntimeException(s"grammar cycle: ${bad.reverse.mkString(" -> ")} -> $s")
+          throw new RuntimeException(s"Grammar cycle: ${bad.reverse.mkString(" -> ")} -> $s")
         val b = s :: bad
         for (g <- generates(s))
           cycles(b,g)
       }
       for (n <- G.types.keys)
         cycles(Nil,n)
-      throw new RuntimeException(s"unfound cycle: nons ${nons.length}, sorted ${sorted.length}")
+      throw new RuntimeException(s"Cycle not found: nons ${nons.length}, sorted ${sorted.length}")
     }
     sorted.reverse
   }

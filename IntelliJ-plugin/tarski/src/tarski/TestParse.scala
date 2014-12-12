@@ -68,6 +68,9 @@ class TestParse {
     }
   }
 
+  @Test def hole() = testAST("",Nil)
+  @Test def x() = testAST("x",NameAExp("x"))
+
   @Test
   def hole() = testAST("", List())
 

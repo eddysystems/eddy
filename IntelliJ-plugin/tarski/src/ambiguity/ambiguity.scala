@@ -1,22 +1,31 @@
 import java.io.File
 
 import ambiguity._
+import ambiguity.Grammar._
 import scala.io.Source
 
 object main extends App {
-  def gen(path: String) = {
+  def grammar(path: String): Grammar = {
     val file = Source.fromFile(path).mkString
-    val Gr = Grammar.read(file)
-    Grammar.check(Gr,generic=true)
-    val Gc = Grammar.complete(Gr)
-    Grammar.check(Gc)
-    val G = Grammar.binarize(Gc)
-    Grammar.check(G)
-    val parse = Parse.parseGen(G).mkString("\n")+"\n"
-    print(parse)
+    val Gr = read(file)
+    check(Gr,generic=true)
+    val Gc = complete(Gr)
+    check(Gc)
+    val G = binarize(Gc)
+    check(G)
+    G
   }
+
+  def parse(G: Grammar, nop: Boolean = false) =
+    print(Parse.parseGen(G,nop=nop).mkString("\n")+"\n")
+
+  def actions(G: Grammar) =
+    print(Parse.actionGen(G).mkString("\n")+"\n")
+
   args match {
-    case Array(path) => gen(path)
+    case Array(path) => parse(grammar(path))
+    case Array("-n",path) => parse(grammar(path),nop=true)
+    case Array("-a",path) => actions(grammar(path))
     case _ => throw new RuntimeException("one argument expected")
   }
 }

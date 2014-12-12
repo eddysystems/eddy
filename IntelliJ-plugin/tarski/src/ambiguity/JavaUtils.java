@@ -14,6 +14,9 @@ import java.util.*;
 import static java.lang.Math.max;
 
 public class JavaUtils {
+  // Fast unit for Java (mostly for debugging purposes)
+  public static class Null { private Null() {} } // Always null
+
   // State for pushScope and popScope
   private static class Scope {
     final String name;
