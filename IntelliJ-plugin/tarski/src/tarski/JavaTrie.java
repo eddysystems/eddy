@@ -289,7 +289,7 @@ public class JavaTrie {
           scala.collection.mutable.IndexedSeqView<V,V[]> values = t.nodeValues(current.node_idx);
           if (values.nonEmpty()) {
             double d = levenshteinDistance(prefix, level, typed, typed.length);
-            double p = tarski.Pr.poissonPDF(expected, (int) Math.ceil(d));
+            double p = ambiguity.JavaUtils.poissonPDF(expected, (int) Math.ceil(d));
             if (p >= minProb) {
               int l = values.length();
               for (int i = 0; i < l; ++i) {

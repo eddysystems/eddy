@@ -154,7 +154,7 @@ object Environment {
       typoQuery(trie1,typed)++typoQuery(trie0,typed)
 
     def exactQuery(typed: String): List[Alt[Item]] = {
-      val p = Pr.poissonPDF(typed.length*Pr.typingErrorRate,0)
+      val p = ambiguity.JavaUtils.poissonPDF(typed.length*Pr.typingErrorRate,0)
       (trie1.exact(typed) ++ trie0.exact(typed)) map (Alt(p,_))
     }
 

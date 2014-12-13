@@ -61,10 +61,15 @@ class TestEnvironment {
     // these should all return exactly one
     for (i <- things) {
       val e = i.name.length * Pr.typingErrorRate
-      val p = Pr.poissonPDF(e,0)
+      val p = ambiguity.JavaUtils.poissonPDF(e,0)
       val x = env.exactQuery(i.name)
       assertEquals(s"found $x, expected exactly $i", List(Alt(p,i)), x)
     }
+  }
+
+  @Test def poisson() = {
+    assertTrue(math.abs(0.213763017249736 - ambiguity.JavaUtils.poissonPDF(2.5, 3)) < 1e-6)
+    assertTrue(math.abs(0.037833274802070 - ambiguity.JavaUtils.poissonPDF(10, 5)) < 1e-6)
   }
 
   @Test def trie() = {

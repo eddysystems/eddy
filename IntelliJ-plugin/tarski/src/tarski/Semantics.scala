@@ -231,9 +231,12 @@ object Semantics {
         else product(xsn.list map denoteIndex) map (_.foldLeft(f)(IndexExp))
       }
 
+      val pidx = Pr.indexCallExp(xsn, around)
+      val pcall = Pr.callExp(xsn, around)
+
       multiple(List(
-        Alt(Pr.indexCallExp(xsn, around), () => denoteArray(f) flatMap { a => index(a,a.ty) } ),
-        Alt(Pr.callExp(xsn, around), () => denoteCallable(f) bias Pr.callExp(xsn,around) flatMap { ArgMatching.fiddleCall(_, xsn.list) } )
+        Alt(pidx, () => denoteArray(f) flatMap { a => index(a,a.ty) } bias pidx),
+        Alt(pcall, () => denoteCallable(f) bias Pr.callExp(xsn,around) flatMap { ArgMatching.fiddleCall(_, xsn.list) } bias pcall)
       ))
     }
 

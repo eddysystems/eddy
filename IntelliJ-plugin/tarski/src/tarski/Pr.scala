@@ -5,6 +5,7 @@ import tarski.Denotations.{Callable, Exp}
 import tarski.Items.{ClassMember, FieldItem, MethodItem, TypeItem}
 import tarski.Scores._
 import tarski.Types.Type
+import ambiguity.JavaUtils.poissonPDF
 
 object Pr {
 
@@ -19,17 +20,6 @@ object Pr {
       sum += value
     }
     0.5 + (sum/math.sqrt(2*math.Pi))*math.exp(-(x*x)/2.0)
-  }
-
-  def factorial(k: Int): Float = {
-    var f = 1.0f
-    for (i <- 2 to k)
-      f *= i
-    f
-  }
-
-  def poissonPDF(lambda: Double, k: Int): Double = {
-    math.pow(lambda, k) / factorial(k) * math.exp(-lambda)
   }
 
   // return how many mistakes we can make until the probability drops below a threshold

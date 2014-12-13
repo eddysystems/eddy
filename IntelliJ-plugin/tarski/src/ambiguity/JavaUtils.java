@@ -14,6 +14,15 @@ import java.util.*;
 import static java.lang.Math.max;
 
 public class JavaUtils {
+
+  public static double poissonPDF(double lambda, int k) {
+    // lambda^k/k! * e^-lambda
+    float lk_kfac = 1;
+    for (int i = 1; i <= k; ++i)
+      lk_kfac *= lambda/i;
+    return lk_kfac * Math.exp(-lambda);
+  }
+
   // Fast unit for Java (mostly for debugging purposes)
   public static class Null { private Null() {} } // Always null
 
@@ -391,7 +400,7 @@ public class JavaUtils {
       @Override public T apply() { return a.apply(); }
     }
 
-    // the results of the functions are biased with the probability in the top-level alt list
+    // the alt's probability is an upper bound on the Scored returned by the functions
     public MultipleState(List<Alt<Function0<Scored<A>>>> options) {
       java.util.List<Alt<AbstractFunction0<Scored<A>>>> ls = new ArrayList<Alt<AbstractFunction0<Scored<A>>>>(options.size());
       while (options.nonEmpty()) {
@@ -409,22 +418,17 @@ public class JavaUtils {
     }
 
     public Scored<A> extract() {
-      while (true) {
-        if (heap.isEmpty()) {
-          return (Scored<A>)Empty$.MODULE$;
-        }
-
+      while (!heap.isEmpty()) {
         // get the top of the heap, evaluate it, and check if we need to check the next best one
         Alt<AbstractFunction0<Scored<A>>> a = heap.poll();
         Scored<A> s = a.x().apply();
 
-        if (s instanceof EmptyOrBad) {
+        if (s instanceof EmptyOrBad || s.p() == 0.0f) {
           // TODO: this will turn errors into empties.
           continue;
         }
 
-        Best<A> best = (Best<A>)s.bias(a.p());
-
+        Best<A> best = (Best<A>)s;
         if (p() < best.p()) {
           // put the rest of best back on the heap
           LazyScored<A> ls = best.r();
@@ -435,6 +439,7 @@ public class JavaUtils {
           heap.add(new Alt<AbstractFunction0<Scored<A>>>(best.p(), new Constant<Scored<A>>(best)));
         }
       }
+      return (Scored<A>)Empty$.MODULE$;
     }
   }
 
