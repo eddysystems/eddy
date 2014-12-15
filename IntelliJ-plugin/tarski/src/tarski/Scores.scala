@@ -244,6 +244,7 @@ object Scores {
     else Empty
   def known[A](x: A): Scored[A] = Best(1,x,strictEmpty)
   def single[A](x: A, p: Prob): Scored[A] = Best(p,x,strictEmpty)
+  def orError[A](x: Scored[A], error: => String): Scored[A] = if (x.isEmpty) fail(error) else x
 
   // Bias and delay an actual
   private class LazyBiased[A](val p: Prob, _s: => Scored[A]) extends LazyScored[A] {
@@ -269,6 +270,7 @@ object Scores {
     new OrderedAlternativeState[A](first,andthen).extract()
 
   // several options, each with a maximum probability
+  // in general, this is preferable to using uniform, listScored, multipleGood, or orderedAlternative
   @inline def multiple[A](ls: List[Alt[ () => Scored[A] ]]): Scored[A] =
     new MultipleState[A](ls).extract()
 

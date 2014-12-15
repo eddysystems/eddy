@@ -142,7 +142,6 @@ object Pr {
   val staticFieldExpWithObject = Prob(.8)
   val enumFieldExpWithObject = Prob(.6) // enum {BLAH} x; x.BLAH ... really?
   val fieldExp = base
-  def permuteArgs(f: Callable, typedargs: List[Exp], permutedargs: List[Exp]) = swapArgs(permutedargs, typedargs)
   def callExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.ParenAround && (list.list.size < 2 || list.isInstanceOf[CommaList[AST.AExp]])) base else Prob(.6)
   def indexCallExp(list: AST.KList[AST.AExp], around: AST.Around) = if (around == AST.BrackAround && list.list.size == 1) base else if (around == AST.BrackAround) Prob(.6) else Prob(.5)
   val unaryExp = base // should be a function of operator and types
@@ -164,6 +163,7 @@ object Pr {
 
   // denoteIndex
   val indexExp = passThrough
+  val insertedCastIndexExp = Prob(.1) // it's unlikely.
 
   // denoteRef
   val refExp = passThrough
@@ -220,4 +220,9 @@ object Pr {
   val exactField = base
   val exactStaticField = base
   val exactTypeField = base
+
+  // ArgMatching
+  def dropArgs(dropped: Int) = Prob(math.pow(.3, dropped))
+  def shuffleArgs = Prob(.5)
+  def addArg = Prob(.5)
 }

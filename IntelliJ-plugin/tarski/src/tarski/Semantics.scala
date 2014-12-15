@@ -221,22 +221,26 @@ object Semantics {
 
     case ApplyAExp(f,xsn,around) => {
       val n = xsn.list.size
-      def index(f: Exp, ft: Type): Scored[Exp] = {
+      def index(f: Exp, ft: Type, idxs: List[Scored[Exp]]): Scored[Exp] = {
         @tailrec
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
           case ArrayType(t) => hasDims(t,d-1)
           case _ => false
         })
         if (!hasDims(ft,n)) fail(show(e)+s": expected >= $n dimensions, got ${dimensions(ft)}")
-        else product(xsn.list map denoteIndex) map (_.foldLeft(f)(IndexExp))
+        else product(idxs) map (_.foldLeft(f)(IndexExp))
       }
 
+      val xargs = xsn.list map denoteExp
+      val xidx = xargs map ( _ flatMap denoteIndex )
+
+      // the probabilities are at least as bad as the product of the highest probability of each of the arguments
       val pidx = Pr.indexCallExp(xsn, around)
       val pcall = Pr.callExp(xsn, around)
 
       multiple(List(
-        Alt(pidx, () => denoteArray(f) flatMap { a => index(a,a.ty) } bias pidx),
-        Alt(pcall, () => denoteCallable(f) bias Pr.callExp(xsn,around) flatMap { ArgMatching.fiddleCall(_, xsn.list) } bias pcall)
+        Alt(pidx * (xidx map ( _.p )).product, () => denoteArray(f) bias pidx flatMap { a => index(a,a.ty,xidx) } ),
+        Alt(pcall * (xargs map (_.p)).product, () => denoteCallable(f) bias pcall flatMap { ArgMatching.fiddleCall(_, xargs) } )
       ))
     }
 
@@ -291,12 +295,15 @@ object Semantics {
     else if (t.isInstanceOf[RefType]) single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
     else fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
   }
-  def denoteIndex(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {x =>
-    x.ty.unboxIntegral match {
-      case Some(p) if promote(p) == IntType => single(x, Pr.indexExp)
-      case _ => fail(s"Index ${show(x)} doesn't convert to int")
+  def denoteIndex(e: Exp)(implicit env: Env): Scored[Exp] = {
+    e.ty.unboxIntegral match {
+      case Some(p) if promote(p) == IntType => single(e, Pr.indexExp)
+      case _ if castsTo(e.ty, IntType) => single(CastExp(IntType, e), Pr.insertedCastIndexExp)
+      case _ => fail(s"Index ${show(e)} doesn't convert or cast to int")
     }
   }
+  def denoteIndex(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap denoteIndex
+
   def denoteNonVoid(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     if (e.item != VoidItem) single(e, Pr.nonVoidExp)
     else fail(s"${show(n)}: expected non-void expression")
