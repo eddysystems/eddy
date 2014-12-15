@@ -383,6 +383,7 @@ object Pretty {
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,ts,a) => {
+      // TODO: If ts is inferable, don't print it
       def method(x: Exp, ts: List[RefType], f: Item): Tokens =
         left(FieldFix,x) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name)
       val callable: Tokens = (f,ts) match {
