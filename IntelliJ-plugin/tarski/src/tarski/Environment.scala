@@ -11,9 +11,6 @@ import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
 
-/**
- * Created by martin on 11.12.14.
- */
 object Environment {
   // Minimum probability before an object is considered a match for a query
   val minimumProbability = Prob(.01)
@@ -68,6 +65,9 @@ object Environment {
     // Fragile or slow, only use for tests
     def exactLocal(name: String): LocalVariableItem
     def allItems: Array[Item]
+
+    // get the innermost (current) ThisItem
+    def getThis(): ThisItem = { scope.filter({ case (i:ThisItem,n) => true }).minBy(_._2)._1.asInstanceOf[ThisItem] }
   }
 
   // Constructors for Env
@@ -174,6 +174,7 @@ object Environment {
               else v1++v0
       uniform(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
     }
+
   }
 
   // What could this name be, assuming it is a type?
