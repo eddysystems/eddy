@@ -268,7 +268,8 @@ public class Eddy {
       for (String ss : interpretation.x()) {
         s += reformat(ss) + " ";
       }
-      s = s.substring(0,s.length()-1);
+      if (!s.isEmpty())
+        s = s.substring(0,s.length()-1);
       resultStrings.add(s);
       logger.info("eddy result: '" + s + "' existing '" + before_text + "'");
       if (s.equals(before_text))
