@@ -7,9 +7,6 @@ import tarski.Tokens._
 import scala.annotation.tailrec
 import scala.math._
 
-/**
- * Created by martin on 11.12.14.
- */
 // Repair mismatches parentheses in token streams
 object Mismatch {
   sealed abstract class Part { def t: Token }
