@@ -456,6 +456,7 @@ object Types {
   }
   def looseInvokeContext(from: Type, to: Type): Boolean = (from,to) match {
     case _ if from==to => true
+    case (VoidType, _) => false
     case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
     case (f: RefType, t: RefType) => widensRefUncheckedTo(f,t)
     case (f: PrimType, t: RefType) => widensRefTo(f.box,t)
