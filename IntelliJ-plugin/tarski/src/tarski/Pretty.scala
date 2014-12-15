@@ -383,17 +383,30 @@ object Pretty {
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,ts,a) => {
-      val t = tokensTypeArgs(ts)
-      def method(x: Exp, f: Item) = left(FieldFix,x) ::: DotTok :: t ::: tokens(f.name)
-      (ApplyFix, (f match {
-        case MethodDen(x,f) => method(x,f)
-        case LocalMethodDen(f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
-        case StaticMethodDen(None,f) => t ::: tokens(f) // TODO: ts goes in the middle of f?
-        case StaticMethodDen(Some(x),f) => method(x,f)
-        case NewDen(c) => NewTok :: t ::: tokens(c.parent) // TODO: ts splits into two lists in different places
-        case ForwardDen(c) => ThisTok :: t
-        case DiscardCallableDen(_,_) => impossible
-      }) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
+      def method(x: Exp, ts: List[RefType], f: Item): Tokens =
+        left(FieldFix,x) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name)
+      val callable: Tokens = (f,ts) match {
+        case (MethodDen(x,f),_) => method(x,ts,f)
+        case (LocalMethodDen(f),Nil) => tokens(f)
+        case (LocalMethodDen(f),ts) => method(ThisExp(env.getThis),ts,f)
+        case (StaticMethodDen(None,f),Nil) => tokens(f)
+        case (StaticMethodDen(None,f),_) => tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name)
+        case (StaticMethodDen(Some(x),f),_) => method(x,ts,f)
+        case (NewDen(c),_) => {
+          val (ts0,ts1) = ts splitAt c.parent.tparams.size
+          NewTok :: tokensTypeArgs(ts1) ::: tokens(c.parent) ::: tokensTypeArgs(ts0)
+        }
+        case (ForwardDen(c),_) => {
+          val self = env.getThis.self
+          val forward =
+            if (self == c.parent) ThisTok
+            else if (self.base.item == c.parent) SuperTok
+            else throw new RuntimeException(s"Can't forward to constructor ${show(c)} if this has type ${show(self)}")
+          tokensTypeArgs(ts) ::: List(forward)
+        }
+        case (_:DiscardCallableDen,_) => impossible
+      }
+      (ApplyFix, callable ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
     }
     case FieldExp(x,f) => prettyField(x,f)
     case LocalFieldExp(f) => pretty(f)
@@ -458,17 +471,5 @@ object Pretty {
   implicit def prettyForInit(i: ForInit)(implicit env: Env): (Fixity,Tokens) = i match {
     case v: VarStmt => prettyStmt(v)
     case ForExps(es) => (SemiFix, tokens(CommaList(es)) ::: List(SemiTok))
-  }
-  implicit def prettyCallable(c: Callable)(implicit env: Env): (Fixity,Tokens) = {
-    def method(x: Exp, f: Item) = fix(FieldFix,left(_,x) ::: DotTok :: tokens(f))
-    c match {
-      case MethodDen(x,f) => method(x,f)
-      case LocalMethodDen(f) => pretty(f)
-      case StaticMethodDen(None,f) => pretty(f)
-      case StaticMethodDen(Some(x),f) => method(x,f)
-      case NewDen(f) => (ApplyFix,NewTok :: tokens(f))
-      case ForwardDen(f) => (HighestFix,List(ThisTok))
-      case _:DiscardCallableDen => impossible
-    }
   }
 }

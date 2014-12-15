@@ -6,9 +6,6 @@ import tarski.Items._
 import tarski.Operators._
 import tarski.Types._
 
-/**
- * Created by martin on 11.12.14.
- */
 object Denotations {
   // Support for keeping track of side effects
   trait HasDiscard[B] {

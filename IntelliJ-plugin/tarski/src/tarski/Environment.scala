@@ -67,7 +67,7 @@ object Environment {
     def allItems: Array[Item]
 
     // get the innermost (current) ThisItem
-    def getThis(): ThisItem = { scope.filter({ case (i:ThisItem,n) => true }).minBy(_._2)._1.asInstanceOf[ThisItem] }
+    def getThis: ThisItem = scope.collect({ case (i:ThisItem,n) => (i,n) }).minBy(_._2)._1
   }
 
   // Constructors for Env
