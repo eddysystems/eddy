@@ -334,21 +334,10 @@ object Pretty {
     case CharType    => CharTok
   }))
   implicit def prettyRefType(t: RefType)(implicit env: Env): (Fixity,Tokens) = {
-    def cls(t: ClassType): (Fixity,Tokens) = {
-      val ts = if (t.args.isEmpty) pretty(t.item)
-               else (ApplyFix, tokens(t.item) ::: LtTok :: tokens(CommaList(t.args)) ::: List(GtTok))
-      if (env.inScope(t.item) && t.item.parent.inside==t.parent) ts
-      else {
-        t.parent match {
-          case LocalPkg|JavaLangPkg => ts
-          case t:ClassType => (FieldFix, cls(t)._2 ::: DotTok :: ts._2)
-          case p:SimpleParent => p.item match {
-            case p:PackageItem => (FieldFix, tokens(p.item) ::: DotTok :: ts._2)
-            case _:CallableParentItem => ts // We're always local in this case
-          }
-        }
-      }
-    }
+    def cls(t: ClassType): (Fixity,Tokens) =
+      if (t.args.isEmpty) pretty(t.item)
+      else (ApplyFix, tokens(t.item) ::: LtTok :: tokens(CommaList(t.args)) ::: List(GtTok))
+
     t match {
       case NullType => pretty("nulltype")
       case t:ClassType => cls(t)
