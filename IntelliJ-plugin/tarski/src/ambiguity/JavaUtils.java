@@ -429,7 +429,7 @@ public class JavaUtils {
         }
 
         Best<A> best = (Best<A>)s;
-        if (p() < best.p()) {
+        if (p() <= best.p()) {
           // put the rest of best back on the heap
           LazyScored<A> ls = best.r();
           heap.add(new Alt<AbstractFunction0<Scored<A>>>(ls.p(), new LazyScoredFunction<A>(ls)));
