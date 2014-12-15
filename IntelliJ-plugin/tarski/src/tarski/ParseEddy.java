@@ -21,7 +21,6 @@ class ParseEddy {
   }
   
   private static final class Parser {
-    private final int n;
     private final Token[] input;
     private final byte[] type;
     private final ArrayList<Object> values = new ArrayList<Object>();
@@ -30,7 +29,7 @@ class ParseEddy {
     
     // Convert input and allocate working memory
     Parser(List<Token> _input) {
-      n = _input.size();
+      final int n = _input.size();
       assert n+1<(1<<12);
       input = new Token[n];
       for (int i=0;i<n;i++) {
@@ -48,7 +47,7 @@ class ParseEddy {
       nonnulls();
       
       // All done!
-      final long s = slices.get(iStmts<<24|n);
+      final long s = slices.get(iStmts<<24|input.length);
       List<List<AStmt>> xs = (List)Nil$.MODULE$;
       for (int k=0;k<(s&vMask);k++)
         xs = $colon$colon$.MODULE$.<List<AStmt>>apply((List)values.get((int)(s>>32)+k),xs);
@@ -285,6 +284,7 @@ class ParseEddy {
     
     // Determine token types
     private void types() {
+      final int n = input.length;
       for (int i=0;i<n;i++) {
         final Token t = input[i];
         type[i] = (byte)(
@@ -376,6 +376,7 @@ class ParseEddy {
     
     // Parse null productions
     private void nulls() {
+      final int n = input.length;
       long slice;
       int next = values.size();
       values.add(WildcardBounds3()); // WildcardBounds -> "" : None
@@ -428,6 +429,7 @@ class ParseEddy {
     
     // Parse nonnull productions
     private void nonnulls() {
+      final int n = input.length;
       for (int lo=n;lo>=0;lo--) for (int hi=lo+1;hi<=n;hi++) {
         Commas2_ExpAssignNC(lo,hi);
         IfTok__ExpAssignNP(lo,hi);
@@ -1069,7 +1071,7 @@ class ParseEddy {
           }
         }
       }
-      if (hi-lo>=2 && type[lo]==iLParenTok) {
+      if (hi-lo==2 && type[lo]==iLParenTok) {
         final long s1 = slices.get(iRight<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -1173,7 +1175,7 @@ class ParseEddy {
     
     private void ForTok__Left(final int lo, final int hi) {
       final int prev = values.size();
-      if (hi-lo>=2 && type[lo]==iForTok) {
+      if (hi-lo==2 && type[lo]==iForTok) {
         final long s1 = slices.get(iLeft<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -1226,7 +1228,7 @@ class ParseEddy {
     
     private void Mod(final int lo, final int hi) {
       final int prev = values.size();
-      if (hi-lo>=2 && type[lo]==iAtTok) {
+      if (hi-lo==2 && type[lo]==iAtTok) {
         final long s1 = slices.get(iIdent<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -1271,7 +1273,7 @@ class ParseEddy {
           }
         }
       }
-      if (hi-lo>=1) {
+      if (1<=hi-lo && hi-lo<=2) {
         final long s1 = slices.get(iMod<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -1546,7 +1548,7 @@ class ParseEddy {
           }
         }
       }
-      if (hi-lo>=1) {
+      if (hi-lo==1) {
         final long s1 = slices.get(iIdent<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -1565,7 +1567,7 @@ class ParseEddy {
           }
         }
       }
-      if (hi-lo>=1) {
+      if (hi-lo==1) {
         final long s1 = slices.get(iLit<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -1638,7 +1640,7 @@ class ParseEddy {
           }
         }
       }
-      if (hi-lo>=2) {
+      if (hi-lo==2) {
         for (int j=lo+1;j<=hi-1;j++) {
           {
             final long s1 = slices.get(iLeftNP<<24|lo<<12|j); if (s1 == 0) continue;
@@ -3031,14 +3033,14 @@ class ParseEddy {
             values.add(StmtHelperBS18((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      if (hi-lo>=1 && type[lo]==iBreakTok) {
+      if (1<=hi-lo && hi-lo<=2 && type[lo]==iBreakTok) {
         final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
             values.add(StmtHelperBS19((Option)values.get((int)(s1>>32)+k)));
         }
       }
-      if (hi-lo>=1 && type[lo]==iContinueTok) {
+      if (1<=hi-lo && hi-lo<=2 && type[lo]==iContinueTok) {
         final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -4116,7 +4118,7 @@ class ParseEddy {
     
     private void Option_Ident(final int lo, final int hi) {
       final int prev = values.size();
-      if (hi-lo>=1) {
+      if (hi-lo==1) {
         final long s1 = slices.get(iIdent<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
@@ -4141,7 +4143,7 @@ class ParseEddy {
           }
         }
       }
-      if (hi-lo>=1) {
+      if (hi-lo==1) {
         final long s1 = slices.get(iIdent<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
