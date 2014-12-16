@@ -286,11 +286,11 @@ object Items {
     def inside = self.inside
     def isFinal = true
   }
-  case class SuperItem(self: ClassItem) extends Value {
+  case class SuperItem(self: ClassType) extends Value with PseudoCallableItem {
     def name = "super"
     def qualifiedName = None
-    def item = self
-    def inside = self.inside
+    def item = self.item
+    def inside = self
     def isFinal = true
   }
   abstract class FieldItem extends Value with ClassMember {

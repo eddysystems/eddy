@@ -49,11 +49,12 @@ object Denotations {
     def discards = discardsOption(obj)
     def stripDiscards = StaticMethodDen(obj map (_.stripDiscards),f)
   }
-  case class ForwardDen(override val f: ConstructorItem) extends NonNewCallable {
+  case class ForwardDen(override val f: ConstructorItem, env: Tenv) extends NonNewCallable {
     def callItem = VoidItem
     def callType(ts: List[RefType]) = VoidType
     def discards = Nil
     def stripDiscards = this
+    override def params = f.params map (_ substitute env)
   }
   case class NewDen(override val f: ConstructorItem) extends Callable {
     def tparams = f.parent.tparams ++ f.tparams // TODO: May need to recursively include higher parent parameters
@@ -229,9 +230,9 @@ object Denotations {
     def ty = t.inside
   }
   // t is the type super is used in, t.base is the type of this expression
-  case class SuperExp(t: ThisItem) extends Exp with NoDiscard {
-    def item = t.self.base.item
-    def ty = t.self.base
+  case class SuperExp(s: SuperItem) extends Exp with NoDiscard {
+    def item = s.item
+    def ty = s.self
   }
   case class CastExp(ty: Type, e: Exp) extends Exp {
     def item = ty.item

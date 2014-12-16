@@ -18,6 +18,7 @@ import tarski.Environment.Env;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
 import tarski.Tarski;
+import tarski.Types.ClassType;
 import tarski.Types.Type;
 
 import java.util.*;
@@ -278,8 +279,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         local_items.add(ti);
         scopeItems.put(ti,p);
 
-        ClassItem s = c.base().item();
-        assert s.isClass();
+        ClassType s = c.base();
+        assert s.item().isClass();
         SuperItem si = new SuperItem(s);
         local_items.add(si);
         scopeItems.put(si,p);

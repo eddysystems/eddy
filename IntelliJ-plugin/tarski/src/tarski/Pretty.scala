@@ -397,7 +397,7 @@ object Pretty {
           val (ts0,ts1) = ts splitAt c.parent.tparams.size
           NewTok :: tokensTypeArgs(ts1) ::: tokens(c.parent) ::: tokensTypeArgs(ts0)
         }
-        case (ForwardDen(c),_) => {
+        case (ForwardDen(c,_),_) => {
           val self = env.getThis.self
           val forward =
             if (self == c.parent) ThisTok

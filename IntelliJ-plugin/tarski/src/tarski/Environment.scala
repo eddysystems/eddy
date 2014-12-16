@@ -30,11 +30,13 @@ object Environment {
                        continuable: Boolean = false,
                        labels: List[String] = Nil) {
     // Can we forward to a constructor of class c?
-    def forwardPossible(c: ClassItem): Boolean = place match {
-      case cons:ConstructorItem => {
-        val p = cons.parent
-        (c==p && c.constructors.length>1) || (c==p.base.item && c.constructors.length>0)
-      }
+    // TODO: Restrict to first statement of the constructor
+    def forwardThisPossible(c: ClassItem): Boolean = place match {
+      case cons:ConstructorItem => c==cons.parent && c.constructors.length>1
+      case _ => false
+    }
+    def forwardSuperPossible(c: ClassItem): Boolean = place match {
+      case cons:ConstructorItem => c==cons.parent.base.item && c.constructors.length>0
       case _ => false
     }
   }
@@ -203,7 +205,8 @@ object Environment {
   def callableScores(name: String)(implicit env: Env): Scored[PseudoCallableItem] =
     env.combinedQuery(name, Pr.exactCallable, {
       case t:CallableItem => t
-      case t@ThisItem(c) if env.place.forwardPossible(c) => t
+      case t@ThisItem(c) if env.place.forwardThisPossible(c) => t
+      case t@SuperItem(c) if env.place.forwardSuperPossible(c.item) => t
     }, s"Callable $name not found")
 
   // What could this be, we know it's a value

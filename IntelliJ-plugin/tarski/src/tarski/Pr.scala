@@ -101,6 +101,7 @@ object Pr {
   val staticFieldValue = passThrough
   val enumConstantValue = passThrough
   val thisValue = passThrough
+  val superValue = passThrough
   val localFieldValue = passThrough
 
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
