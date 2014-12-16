@@ -139,6 +139,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (globals == null) {
           // get all classes from IntelliJ
           globals = new HashMap<PsiElement, Item>();
+          globalImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
         }
 
         logger.info("making globals...");

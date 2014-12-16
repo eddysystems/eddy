@@ -96,6 +96,20 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("eddy did not find correct solution: " + expected, found);
   }
 
+  private void checkPriority(Eddy eddy, String high, String lo) {
+    System.out.println("results: ");
+    double phigh = 0, plo = 0;
+    for (int i = 0; i < eddy.getResults().size(); ++i) {
+      double p = eddy.getResults().get(i).p();
+      if (eddy.getResults().get(i).equals(high))
+        phigh = p;
+      else if (eddy.getResults().get(i).equals(lo))
+        plo = p;
+      System.out.println("  " + p + ": " + eddy.getResultStrings().get(i) + " (" + eddy.getResults().get(i) + ")");
+    }
+    assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phigh + "), but shouldn't.", plo < phigh);
+  }
+
   // actual tests
   public void testCreateEddy() throws Exception {
     for (int i = 0; i < 2; i++) {
@@ -134,7 +148,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       if (!(i instanceof Items.ConstructorItem))
         continue;
       if (((Items.ConstructorItem) i).parent().name().equals("A") || ((Items.ConstructorItem) i).parent().name().equals("B") || ((Items.ConstructorItem) i).parent().name().equals("C"))
-        System.out.println("found constructor " + i.name() + " (" + i.qualifiedName() + ") for class " + ((Items.ConstructorItem) i).parent().name() + " info " + ((Items.ConstructorItem)i).params());
+        System.out.println("found constructor " + i.name() + " (" + i.qualifiedName() + ") for class " + ((Items.ConstructorItem) i).parent().name() + " info " + ((Items.ConstructorItem) i).params());
       if (i.name().equals("A"))
         throw new AssertionError("found constructor" + i.print() + " which should be private and inAccessible");
       if (i.name().equals("B") && ((Items.ConstructorItem) i).params().isEmpty())
@@ -172,20 +186,15 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     Base.checkEnv(eddy.getEnv());
   }
 
-
-
-  /* This could be handled more gracefully, but because we cannot resolve any of these types, we don't know about their
-     relationships and won't find the "correct" solution.
-  public void testUnresolvedTypes() {
-    Eddy eddy = setupEddy("EnvironmentProcessorTest.java");
-    System.out.println("scope: " + eddy.getEnv().scopeMap());
-    System.out.println(" getPackage:");
-    tarski.Tarski.print(eddy.getEnv().exactQuery("getPackage"));
-    System.out.println(" container:");
-    tarski.Tarski.print(eddy.getEnv().exactQuery("container"));
-    System.out.println(" file:");
-    tarski.Tarski.print(eddy.getEnv().exactQuery("file"));
-    checkResult(eddy, "if (file != null && container != getValue(file))");
+  public void testPartialEditTypeConflict() {
+    Eddy eddy = setupEddy("partialEditTypeConflict.java");
+    checkResult(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>();");
   }
-  */
+
+  public void testPartialEditTypeConflictPriority() {
+    Eddy eddy = setupEddy("partialEditTypeConflict.java");
+    // because our cursor is hovering at NewType, this is the one we edited, so it should be higher probability
+    checkPriority(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>()", "List<OldOldOldType> = new ArrayList<OldOldOldType>()");
+  }
+
 }
