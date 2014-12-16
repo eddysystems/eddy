@@ -14,27 +14,35 @@ import scala.collection.immutable.Map$;
 import tarski.Items.*;
 import tarski.Types.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class Converter {
   public final Place place;
   private final Map<PsiElement,Item> globals;
+  public final Map<PsiClass, ConstructorItem> globalImplicitConstructors; // Implicit constructors, indexed by their PsiClass
   public final Map<PsiElement, Item> locals; // We will add to this
+  public final Map<PsiClass, ConstructorItem> localImplicitConstructors; // Implicit constructors, indexed by their PsiClass
 
   private final @NotNull Logger logger = Logger.getInstance(getClass());
 
-  Converter(Place place, Map<PsiElement, Item> globals, Map<PsiElement, Item> locals) {
+  Converter(Place place,
+            Map<PsiElement, Item> globals, Map<PsiClass,ConstructorItem> globalImplicitConstructors,
+            Map<PsiElement, Item> locals, Map<PsiClass,ConstructorItem> localImplicitConstructors) {
     this.place = place;
     this.globals = globals;
     this.locals = locals;
+    this.globalImplicitConstructors = globalImplicitConstructors;
+    this.localImplicitConstructors = localImplicitConstructors;
   }
 
   @Nullable Item lookup(PsiElement e) {
     Item i = globals.get(e);
     return i != null ? i : locals.get(e);
+  }
+
+  @Nullable ConstructorItem lookupImplicitConstructor(PsiClass c) {
+    ConstructorItem i = globalImplicitConstructors.get(c);
+    return i != null ? i : localImplicitConstructors.get(c);
   }
 
   TypeArg convertTypeArg(PsiType t, Parent parent) {
@@ -59,7 +67,7 @@ public class Converter {
   Type convertType(PsiType t, Parent parent) {
     // TODO: Handle modifiers
     if (t instanceof PsiArrayType)
-      return new ArrayType(convertType(((PsiArrayType)t).getComponentType(), parent));
+      return new ArrayType(convertType(((PsiArrayType) t).getComponentType(), parent));
 
     // can't have wildcards in as regular types
     assert !(t instanceof PsiWildcardType);
@@ -313,6 +321,12 @@ public class Converter {
         final ArrayList<ConstructorItem> cons = new ArrayList<ConstructorItem>();
         for (PsiMethod m : cls.getConstructors())
           cons.add((ConstructorItem)env.addMethod(m));
+
+        // add implicit constructor if no others declared
+        if (!cons.isEmpty()) {
+          cons.add(env.addImplicitConstructor(cls, this));
+        }
+
         _constructors = cons.toArray(new ConstructorItem[cons.size()]);
       }
       return _constructors;
@@ -344,6 +358,15 @@ public class Converter {
     return item;
   }
 
+  ConstructorItem addImplicitConstructor(PsiClass cls, ClassItem item) {
+    ConstructorItem ci = lookupImplicitConstructor(cls);
+    if (ci == null) {
+      ci = new DefaultConstructorItem(item);
+      localImplicitConstructors.put(cls, ci);
+    }
+    return ci;
+  }
+
   void addClassMembers(PsiClass cls, ClassItem item, boolean noProtected) {
     final Set<String> set = item instanceof BaseItem ? ((BaseItem)item).fieldNames() : null;
     for (PsiField f : cls.getFields())
@@ -353,14 +376,18 @@ public class Converter {
         addField(f);
       }
     for (PsiMethod m : cls.getMethods())
+      if (!place.isInaccessible(m,noProtected) && !m.isConstructor()) // constructors are added below
+        addMethod(m);
+
+    boolean foundConstructor = false;
+    for (PsiMethod m : cls.getConstructors()) {
+      foundConstructor = true;
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
-    for (PsiMethod m : cls.getConstructors())
-      // TODO: Add the argument-free constructor even if not explicitly declared
-      // TODO: Do the same in LazyClass::constructors()
-      // TODO: Get rid of getConstructors loop -- getMethods already lists constructors
-      if (!place.isInaccessible(m,noProtected))
-        addMethod(m);
+    }
+    if (!foundConstructor)
+      addImplicitConstructor(cls, item);
+
     for (PsiClass c : cls.getInnerClasses())
       if (!place.isInaccessible(c,noProtected))
         addClass(c,true,noProtected);

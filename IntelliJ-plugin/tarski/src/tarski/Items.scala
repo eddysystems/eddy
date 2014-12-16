@@ -340,4 +340,8 @@ object Items {
                               params: List[Type], isStatic: Boolean) extends MethodItem
   case class NormalConstructorItem(parent: ClassItem, tparams: List[TypeVar],
                                    params: List[Type]) extends ConstructorItem
+  case class DefaultConstructorItem(parent: ClassItem) extends ConstructorItem {
+    val tparams = Nil
+    val params = Nil
+  }
 }

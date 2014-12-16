@@ -44,6 +44,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   static final Object globals_lock = new Object();
   static boolean globals_ready = false;
   static Map<PsiElement, Item> globals = null;
+  static Map<PsiClass,ConstructorItem> globalImplicitConstructors = null;
   static Env global_env = null;
 
   // things that are in scope (not all these are accessible! things may be private, or not static while we are)
@@ -146,7 +147,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
         // Add all classes that are accessible from place (which is just project scope for globals)
         Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
-        Converter env = new Converter(place,fake_globals,globals);
+        Map<PsiClass,ConstructorItem> fake_cons = new HashMap<PsiClass, ConstructorItem>();
+        Converter env = new Converter(place,fake_globals,fake_cons,globals,globalImplicitConstructors);
         addBase(env,scope,true);
 
         for (String name : cache.getAllClassNames()) {
@@ -161,6 +163,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         logger.info("making global_env with " + globals.size() + " items.");
 
         // update global_env
+        ArrayList<Item> items = new ArrayList<Item>(globals.values());
+        items.addAll(globalImplicitConstructors.values());
         global_env = Tarski.environment(globals.values());
 
         logger.info("global_env ready.");
@@ -179,8 +183,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     Map<PsiElement, Item> globals = getGlobals(place);
     Map<PsiElement, Item> locals = new HashMap<PsiElement, Item>();
+    Map<PsiClass,ConstructorItem> localImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
     Map<Item, Integer> scopeItems = new HashMap<Item, Integer>();
-    Converter env = new Converter(place,globals,locals);
+    Converter env = new Converter(place,globals,globalImplicitConstructors,locals,localImplicitConstructors);
 
     logger.info("getting local items...");
 
@@ -234,6 +239,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     List<Item> local_items = new ArrayList<Item>();
     local_items.addAll(locals.values());
+    local_items.addAll(localImplicitConstructors.values());
 
     // find out which element we are inside (method, class or interface, or package)
     PlaceItem placeItem = null;
