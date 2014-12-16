@@ -195,7 +195,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // classes may be contained in classes, so partial-order the list first
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
-      // TODO: get type parameters etc
       // add private/protected stuff that's not already visible
       Item icls = env.addClass(cls, true, false);
       scopeItems.put(icls,scls.shadowingPriority);

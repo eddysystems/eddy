@@ -37,6 +37,20 @@ public class Converter {
     return i != null ? i : locals.get(e);
   }
 
+  TypeArg convertTypeArg(PsiType t, Parent parent) {
+    if (t instanceof PsiWildcardType) {
+      PsiType bound = ((PsiWildcardType) t).getBound();
+      if (!((PsiWildcardType)t).isSuper())
+        return new WildSub(bound != null ? (RefType)convertType(bound, parent) : ObjectType$.MODULE$);
+      else
+        return new WildSuper(bound != null ? (RefType)convertType(bound, parent) : NullType$.MODULE$);
+    }
+
+    // can't have primitive types as type arguments
+    assert !(t instanceof PsiPrimitiveType);
+    return (RefType)convertType(t, parent);
+  }
+
   // If parent is given, use it for generics resolution.  If it is null, use containing().inside() instead.
   // TODO: The version without parent should probably be deleted.
   Type convertType(PsiType t) {
@@ -45,13 +59,10 @@ public class Converter {
   Type convertType(PsiType t, Parent parent) {
     // TODO: Handle modifiers
     if (t instanceof PsiArrayType)
-      return new ArrayType(convertType(((PsiArrayType)t).getComponentType()));
+      return new ArrayType(convertType(((PsiArrayType)t).getComponentType(), parent));
 
-    if (t instanceof PsiWildcardType) {
-      // TODO: need proper wildcard expressions
-      PsiType bound = ((PsiWildcardType) t).getBound();
-      return bound != null ? convertType(bound,parent) : ObjectType$.MODULE$;
-    }
+    // can't have wildcards in as regular types
+    assert !(t instanceof PsiWildcardType);
 
     // Classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
     if (t instanceof PsiClassType) {
@@ -71,9 +82,8 @@ public class Converter {
           if (t instanceof PsiModifierListOwner)
             isfinal = ((PsiModifierListOwner) t).hasModifierProperty(PsiModifier.FINAL);
           for (PsiType arg : ((PsiClassReferenceType)t).getParameters())
-            jargs.add((TypeArg)convertType(arg));
+            jargs.add(convertTypeArg(arg,parent));
         }
-
         scala.collection.immutable.List<TypeArg> args = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
         return new UnresolvedClassItem(name, qname.substring(qname.lastIndexOf('.')+1), args, isfinal).generic();
       } else if (tcls instanceof PsiTypeParameter) {
@@ -81,7 +91,7 @@ public class Converter {
       } else {
         List<TypeArg> jparams = new SmartList<TypeArg>();
         for (PsiType tp : ((PsiClassType)t).getParameters())
-          jparams.add((TypeArg) convertType(tp,parent));
+          jparams.add(convertTypeArg(tp,parent));
         scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
         //logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
@@ -264,7 +274,7 @@ public class Converter {
         PsiClass base = cls.getSuperClass();
         ArrayList<RefType> supers = new ArrayList<RefType>();
         for (PsiClassType stype : cls.getSuperTypes()) {
-          ClassType sc = (ClassType)env.convertType(stype);
+          ClassType sc = (ClassType)env.convertType(stype, parent().inside());
           PsiClass stypeClass = stype.resolve();
           if (base == stypeClass)
             _base = sc;
@@ -330,6 +340,7 @@ public class Converter {
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
     for (PsiMethod m : cls.getConstructors())
+      // TODO: add the argument-free constructor even if not explicitly declared (maybe already part of IntelliJ logic?)
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
     for (PsiClass c : cls.getInnerClasses())
@@ -344,10 +355,10 @@ public class Converter {
     return scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
   }
 
-  private scala.collection.immutable.List<Type> params(PsiMethod method) {
+  private scala.collection.immutable.List<Type> params(PsiMethod method, Parent parent) {
     List<Type> jparams = new SmartList<Type>();
     for (PsiParameter p : method.getParameterList().getParameters())
-      jparams.add(convertType(p.getType()));
+      jparams.add(convertType(p.getType(), parent));
     return scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
   }
 
@@ -378,7 +389,7 @@ public class Converter {
     }
     public scala.collection.immutable.List<Type> params() {
       if (_params == null)
-        _params = env.params(method);
+        _params = env.params(method, parent().inside());
       return _params;
     }
 
@@ -430,12 +441,12 @@ public class Converter {
     }
     public scala.collection.immutable.List<Type> params() {
       if (_params == null)
-        _params = env.params(method);
+        _params = env.params(method,parent().inside());
       return _params;
     }
     public Type retVal() {
       if (_retVal == null)
-        _retVal = env.convertType(method.getReturnType());
+        _retVal = env.convertType(method.getReturnType(), parent().inside());
       return _retVal;
     }
 
@@ -487,7 +498,7 @@ public class Converter {
     public Type inside() {
       if (_inside == null) {
         try {
-          _inside = env.convertType(f.getType());
+          _inside = env.convertType(f.getType(), parent().inside());
         } catch (Exception e) {
           throw new RuntimeException("LazyField::inside failed: field "+qualifiedName().get()+": "+e.getMessage());
         }
@@ -529,7 +540,7 @@ public class Converter {
     }
     public Type ty() {
       if (_ty == null)
-        _ty = env.convertType(f.getType());
+        _ty = env.convertType(f.getType(), parent().inside());
       return _ty;
     }
     public ClassItem parent() {
