@@ -14,8 +14,10 @@ import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import tarski.Base;
+import tarski.Items;
 import tarski.Items.Item;
 import tarski.Scores;
+import tarski.Types;
 
 import java.util.List;
 
@@ -125,6 +127,27 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assert Cs==0;
   }
 
+  public void testImplicitConstructor() {
+    Eddy eddy = setupEddy("ConstructorTest.java");
+    boolean Bc = false, Cc = false;
+    for (Item i : eddy.getEnv().allItems()) {
+      if (!(i instanceof Items.ConstructorItem))
+        continue;
+      if (((Items.ConstructorItem) i).parent().name().equals("A") || ((Items.ConstructorItem) i).parent().name().equals("B") || ((Items.ConstructorItem) i).parent().name().equals("C"))
+        System.out.println("found constructor " + i.name() + " (" + i.qualifiedName() + ") for class " + ((Items.ConstructorItem) i).parent().name() + " info " + ((Items.ConstructorItem)i).params());
+      if (i.name().equals("A"))
+        throw new AssertionError("found constructor" + i.print() + " which should be private and inAccessible");
+      if (i.name().equals("B") && ((Items.ConstructorItem) i).params().isEmpty())
+        throw new AssertionError("found constructor" + i.print() + " which is not implicitly declared (another constructor is)");
+      if (i.name().equals("B") && ((Items.ConstructorItem) i).params().contains(Types.IntType$.MODULE$))
+        Bc = true;
+      if (i.name().equals("C"))
+        Cc = true;
+    }
+    assertTrue("constructor (B) not in environment", Bc);
+    assertTrue("implicitly defined constructor (C) not in environment", Cc);
+  }
+
   public void testProject() {
     EnvironmentProcessor.clearGlobalEnvironment();
     Eddy eddy = setupEddy("dummy.java",
@@ -148,6 +171,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
                           "JSON-java/XMLTokener.java");
     Base.checkEnv(eddy.getEnv());
   }
+
+
 
   /* This could be handled more gracefully, but because we cannot resolve any of these types, we don't know about their
      relationships and won't find the "correct" solution.
