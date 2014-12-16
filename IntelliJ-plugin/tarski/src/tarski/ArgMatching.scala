@@ -4,14 +4,18 @@ import tarski.Denotations.{ApplyExp, Callable, Exp}
 import tarski.Environment.Env
 import tarski.Scores._
 import tarski.Types._
+import tarski.Semantics.denoteValue
 import ambiguity.Utility._
 
 import scala.annotation.tailrec
 
 object ArgMatching {
   def fiddleCall(f: Callable, args: List[Scored[Exp]])(implicit env: Env): Scored[ApplyExp] = {
+    // Should we find missing arguments in the environment?
+    val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
     val n = f.params.size
+    val na = args.size
     type Args = (List[RefType],List[Exp])
     def process(k: Int, targs: List[RefType], used: List[Exp], unused: List[Scored[Exp]]): Scored[Args] = {
       if (k == n)
@@ -21,12 +25,13 @@ object ArgMatching {
           val args = used :+ x
           resolveOptions(List(f),args map (_.ty)) match {
             case Nil => empty
-            case List((f0,targs)) if f eq f0 => process(k+1,targs,args,xs) bias p
+            case List((f0,ts)) if f eq f0 => process(k+1,ts,args,xs) bias p
+            case _ => impossible
           }
         }
         type Opts = List[Alt[() => Scored[Args]]]
         val options0: Opts = unused match {
-          case Nil => Nil
+          case Nil => if (useEnv) Nil else impossible
           case x::xs => {
             // Use the next argument
             val first = Alt(Pr.certain,() => x flatMap (add(Pr.certain,_,xs)))
@@ -39,22 +44,17 @@ object ArgMatching {
                 shuffle(x::prev,next,Alt(Pr.shuffleArgs,() => x flatMap (add(Pr.shuffleArgs,_,xs))) :: opts)
               }
             }
-            shuffle(Nil,xs,List(first))
+            shuffle(List(x),xs,List(first))
           }
         }
-        /*
-        // use a value from the scope that fits
-        options = Alt(Pr.addArg, () => {{ env.byItem(f.params.apply(pos).item)
-        } flatMap {
-          Semantics.denoteValue(_,0)
-        } flatMap {
-          check_and_add(_, remaining, Pr.addArg)
-        }}) :: options
-        */
-        multiple(options0)
+        // If desired, find values from the scope that fit
+        val options1: Opts = if (!useEnv) options0 else Alt(Pr.addArg,() =>
+          env.byItem(f.params(k).item) flatMap (denoteValue(_,0)) flatMap (add(Pr.addArg,_,unused))) :: options0
+        multiple(options1)
       }
     }
-    orError(process(0,Nil,Nil,args) bias Pr.dropArgs(math.max(0,args.size - f.params.size)) map { case (ts,xs) => ApplyExp(f,ts,xs) },
-            s"Can't match arguments for function $f.")
+    if (!useEnv && n > na) fail(s"Too few arguments for function $f: $na < $n")
+    else orError(process(0,Nil,Nil,args) bias Pr.dropArgs(math.max(0,na-n)) map { case (ts,xs) => ApplyExp(f,ts,xs) },
+                 s"Can't match arguments for function $f.")
   }
 }

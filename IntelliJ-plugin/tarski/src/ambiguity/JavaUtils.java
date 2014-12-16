@@ -5,9 +5,13 @@ import org.apache.commons.lang.StringUtils;
 import scala.Function0;
 import scala.Function1;
 import scala.collection.immutable.List;
+import scala.collection.immutable.Nil$;
+import scala.collection.immutable.$colon$colon$;
 import scala.runtime.AbstractFunction0;
 import tarski.Items.*;
+import tarski.Scores;
 import tarski.Scores.*;
+import static tarski.Scores.*;
 
 import java.util.*;
 
@@ -224,6 +228,8 @@ public class JavaUtils {
     public FlatMapState(Scored<A> input, Function1<A,Scored<B>> f) {
       this.as = input;
       this.f = f;
+      if (trackErrors())
+        bads = (List)Nil$.MODULE$;
     }
 
     // Our flatMap function
@@ -236,6 +242,9 @@ public class JavaUtils {
     // Sorted strict and unsorted lazy bs
     // The AltBase is either Biased<B> or Alt<LazyScored<B>>
     private PriorityQueue<AltBase> bs;
+
+    // List of errors, null if we've already found something
+    private List<Bad> bads;
 
     // Grab the next as
     private Scored<A> nextAs() {
@@ -299,17 +308,22 @@ public class JavaUtils {
 
         // Otherwise, dig into as
         final Scored<A> _as = nextAs();
-        if (_as instanceof EmptyOrBad)
-          return (Scored)Empty$.MODULE$;
+        if (_as instanceof EmptyOrBad) {
+          if (bads == null)
+            return (Scored)Empty$.MODULE$;
+          return nestError("flatMap failed",bads);
+        }
         final Best<A> as = (Best<A>)_as;
         asLazy = as.r();
         final Scored<B> _fx = f.apply(as.x());
         if (_fx instanceof Best) {
+          bads = null; // We've found at least one thing, so no need to track errors further
           final Best<B> fx = (Best<B>)_fx;
           if (bs == null)
             bs = new PriorityQueue<AltBase>();
           bs.add(new Biased<B>(fx.p(),fx.x(),fx.r(),as.p()));
-        }
+        } else if (bads != null)
+          bads = $colon$colon$.MODULE$.<Bad>apply((Bad)_fx,bads);
       }
     }
   }
@@ -317,9 +331,11 @@ public class JavaUtils {
   static public final class OrderedAlternativeState<A> extends State<A> {
     private PriorityQueue<Alt<A>> heap;
     private Function0<List<Alt<A>>> more;
+    private Function0<String> error;
 
     // Requires: prob first >= prob andThen
-    public OrderedAlternativeState(List<Alt<A>> list, Function0<List<Alt<A>>> more) {
+    public OrderedAlternativeState(List<Alt<A>> list, Function0<List<Alt<A>>> more, Function0<String> error) {
+      this.error = error;
       heap = new PriorityQueue<Alt<A>>();
       absorb(list);
       if (more != null && heap.isEmpty())
@@ -347,10 +363,14 @@ public class JavaUtils {
           absorb(more.apply());
           more = null;
         }
-        if (heap.isEmpty())
-          return (Scored<A>)Empty$.MODULE$;
+        if (heap.isEmpty()) {
+          if (error == null)
+            return (Scored<A>)Empty$.MODULE$;
+          return oneError(error);
+        }
       }
       Alt<A> a = heap.poll();
+      error = null;
       return new Best<A>(a.p(),a.x(),new Extractor<A>(this));
     }
   }
@@ -359,10 +379,12 @@ public class JavaUtils {
     private final double _p;
     private A[] xs;
     private int i;
+    private Function0<String> error;
 
-    public UniformState(double p, A[] xs) {
+    public UniformState(double p, A[] xs, Function0<String> error) {
       this._p = p;
       this.xs = xs == null || xs.length == 0 ? null : xs;
+      this.error = this.xs == null ? error : null;
     }
 
     public double p() {
@@ -370,8 +392,11 @@ public class JavaUtils {
     }
 
     public Scored<A> extract() {
-      if (xs == null)
-        return (Scored<A>)Empty$.MODULE$;
+      if (xs == null) {
+        if (error == null)
+          return (Scored<A>)Empty$.MODULE$;
+        return oneError(error);
+      }
       final A x = xs[i++];
       if (i == xs.length)
         xs = null;
@@ -380,67 +405,58 @@ public class JavaUtils {
   }
 
   static public final class MultipleState<A> extends State<A> {
-    private PriorityQueue<Alt<AbstractFunction0<Scored<A>>>> heap;
+    // Entries are Alts of either Function0<Scored<A>>, LazyScored<A>, or Scored<A>.
+    private final PriorityQueue<Alt<Object>> heap;
 
-    class LazyScoredFunction<A> extends AbstractFunction0<Scored<A>> {
-      LazyScored<A> ls;
-      LazyScoredFunction(LazyScored<A> ls) { this.ls = ls; }
-      @Override public Scored<A> apply() { return ls.s(); }
-    }
+    // List of errors, null if we've already found at least one option.
+    private List<Bad> bads;
 
-    class Constant<T> extends AbstractFunction0<T> {
-      T a;
-      Constant(T a) { this.a = a; }
-      @Override public T apply() { return a; }
-    }
-
-    class FunctionWrapper<T> extends AbstractFunction0<T> {
-      Function0<T> a;
-      FunctionWrapper(Function0<T> a) { this.a = a; }
-      @Override public T apply() { return a.apply(); }
-    }
-
-    // the alt's probability is an upper bound on the Scored returned by the functions
+    // The Alt's probability is an upper bound on the Scored returned by the functions
     public MultipleState(List<Alt<Function0<Scored<A>>>> options) {
-      java.util.List<Alt<AbstractFunction0<Scored<A>>>> ls = new ArrayList<Alt<AbstractFunction0<Scored<A>>>>(options.size());
+      assert options.nonEmpty();
+      heap = new PriorityQueue<Alt<Object>>();
       while (options.nonEmpty()) {
-        Alt<Function0<Scored<A>>> a = options.head();
-        ls.add(new Alt<AbstractFunction0<Scored<A>>>(a.p(), new FunctionWrapper<Scored<A>>(a.x())));
+        heap.add((Alt)options.head());
         options = (List<Alt<Function0<Scored<A>>>>)options.tail();
       }
-      heap = new PriorityQueue<Alt<AbstractFunction0<Scored<A>>>>(ls);
+      if (trackErrors())
+        bads = (List)Nil$.MODULE$;
     }
 
     // Current probability bound
     public double p() {
-      Alt<AbstractFunction0<Scored<A>>> a = heap.peek();
+      final Alt<Object> a = heap.peek();
       return a == null ? 0 : a.p();
     }
 
     public Scored<A> extract() {
       while (!heap.isEmpty()) {
-        // get the top of the heap, evaluate it, and check if we need to check the next best one
-        Alt<AbstractFunction0<Scored<A>>> a = heap.poll();
-        Scored<A> s = a.x().apply();
+        // Get the top of the heap, evaluate it, and check if we need to check the next best one
+        final Object x = heap.poll().x();
+        final Scored<A> s = x instanceof Scored ? (Scored<A>)x
+                          : x instanceof LazyScored ? ((LazyScored<A>)x).s()
+                          : ((Function0<Scored<A>>)x).apply();
 
-        if (s instanceof EmptyOrBad || s.p() == 0.0f) {
-          // TODO: this will turn errors into empties.
+        if (s instanceof EmptyOrBad) {
+          if (bads != null)
+            bads = $colon$colon$.MODULE$.<Bad>apply((Bad)s,bads);
           continue;
         }
-
+        bads = null;
         Best<A> best = (Best<A>)s;
         if (p() <= best.p()) {
-          // put the rest of best back on the heap
+          // Put the rest of best back on the heap
           LazyScored<A> ls = best.r();
-          heap.add(new Alt<AbstractFunction0<Scored<A>>>(ls.p(), new LazyScoredFunction<A>(ls)));
-          return new Best<A>(best.p(), best.x(), new Extractor<A>(this));
+          heap.add(new Alt<Object>(ls.p(),ls));
+          return new Best<A>(best.p(),best.x(),new Extractor<A>(this));
         } else {
-          // adjust the bound on best and put it back on the heap (next iteration will pick a different part of the heap)
-          heap.add(new Alt<AbstractFunction0<Scored<A>>>(best.p(), new Constant<Scored<A>>(best)));
+          // Adjust the bound on best and put it back on the heap (next iteration will pick a different part of the heap)
+          heap.add(new Alt<Object>(best.p(),best));
         }
       }
-      return (Scored<A>)Empty$.MODULE$;
+      if (bads == null)
+        return (Scored<A>)Empty$.MODULE$;
+      return nestError("multiple failed",bads);
     }
   }
-
 }

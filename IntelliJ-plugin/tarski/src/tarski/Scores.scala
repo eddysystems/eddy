@@ -138,13 +138,13 @@ object Scores {
   }
 
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
-  private val trackErrors = false
+  val trackErrors = false
   if (trackErrors)
     println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
 
   // Failure
   sealed abstract class EmptyOrBad extends Scored[Nothing]
-  private final class Bad(_e: => Error) extends EmptyOrBad {
+  final class Bad(_e: => Error) extends EmptyOrBad {
     lazy val e = _e
     def p = 0
     def best = Left(e)
@@ -253,25 +253,26 @@ object Scores {
   def biased[A](p: Prob, s: => Scored[A]): LazyScored[A] = new LazyBiased(p,s)
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
-    new UniformState[A](p,xs).extract()
+    new UniformState[A](p,xs,if (trackErrors) () => error else null).extract()
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Seq[A], error: => String)(implicit t: ClassTag[A]): Scored[A] =
-    new UniformState[A](p,xs.toArray).extract()
+    new UniformState[A](p,xs.toArray,if (trackErrors) () => error else null).extract()
 
   @inline def listScored[A](xs: List[Alt[A]], error: => String): Scored[A] =
-    new OrderedAlternativeState[A](xs,null).extract()
+    new OrderedAlternativeState[A](xs,null,if (trackErrors) () => error else null).extract()
 
   // Assume no error (use Empty instead of Bad)
   @inline def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
-    new OrderedAlternativeState[A](xs,null).extract()
+    new OrderedAlternativeState[A](xs,null,null).extract()
 
   // Requires: prob first >= prob andThen
   @inline def orderedAlternative[A](first: List[Alt[A]], andthen: () => List[Alt[A]], error: => String): Scored[A] =
-    new OrderedAlternativeState[A](first,andthen).extract()
+    new OrderedAlternativeState[A](first,andthen,if (trackErrors) () => error else null).extract()
 
-  // several options, each with a maximum probability
-  // in general, this is preferable to using uniform, listScored, multipleGood, or orderedAlternative
-  @inline def multiple[A](ls: List[Alt[ () => Scored[A] ]]): Scored[A] =
+  // Several options, each with a maximum probability.
+  // In general, this is preferable to using uniform, listScored, multipleGood, or orderedAlternative.
+  // The list is assumed nonempty.
+  @inline def multiple[A](ls: List[Alt[() => Scored[A]]]): Scored[A] =
     new MultipleState[A](ls).extract()
 
   // Structured errors
@@ -328,4 +329,14 @@ object Scores {
   // thread is map followed by product
   def thread[A,B](xs: Option[A])(f: A => Scored[B]): Scored[Option[B]] = product(xs map f)
   def thread[A,B](xs: List[A])  (f: A => Scored[B]): Scored[List[B]]   = product(xs map f)
+
+  // Scala helpers for JavaUtils
+  def nestError[A](s: String, bads: List[Bad]): Scored[A] =
+    if (trackErrors) bads match {
+      case List(b) => b
+      case bs => new Bad(NestError(s,bads map (_.e)))
+    } else Empty
+  def oneError[A](error: => String): Scored[A] =
+    if (trackErrors) new Bad(OneError(error))
+    else Empty
 }
