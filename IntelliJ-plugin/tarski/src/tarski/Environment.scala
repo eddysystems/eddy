@@ -23,6 +23,8 @@ object Environment {
   }
 
   // Information about where we are
+  // TODO: add information about static scope
+  // TODO: add information about whether we're in a spot where we can delegate constructor calls
   case class PlaceInfo(place: PlaceItem,
                        breakable: Boolean = false,
                        continuable: Boolean = false,

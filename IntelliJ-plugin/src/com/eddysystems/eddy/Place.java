@@ -9,10 +9,14 @@ import org.jetbrains.annotations.Nullable;
 public class Place {
   public final @NotNull Project project;
   public final @Nullable PsiElement place;
+  public final @Nullable PsiJavaFile file;
+  public final @Nullable PsiClass placeClass;
 
   Place(Project project, PsiElement place) {
     this.project = project;
     this.place = place;
+    file = PsiTreeUtil.getParentOfType(place, PsiJavaFile.class, false);
+    placeClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
   }
 
   @Nullable PsiPackage getPackage(@NotNull PsiJavaFile file) {
@@ -21,7 +25,9 @@ public class Place {
 
   PsiElement containing(PsiElement elem) {
     PsiElement parent = elem.getParent();
-    if (parent instanceof PsiJavaFile) {
+    if (parent instanceof PsiPackage) {
+      return parent;
+    } else if (parent instanceof PsiJavaFile) {
       return getPackage((PsiJavaFile)parent);
     } else if (parent instanceof PsiClass) {
       return parent;
@@ -51,7 +57,6 @@ public class Place {
       if (noProtected)
         return true;
 
-      PsiJavaFile file = PsiTreeUtil.getParentOfType(place, PsiJavaFile.class, false);
       if (file != null && container != getPackage(file))
         return true;
 
@@ -64,7 +69,7 @@ public class Place {
 
       if (container instanceof PsiClass) {
         // if the member is private we can only see it if place is contained in a class in which member is declared.
-        PsiClass containingPlaceClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
+        PsiClass containingPlaceClass = placeClass;
         while (containingPlaceClass != null) {
           if (container == containingPlaceClass) {
             break;
@@ -75,9 +80,7 @@ public class Place {
           return true;
         }
       }
-    }
-
-    if (element.hasModifierProperty(PsiModifier.PROTECTED)) {
+    } else if (element.hasModifierProperty(PsiModifier.PROTECTED)) {
       if (noProtected)
         return true;
 
@@ -94,6 +97,11 @@ public class Place {
         }
       }
     }
-    return false;
+
+    if (container instanceof PsiModifierListOwner)
+      return isInaccessible((PsiModifierListOwner)container, noProtected);
+    else
+      // null
+      return false;
   }
 }

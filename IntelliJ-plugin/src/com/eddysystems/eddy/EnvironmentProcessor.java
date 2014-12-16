@@ -144,12 +144,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
         GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project,true);
 
-        // Add all classes.  TODO: This includes local classes, but probably shouldn't
+        // Add all classes that are accessible from place (which is just project scope for globals)
         Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
         Converter env = new Converter(place,fake_globals,globals);
         addBase(env,scope,true);
-        for (String name : cache.getAllClassNames()) {
 
+        for (String name : cache.getAllClassNames()) {
           // keep IDE responsive
           Utility.processEvents();
 
@@ -262,8 +262,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         }
       }
 
-      // add special "this" items this for each class we're inside of, with same shadowing priority as the class itself
-      // TODO: add a "super" item for each class as well
+      // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         assert locals.containsKey(place) || globals.containsKey(place);
         ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);
@@ -272,6 +271,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         ThisItem ti = new ThisItem(c);
         local_items.add(ti);
         scopeItems.put(ti,p);
+
+        ClassItem s = c.base().item();
+        assert s.isClass();
+        SuperItem si = new SuperItem(s);
+        local_items.add(si);
+        scopeItems.put(si,p);
       }
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
@@ -314,6 +319,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     */
 
+    // TODO: add information about whether we are inside a constructor and the first statement (and forwarding to this or super is available)
     Item[] localArray = local_items.toArray(new Item[local_items.size()]);
     Env tenv = Tarski.addEnvironment(global_env, localArray, scopeItems)
                      .move(new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
