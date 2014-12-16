@@ -1,5 +1,6 @@
 package ambiguity
 
+import scala.annotation.tailrec
 import scala.collection.immutable.Set
 import scala.collection.mutable
 
@@ -55,6 +56,12 @@ object Utility {
     case Nil => Nil
     case List(_) => xs
     case x::xs => x :: s :: intersperse(s,xs)
+  }
+
+  @tailrec
+  def revAppend[A](xs: List[A], ys: List[A]): List[A] = xs match {
+    case Nil => ys
+    case x::xs => revAppend(xs,x::ys)
   }
 
   // Run-length encode a list
