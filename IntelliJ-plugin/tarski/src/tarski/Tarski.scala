@@ -45,7 +45,11 @@ object Tarski {
         mergeTake(s.tail)(m+((a,p+m.getOrElse(a,0.0))))
       }
 
-    (r.map { case (env,s) => { implicit val e = env; s.map(show(_)).asJava } }.all match {
+    (r.map { case (env,s) => {
+        implicit val e = env;
+        println(s"$s => ${s.map(show(_))}")
+        s.map(show(_)).asJava
+    }}.all match {
       case Left(error) => Nil
       case Right(all) => mergeTake(all)(Map.empty) map {case Alt(p,a) => Alt(p,a)}
     }).asJava

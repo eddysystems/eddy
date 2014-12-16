@@ -14,7 +14,7 @@ public class Main {
         int x;
         public interface I {
             static int x;
-            public static int f() {
+            public static int fizz(String s, Integer i, Double d) {
                 int x;
                 for (x = 0; x < 3; ++x) {
                     class Q {
@@ -22,8 +22,8 @@ public class Main {
                     }
                     X.this.x = 1;
                     x = 1; x = 2;
-                    int q = 0
-                    f = ";
+                    double q = 0;
+                    fizz "s" x q;
                 }
             }
         }

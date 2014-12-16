@@ -263,6 +263,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
 
       // add special "this" items this for each class we're inside of, with same shadowing priority as the class itself
+      // TODO: add a "super" item for each class as well
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         assert locals.containsKey(place) || globals.containsKey(place);
         ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);

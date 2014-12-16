@@ -143,7 +143,12 @@ public class Converter {
       return addClass((PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
       PsiPackage pkg = (PsiPackage)elem;
-      PackageItem item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
+      PackageItem item;
+      if (pkg.getName() == null) {
+        item = tarski.Tarski.localPkg();
+      } else {
+        item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
+      }
       locals.put(pkg,item);
       return item;
     }
@@ -274,7 +279,7 @@ public class Converter {
         PsiClass base = cls.getSuperClass();
         ArrayList<RefType> supers = new ArrayList<RefType>();
         for (PsiClassType stype : cls.getSuperTypes()) {
-          ClassType sc = (ClassType)env.convertType(stype, parent().inside());
+          ClassType sc = (ClassType)env.convertType(stype);
           PsiClass stypeClass = stype.resolve();
           if (base == stypeClass)
             _base = sc;
@@ -340,7 +345,8 @@ public class Converter {
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
     for (PsiMethod m : cls.getConstructors())
-      // TODO: add the argument-free constructor even if not explicitly declared (maybe already part of IntelliJ logic?)
+      // TODO: add the argument-free constructor even if not explicitly declared
+      // TODO: get rid of getConstructors loop -- getMethods already lists constructors
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
     for (PsiClass c : cls.getInnerClasses())
@@ -355,10 +361,10 @@ public class Converter {
     return scala.collection.JavaConversions.asScalaBuffer(jtparams).toList();
   }
 
-  private scala.collection.immutable.List<Type> params(PsiMethod method, Parent parent) {
+  private scala.collection.immutable.List<Type> params(PsiMethod method) {
     List<Type> jparams = new SmartList<Type>();
     for (PsiParameter p : method.getParameterList().getParameters())
-      jparams.add(convertType(p.getType(), parent));
+      jparams.add(convertType(p.getType()));
     return scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
   }
 
@@ -389,7 +395,7 @@ public class Converter {
     }
     public scala.collection.immutable.List<Type> params() {
       if (_params == null)
-        _params = env.params(method, parent().inside());
+        _params = env.params(method);
       return _params;
     }
 
@@ -441,12 +447,12 @@ public class Converter {
     }
     public scala.collection.immutable.List<Type> params() {
       if (_params == null)
-        _params = env.params(method,parent().inside());
+        _params = env.params(method);
       return _params;
     }
     public Type retVal() {
       if (_retVal == null)
-        _retVal = env.convertType(method.getReturnType(), parent().inside());
+        _retVal = env.convertType(method.getReturnType());
       return _retVal;
     }
 
@@ -498,7 +504,7 @@ public class Converter {
     public Type inside() {
       if (_inside == null) {
         try {
-          _inside = env.convertType(f.getType(), parent().inside());
+          _inside = env.convertType(f.getType());
         } catch (Exception e) {
           throw new RuntimeException("LazyField::inside failed: field "+qualifiedName().get()+": "+e.getMessage());
         }
@@ -540,7 +546,7 @@ public class Converter {
     }
     public Type ty() {
       if (_ty == null)
-        _ty = env.convertType(f.getType(), parent().inside());
+        _ty = env.convertType(f.getType());
       return _ty;
     }
     public ClassItem parent() {
