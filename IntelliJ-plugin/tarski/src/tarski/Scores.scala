@@ -255,6 +255,9 @@ object Scores {
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
     new UniformState[A](p,xs,if (trackErrors) () => error else null).extract()
 
+  @inline def uniformGood[A <: AnyRef](p: Prob, xs: Array[A]): Scored[A] =
+    new UniformState[A](p,xs,null).extract()
+
   @inline def uniform[A <: AnyRef](p: Prob, xs: Seq[A], error: => String)(implicit t: ClassTag[A]): Scored[A] =
     new UniformState[A](p,xs.toArray,if (trackErrors) () => error else null).extract()
 

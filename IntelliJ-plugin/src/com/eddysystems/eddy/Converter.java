@@ -233,6 +233,7 @@ public class Converter {
     private ClassType _base;
     private scala.collection.immutable.List<RefType> _supers;
     private scala.collection.immutable.List<RefTypeItem> _superItems;
+    private ConstructorItem[] _constructors;
 
     LazyClass(Converter env, PsiClass cls, ParentItem parent) {
       this.env = env;
@@ -307,6 +308,16 @@ public class Converter {
       return cls.findFieldByName(kid, false) != null;
     }
 
+    public ConstructorItem[] constructors() {
+      if (_constructors == null) {
+        final ArrayList<ConstructorItem> cons = new ArrayList<ConstructorItem>();
+        for (PsiMethod m : cls.getConstructors())
+          cons.add((ConstructorItem)env.addMethod(m));
+        _constructors = cons.toArray(new ConstructorItem[cons.size()]);
+      }
+      return _constructors;
+    }
+
     // Necessary only due to screwy Java/Scala interop
     public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
@@ -345,8 +356,9 @@ public class Converter {
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
     for (PsiMethod m : cls.getConstructors())
-      // TODO: add the argument-free constructor even if not explicitly declared
-      // TODO: get rid of getConstructors loop -- getMethods already lists constructors
+      // TODO: Add the argument-free constructor even if not explicitly declared
+      // TODO: Do the same in LazyClass::constructors()
+      // TODO: Get rid of getConstructors loop -- getMethods already lists constructors
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
     for (PsiClass c : cls.getInnerClasses())

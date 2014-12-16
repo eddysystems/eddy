@@ -23,8 +23,9 @@ object ArgMatching {
       else {
         def add(p: Prob, x: Exp, xs: List[Scored[Exp]]): Scored[Args] = {
           val args = used :+ x
-          resolveOptions(List(f),args map (_.ty)) match {
-            case Nil => empty
+          val tys = args map (_.ty)
+          resolveOptions(List(f),tys) match {
+            case Nil => fail(s"Can't apply $f to prefix ${tys mkString ", "}")
             case List((f0,ts)) if f eq f0 => process(k+1,ts,args,xs) bias p
             case _ => impossible
           }
