@@ -7,7 +7,6 @@ import scala.Function1;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import scala.collection.immutable.$colon$colon$;
-import scala.runtime.AbstractFunction0;
 import tarski.Items.*;
 import tarski.Scores;
 import tarski.Scores.*;
