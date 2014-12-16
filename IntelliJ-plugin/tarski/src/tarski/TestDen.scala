@@ -279,10 +279,11 @@ class TestDen {
     val Yf = NormalFieldItem("f",R.simple,Y,true)
 
     val m = NormalMethodItem("m", Y, Nil, VoidType, List(Q.simple), false)
-    val tY = ThisItem(Y)
-    implicit val env = Env(Array(X,Y,Xf,Yf,m,tY), Map((tY,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
+    val This = ThisItem(Y)
+    val Super = SuperItem(Y.base)
+    implicit val env = Env(Array(X,Y,Xf,Yf,m,This,Super), Map((This,2),(Super,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
-    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(SuperExp(tY), Xf))))
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(SuperExp(Super),Xf))))
   }
 
   @Test
@@ -496,13 +497,14 @@ class TestDen {
     lazy val X: ClassItem = NormalClassItem("X", LocalPkg, Nil, Y, constructors = Array(Xc,Xc2))
     lazy val Xc = NormalConstructorItem(X, Nil, Nil)
     lazy val Xc2 = NormalConstructorItem(X, Nil, List(IntType))
-    val Xthis = ThisItem(X)
-    implicit val env = Env(Array(Y,Yc,X,Xc,Xthis),
-                           Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(Xthis,2)),
+    val This = ThisItem(X)
+    val Super = SuperItem(Y)
+    implicit val env = Env(Array(Y,Yc,X,Xc,This,Super),
+                           Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2)),
                            PlaceInfo(Xc2))
-    testDen("this()", ApplyExp(ForwardDen(Xc), Nil, Nil))
-    testDen("super()", ApplyExp(ForwardDen(Yc), Nil, Nil))
-    // this should only work as the first statement of a different constructor,
+    testDen("this()", ApplyExp(ForwardDen(Xc,Map.empty), Nil, Nil))
+    testDen("super()", ApplyExp(ForwardDen(Yc,Map.empty), Nil, Nil))
+    // TODO: This should only work as the first statement of a different constructor,
     // which is not tracked by the PlaceInfo right now
   }
 

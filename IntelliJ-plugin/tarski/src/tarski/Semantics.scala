@@ -110,7 +110,7 @@ object Semantics {
     objs flatMap { xd => {
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
         xd match {
-          case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(FieldExp(SuperExp(tt),i), Pr.superFieldValue(objs, c, i))
+          case ThisExp(tt:ThisItem) if tt.self.base.item == c => fail("We'll use super instead of this")
           case _ => single(FieldExp(CastExp(c.raw,xd),i), Pr.shadowedFieldValue(objs, xd,c,i))
         }
       } else
@@ -119,12 +119,8 @@ object Semantics {
   }
 
   def denoteMethod(i: MethodItem, depth: Int)(implicit env: Env): Scored[MethodDen] = {
-    val c: TypeItem = i.parent
-    val objs = valuesOfItem(c,i,depth)
-    objs flatMap {
-      case ThisExp(tt:ThisItem) if tt.self.base.item == c => single(MethodDen(SuperExp(tt),i), Pr.superMethodCallable(objs, c, i))
-      case xd => single(MethodDen(xd,i), Pr.methodCallable(objs, xd, i))
-    }
+    val objs = valuesOfItem(i.parent,i,depth)
+    objs flatMap (xd => single(MethodDen(xd,i), Pr.methodCallable(objs, xd, i)))
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = i match {
@@ -136,6 +132,7 @@ object Semantics {
     case i: StaticFieldItem => single(StaticFieldExp(None,i), Pr.staticFieldValue)
     case i: EnumConstantItem => single(EnumConstantExp(None,i), Pr.enumConstantValue)
     case i: ThisItem => single(ThisExp(i), Pr.thisValue)
+    case i: SuperItem => single(SuperExp(i), Pr.superValue)
 
     case i: FieldItem if env.inScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
     case i: FieldItem => denoteField(i, depth)
@@ -149,7 +146,11 @@ object Semantics {
       case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
       case ThisItem(c) => uniformGood(Pr.forwardConstructor,c.constructors) flatMap {
         case cons if cons == env.place.place => fail("Can't forward to current constructor")
-        case cons => known(ForwardDen(cons))
+        case cons => known(ForwardDen(cons,Map.empty))
+      }
+      case SuperItem(c) => {
+        val tenv = c.env
+        uniformGood(Pr.forwardConstructor,c.item.constructors) map (ForwardDen(_,tenv))
       }
     }
     case ParenAExp(x,_) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do
