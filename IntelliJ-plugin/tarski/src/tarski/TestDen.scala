@@ -490,7 +490,7 @@ class TestDen {
     testDen("f", ApplyExp(LocalMethodDen(f),Nil,Nil))
   }
 
-  @Test def constructorForward() = {
+  @Test def constructorForward(): Unit = {
     val Y = NormalClassItem("Y", LocalPkg)
     val Yc = NormalConstructorItem(Y,Nil,Nil)
     val X = NormalClassItem("X", LocalPkg, Nil, Y)
@@ -504,7 +504,7 @@ class TestDen {
     // which is not tracked by the PlaceInfo right now
   }
 
-  @Test def illegalConstructorForward() = {
+  @Test def illegalConstructorForward(): Unit = {
     // cannot forward to constructor outside of constructor
     val Y = NormalClassItem("Y", LocalPkg)
     val Yc = NormalConstructorItem(Y,Nil,Nil)
