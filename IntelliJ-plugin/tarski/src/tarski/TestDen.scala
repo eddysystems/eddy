@@ -489,4 +489,32 @@ class TestDen {
     implicit val env = localEnv(X,f)
     testDen("f", ApplyExp(LocalMethodDen(f),Nil,Nil))
   }
+
+  @Test def constructorForward() = {
+    val Y = NormalClassItem("Y", LocalPkg)
+    val Yc = NormalConstructorItem(Y,Nil,Nil)
+    val X = NormalClassItem("X", LocalPkg, Nil, Y)
+    val Xc = NormalConstructorItem(X, Nil, Nil)
+    val Xc2 = NormalConstructorItem(X, Nil, List(IntType))
+    implicit val env = Env(Array(Y,Yc,X,Xc), Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3)), PlaceInfo(Xc2))
+    testDen("this()", ApplyExp(ForwardDen(Xc), Nil, Nil))
+    testDen("super()", ApplyExp(ForwardDen(Yc), Nil, Nil))
+    notImplemented
+    // this should only work as the first statement of a different constructor,
+    // which is not tracked by the PlaceInfo right now
+  }
+
+  @Test def illegalConstructorForward() = {
+    // cannot forward to constructor outside of constructor
+    val Y = NormalClassItem("Y", LocalPkg)
+    val Yc = NormalConstructorItem(Y,Nil,Nil)
+    val X = NormalClassItem("X", LocalPkg, Nil, Y)
+    val Xc = NormalConstructorItem(X, Nil, Nil)
+    val f = NormalMethodItem("f", X, Nil, VoidType, Nil, isStatic = false)
+    implicit val env = Env(Array(Y,Yc,X,Xc), Map((f,2),(Xc,2),(X,2),(Y,3),(Yc,3)), PlaceInfo(f))
+    testFail("this()")
+    testFail("super()")
+    notImplemented
+  }
+
 }
