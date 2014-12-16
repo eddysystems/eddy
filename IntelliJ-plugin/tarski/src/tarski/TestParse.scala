@@ -119,8 +119,11 @@ class TestParse {
     ForAStmt(For(AssignAExp(None,"x",7),Some(t),UnaryAExp(PostIncOp,"x")),h,ParenAround))
 
   @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
-    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp(NameAExp("X"),EmptyList,ParenAround),ParenAround),None,"f"),EmptyList,ParenAround)))
+    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp("X",EmptyList,ParenAround),ParenAround),None,"f"),EmptyList,ParenAround)))
 
   @Test def weirdParens() = testAST("([{)]}",
     ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,Grouped(Curly,Paren))),BrackAround),Grouped(Paren,Curly)))
+
+  @Test def thisForward() = testAST("this()",ApplyAExp("this",EmptyList,ParenAround))
+  @Test def superForward() = testAST("super()",ApplyAExp("super",EmptyList,ParenAround))
 }

@@ -15,6 +15,8 @@ Ident String
   ThenTok  { "then" }
   UntilTok { "until" }
   InTok    { "in" }
+  ThisTok  { "this" }
+  SuperTok { "super" }
 
 // Modifiers
 Mod Mod

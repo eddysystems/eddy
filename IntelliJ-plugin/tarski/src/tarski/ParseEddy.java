@@ -126,17 +126,18 @@ class ParseEddy {
     private static final int iAndTok = 68;
     private static final int iRShiftTok = 69;
     private static final int iOrEqTok = 70;
-    private static final int iLShiftEqTok = 71;
-    private static final int iLShiftTok = 72;
-    private static final int iModEqTok = 73;
-    private static final int iPlusTok = 74;
-    private static final int iOrOrTok = 75;
-    private static final int iLongLitTok = 76;
-    private static final int iAtTok = 77;
-    private static final int iMulEqTok = 78;
-    private static final int iPublicTok = 79;
-    private static final int iMinusTok = 80;
-    private static final int iDivEqTok = 81;
+    private static final int iThisTok = 71;
+    private static final int iLShiftEqTok = 72;
+    private static final int iLShiftTok = 73;
+    private static final int iModEqTok = 74;
+    private static final int iPlusTok = 75;
+    private static final int iOrOrTok = 76;
+    private static final int iLongLitTok = 77;
+    private static final int iAtTok = 78;
+    private static final int iMulEqTok = 79;
+    private static final int iPublicTok = 80;
+    private static final int iMinusTok = 81;
+    private static final int iDivEqTok = 82;
     private static final int iCommas2_ExpAssignNC = 0;
     private static final int iIfTok__ExpAssignNP = 1;
     private static final int iMaybeThen__MaybeStmt__ElseTok = 2;
@@ -359,6 +360,7 @@ class ParseEddy {
           : t instanceof AndTok$ ? iAndTok
           : t instanceof RShiftTok$ ? iRShiftTok
           : t instanceof OrEqTok$ ? iOrEqTok
+          : t instanceof ThisTok$ ? iThisTok
           : t instanceof LShiftEqTok$ ? iLShiftEqTok
           : t instanceof LShiftTok$ ? iLShiftTok
           : t instanceof ModEqTok$ ? iModEqTok
@@ -1522,14 +1524,18 @@ class ParseEddy {
     
     private void Ident(final int lo, final int hi) {
       final int prev = values.size();
-      if (hi-lo==1 && type[lo]==iInTok)
-        values.add(Ident0());
       if (hi-lo==1 && type[lo]==iUntilTok)
+        values.add(Ident0());
+      if (hi-lo==1 && type[lo]==iSuperTok)
         values.add(Ident1());
-      if (hi-lo==1 && type[lo]==iThenTok)
-        values.add(Ident2());
       if (hi-lo==1 && type[lo]==iIdentTok)
-        values.add(Ident3((IdentTok)input[lo]));
+        values.add(Ident2((IdentTok)input[lo]));
+      if (hi-lo==1 && type[lo]==iThisTok)
+        values.add(Ident3());
+      if (hi-lo==1 && type[lo]==iThenTok)
+        values.add(Ident4());
+      if (hi-lo==1 && type[lo]==iInTok)
+        values.add(Ident5());
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iIdent<<24|lo<<12|hi,(long)prev<<32|count); }
     }

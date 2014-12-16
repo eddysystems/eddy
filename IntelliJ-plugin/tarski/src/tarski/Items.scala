@@ -73,10 +73,7 @@ object Items {
     def simple = ty
 
     // Not sure why we need these
-    def canEqual(x: Any) = x match {
-      case x:AnyRef => this eq x
-      case _ => false
-    }
+    def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
     def productArity = notImplemented
     def productElement(n: Int) = notImplemented
   }
@@ -136,10 +133,15 @@ object Items {
 
     // true if this class (not its supers) declare a field with this name
     def declaresField(kid: Name): Boolean
+
+    // All constructors of this class
+    def constructors: Array[ConstructorItem]
   }
 
+  private val noConstructors: Array[ConstructorItem] = Array()
   trait BaseItem extends ClassItem {
     val fieldNames: java.util.Set[String] = new java.util.HashSet[String]()
+    var constructors: Array[ConstructorItem] = noConstructors
     def declaresField(kid: Name) = fieldNames.contains(kid)
   }
 
@@ -163,8 +165,9 @@ object Items {
     }
   }
 
-  case class NormalInterfaceItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
-                                 interfaces: List[ClassType] = Nil, fields: Set[String] = Set()) extends ClassItem {
+  class NormalInterfaceItem(val name: Name, val parent: ParentItem, val tparams: List[TypeVar] = Nil,
+                            val interfaces: List[ClassType] = Nil, val fields: Set[String] = Set(),
+                            _constructors: => Array[ConstructorItem] = noConstructors) extends ClassItem {
     def base = ObjectType
     def supers = base :: interfaces
     def superItems = supers map (_.item)
@@ -172,16 +175,42 @@ object Items {
     def isEnum = false
     def isFinal = false
     def declaresField(kid: Name) = fields contains kid
+    lazy val constructors = _constructors
+
+    // Not sure why we need these
+    def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
+    def productArity = notImplemented
+    def productElement(n: Int) = notImplemented
+  }
+  object NormalInterfaceItem {
+    def apply(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
+              interfaces: List[ClassType] = Nil, fields: Set[String] = Set(),
+              constructors: => Array[ConstructorItem] = noConstructors): ClassItem =
+      new NormalInterfaceItem(name,parent,tparams,interfaces,fields,constructors)
   }
 
-  case class NormalClassItem(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
-                             base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
-                             isFinal: Boolean = false, fields: Set[String] = Set()) extends ClassItem {
+  class NormalClassItem(val name: Name, val parent: ParentItem, val tparams: List[TypeVar] = Nil,
+                        val base: ClassType = ObjectType, val interfaces: List[ClassType] = Nil,
+                        val isFinal: Boolean = false, val fields: Set[String] = Set(),
+                        _constructors: => Array[ConstructorItem] = noConstructors) extends ClassItem {
     def supers = base :: interfaces
     def superItems = supers map (_.item)
     def isClass = true
     def isEnum = false
     def declaresField(kid: Name) = fields contains kid
+    lazy val constructors = _constructors
+
+    // Not sure why we need these
+    def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
+    def productArity = notImplemented
+    def productElement(n: Int) = notImplemented
+  }
+  object NormalClassItem {
+    def apply(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
+              base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
+              isFinal: Boolean = false, fields: Set[String] = Set(),
+              constructors: => Array[ConstructorItem] = noConstructors): ClassItem =
+      new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,fields,constructors)
   }
 
   case class UnresolvedClassItem(name: Name, pkgName: Name, args: List[TypeArg], isFinal: Boolean) extends ClassItem {
@@ -196,6 +225,7 @@ object Items {
     def generic: ClassType = generic(args, parent)
 
     def declaresField(kid: Name) = false
+    val constructors = noConstructors
   }
 
   case object ArrayItem extends RefTypeItem {
@@ -249,7 +279,7 @@ object Items {
     def ty: Type
     def item = ty.item
   }
-  case class ThisItem(self: ClassItem) extends Value {
+  case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
     def name = "this"
     def qualifiedName = None
     def item = self
@@ -289,7 +319,8 @@ object Items {
   case class NormalStaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean) extends StaticFieldItem
 
   // Callables
-  sealed abstract class CallableItem extends Item with PlaceItem with GenericItem {
+  sealed trait PseudoCallableItem extends Item // Callable or this or super
+  sealed abstract class CallableItem extends PseudoCallableItem with PlaceItem with GenericItem {
     def params: List[Type]
   }
   sealed trait CallableParentItem extends CallableItem with SimpleParentItem {

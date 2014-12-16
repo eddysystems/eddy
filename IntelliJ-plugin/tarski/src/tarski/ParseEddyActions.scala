@@ -328,10 +328,12 @@ object ParseEddyActions {
   def ExpNewNP0(x1: Option[(Bound,AExp)]): AExp = WildAExp(x1)
   def ExpNewNP1(x1: Option[KList[AExp]], x2: AExp): AExp = NewAExp(x1,x2)
   def ExpNewNP2(x0: AExp): AExp = x0
-  def Ident0(): String = "in"
-  def Ident1(): String = "until"
-  def Ident2(): String = "then"
-  def Ident3(x0: IdentTok): String = x0.name
+  def Ident0(): String = "until"
+  def Ident1(): String = "super"
+  def Ident2(x0: IdentTok): String = x0.name
+  def Ident3(): String = "this"
+  def Ident4(): String = "then"
+  def Ident5(): String = "in"
   def Commas0_ExpAssignNC0(x0: List[AExp]): List[AExp] = x0
   def Commas0_ExpAssignNC1(): List[AExp] = Nil
   def ExpCond_ExpJuxt0(x0: AExp, x1: (AExp,AExp)): AExp = CondAExp(x0,x1._1,x1._2)

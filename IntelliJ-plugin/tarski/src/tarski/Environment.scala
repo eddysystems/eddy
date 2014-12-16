@@ -28,7 +28,16 @@ object Environment {
   case class PlaceInfo(place: PlaceItem,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
-                       labels: List[String] = Nil)
+                       labels: List[String] = Nil) {
+    // Can we forward to a constructor of class c?
+    def forwardPossible(c: ClassItem): Boolean = place match {
+      case cons:ConstructorItem => {
+        val p = cons.parent
+        (c==p && c.constructors.length>1) || (c==p.base.item && c.constructors.length>0)
+      }
+      case _ => false
+    }
+  }
   val localPlace = PlaceInfo(Base.LocalPkg)
 
   // An environment for name resolution
@@ -176,7 +185,6 @@ object Environment {
               else v1++v0
       uniform(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
     }
-
   }
 
   // What could this name be, assuming it is a type?
@@ -192,8 +200,11 @@ object Environment {
   }
 
   // What could it be, given it's a callable?
-  def callableScores(name: String)(implicit env: Env): Scored[CallableItem] =
-    env.combinedQuery(name, Pr.exactCallable, { case t:CallableItem => t }, s"Callable $name not found")
+  def callableScores(name: String)(implicit env: Env): Scored[PseudoCallableItem] =
+    env.combinedQuery(name, Pr.exactCallable, {
+      case t:CallableItem => t
+      case t@ThisItem(c) if env.place.forwardPossible(c) => t
+    }, s"Callable $name not found")
 
   // What could this be, we know it's a value
   def valueScores(name: String)(implicit env: Env): Scored[Value] =

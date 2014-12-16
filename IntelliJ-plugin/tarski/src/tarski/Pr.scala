@@ -122,6 +122,7 @@ object Pr {
 
   val staticMethodCallable = passThrough
   val constructorCallable = passThrough
+  val forwardConstructor = passThrough
   // (callable)
   val parensAroundCallable = Prob(.8)
   // Type.staticMethod

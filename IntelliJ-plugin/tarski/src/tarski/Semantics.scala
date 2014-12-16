@@ -147,6 +147,10 @@ object Semantics {
       case i: MethodItem if env.inScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
       case i: MethodItem => denoteMethod(i, 0)
       case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
+      case ThisItem(c) => uniformGood(Pr.forwardConstructor,c.constructors) flatMap {
+        case cons if cons == env.place.place => fail("Can't forward to current constructor")
+        case cons => known(ForwardDen(cons))
+      }
     }
     case ParenAExp(x,_) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do
 
