@@ -2,9 +2,8 @@ package tarski
 
 import scala.annotation.tailrec
 import scala.math._
-import ambiguity.JavaUtils._
+import tarski.JavaScores._
 import ambiguity.Utility._
-
 import scala.reflect.ClassTag
 
 object Scores {
