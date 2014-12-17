@@ -3,6 +3,7 @@ package tarski
 import scala.annotation.tailrec
 import scala.math._
 import ambiguity.JavaUtils._
+import ambiguity.Utility._
 
 import scala.reflect.ClassTag
 
@@ -32,7 +33,7 @@ object Scores {
     def p: Prob
 
     // These force some evaluation
-    final def strict: StrictScored[A] = {
+    private final def strict: StrictScored[A] = {
       @tailrec def loop(x: Scored[A]): StrictScored[A] = x match {
         case x:StrictScored[A] => x
         case x:LazyScored[A] => loop(x force 0)
@@ -41,12 +42,11 @@ object Scores {
     }
     final def best: Either[Error,A] = strict match {
       case Best(_,x,_) => Right(x)
-      case x:Bad => Left(x.e)
-      case Empty => Left(OneError("unknown error"))
+      case x:EmptyOrBad => Left(x.error)
     }
     final def all: Either[Error,Stream[Alt[A]]] = strict match {
       case x:Best[A] => Right(x.stream)
-      case x:EmptyOrBad => x.best
+      case x:EmptyOrBad => Left(x.error)
     }
     final def stream: Stream[Alt[A]] = strict match {
       case Best(p,x,r) => Alt(p,x) #:: r.stream
@@ -90,7 +90,13 @@ object Scores {
     def force(hi: Prob): Scored[A]
 
     def bias(p: Prob): Scored[A] = new LazyBias(this,p)
-    def ++[B >: A](s: Scored[B]): Scored[B] = if (p >= s.p) new LazyPlus(this,s) else s ++ this
+    def ++[B >: A](s: Scored[B]): Scored[B] =
+      if (p >= s.p) new LazyPlus(this,s)
+      else s match {
+        case s:LazyScored[B] => new LazyPlus(s,this)
+        case s:Best[B] => Best(s.p,s.x,this ++ s.r)
+        case _:EmptyOrBad => impossible
+      }
   }
 
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
@@ -101,6 +107,7 @@ object Scores {
   // No options
   sealed abstract class EmptyOrBad extends StrictScored[Nothing] {
     def p = 0
+    def error: Error
     override def map[B](f: Nothing => B) = this
     override def flatMap[B](f: Nothing => Scored[B]) = this
     override def bias(p: Prob) = this
@@ -108,15 +115,17 @@ object Scores {
     override def _filter(f: Nothing => Boolean, error: () => String) = this
   }
   // Failure
-  final class Bad(_e: => Error) extends EmptyOrBad {
-    lazy val e = _e
+  final class Bad(_error: => Error) extends EmptyOrBad {
+    lazy val error = _error
     def ++[B](s: Scored[B]) = s match {
-      case s:Bad => new Bad(NestError("++ failed",List(e,s.e)))
-      case _ => this
+      case s:LazyScored[B] => new LazyPlus(s,this)
+      case s:EmptyOrBad => new Bad(NestError("++ failed",List(error,s.error)))
+      case _:Best[_] => this
     }
   }
   // No options, but not Bad
   object Empty extends EmptyOrBad {
+    def error = OneError("unknown error")
     override def ++[B](s: Scored[B]) = s
   }
 
@@ -128,7 +137,7 @@ object Scores {
       else s match {
         case x:LazyScored[B] => new LazyPlus(x,this)
         case Best(q,y,s) => Best(q,y,this++s)
-        case _:EmptyOrBad => this
+        case _:EmptyOrBad => impossible
       }
   }
 
@@ -260,7 +269,7 @@ object Scores {
   def known[A](x: A): Scored[A] = Best(1,x,Empty)
   def single[A](x: A, p: Prob): Scored[A] = Best(p,x,Empty)
   def orError[A](x: Scored[A], error: => String): Scored[A] =
-    if (trackErrors) multiple(List(x,new Bad(OneError(error))))
+    if (trackErrors) new Bad(OneError(error)) ++ x
     else x
 
   // Bias and delay
@@ -386,7 +395,7 @@ object Scores {
   def nestError[A](s: String, bads: List[Bad]): Scored[A] =
     if (trackErrors) bads match {
       case List(b) => b
-      case bs => new Bad(NestError(s,bads map (_.e)))
+      case bs => new Bad(NestError(s,bads map (_.error)))
     } else Empty
   def oneError[A](error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error))
