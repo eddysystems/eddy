@@ -378,12 +378,14 @@ object Scores {
   }
   def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
     case Nil => knownNil
+    case List(sx) => sx map (List(_))
     case sx :: sxs => sx.productWith(product(sxs))(_::_)
   }
 
   def productFoldLeft[A,E](e: E)(fs: List[E => Scored[(E,A)]]): Scored[(E,List[A])] =
     fs match {
       case Nil => known((e,Nil))
+      case List(f) => f(e) map {case (e,x) => (e,List(x))}
       case f :: fs => f(e) flatMap {case (ex,x) => productFoldLeft(ex)(fs) map {case (exs,xs) => (exs,x::xs)}}
     }
 
