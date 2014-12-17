@@ -18,11 +18,13 @@ public class Place {
     this.place = place;
     file = PsiTreeUtil.getParentOfType(place, PsiJavaFile.class, false);
     placeClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
-    pkg = file == null ? null : getPackage(file);
+    pkg = getPackage(file);
+
+    //System.out.println("Place at: " + place + " in class " + placeClass + " in package " + pkg + " in file " + file + " in project " + project);
   }
 
-  @Nullable PsiPackage getPackage(@NotNull PsiJavaFile file) {
-    return JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
+  @Nullable PsiPackage getPackage(PsiJavaFile file) {
+    return file == null ? null : JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
   }
 
   PsiElement containing(PsiElement elem) {
@@ -48,7 +50,8 @@ public class Place {
 
   boolean samePackage(PsiElement element) {
     PsiJavaFile file = PsiTreeUtil.getParentOfType(element, PsiJavaFile.class, false);
-    return this.file == null || file == null || getPackage(file) != pkg;
+    PsiPackage epkg = getPackage(file);
+    return epkg == pkg;
   }
 
   /**

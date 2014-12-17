@@ -378,13 +378,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       return false;
 
     // if we are in static scope, a class member has to be declared static for us to see it
+    // TODO: we should add these either way, and let the semantics logic take care of static scoping
     if (element instanceof PsiField || element instanceof PsiMethod) {
       if (inStaticScope && !((PsiMember)element).hasModifierProperty(PsiModifier.STATIC))
         return true;
     }
 
-    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element, false))
+    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element, false)) {
+      logger.debug("rejecting " + element + " because it is inaccessible");
       return true;
+    }
 
     logger.debug("found element " + element + " at level " + currentLevel);
 
