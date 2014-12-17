@@ -117,7 +117,7 @@ object Environment {
           fail(s"Invalid new local variable $name: already exists.")
         else {
           val x = LocalVariableItem(name,t,isFinal)
-          single((extend(Array(x),Map((x,0))),x), Pr.newVariable)
+          known((extend(Array(x),Map((x,0))),x))
         }
       case _ => fail("Cannot declare local variables outside of methods or constructors.")
     }
@@ -130,8 +130,7 @@ object Environment {
         else {
           val x = if (isStatic) NormalStaticFieldItem(name,t,c,isFinal)
                   else                NormalFieldItem(name,t,c,isFinal)
-          val p = if (isStatic) Pr.newStaticField else Pr.newField
-          single((extend(Array(x),Map((x,0))),x),p)
+          known((extend(Array(x),Map((x,0))),x))
         }
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
@@ -270,8 +269,8 @@ object Environment {
   def returnType(implicit env: Env): Scored[Type] = {
     def die(scope: String) = fail(s"Can't return from $scope scope")
     env.place.place match {
-      case m:MethodItem => single(m.retVal, Pr.certain)
-      case c:ConstructorItem => single(VoidType, Pr.certain)
+      case m:MethodItem => known(m.retVal)
+      case c:ConstructorItem => known(VoidType)
       case _:PackageItem => die("package")
       case _:ClassItem => die("class or interface")
     }

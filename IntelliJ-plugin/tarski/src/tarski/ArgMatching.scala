@@ -35,7 +35,7 @@ object ArgMatching {
           case Nil => if (useEnv) Nil else impossible
           case x::xs => {
             // Use the next argument
-            val first = biased(Pr.certain,x flatMap (add(_,xs)))
+            val first = x flatMap (add(_,xs))
             // Use a different argument
             @tailrec
             def shuffle(prev: List[Scored[Exp]], next: List[Scored[Exp]], opts: Opts): Opts = next match {

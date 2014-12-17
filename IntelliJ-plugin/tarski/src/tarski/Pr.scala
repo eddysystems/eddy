@@ -60,12 +60,6 @@ object Pr {
 
   // TODO: many of these should be functions of the parts that go into the tree node they represent
 
-  val certain = Prob(1.0)
-  val never = Prob(0.0)
-
-  // for transformations that are only technical in nature (for instance filters) and shouldn't affect probabilities
-  val passThrough = certain
-
   // occam's razor: bias towards smaller things
   val base = Prob(.98)
 
@@ -101,16 +95,6 @@ object Pr {
   // Type<TArg,...>
   val typeApply = base
 
-  // denoteValue(Value)
-  val parameterValue = passThrough
-  val localValue = passThrough
-  val litValue = passThrough
-  val staticFieldValue = passThrough
-  val enumConstantValue = passThrough
-  val thisValue = passThrough
-  val superValue = passThrough
-  val localFieldValue = passThrough
-
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
   def superFieldValue(values: Scored[Exp], c: TypeItem, f: FieldItem) = Prob(.8)
 
@@ -120,17 +104,11 @@ object Pr {
   // a field requires qualification with one of values, how likely is it that the user forgot to qualify with obj?
   def fieldValue(values: Scored[Exp], obj: Exp, f: FieldItem) = omitQualifier(values, obj, f)
 
-  // denoteCallable(AExp)
-  val localMethodCallable = passThrough
-
   // equivalent of fieldValue, shadowedFieldValue, superFieldValue for methods
   def methodCallable(values: Scored[Exp], obj: Exp, f: MethodItem) = omitQualifier(values, obj, f)
   def shadowedMethodCallable(values: Scored[Exp], obj: Exp, c: TypeItem, f: MethodItem) = methodCallable(values, obj, f)
   def superMethodCallable(values: Scored[Exp], c: TypeItem, f: MethodItem) = Prob(.8)
 
-  val staticMethodCallable = passThrough
-  val constructorCallable = passThrough
-  val forwardConstructor = passThrough
   // (callable)
   val parensAroundCallable = Prob(.8)
   // Type.staticMethod
@@ -161,34 +139,19 @@ object Pr {
   val arrayExp = Prob(.8) // {1,2,3}, should be a function of around, types, number of things inside
 
   // denoteBool(AExp)
-  val boolExp = passThrough
   def insertComparison(t: Type): Prob = Prob(.6) // how likely is it that someone forgot a comparison to obtain a bool (depending on type).
 
-  // denoteNonVoid(AExp)
-  val nonVoidExp = passThrough
-
-  // denoteArray(AExp)
-  val arrayTypeExp = passThrough
-
   // denoteIndex
-  val indexExp = passThrough
   val insertedCastIndexExp = Prob(.1) // it's unlikely.
-
-  // denoteRef
-  val refExp = passThrough
-
-  // denoteVariable(AExp)
-  val variableExp = passThrough
 
   // denoteStmt(AStmt)
   val emptyStmt = Prob(.2) // empty statements are rarely written down
   val holeStmt = base // incomplete statements are common though
   val varInitNone = base
   val varInit = base
-  var varDeclNil = passThrough
   var varDecl = base
   val varStmt = base // should depend on matchiness of declaration and initializer types
-  val expStmt = base // could also be passThrough, nothing happens here
+  val expStmt = base // could also be 1, nothing happens here
   val expStmtsSplit = Prob(.3) // tried to write a non-expression statement as a statement, had to be split
   val assignmentAsVarStmt = Prob(.4) // should depend on types: e.g. explicit constructor calls are more likely
   val blockStmt = base
@@ -210,14 +173,6 @@ object Pr {
 
   // denoteLabel
   val labelNone = base
-
-  // denoteStmts
-  val stmtList = passThrough
-
-  // Environment
-  val newVariable = certain
-  val newField = certain
-  val newStaticField = certain
 
   val exactType = base
   val exactCallable = base

@@ -109,8 +109,8 @@ object Semantics {
     }
 
     case _ => denoteType(e) flatMap {
-      case r:RefType => single(r,Pr.certain)
-      case DiscardType(ls,r:RefType) => single(DiscardTypeArg(ls,r),Pr.certain)
+      case r:RefType => known(r)
+      case DiscardType(ls,r:RefType) => known(DiscardTypeArg(ls,r))
       case _ => fail(s"cannot use $e as a typearg")
     }
   }
@@ -190,33 +190,33 @@ object Semantics {
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = i match {
-    case i: ParameterItem if env.inScope(i) => single(ParameterExp(i), Pr.parameterValue)
-    case i: LocalVariableItem if env.inScope(i) => single(LocalVariableExp(i), Pr.localValue)
+    case i: ParameterItem if env.inScope(i) => known(ParameterExp(i))
+    case i: LocalVariableItem if env.inScope(i) => known(LocalVariableExp(i))
 
     // We can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
-    case LitValue(x) => single(x, Pr.litValue)
-    case i: StaticFieldItem => single(StaticFieldExp(None,i), Pr.staticFieldValue)
-    case i: EnumConstantItem => single(EnumConstantExp(None,i), Pr.enumConstantValue)
-    case i: ThisItem => single(ThisExp(i), Pr.thisValue)
-    case i: SuperItem => single(SuperExp(i), Pr.superValue)
+    case LitValue(x) => known(x)
+    case i: StaticFieldItem => known(StaticFieldExp(None,i))
+    case i: EnumConstantItem => known(EnumConstantExp(None,i))
+    case i: ThisItem => known(ThisExp(i))
+    case i: SuperItem => known(SuperExp(i))
 
-    case i: FieldItem if env.inScope(i) => single(LocalFieldExp(i), Pr.localFieldValue)
+    case i: FieldItem if env.inScope(i) => known(LocalFieldExp(i))
     case i: FieldItem => denoteField(i, depth)
   }
 
   def denoteCallable(e: AExp)(implicit env: Env): Scored[Callable] = e match {
     case NameAExp(n) => callableScores(n) flatMap {
-      case i: MethodItem if i.isStatic => single(StaticMethodDen(None,i), Pr.staticMethodCallable)
-      case i: MethodItem if env.inScope(i) => single(LocalMethodDen(i), Pr.localMethodCallable)
+      case i: MethodItem if i.isStatic => known(StaticMethodDen(None,i))
+      case i: MethodItem if env.inScope(i) => known(LocalMethodDen(i))
       case i: MethodItem => denoteMethod(i, 0)
-      case i: ConstructorItem => single(NewDen(i), Pr.constructorCallable)
-      case ThisItem(c) => uniformGood(Pr.forwardConstructor,c.constructors) flatMap {
+      case i: ConstructorItem => known(NewDen(i))
+      case ThisItem(c) => uniformGood(1,c.constructors) flatMap {
         case cons if cons == env.place.place => fail("Can't forward to current constructor")
         case cons => known(ForwardDen(cons,Map.empty))
       }
       case SuperItem(c) => {
         val tenv = c.env
-        uniformGood(Pr.forwardConstructor,c.item.constructors) map (ForwardDen(_,tenv))
+        uniformGood(1,c.item.constructors) map (ForwardDen(_,tenv))
       }
     }
     case ParenAExp(x,_) => biased(Pr.parensAroundCallable,denoteCallable(x)) // Java doesn't allow parentheses around callables, but we do
@@ -351,7 +351,7 @@ object Semantics {
   // Expressions with type restrictions
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     val t = e.ty
-    if (t.unboxesToBoolean) single(e, Pr.boolExp)
+    if (t.unboxesToBoolean) known(e)
     else if (t.unboxesToNumeric) single(BinaryExp(NeOp, e, IntLit(0, "0")), Pr.insertComparison(t))
     // TODO: all sequences should probably check whether they're empty (or null)
     else if (t.isInstanceOf[RefType]) single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
@@ -359,7 +359,7 @@ object Semantics {
   }
   def denoteIndex(e: Exp)(implicit env: Env): Scored[Exp] = {
     e.ty.unboxIntegral match {
-      case Some(p) if promote(p) == IntType => single(e, Pr.indexExp)
+      case Some(p) if promote(p) == IntType => known(e)
       case _ if castsTo(e.ty, IntType) => single(CastExp(IntType, e), Pr.insertedCastIndexExp)
       case _ => fail(s"Index ${show(e)} doesn't convert or cast to int")
     }
@@ -367,19 +367,19 @@ object Semantics {
   def denoteIndex(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap denoteIndex
 
   def denoteNonVoid(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
-    if (e.item != VoidItem) single(e, Pr.nonVoidExp)
+    if (e.item != VoidItem) known(e)
     else fail(s"${show(n)}: expected non-void expression")
   }
   def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e =>
-    if (e.item == ArrayItem) single(e, Pr.arrayTypeExp)
+    if (e.item == ArrayItem) known(e)
     else fail(s"${show(e)} has non-array type ${show(e.ty)}")
   }
   def denoteRef(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e =>
-    if (e.item.isInstanceOf[RefTypeItem]) single(e, Pr.refExp)
+    if (e.item.isInstanceOf[RefTypeItem]) known(e)
     else fail(s"${show(e)} has non-reference type ${show(e.ty)}")
   }
   def denoteVariable(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap { x =>
-    if (isVariable(x)) single(x, Pr.variableExp)
+    if (isVariable(x)) known(x)
     else fail(s"${show(e)}: ${show(x)} cannot be assigned to")
   }
 
@@ -427,7 +427,7 @@ object Semantics {
             }
           }
           def define(env: Env, ds: List[AVarDecl]): Scored[(Env,List[VarDecl])] = ds match {
-            case Nil => single((env,Nil), Pr.varDeclNil)
+            case Nil => known((env,Nil))
             case (v,k,i)::ds =>
               val tk = arrays(t,k)
               product(env.newVariable(v,tk,isFinal),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
@@ -545,8 +545,8 @@ object Semantics {
     case Some(_) => notImplemented
   }
 
-  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] = biased(Pr.stmtList,
-    productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)})
+  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
+    productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)}
 
   // Statement whose environment is discarded
   def denoteScoped(s: AStmt)(env: Env): Scored[(Env,Stmt)] =
