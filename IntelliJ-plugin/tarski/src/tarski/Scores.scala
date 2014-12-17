@@ -133,9 +133,10 @@ object Scores {
   }
 
   // Lazy version of x bias q
-  private final class LazyBias[A](private var x: LazyScored[A], private val q: Prob) extends LazyScored[A] {
+  private final class LazyBias[A](private[this] var x: LazyScored[A],
+                                  private[this] val q: Prob) extends LazyScored[A] {
     val p = x.p*q
-    private var s: Scored[A] = null
+    private[this] var s: Scored[A] = null
     def force(p: Prob) = {
       if (s eq null) {
         val pq = if (q==0.0) 1 else p/q
@@ -153,9 +154,10 @@ object Scores {
   }
 
   // Lazy version of x ++ y, assuming x.p >= y.p
-  private final class LazyPlus[A](private var x: LazyScored[A], private var y: Scored[A]) extends LazyScored[A] {
+  private final class LazyPlus[A](private[this] var x: LazyScored[A],
+                                  private[this] var y: Scored[A]) extends LazyScored[A] {
     val p = x.p
-    private var s: Scored[A] = null
+    private[this] var s: Scored[A] = null
     def force(p: Prob) = {
       if (s eq null) {
         @tailrec def loop(x: Scored[A], y: Scored[A]): Scored[A] = {
@@ -180,9 +182,9 @@ object Scores {
   }
 
   // Lazy version of x map f
-  private class LazyMap[A,B](private var x: Scored[A], private var f: A => B) extends LazyScored[B] {
+  private class LazyMap[A,B](private[this] var x: Scored[A], private[this] var f: A => B) extends LazyScored[B] {
     val p = x.p
-    private var s: Scored[B] = null
+    private[this] var s: Scored[B] = null
     def force(p: Prob) = {
       if (s eq null) {
         @tailrec def loop(x: Scored[A], first: Boolean): Scored[B] = x match {
@@ -198,9 +200,10 @@ object Scores {
   }
 
   // Lazy version of filter
-  private final class LazyFilter[A](private var x: Scored[A], private var f: A => Boolean, private var error: () => String) extends LazyScored[A] {
+  private final class LazyFilter[A](private[this] var x: Scored[A], private[this] var f: A => Boolean,
+                                    private[this] var error: () => String) extends LazyScored[A] {
     val p = x.p
-    private var s: Scored[A] = null
+    private[this] var s: Scored[A] = null
     def force(p: Prob) = {
       if (s eq null) {
         @tailrec def loop(x: Scored[A], first: Boolean): Scored[A] = x match {
@@ -220,10 +223,11 @@ object Scores {
   }
 
   // Lazy version of x.productWith(y)(f)
-  private final class LazyProductWith[A,B,C](private var x: Scored[A], private var y: Scored[B], private var f: (A,B) => C) extends LazyScored[C] {
-    private val yp = y.p
+  private final class LazyProductWith[A,B,C](private[this] var x: Scored[A], private[this] var y: Scored[B],
+                                             private[this] var f: (A,B) => C) extends LazyScored[C] {
+    private[this] val yp = y.p
     val p = x.p*yp
-    private var s: Scored[C] = null
+    private[this] var s: Scored[C] = null
     def force(p: Prob) = {
       if (s eq null) {
         val px = if (yp==0.0) 1 else p/yp
@@ -260,8 +264,8 @@ object Scores {
     else x
 
   // Bias and delay
-  private final class LazyBiased[A](val p: Prob, private var f: () => Scored[A]) extends LazyScored[A] {
-    private var s: Scored[A] = null
+  private final class LazyBiased[A](val p: Prob, private[this] var f: () => Scored[A]) extends LazyScored[A] {
+    private[this] var s: Scored[A] = null
     def force(q: Prob) = {
       if (s eq null) {
         val pq = if (p==0.0) 1 else q/p
@@ -280,8 +284,8 @@ object Scores {
   @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBiased(p,() => s)
 
   // Bound and delay
-  private final class LazyBound[A](val p: Prob, private var f: () => Scored[A]) extends LazyScored[A] {
-    private var s: Scored[A] = null
+  private final class LazyBound[A](val p: Prob, private[this] var f: () => Scored[A]) extends LazyScored[A] {
+    private[this] var s: Scored[A] = null
     def force(q: Prob) = {
       if (s eq null) {
         @tailrec def loop(x: Scored[A]): Scored[A] = x match {
