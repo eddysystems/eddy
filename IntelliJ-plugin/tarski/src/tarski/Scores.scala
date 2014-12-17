@@ -94,7 +94,7 @@ object Scores {
       if (p >= s.p) new LazyPlus(this,s)
       else s match {
         case s:LazyScored[B] => new LazyPlus(s,this)
-        case s:Best[B] => Best(s.p,s.x,this ++ s.r)
+        case s:Best[B] => Best(s.p,s.x,s.r ++ this)
         case _:EmptyOrBad => impossible
       }
   }
@@ -136,7 +136,7 @@ object Scores {
       if (p >= s.p) Best(p,x,r ++ s)
       else s match {
         case x:LazyScored[B] => new LazyPlus(x,this)
-        case Best(q,y,s) => Best(q,y,this++s)
+        case Best(q,y,s) => Best(q,y,s++this)
         case _:EmptyOrBad => impossible
       }
   }
