@@ -134,6 +134,8 @@ class TestDen {
     testDen("int[] x = {1,2,3}", "x", x => VarStmt(ArrayType(IntType),(x,ArrayExp(IntType,List(1,2,3)))))
   }
 
+  @Test def noIndex() = testFail("x = 1[]")
+
   @Test
   def makeAndSet() =
     testDen("x = 1; x = 2", "x", x =>

@@ -8,6 +8,8 @@ import tarski.Denotations.{HasDiscards, Exp}
 import tarski.Items._
 import tarski.Operators._
 
+import scala.annotation.tailrec
+
 // Properties of types according to the Java spec, without extra intelligence
 object Types {
 
@@ -617,6 +619,10 @@ object Types {
     if (dims == 0) t
     else arrays(ArrayType(t),dims-1)
   }
+  @tailrec def hasDims(t: Type, dims: Int): Boolean = dims==0 || (t match {
+    case ArrayType(t) => hasDims(t,dims-1)
+    case _ => false
+  })
 
   // Method resolution: generics and overloads, 15.12.2
   // Given a list of callables, find the most specific one along with its type parameters

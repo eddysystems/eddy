@@ -273,22 +273,12 @@ object Semantics {
     case ApplyAExp(f,xsn,around) => {
       val n = xsn.list.size
       val args = xsn.list map denoteExp
-      def filterDims(f: Exp): Scored[Exp] = {
-        def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
-          case ArrayType(t) => hasDims(t,d-1)
-          case _ => false
-        })
-        val ft = f.ty
-        if (!hasDims(ft,n)) fail(show(e)+s": expected >= $n dimensions, got ${dimensions(ft)}")
-        else known(f)
-      }
-
       // Either array index or call
-      (   biased(Pr.indexCallExp(xsn,around),
-                 productWith(denoteArray(f) flatMap filterDims,
-                             product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp)))
-       ++ biased(Pr.callExp(xsn,around),
-                 denoteCallable(f) flatMap (ArgMatching.fiddleCall(_,args))))
+      val call = biased(Pr.callExp(xsn,around), denoteCallable(f) flatMap (ArgMatching.fiddleCall(_,args)))
+      if (n == 0) call // No arguments is never array access
+      else call ++ biased(Pr.indexCallExp(xsn,around),
+        productWith(denoteExp(f).filter(f => hasDims(f.ty,n),show(e)+s": expected >= $n dimensions"),
+                    product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp)))
     }
 
     case UnaryAExp(op,x) => denoteExp(x) flatMap {
@@ -351,15 +341,10 @@ object Semantics {
       case _ => fail(s"Index ${show(e)} doesn't convert or cast to int")
     }
   }
-  def denoteIndex(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap denoteIndex
 
   def denoteNonVoid(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     if (e.item != VoidItem) known(e)
     else fail(s"${show(n)}: expected non-void expression")
-  }
-  def denoteArray(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e =>
-    if (e.item == ArrayItem) known(e)
-    else fail(s"${show(e)} has non-array type ${show(e.ty)}")
   }
   def denoteRef(e: AExp)(implicit env: Env): Scored[Exp] = denoteExp(e) flatMap {e =>
     if (e.item.isInstanceOf[RefTypeItem]) known(e)
