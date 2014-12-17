@@ -60,6 +60,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private PsiElement currentFileContext;
   private boolean honorPrivate;
 
+  // TODO: we have to recompute (part of) this every time the Psi changes (we can assume only project files, not libraries, change)
   static public void initGlobalEnvironment(@NotNull Project project) {
     getGlobals(new Place(project,null));
   }

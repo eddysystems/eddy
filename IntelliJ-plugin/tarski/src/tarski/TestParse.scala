@@ -133,4 +133,7 @@ class TestParse {
       VarAStmt(Nil,ApplyAExp("int",EmptyList,BrackAround),SingleList(("x",0,Some(rhs)))),
       AssignAExp(None,ApplyAExp(ApplyAExp("int",EmptyList,BrackAround),SingleList("x"),NoAround),rhs))
   }
+
+  @Test def genericType() =
+    testASTPossible("X<String,A<String>> x = null", VarAStmt(Nil, TypeApplyAExp(NameAExp("X"), CommaList(List(NameAExp("String"), TypeApplyAExp(NameAExp("A"), SingleList(NameAExp("String")))))), AST.SingleList(("x", 0, Some(NameAExp("null"))))))
 }
