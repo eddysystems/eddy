@@ -6,7 +6,7 @@ import scala.util.Random
 import org.testng.annotations.Test
 
 class TestMisc {
-  @Test def scores() = {
+  @Test def scores() = scoped("scores",{
     // flatMap n things m times
     val n = 1000
     val m = 1000
@@ -35,5 +35,5 @@ class TestMisc {
       if (j > m) r else pi(i,j+1,r*p(i,j))
     val correct = (0 until n map (i => Alt(pi(i),D(i,m)))).toList.sortBy(-_.p)
     assert(scores.stream.toList == correct)
-  }
+  })
 }
