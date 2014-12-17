@@ -398,7 +398,6 @@ public class JavaUtils {
         if (s instanceof LazyScored) {
           final double limit = max(goal,p());
           heap.add(((LazyScored<A>)s).force(limit));
-          continue;
         } else if (s instanceof Best) {
           bads = null; // We've found at least one option, so no need to track errors
           final Best<A> b = (Best<A>)s;
