@@ -1,5 +1,6 @@
 package tarski
 
+import ambiguity.JavaUtils.FlatMapState
 import tarski.Scores._
 import ambiguity.Utility._
 import scala.util.Random
@@ -34,6 +35,7 @@ class TestMisc {
     def pi(i: Int, j: Int = 0, r: Prob = 1): Prob =
       if (j > m) r else pi(i,j+1,r*p(i,j))
     val correct = (0 until n map (i => Alt(pi(i),D(i,m)))).toList.sortBy(-_.p)
-    assert(scores.stream.toList == correct)
+    val list = scoped("force",scores.stream.toList)
+    scoped("check",assert(list == correct))
   })
 }

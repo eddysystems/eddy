@@ -7,6 +7,7 @@ import scala.Function1;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import scala.collection.immutable.$colon$colon$;
+import scala.collection.immutable.Stream;
 import tarski.Items.*;
 import tarski.Scores;
 import tarski.Scores.*;
@@ -175,48 +176,46 @@ public class JavaUtils {
     return results;
   }
 
-  // Best(p,x,r).bias(q)
-  static final class Biased<B> extends AltBase {
-    final double _p;
-    final B x;
-    final LazyScored<B> r;
-    final double _q;
+  // s bias q
+  static final class Biased<B> extends HasProb {
+    final double q;
+    final Scored<B> s;
 
-    Biased(double p, B x, LazyScored<B> r, double q) {
-      this._p = p;
-      this.x = x;
-      this.r = r;
-      this._q = q;
+    Biased(double q, Scored<B> s) {
+      this.q = q;
+      this.s = s;
     }
 
     public double p() {
-      return _p*_q;
+      return q*s.p();
     }
   }
 
   static abstract public class State<A> {
-    // Current probability bound
+    // Current probability bound.  May decrease over time.
     abstract public double p();
 
-    // After extract, the state should be discarded
-    abstract public Scored<A> extract();
+    // Once called, the extractor should be discarded.
+    abstract public Scored<A> extract(double p);
   }
 
-  static final class Extractor<A> extends LazyScored<A> {
+  static public final class Extractor<A> extends LazyScored<A> {
+    private final double _p;
     private State<A> state;
     private Scored<A> _s;
 
-    Extractor(State<A> state) {
+    public Extractor(State<A> state) {
+      this._p = state.p();
       this.state = state;
     }
 
     public double p() {
-      return _s != null ? _s.p() : state.p();
+      return _p;
     }
 
-    public Scored<A> s() {
+    public Scored<A> force(double p) {
       if (_s == null) {
-        _s = state.extract();
+        _s = state.extract(p);
         state = null;
       }
       return _s;
@@ -224,6 +223,11 @@ public class JavaUtils {
   }
 
   static public final class FlatMapState<A,B> extends State<B> {
+    private final Function1<A,Scored<B>> f; // Our flatMap function
+    private Scored<A> as; // Unprocessed input
+    private PriorityQueue<Biased<B>> bs; // Sorted processed output
+    private List<Bad> bads; // List of errors, null if we've already found something
+
     public FlatMapState(Scored<A> input, Function1<A,Scored<B>> f) {
       this.as = input;
       this.f = f;
@@ -231,99 +235,51 @@ public class JavaUtils {
         bads = (List)Nil$.MODULE$;
     }
 
-    // Our flatMap function
-    private final Function1<A,Scored<B>> f;
-
-    // Exactly one of as and asLazy is null
-    private Scored<A> as;
-    private LazyScored<A> asLazy;
-
-    // Sorted strict and unsorted lazy bs
-    // The AltBase is either Biased<B> or Alt<LazyScored<B>>
-    private PriorityQueue<AltBase> bs;
-
-    // List of errors, null if we've already found something
-    private List<Bad> bads;
-
-    // Grab the next as
-    private Scored<A> nextAs() {
-      if (as == null) {
-        LazyScored<A> r = asLazy;
-        asLazy = null;
-        return r.s();
-      } else {
-        Scored<A> r = as;
-        as = null;
-        return r;
-      }
-    }
-
-    // Our current probability bound
     public double p() {
-      double p = as != null ? as.p() : asLazy.p();
-      if (bs != null && !bs.isEmpty())
-        p = max(p,bs.peek().p());
-      return p;
+      return max(as.p(), bs == null || bs.isEmpty() ? 0 : bs.peek().p());
     }
 
-    // Invariant: This class will go out of scope after extract(), unless we do otherwise
-    public Scored<B> extract() {
-      for (;;) {
-        // If bs is better than as, we're done
+    public Scored<B> extract(final double goal) {
+      do {
+        // If bs is better than as, we may be done
         if (bs != null) {
-          while (!bs.isEmpty()) {
-            final AltBase ab = bs.peek();
-            if (ab instanceof Alt) {
-              // The best bs is lazy, so force it and keep going
-              bs.poll();
-              Alt<LazyScored<B>> pb = (Alt)ab;
-              Scored<B> _b = pb.x().s();
-              if (_b instanceof Best) {
-                final Best<B> b = (Best<B>)_b;
-                bs.add(new Biased<B>(b.p(),b.x(),b.r(),pb.p()));
-              }
-            } else {
-              final Biased<B> b = (Biased<B>)ab;
-              final double bp = b.p();
-              boolean done;
-              if (as != null)
-                done = bp >= as.p();
-              else if (bp >= asLazy.p())
-                done = true;
-              else {
-                as = asLazy.s();
-                asLazy = null;
-                done = bp >= as.p();
-              }
-              if (done) {
-                bs.poll();
-                bs.add(new Alt<LazyScored<B>>(b._q,b.r));
-                return new Best<B>(bp,b.x,new Extractor<B>(this));
-              }
-              break;
+          final double asp = as.p();
+          final Biased<B> b = bs.peek();
+          if (b != null && b.p() >= asp) {
+            bs.poll();
+            if (b.s instanceof LazyScored) { // Force and add back to heap
+              final double limit = max(max(goal,asp),bs.isEmpty() ? 0 : bs.peek().p());
+              bs.add(new Biased<B>(b.q,((LazyScored<B>)b.s).force(limit)));
+              continue;
+            } else if (b.s instanceof Best) { // We found the best one
+              bads = null; // We've found at least one thing, so no need to track errors further
+              final Best<B> bb = (Best<B>)b.s;
+              bs.add(new Biased<B>(b.q,bb.r()));
+              return new Best<B>(b.p(),bb.x(),new Extractor<B>(this));
+            } else if (bads != null) {
+              bads = $colon$colon$.MODULE$.<Bad>apply((Bad)b.s,bads);
+              continue;
             }
           }
         }
-
         // Otherwise, dig into as
-        final Scored<A> _as = nextAs();
-        if (_as instanceof EmptyOrBad) {
-          if (bads == null)
-            return (Scored)Empty$.MODULE$;
-          return nestError("flatMap failed",bads);
-        }
-        final Best<A> as = (Best<A>)_as;
-        asLazy = as.r();
-        final Scored<B> _fx = f.apply(as.x());
-        if (_fx instanceof Best) {
-          bads = null; // We've found at least one thing, so no need to track errors further
-          final Best<B> fx = (Best<B>)_fx;
+        if (as instanceof LazyScored) {
+          final double limit = max(goal,bs==null || bs.isEmpty() ? 0 : bs.peek().p());
+          as = ((LazyScored<A>)as).force(limit);
+          continue;
+        } else if (as instanceof Best) {
+          final Best<A> ab = (Best<A>)this.as;
+          as = ab.r();
           if (bs == null)
-            bs = new PriorityQueue<AltBase>();
-          bs.add(new Biased<B>(fx.p(),fx.x(),fx.r(),as.p()));
-        } else if (bads != null)
-          bads = $colon$colon$.MODULE$.<Bad>apply((Bad)_fx,bads);
-      }
+            bs = new PriorityQueue<Biased<B>>();
+          bs.add(new Biased<B>(ab.p(),f.apply(ab.x())));
+          continue;
+        } else if (bads == null)
+          return (Scored)Empty$.MODULE$;
+        return nestError("flatMap failed",bads);
+      } while (p() > goal);
+      // If we hit goal without finding an option, return more laziness
+      return new Extractor<B>(this);
     }
   }
 
@@ -356,7 +312,7 @@ public class JavaUtils {
       return a == null ? 0 : a.p();
     }
 
-    public Scored<A> extract() {
+    public Scored<A> extract(final double goal) {
       if (heap.isEmpty()) {
         if (more != null) {
           absorb(more.apply());
@@ -390,7 +346,7 @@ public class JavaUtils {
       return xs == null ? 0 : _p;
     }
 
-    public Scored<A> extract() {
+    public Scored<A> extract(final double goal) {
       if (xs == null) {
         if (error == null)
           return (Scored<A>)Empty$.MODULE$;
@@ -404,19 +360,18 @@ public class JavaUtils {
   }
 
   static public final class MultipleState<A> extends State<A> {
-    // Entries are Alts of either Function0<Scored<A>>, LazyScored<A>, or Scored<A>.
-    private final PriorityQueue<Alt<Object>> heap;
+    private final PriorityQueue<Scored<A>> heap;
 
     // List of errors, null if we've already found at least one option.
     private List<Bad> bads;
 
     // The Alt's probability is an upper bound on the Scored returned by the functions
-    public MultipleState(List<Alt<Function0<Scored<A>>>> options) {
+    public MultipleState(List<Scored<A>> options) {
       assert options.nonEmpty();
-      heap = new PriorityQueue<Alt<Object>>();
+      heap = new PriorityQueue<Scored<A>>();
       while (options.nonEmpty()) {
-        heap.add((Alt)options.head());
-        options = (List<Alt<Function0<Scored<A>>>>)options.tail();
+        heap.add(options.head());
+        options = (List)options.tail();
       }
       if (trackErrors())
         bads = (List)Nil$.MODULE$;
@@ -424,38 +379,32 @@ public class JavaUtils {
 
     // Current probability bound
     public double p() {
-      final Alt<Object> a = heap.peek();
+      final Scored<A> a = heap.peek();
       return a == null ? 0 : a.p();
     }
 
-    public Scored<A> extract() {
-      while (!heap.isEmpty()) {
-        // Get the top of the heap, evaluate it, and check if we need to check the next best one
-        final Object x = heap.poll().x();
-        final Scored<A> s = x instanceof Scored ? (Scored<A>)x
-                          : x instanceof LazyScored ? ((LazyScored<A>)x).s()
-                          : ((Function0<Scored<A>>)x).apply();
-
-        if (s instanceof EmptyOrBad) {
-          if (bads != null)
-            bads = $colon$colon$.MODULE$.<Bad>apply((Bad)s,bads);
+    public Scored<A> extract(final double goal) {
+      do {
+        if (heap.isEmpty()) {
+          if (bads == null)
+            return (Scored<A>)Empty$.MODULE$;
+          return nestError("multiple failed",bads);
+        }
+        final Scored<A> s = heap.poll();
+        if (s instanceof LazyScored) {
+          final double limit = max(goal,p());
+          heap.add(((LazyScored<A>)s).force(limit));
           continue;
-        }
-        bads = null;
-        Best<A> best = (Best<A>)s;
-        if (p() <= best.p()) {
-          // Put the rest of best back on the heap
-          LazyScored<A> ls = best.r();
-          heap.add(new Alt<Object>(ls.p(),ls));
-          return new Best<A>(best.p(),best.x(),new Extractor<A>(this));
-        } else {
-          // Adjust the bound on best and put it back on the heap (next iteration will pick a different part of the heap)
-          heap.add(new Alt<Object>(best.p(),best));
-        }
-      }
-      if (bads == null)
-        return (Scored<A>)Empty$.MODULE$;
-      return nestError("multiple failed",bads);
+        } else if (s instanceof Best) {
+          bads = null; // We've found at least one option, so no need to track errors
+          final Best<A> b = (Best<A>)s;
+          heap.add(b.r());
+          return new Best<A>(b.p(),b.x(),new Extractor<A>(this));
+        } else if (bads != null)
+          bads = $colon$colon$.MODULE$.<Bad>apply((Bad)s,bads);
+      } while (heap.isEmpty() || heap.peek().p() > goal);
+      // If we hit goal without finding an option, return more laziness
+      return new Extractor<A>(this);
     }
   }
 }
