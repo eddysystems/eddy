@@ -86,6 +86,11 @@ object Pr {
   // Type[]
   def arrayType(t: Type): Prob = base // given type t, how likely is t[]
 
+  // denoteTypeArg
+  val wildcard = base
+  val subWildcard = base
+  val superWildcard = Prob(.6)
+
   // denoteType(AExp)
   // (Type)
   val parensAroundType = Prob(.8) // given type t, how likely is (t) (maybe more likely for generic types)
@@ -93,6 +98,8 @@ object Pr {
   val typeFieldOfType = fieldType
   // Exp.Type
   val typeFieldOfExp = Prob(.6) * fieldType
+  // Type<TArg,...>
+  val typeApply = base
 
   // denoteValue(Value)
   val parameterValue = passThrough

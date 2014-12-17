@@ -4,12 +4,13 @@ import ambiguity.Utility._
 import tarski.AST._
 import tarski.Base._
 import tarski.Constants._
-import tarski.Denotations.{Exp, HasDiscard, HasDiscards}
+import tarski.Denotations.{HasDiscards, Exp}
 import tarski.Items._
 import tarski.Operators._
 
 // Properties of types according to the Java spec, without extra intelligence
 object Types {
+
   // Types
   sealed abstract class Type extends AboveType {
     def item: TypeItem
@@ -38,11 +39,9 @@ object Types {
     // If we're generic, become raw
     def raw: Type
 
-    // AboveType support
     def beneath = this
     def discards: List[Denotations.Stmt] = Nil
-    def stripDiscards = this
-    def discard(ds: List[Denotations.Stmt]) = DiscardType(ds,this)
+    def discard(ds: List[Denotations.Stmt]): AboveType = DiscardType(ds,this)
   }
   sealed abstract class LangType extends Type { // Primitive or void
     def supers = Nil
@@ -120,11 +119,15 @@ object Types {
   }
 
   // Reference types
-  sealed abstract class RefType extends Type with TypeArg {
+  sealed abstract class RefType extends Type with TypeArg with AboveRefType {
     def item: RefTypeItem
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
     def raw: RefType
+
+    override def beneath: RefType = this
+    override def discards: List[Denotations.Stmt] = Nil
+    override def discard(ds: List[Denotations.Stmt]): AboveRefType = DiscardRefType(ds,this)
   }
 
   // Class types are either Object, simple, raw, or generic
@@ -138,7 +141,7 @@ object Types {
     def safe: Option[ClassType]
     def raw: ClassType
   }
-  case object ObjectType extends ClassType {
+  case object ObjectType extends ClassType with NoDiscardsRefType {
     def item = ObjectItem
     def args = Nil
     def parent = JavaLangPkg
@@ -151,7 +154,7 @@ object Types {
     def safe = Some(this)
     def raw = this
   }
-  case class SimpleType(item: ClassItem, parent: Parent) extends ClassType {
+  case class SimpleType(item: ClassItem, parent: Parent) extends ClassType with NoDiscardsRefType {
     def args = Nil
     def env = parent.env
     def isRaw = parent.isRaw
@@ -162,7 +165,7 @@ object Types {
     def safe = parent.safe map (SimpleType(item,_))
     def raw = SimpleType(item,parent.raw)
   }
-  case class RawType(item: ClassItem, parent: Parent) extends ClassType {
+  case class RawType(item: ClassItem, parent: Parent) extends ClassType with NoDiscardsRefType {
     def args = Nil
     def env = item.tparams.foldLeft(parent.env)((env,p) => env+((p,None)))
     def isRaw = true
@@ -172,7 +175,7 @@ object Types {
     def safe = parent.safe map (RawType(item,_))
     def raw = this
   }
-  case class GenericType(item: ClassItem, args: List[TypeArg], parent: Parent) extends ClassType {
+  case class GenericType(item: ClassItem, args: List[TypeArg], parent: Parent) extends ClassType with NoDiscardsRefType {
     def env() = capture(this,parent.env)._1
     def isRaw = parent.isRaw
     def isSimple = false
@@ -187,10 +190,15 @@ object Types {
   }
 
   // Type arguments are either reference types or wildcards.  4.5.1
-  sealed trait TypeArg { // Inherited by RefType and Wildcard
+  sealed trait TypeArg extends AboveTypeArg { // Inherited by RefType and Wildcard
     def known(implicit env: Tenv): Boolean
     def substitute(implicit env: Tenv): TypeArg
     def safe: Option[TypeArg]
+
+    // AboveType support
+    def beneath = this
+    def discards: List[Denotations.Stmt] = Nil
+    def discard(ds: List[Denotations.Stmt]): AboveTypeArg = DiscardTypeArg(ds,this)
   }
   sealed trait Wildcard extends TypeArg {
     val t: RefType
@@ -206,7 +214,7 @@ object Types {
   }
 
   // Nonclass reference types: null, type variables, intersection types, and arrays
-  case object NullType extends RefType {
+  case object NullType extends RefType with NoDiscardsRefType {
     def item = NoTypeItem
     def supers = Nil
     def isFinal = true
@@ -239,8 +247,14 @@ object Types {
     def inside = this
     def raw: TypeVar = this
     def qualifiedName: Option[String] = None
+
+    def matches(t: TypeArg) = t match {
+      case r:RefType => isSubtype(lo,r) && isSubtype(r,hi)
+      case WildSub(r) => isSubtype(lo,r) && isSubtype(r,hi)
+      case WildSuper(r) => isSubtype(lo,r) && isSubtype(r,hi)
+    }
   }
-  case class IntersectType(ts: Set[RefType]) extends RefType {
+  case class IntersectType(ts: Set[RefType]) extends RefType with NoDiscardsRefType {
     def item = NoTypeItem
     def supers = ts.toList flatMap (_.supers)
     def isFinal = false
@@ -250,7 +264,7 @@ object Types {
     def safe = allSome(ts map (_.safe)) map IntersectType
     def raw = IntersectType(ts map (_.raw))
   }
-  case class ArrayType(t: Type) extends RefType {
+  case class ArrayType(t: Type) extends RefType with NoDiscardsRefType {
     def item = ArrayItem
     def supers = CloneableItem.simple :: SerializableItem.simple :: (t match {
       case t: RefType => t.supers map ArrayType
@@ -265,12 +279,34 @@ object Types {
   }
 
   // Support for attaching expressions to the top of types
-  sealed abstract class AboveType extends HasDiscard[AboveType] with HasDiscards[Type] {
+  sealed trait AboveType extends HasDiscards {
     def beneath: Type
+    def discard(ds: List[Denotations.Stmt]): AboveType
   }
   case class DiscardType(discards: List[Denotations.Stmt], beneath: Type) extends AboveType {
-    def stripDiscards = beneath
-    def discard(ds: List[Denotations.Stmt]) = DiscardType(ds++discards,beneath)
+    def discard(ds: List[Denotations.Stmt]): AboveType = DiscardType(ds++discards,beneath)
+  }
+
+  // Support for attaching expressions to the top of typeargs
+  sealed trait AboveTypeArg extends HasDiscards {
+    def beneath: TypeArg
+    def discard(ds: List[Denotations.Stmt]): AboveTypeArg
+  }
+  case class DiscardTypeArg(discards: List[Denotations.Stmt], beneath: TypeArg) extends AboveTypeArg {
+    def discard(ds: List[Denotations.Stmt]): AboveTypeArg = DiscardTypeArg(ds++discards,beneath)
+  }
+
+  sealed trait AboveRefType extends AboveType with AboveTypeArg {
+    def beneath: RefType
+    def discard(ds: List[Denotations.Stmt]): AboveRefType
+  }
+  case class DiscardRefType(discards: List[Denotations.Stmt], beneath: RefType) extends AboveRefType {
+    def discard(ds: List[Denotations.Stmt]): AboveRefType = DiscardRefType(ds++discards,beneath)
+  }
+
+  sealed trait NoDiscardsRefType extends RefType {
+    override def beneath = this
+    override def discards: List[Denotations.Stmt] = Nil
   }
 
   // Type environments
@@ -360,7 +396,7 @@ object Types {
   // Capture conversion for generic types with wildcards
   def capture(t: GenericParent, base: Tenv): (Tenv,List[RefType]) = {
     // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
-    case class FreshVar(name: Name) extends TypeVar {
+    case class FreshVar(name: Name) extends TypeVar with NoDiscardsRefType {
       def superItems = throw new RuntimeException("Should never happen")
       var lo: RefType = null
       var hi: RefType = null

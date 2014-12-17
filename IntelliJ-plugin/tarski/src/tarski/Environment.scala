@@ -163,6 +163,7 @@ object Environment {
              place)
 
     // Get typo probabilities for string queries
+    // TODO: should match camel-case smartly
     def query(typed: String): List[Alt[Item]] =
       typoQuery(trie1,typed)++typoQuery(trie0,typed)
 
@@ -189,15 +190,15 @@ object Environment {
     }
   }
 
+  // TODO other things that influence probability:
+  // - TODO: kind (e.g. for types: primitive types are more likely, java.lang types are more likely)
+  // - TODO: things that are in scope are more likely
+  // - TODO: things that are almost in scope are more likely (declared in package from which other symbols are imported)
+  // - TODO: things that appear often in this file/class/function are more likely
+  // - TODO: things that are declared close by are more likely
+
   // What could this name be, assuming it is a type?
-  // TODO: Handle generics
   def typeScores(name: String)(implicit env: Env): Scored[Type] = {
-    // TODO other things that influence probability:
-    // - kind (Primitive Types are more likely, java.lang types are more likely)
-    // - things that are in scope are more likely
-    // - things that are almost in scope are more likely (declared in package from which other symbols are imported)
-    // - things that appear often in this file/class/function are more likely
-    // - things that are declared close by are more likely
     env.combinedQuery(name, Pr.exactType, { case t:TypeItem => t.raw }, s"Type $name not found")
   }
 
