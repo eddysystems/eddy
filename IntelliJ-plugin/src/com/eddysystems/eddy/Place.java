@@ -98,10 +98,14 @@ public class Place {
       }
     }
 
+    return false;
+
+    /*
     if (container instanceof PsiModifierListOwner)
       return isInaccessible((PsiModifierListOwner)container, noProtected);
     else
       // null
       return false;
+    */
   }
 }
