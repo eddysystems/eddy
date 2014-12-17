@@ -126,4 +126,11 @@ class TestParse {
 
   @Test def thisForward() = testAST("this()",ApplyAExp("this",EmptyList,ParenAround))
   @Test def superForward() = testAST("super()",ApplyAExp("super",EmptyList,ParenAround))
+
+  @Test def arrayVar() = {
+    val rhs = ArrayAExp(CommaList(List(1,2,3)),CurlyAround)
+    testAST("int[] x = {1,2,3}",
+      VarAStmt(Nil,ApplyAExp("int",EmptyList,BrackAround),SingleList(("x",0,Some(rhs)))),
+      AssignAExp(None,ApplyAExp(ApplyAExp("int",EmptyList,BrackAround),SingleList("x"),NoAround),rhs))
+  }
 }

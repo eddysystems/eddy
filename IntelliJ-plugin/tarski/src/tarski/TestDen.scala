@@ -129,6 +129,11 @@ class TestDen {
     testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(None,f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
+  @Test def arrayType() = {
+    implicit val env = localEnvWithBase()
+    testDen("int[] x = {1,2,3}", "x", x => VarStmt(ArrayType(IntType),(x,ArrayExp(IntType,List(1,2,3)))))
+  }
+
   @Test
   def makeAndSet() =
     testDen("x = 1; x = 2", "x", x =>

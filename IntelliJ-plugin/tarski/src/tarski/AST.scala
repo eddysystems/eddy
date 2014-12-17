@@ -61,6 +61,7 @@ object AST {
   case class Grouped(l: Group, r: Group) extends Around
   val ParenAround = Grouped(Paren,Paren)
   val BrackAround = Grouped(Brack,Brack)
+  val CurlyAround = Grouped(Curly,Curly)
 
   type Block = List[AStmt]
   type ADims = Int

@@ -72,14 +72,6 @@ object Semantics {
     case t:Type => f(t)
     case dt@(DiscardType(_,_)|DiscardRefType(_,_)) => f(dt.beneath) map (_.discard(dt.discards))
   }
-  def mapExpDiscards(t: Exp, f: Exp => Scores.Scored[Exp]): Scores.Scored[Exp] = t match {
-    case t:Exp with NoDiscardExp => f(t)
-    case t:Exp => f(t) map (_.discard(t.discards))
-  }
-  def mapTypeArgDiscards(t: AboveTypeArg, f: TypeArg => Scores.Scored[TypeArg]): Scores.Scored[AboveTypeArg] = t match {
-    case t:TypeArg => f(t)
-    case dt@(DiscardTypeArg(_,_)|DiscardRefType(_,_)) => f(dt.beneath) map (_.discard(dt.discards))
-  }
   def collectTypeArgDiscards(ts: List[AboveTypeArg], f: List[TypeArg] => Scores.Scored[Type]): Scores.Scored[AboveType] = {
     val discards = (ts map (_.discards)).fold(Nil) { (x:List[Denotations.Stmt],y:List[Denotations.Stmt]) => (x :: y).asInstanceOf[List[Denotations.Stmt]] }
     val tys = ts map (_.beneath)
@@ -118,13 +110,12 @@ object Semantics {
   // Types
   def denoteType(e: AExp)(implicit env: Env): Scored[AboveType] = e match {
     case NameAExp(n) => typeScores(n)
-    case x: ALit => fail("literals are not types.")
     case ParenAExp(x,_) => biased(Pr.parensAroundType,denoteType(x)) // Java doesn't allow parentheses around types, but we do
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldAExp(x,ts,f) => if (ts.isDefined) fail("inner classes' type arguments go after the class") else {
       // First, the ones where x is a type
-      val tdens = biased(Pr.typeFieldOfType, denoteType(x) flatMap (t => mapTypeTypeDiscards(t, (t:Type) => typeFieldScores(t,f))) )
+      val tdens = biased(Pr.typeFieldOfType, denoteType(x) flatMap (t => mapTypeTypeDiscards(t,typeFieldScores(_,f))))
       val edens = biased(Pr.typeFieldOfExp,  denoteExp(x) flatMap (x => discardType(x,typeFieldScores(x.ty,f))) )
       tdens ++ edens
     }
@@ -141,19 +132,15 @@ object Semantics {
       case x => fail(s"cannot apply parameters $ts to type $x")
     }}
 
+    case ApplyAExp(x,EmptyList,BrackAround) => denoteType(x) flatMap (t => mapTypeTypeDiscards(t,t => known(ArrayType(t))))
+
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
     case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
     case NewAExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
 
-    case WildAExp(b) => fail("wildcards are not types (only typeargs)")
-    case ApplyAExp(f,xsn,_) => fail("expressions are not types")
-    case UnaryAExp(op,x) => fail("expressions are not types")
-    case BinaryAExp(op,x,y) => fail("expressions are not types")
-    case CastAExp(t,x) => fail("expressions are not types")
-    case CondAExp(c,x,y) => fail("expressions are not types") // TODO: translate to if statement somehow
-    case AssignAExp(op,x,y) => fail("expressions are not types")
-    case ArrayAExp(xs,a) => fail("expressions are not types")
-    case InstanceofAExp(_,_) => fail("expressions are not types")
+    case WildAExp(_) => fail("wildcards are type arguments, not types")
+    case _:ALit|_:ApplyAExp|_:UnaryAExp|_:BinaryAExp|_:CastAExp|_:CondAExp
+        |_:AssignAExp|_:ArrayAExp|_:InstanceofAExp => fail(show(e)+": is not a type")
   }
 
   // Are we contained in the given type, or in something contained in the given type?
@@ -265,7 +252,7 @@ object Semantics {
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
       // First, the ones where x is a type
       // TODO: penalize unnecessarily qualified field expressions?
-      val tdens = denoteType(x) flatMap (t => mapTypeExpDiscards(t, (t:Type) => staticFieldScores(t.item,f) flatMap {
+      val tdens = denoteType(x) flatMap (t => mapTypeExpDiscards(t,t => staticFieldScores(t.item,f) flatMap {
         case f: EnumConstantItem => single(EnumConstantExp(None,f), Pr.enumFieldExp)
         case f: StaticFieldItem => single(StaticFieldExp(None,f), Pr.staticFieldExp)
       }))
@@ -319,7 +306,7 @@ object Semantics {
       else fail("${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
     }}
 
-    case CastAExp(t,x) => product(denoteType(t),denoteExp(x)) flatMap {case (t,x) => mapTypeExpDiscards(t, (t:Type) => {
+    case CastAExp(t,x) => product(denoteType(t),denoteExp(x)) flatMap {case (t,x) => mapTypeExpDiscards(t,t => {
       val tx = x.ty
       if (castsTo(tx,t)) single(CastExp(t,x), Pr.castExp)
       else fail("${show(e)}: can't cast ${show(tx)} to ${show(t)}")
