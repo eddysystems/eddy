@@ -278,6 +278,8 @@ public class JavaUtils {
           continue;
         } else if (bads == null)
           return (Scored)Empty$.MODULE$;
+        else if (as instanceof Bad)
+          bads = $colon$colon$.MODULE$.<Bad>apply((Bad)as,bads);
         return nestError("flatMap failed",bads);
       } while (p() > goal);
       // If we hit goal without finding an option, return more laziness
