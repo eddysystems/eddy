@@ -1,5 +1,6 @@
 package tarski
 
+import scala.annotation.tailrec
 import scala.math._
 import ambiguity.JavaUtils._
 
@@ -16,125 +17,80 @@ object Scores {
   // Wrapper around probabilities
   type Prob = Double
   def Prob(p: Prob): Prob = p
-  abstract class AltBase extends Comparable[AltBase] {
+  abstract class HasProb extends Comparable[HasProb] {
     def p: Prob
-    def compareTo(o: AltBase): Int = {
+    def compareTo(o: HasProb): Int = {
       val p0: Double = p
       val p1: Double = o.p
       if (p0 > p1) -1 else if (p0 < p1) 1 else 0
     }
   }
-  case class Alt[+A](p: Prob, x: A) extends AltBase // Explicit class to avoid boxing the probability
+  case class Alt[+A](p: Prob, x: A) extends HasProb // Explicit class to avoid boxing the probability
 
-  sealed abstract class Scored[+A] {
+  sealed abstract class Scored[+A] extends HasProb {
+    // Invariant: p >= probability of any option
     def p: Prob
-    def best: Either[Error,A]
-    def all: Either[Error,Stream[Alt[A]]]
-    def stream: Stream[Alt[A]]
+
+    // These force some evaluation
+    final def strict: StrictScored[A] = {
+      @tailrec def loop(x: Scored[A]): StrictScored[A] = x match {
+        case x:StrictScored[A] => x
+        case x:LazyScored[A] => loop(x force 0)
+      }
+      loop(this)
+    }
+    final def best: Either[Error,A] = strict match {
+      case Best(_,x,_) => Right(x)
+      case x:Bad => Left(x.e)
+      case Empty => Left(OneError("unknown error"))
+    }
+    final def all: Either[Error,Stream[Alt[A]]] = strict match {
+      case x:Best[A] => Right(x.stream)
+      case x:EmptyOrBad => x.best
+    }
+    final def stream: Stream[Alt[A]] = strict match {
+      case Best(p,x,r) => Alt(p,x) #:: r.stream
+      case x:EmptyOrBad => Stream.Empty
+    }
+    final def isEmpty: Boolean = strict match {
+      case x:Best[_] => false
+      case _:EmptyOrBad => true
+    }
+    final def isSingle: Boolean = strict match {
+      case Best(_,_,r) => r.isEmpty
+      case _:EmptyOrBad => false
+    }
+
+    // Multiply all probabilities by p
     def bias(p: Prob): Scored[A]
-    def map[B](f: A => B): Scored[B]
+
+    // Apply f to every alternative
+    def map[B](f: A => B): Scored[B] = new LazyMap(this,f)
 
     // Either this or s
-    def ++[B >: A](s: LazyScored[B]): Scored[B]
     def ++[B >: A](s: Scored[B]): Scored[B]
 
     // f is assumed to generate conditional probabilities
-    def flatMap[B](f: A => Scored[B]): Scored[B]
+    def flatMap[B](f: A => Scored[B]): Scored[B] = new Extractor[B](new FlatMapState(this,f))
 
     // We are assumed independent of t
-    def productWith[B,C](s: => Scored[B])(f: (A,B) => C): Scored[C]
+    def productWith[B,C](s: Scored[B])(f: (A,B) => C): Scored[C] = new LazyProductWith(this,s,f)
 
     // Filter, turning Empty into given error
-    def filter(f: A => Boolean, error: => String): Scored[A]
-    def filter(f: A => Boolean): Scored[A] // Filter with no error
-
-    // Queries
-    def isEmpty: Boolean
-    def isSingle: Boolean
+    final def filter(f: A => Boolean, error: => String): Scored[A] = _filter(f,if (trackErrors) () => error else null)
+    def _filter(f: A => Boolean, error: () => String): Scored[A] = new LazyFilter(this,f,error)
   }
+
+  // Scored with at least one option evaluated (if any exists)
+  sealed abstract class StrictScored[+A] extends Scored[A]
 
   // A lazy version of Scored
-  sealed abstract class LazyScored[+A] {
-    // Invariant: p >= probability of any option in s
-    private[Scores] val p: Prob
-    def s: Scored[A]
-    def best: Either[Error,A] = s.best
-    def all: Either[Error,Stream[Alt[A]]] = s.all
-    def stream: Stream[Alt[A]] = s.stream
-    def bias(q: Prob): LazyScored[A] = new LazyBias(this,q)
-    def map[B](f: A => B): LazyScored[B] = new LazyMap(this,f)
-    def flatMap[B](f: A => Scored[B]): LazyScored[B] = new LazyFlatMap(this,f)
-    def isEmpty: Boolean = s.isEmpty
-    def isSingle: Boolean = s.isSingle
-    def ++[B >: A](t: LazyScored[B]): LazyScored[B] =
-      if (p >= t.p) new LazyPlus(this,t)
-      else          new LazyPlus(t,this)
-    def productWith[B,C](t: LazyScored[B])(f: (A,B) => C): LazyScored[C] = delay(p*t.p,s.productWith(t.s)(f))
-    def filter(f: A => Boolean, error: => String): LazyScored[A] = delay(p,s.filter(f,error))
-  }
+  abstract class LazyScored[+A] extends Scored[A] {
+    // May return another LazyScored, usually with lower probability.  Optionally continue until prob <= p.
+    def force(hi: Prob): Scored[A]
 
-  // Scored without laziness
-  private case class Strict[+A](p: Prob, s: Scored[A]) extends LazyScored[A]
-
-  // Scored with laziness
-  private final class Lazy[+A](val p: Prob, _s: => Scored[A]) extends LazyScored[A] {
-    lazy val s = _s
-  }
-  @inline def delay[A](p: Prob, s: => Scored[A]): LazyScored[A] = new Lazy(p,s)
-
-  // Lazy version of x bias q
-  private class LazyBias[A](private var x: LazyScored[A], private val q: Prob) extends LazyScored[A] {
-    val p = x.p*q
-    var _s: Scored[A] = null
-    def s = {
-      if (_s eq null) {
-        val _x = x; x = null
-        _s = _x.s bias q
-      }
-      _s
-    }
-  }
-
-  // Lazy version of x map f
-  private class LazyMap[A,B](private var x: LazyScored[A], private var f: A => B) extends LazyScored[B] {
-    val p = x.p
-    var _s: Scored[B] = null
-    def s = {
-      if (_s eq null) {
-        val _x = x; x = null
-        val _f = f; f = null
-        _s = _x.s map _f
-      }
-      _s
-    }
-  }
-
-  // Lazy version of x ++ y, assuming x.p >= y.p
-  private class LazyPlus[A](private var x: LazyScored[A], private var y: LazyScored[A]) extends LazyScored[A] {
-    val p = x.p
-    var _s: Scored[A] = null
-    def s = {
-      if (_s eq null) {
-        val _x = x; x = null
-        val _y = y; y = null
-        _s = _x.s ++ _y
-      }
-      _s
-    }
-  }
-
-  // Lazy version of x flatMap f
-  private class LazyFlatMap[A,B](private var x: LazyScored[A], private var f: A => Scored[B]) extends LazyScored[B] {
-    val p = x.p
-    var _s: Scored[B] = null
-    def s = {
-      if (_s eq null) {
-        val _x = x; x = null
-        val _f = f; f = null
-        _s = _x.s flatMap _f
-      }
-      _s
-    }
+    def bias(p: Prob): Scored[A] = new LazyBias(this,p)
+    def ++[B >: A](s: Scored[B]): Scored[B] = if (p >= s.p) new LazyPlus(this,s) else s ++ this
   }
 
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
@@ -142,141 +98,228 @@ object Scores {
   if (trackErrors)
     println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
 
+  // No options
+  sealed abstract class EmptyOrBad extends StrictScored[Nothing] {
+    def p = 0
+    override def map[B](f: Nothing => B) = this
+    override def flatMap[B](f: Nothing => Scored[B]) = this
+    override def bias(p: Prob) = this
+    override def productWith[B,C](s: Scored[B])(f: (Nothing,B) => C) = this
+    override def _filter(f: Nothing => Boolean, error: () => String) = this
+  }
   // Failure
-  sealed abstract class EmptyOrBad extends Scored[Nothing]
   final class Bad(_e: => Error) extends EmptyOrBad {
     lazy val e = _e
-    def p = 0
-    def best = Left(e)
-    def all = Left(e)
-    def stream = Stream.Empty
-    def ++[B](s: LazyScored[B]) = s.s match {
-      case s:Bad => new Bad(NestError("++ failed",List(e,s.e)))
-      case Empty => this
-      case s:Best[_] => s
-    }
     def ++[B](s: Scored[B]) = s match {
       case s:Bad => new Bad(NestError("++ failed",List(e,s.e)))
-      case Empty => this
-      case s:Best[_] => s
+      case _ => this
     }
-    def map[B](f: Nothing => B) = this
-    def flatMap[B](f: Nothing => Scored[B]) = this
-    def bias(p: Prob) = this
-    def productWith[B,C](s: => Scored[B])(f: (Nothing,B) => C) = this
-    def filter(f: Nothing => Boolean, error: => String) = this
-    def filter(f: Nothing => Boolean) = Empty
-    def isEmpty = true
-    def isSingle = false
   }
-
   // No options, but not Bad
   object Empty extends EmptyOrBad {
-    def p = 0
-    def best = Left(OneError("unknown failure"))
-    def all = best
-    def stream = Stream.Empty
-    def map[B](f: Nothing => B) = this
-    def flatMap[B](f: Nothing => Scored[B]) = this
-    def ++[B](s: LazyScored[B]) = s.s
-    def ++[B](s: Scored[B]) = s
-    def bias(p: Prob) = this
-    def productWith[B,C](s: => Scored[B])(f: (Nothing,B) => C) = this
-    def filter(f: Nothing => Boolean, error: => String) =
-      if (trackErrors) new Bad(OneError(error))
-      else this
-    def filter(f: Nothing => Boolean) = this
-    def isEmpty = true
-    def isSingle = false
+    override def ++[B](s: Scored[B]) = s
   }
 
   // One best possibility, then lazily more
-  case class Best[+A](p: Prob, x: A, r: LazyScored[A]) extends Scored[A] {
-    def best = Right(x)
-    def all = Right(stream)
-    def stream = Alt(p,x) #:: r.s.stream
-
-    def map[B](f: A => B) = Best(p,f(x),r map f)
-
+  final case class Best[+A](p: Prob, x: A, r: Scored[A]) extends StrictScored[A] {
     def bias(q: Prob) = Best(p*q,x,r bias q)
-
-    def ++[B >: A](s: LazyScored[B]): Scored[B] =
-      if (p >= s.p) Best(p,x,r ++ s)
-      else s.s match {
-        case s@Best(q,y,t) =>
-          if (p >= q) Best(p,x,delay(max(q,r.p),s ++ r))
-          else        Best(q,y,delay(max(p,t.p),this ++ t))
-        case _:EmptyOrBad => this
-      }
-
     def ++[B >: A](s: Scored[B]): Scored[B] =
-      if (p >= s.p) Best(p,x,r ++ delay(s.p,s))
+      if (p >= s.p) Best(p,x,r ++ s)
       else s match {
-        case s@Best(q,y,t) =>
-          if (p >= q) Best(p,x,delay(max(q,r.p),s ++ r))
-          else        Best(q,y,delay(max(p,t.p),this ++ t))
+        case x:LazyScored[B] => new LazyPlus(x,this)
+        case Best(q,y,s) => Best(q,y,this++s)
         case _:EmptyOrBad => this
       }
+  }
 
-    def flatMap[B](f: A => Scored[B]) = new FlatMapState(this,f).extract()
-
-    def productWith[B,C](s: => Scored[B])(f: (A,B) => C) = s match {
-      case Best(q,y,s) => Best(p*q,f(x,y),r.map(f(_,y)).bias(p) ++ s.map(f(x,_)).bias(q) ++ r.productWith(s)(f))
-      case s:EmptyOrBad => s
+  // Lazy version of x bias q
+  private final class LazyBias[A](private var x: LazyScored[A], private val q: Prob) extends LazyScored[A] {
+    val p = x.p*q
+    private var s: Scored[A] = null
+    def force(p: Prob) = {
+      if (s eq null) {
+        val pq = if (q==0.0) 1 else p/q
+        @tailrec def loop(x: Scored[A]): Scored[A] = x match {
+          case x:LazyScored[A] => if (x.p > pq) loop(x force pq)
+                                  else new LazyBias(x,q)
+          case Best(p,x,r) => Best(p*q,x,r bias q)
+          case x:EmptyOrBad => x
+        }
+        s = loop(x force pq)
+        x = null
+      }
+      s
     }
+  }
 
-    def filter(f: A => Boolean, error: => String) =
-      if (f(x)) Best(p,x,delay(r.p,r.s.filter(f)))
-      else r.s.filter(f,error)
-    def filter(f: A => Boolean) =
-      if (f(x)) Best(p,x,delay(r.p,r.s.filter(f)))
-      else r.s.filter(f)
+  // Lazy version of x ++ y, assuming x.p >= y.p
+  private final class LazyPlus[A](private var x: LazyScored[A], private var y: Scored[A]) extends LazyScored[A] {
+    val p = x.p
+    private var s: Scored[A] = null
+    def force(p: Prob) = {
+      if (s eq null) {
+        @tailrec def loop(x: Scored[A], y: Scored[A]): Scored[A] = {
+          val px = x.p
+          val py = y.p
+          val hi = if (px >= py) x else y
+          val lo = if (px >= py) y else x
+          hi match {
+            case hi:LazyScored[A] =>
+              if (hi.p > p) loop(hi force max(p,lo.p),lo)
+              else new LazyPlus(hi,lo)
+            case Best(q,z,r) => Best(q,z,r++lo)
+            case hi:Bad if trackErrors => hi++lo
+            case _:EmptyOrBad => lo
+          }
+        }
+        s = loop(x force max(p,y.p),y)
+        x = null; y = null
+      }
+      s
+    }
+  }
 
-    def isEmpty = false
-    def isSingle = r.isEmpty
+  // Lazy version of x map f
+  private class LazyMap[A,B](private var x: Scored[A], private var f: A => B) extends LazyScored[B] {
+    val p = x.p
+    private var s: Scored[B] = null
+    def force(p: Prob) = {
+      if (s eq null) {
+        @tailrec def loop(x: Scored[A], first: Boolean): Scored[B] = x match {
+          case x:LazyScored[A] => if (first || x.p > p) loop(x force p,first=false) else x map f
+          case Best(p,x,r) => Best(p,f(x),r map f)
+          case x:EmptyOrBad => x
+        }
+        s = loop(x,first=true)
+        x = null; f = null
+      }
+      s
+    }
+  }
+
+  // Lazy version of filter
+  private final class LazyFilter[A](private var x: Scored[A], private var f: A => Boolean, private var error: () => String) extends LazyScored[A] {
+    val p = x.p
+    private var s: Scored[A] = null
+    def force(p: Prob) = {
+      if (s eq null) {
+        @tailrec def loop(x: Scored[A], first: Boolean): Scored[A] = x match {
+          case x:LazyScored[A] => if (first || x.p > p) loop(x force p,first=false)
+                                  else new LazyFilter(x,f,error)
+          case Best(p,x,r) => if (f(x)) Best(p,x,r._filter(f,null))
+                              else r._filter(f,error)
+          case x:Bad if trackErrors => x
+          case _:EmptyOrBad => if (error == null) Empty
+                               else new Bad(OneError(error()))
+        }
+        s = loop(x,first=true)
+        x = null; f = null; error = null
+      }
+      s
+    }
+  }
+
+  // Lazy version of x.productWith(y)(f)
+  private final class LazyProductWith[A,B,C](private var x: Scored[A], private var y: Scored[B], private var f: (A,B) => C) extends LazyScored[C] {
+    private val yp = y.p
+    val p = x.p*yp
+    private var s: Scored[C] = null
+    def force(p: Prob) = {
+      if (s eq null) {
+        val px = if (yp==0.0) 1 else p/yp
+        @tailrec def loopX(x: Scored[A], first: Boolean): Scored[C] = x match {
+          case x:LazyScored[A] => if (first || x.p > px) loopX(x force px,first=false)
+                                  else new LazyProductWith(x,y,f)
+          case x:EmptyOrBad => x
+          case x:Best[A] => {
+            val py = if (x.p==0.0) 1 else p/x.p
+            @tailrec def loopY(y: Scored[B], first: Boolean): Scored[C] = y match {
+              case y:LazyScored[B] => if (first || y.p > py) loopY(y force py,first=false)
+                                      else new LazyProductWith(x,y,f)
+              case y:EmptyOrBad => y
+              case y:Best[B] => new Best(x.p*y.p,f(x.x,y.x),x.r.productWith(y)(f)++x.productWith(y.r)(f)++x.r.productWith(y.r)(f))
+            }
+            loopY(y,first)
+          }
+        }
+        s = loopX(x,first=true)
+        x = null; y = null; f = null
+      }
+      s
+    }
   }
 
   // Score constructors
-  val empty: Scored[Nothing] = Empty
-  val strictEmpty: LazyScored[Nothing] = Strict(0,Empty)
   @inline def fail[A](error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error))
     else Empty
-  def known[A](x: A): Scored[A] = Best(1,x,strictEmpty)
-  def single[A](x: A, p: Prob): Scored[A] = Best(p,x,strictEmpty)
-  def orError[A](x: Scored[A], error: => String): Scored[A] = if (x.isEmpty) fail(error) else x
+  def known[A](x: A): Scored[A] = Best(1,x,Empty)
+  def single[A](x: A, p: Prob): Scored[A] = Best(p,x,Empty)
+  def orError[A](x: Scored[A], error: => String): Scored[A] =
+    if (trackErrors) multiple(List(x,new Bad(OneError(error))))
+    else x
 
-  // Bias and delay an actual
-  private class LazyBiased[A](val p: Prob, _s: => Scored[A]) extends LazyScored[A] {
-    lazy val s = _s bias p
+  // Bias and delay
+  private final class LazyBiased[A](val p: Prob, private var f: () => Scored[A]) extends LazyScored[A] {
+    private var s: Scored[A] = null
+    def force(q: Prob) = {
+      if (s eq null) {
+        val pq = if (p==0.0) 1 else q/p
+        @tailrec def loop(x: Scored[A]): Scored[A] = x match {
+          case x:LazyScored[A] => if (x.p > pq) loop(x force pq)
+                                  else new LazyBias(x,p)
+          case x:Best[A] => Best(p*x.p,x.x,x.r bias p)
+          case x:EmptyOrBad => x
+        }
+        s = loop(f())
+        f = null
+      }
+      s
+    }
   }
-  def biased[A](p: Prob, s: => Scored[A]): LazyScored[A] = new LazyBiased(p,s)
+  @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBiased(p,() => s)
+
+  // Bound and delay
+  private final class LazyBound[A](val p: Prob, private var f: () => Scored[A]) extends LazyScored[A] {
+    private var s: Scored[A] = null
+    def force(q: Prob) = {
+      if (s eq null) {
+        @tailrec def loop(x: Scored[A]): Scored[A] = x match {
+          case x:LazyScored[A] => if (x.p > q) loop(x force q)
+                                  else x
+          case x:StrictScored[A] => x
+        }
+        s = loop(f())
+        f = null
+      }
+      s
+    }
+  }
+  @inline def bounded[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBound(p,() => s)
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
-    new UniformState[A](p,xs,if (trackErrors) () => error else null).extract()
+    new UniformState[A](p,xs,if (trackErrors) () => error else null).extract(0)
 
   @inline def uniformGood[A <: AnyRef](p: Prob, xs: Array[A]): Scored[A] =
-    new UniformState[A](p,xs,null).extract()
+    new UniformState[A](p,xs,null).extract(0)
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Seq[A], error: => String)(implicit t: ClassTag[A]): Scored[A] =
-    new UniformState[A](p,xs.toArray,if (trackErrors) () => error else null).extract()
+    new UniformState[A](p,xs.toArray,if (trackErrors) () => error else null).extract(0)
 
   @inline def listScored[A](xs: List[Alt[A]], error: => String): Scored[A] =
-    new OrderedAlternativeState[A](xs,null,if (trackErrors) () => error else null).extract()
+    new OrderedAlternativeState[A](xs,null,if (trackErrors) () => error else null).extract(0)
 
   // Assume no error (use Empty instead of Bad)
   @inline def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
-    new OrderedAlternativeState[A](xs,null,null).extract()
+    new OrderedAlternativeState[A](xs,null,null).extract(0)
 
   // Requires: prob first >= prob andThen
   @inline def orderedAlternative[A](first: List[Alt[A]], andthen: () => List[Alt[A]], error: => String): Scored[A] =
-    new OrderedAlternativeState[A](first,andthen,if (trackErrors) () => error else null).extract()
+    new OrderedAlternativeState[A](first,andthen,if (trackErrors) () => error else null).extract(0)
 
-  // Several options, each with a maximum probability.
-  // In general, this is preferable to using uniform, listScored, multipleGood, or orderedAlternative.
-  // The list is assumed nonempty.
-  @inline def multiple[A](ls: List[Alt[() => Scored[A]]]): Scored[A] =
-    new MultipleState[A](ls).extract()
+  // Fast version of x0 ++ x1 ++ ...  The list is assumed nonempty.
+  @inline def multiple[A](ls: List[Scored[A]]): Scored[A] =
+    new Extractor[A](new MultipleState[A](ls))
 
   // Structured errors
   sealed abstract class Error {
@@ -314,12 +357,14 @@ object Scores {
     product(a,b).productWith(product(c,d))((ab,cd) => f(ab._1,ab._2,cd._1,cd._2))
 
   // Sequence products
+  private val knownNone = known(None)
+  private val knownNil = known(Nil)
   def product[A](xs: Option[Scored[A]]): Scored[Option[A]] = xs match {
-    case None => known(None)
+    case None => knownNone
     case Some(x) => x map (Some(_))
   }
   def product[A](xs: List[Scored[A]]): Scored[List[A]] = xs match {
-    case Nil => known(Nil)
+    case Nil => knownNil
     case sx :: sxs => sx.productWith(product(sxs))(_::_)
   }
 

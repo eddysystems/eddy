@@ -119,14 +119,14 @@ object Semantics {
   def denoteType(e: AExp)(implicit env: Env): Scored[AboveType] = e match {
     case NameAExp(n) => typeScores(n)
     case x: ALit => fail("literals are not types.")
-    case ParenAExp(x,_) => denoteType(x) bias Pr.parensAroundType // Java doesn't allow parentheses around types, but we do
+    case ParenAExp(x,_) => biased(Pr.parensAroundType,denoteType(x)) // Java doesn't allow parentheses around types, but we do
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldAExp(x,ts,f) => if (ts.isDefined) fail("inner classes' type arguments go after the class") else {
       // First, the ones where x is a type
       val tdens = biased(Pr.typeFieldOfType, denoteType(x) flatMap (t => mapTypeTypeDiscards(t, (t:Type) => typeFieldScores(t,f))) )
       val edens = biased(Pr.typeFieldOfExp,  denoteExp(x) flatMap (x => discardType(x,typeFieldScores(x.ty,f))) )
-      (tdens ++ edens).s
+      tdens ++ edens
     }
 
     // TODO: add around to TypeApplyAExp
@@ -135,7 +135,7 @@ object Semantics {
       case RawType(ci,parent) => {
         val tys = ts.list map denoteTypeArg
         // filter the types according to what fits where
-        val filtered = tys zip ci.tparams map { case(tden,tvar) => tden.filter(t => tvar.matches(t.beneath)) }
+        val filtered = tys zip ci.tparams map { case(tden,tvar) => tden.filter(t => tvar.matches(t.beneath), s"cannot use type $tden as type arg for $tvar") }
         product(filtered) flatMap { ls => collectTypeArgDiscards(ls, ts => single(GenericType(ci,ts,parent), Pr.base)) }
       }
       case x => fail(s"cannot apply parameters $ts to type $x")
@@ -219,7 +219,7 @@ object Semantics {
         uniformGood(Pr.forwardConstructor,c.item.constructors) map (ForwardDen(_,tenv))
       }
     }
-    case ParenAExp(x,_) => denoteCallable(x) bias Pr.parensAroundCallable // Java doesn't allow parentheses around callables, but we do
+    case ParenAExp(x,_) => biased(Pr.parensAroundCallable,denoteCallable(x)) // Java doesn't allow parentheses around callables, but we do
 
     // x is either a type or an expression, f is a method, static method, or constructor
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
@@ -259,7 +259,7 @@ object Semantics {
   def denoteExp(e: AExp)(implicit env: Env): Scored[Exp] = e match {
     case NameAExp(n) => valueScores(n) flatMap (denoteValue(_,depth=0))
     case x: ALit => denoteLit(x)
-    case ParenAExp(x,_) => denoteExp(x) map ParenExp bias Pr.parenExp
+    case ParenAExp(x,_) => biased(Pr.parenExp,denoteExp(x) map ParenExp)
 
     // x is either a type or an expression, f is an inner type, method, or field
     case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
@@ -285,27 +285,23 @@ object Semantics {
 
     case ApplyAExp(f,xsn,around) => {
       val n = xsn.list.size
-      def index(f: Exp, ft: Type, idxs: List[Scored[Exp]]): Scored[Exp] = {
-        @tailrec
+      val args = xsn.list map denoteExp
+      def filterDims(f: Exp): Scored[Exp] = {
         def hasDims(t: Type, d: Int): Boolean = d==0 || (t match {
           case ArrayType(t) => hasDims(t,d-1)
           case _ => false
         })
+        val ft = f.ty
         if (!hasDims(ft,n)) fail(show(e)+s": expected >= $n dimensions, got ${dimensions(ft)}")
-        else product(idxs) map (_.foldLeft(f)(IndexExp))
+        else known(f)
       }
 
-      val xargs = xsn.list map denoteExp
-      val xidx = xargs map ( _ flatMap denoteIndex )
-
-      // the probabilities are at least as bad as the product of the highest probability of each of the arguments
-      val pidx = Pr.indexCallExp(xsn, around)
-      val pcall = Pr.callExp(xsn, around)
-
-      multiple(List(
-        Alt(pidx * (xidx map ( _.p )).product, () => denoteArray(f) bias pidx flatMap { a => index(a,a.ty,xidx) } ),
-        Alt(pcall * (xargs map (_.p)).product, () => denoteCallable(f) bias pcall flatMap { ArgMatching.fiddleCall(_, xargs) } )
-      ))
+      // Either array index or call
+      (   biased(Pr.indexCallExp(xsn,around),
+                 productWith(denoteArray(f) flatMap filterDims,
+                             product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp)))
+       ++ biased(Pr.callExp(xsn,around),
+                 denoteCallable(f) flatMap (ArgMatching.fiddleCall(_,args))))
     }
 
     case UnaryAExp(op,x) => denoteExp(x) flatMap {
@@ -330,8 +326,8 @@ object Semantics {
     })}
 
     case CondAExp(c,x,y) =>
-      product(denoteBool(c),denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
-        CondExp(c,x,y,condType(x.ty,y.ty))} bias Pr.condExp
+      biased(Pr.condExp,product(denoteBool(c),denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
+        CondExp(c,x,y,condType(x.ty,y.ty))})
 
     case AssignAExp(op,x,y) => {
       product(denoteVariable(x),denoteExp(y)) flatMap {case (x,y) => {
@@ -345,7 +341,7 @@ object Semantics {
     }
 
     case ArrayAExp(xs,a) =>
-      product(xs.list map denoteExp) map (is => ArrayExp(condTypes(is map (_.ty)),is)) bias Pr.arrayExp
+      biased(Pr.arrayExp,product(xs.list map denoteExp) map (is => ArrayExp(condTypes(is map (_.ty)),is)))
 
     case InstanceofAExp(x,t) => notImplemented // much more likely that you ask this if x.ty has strict subtypes that are also subtypes of t (in case x.ty or t is an interface type, otherwise this just means x.ty should be a supertype of t)
 
@@ -458,17 +454,17 @@ object Semantics {
           }}
           case _ => fail(show(e)+": expression doesn't look like a statement")
         }
-        above(exps++delay(1,stmts)) // TODO: be lazier
+        above(exps++stmts)
       }
       case BlockAStmt(b) => denoteStmts(b)(env) flatMap {case (e,ss) => single((e,List(BlockStmt(ss))), Pr.blockStmt)}
-      case AssertAStmt(c,m) => above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
-        (env,AssertStmt(c,m))} bias Pr.assertStmt)
+      case AssertAStmt(c,m) => biased(Pr.assertStmt,above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
+        (env,AssertStmt(c,m))}))
 
       case BreakAStmt(lab) =>
-        if (env.place.breakable) denoteLabel(lab,(env,List(BreakStmt))) bias Pr.breakStmt
+        if (env.place.breakable) biased(Pr.breakStmt,denoteLabel(lab,(env,List(BreakStmt))))
         else fail("cannot break outside of a loop or switch statement.")
       case ContinueAStmt(lab) =>
-        if (env.place.continuable) denoteLabel(lab,(env,List(ContinueStmt))) bias Pr.continueStmt
+        if (env.place.continuable) biased(Pr.continueStmt,denoteLabel(lab,(env,List(ContinueStmt))))
         else fail("cannot break outside of a loop")
       case ReturnAStmt(e) => above(product(returnType,thread(e)(denoteExp)) flatMap {case (r,e) =>
         val t = typeOf(e)
@@ -549,8 +545,8 @@ object Semantics {
     case Some(_) => notImplemented
   }
 
-  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
-    productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)} bias Pr.stmtList
+  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] = biased(Pr.stmtList,
+    productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)})
 
   // Statement whose environment is discarded
   def denoteScoped(s: AStmt)(env: Env): Scored[(Env,Stmt)] =
