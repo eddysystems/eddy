@@ -10,6 +10,7 @@ import ambiguity.Utility._
 import scala.annotation.tailrec
 
 object ArgMatching {
+  // TODO: specialize for given type arguments
   def fiddleCall(f: Callable, args: List[Scored[Exp]])(implicit env: Env): Scored[ApplyExp] = {
     // Should we find missing arguments in the environment?
     val useEnv = false

@@ -1,6 +1,5 @@
 package tarski
 
-import ambiguity.JavaUtils.FlatMapState
 import tarski.Scores._
 import ambiguity.Utility._
 import scala.util.Random

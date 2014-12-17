@@ -75,6 +75,8 @@ object Scores {
     // We are assumed independent of t
     def productWith[B,C](s: Scored[B])(f: (A,B) => C): Scored[C] = new LazyProductWith(this,s,f)
 
+    def productWithFilter[B,C](s: Scored[B], filter: (A,B) => Boolean)(f: (A,B) => C): Scored[C] = new LazyProductWith(this,s,f)
+
     // Filter, turning Empty into given error
     final def filter(f: A => Boolean, error: => String): Scored[A] = _filter(f,if (trackErrors) () => error else null)
     def _filter(f: A => Boolean, error: () => String): Scored[A] = new LazyFilter(this,f,error)
@@ -99,7 +101,7 @@ object Scores {
   }
 
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
-  val trackErrors = false
+  val trackErrors = true
   if (trackErrors)
     println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
 
@@ -380,6 +382,10 @@ object Scores {
     case List(sx) => sx map (List(_))
     case sx :: sxs => sx.productWith(product(sxs))(_::_)
   }
+  def productWithReversePrefixFilter[A](xs: List[Scored[A]], reverseLastElementLegal: List[A] => Boolean): Scored[List[A]] = (xs.reverse match {
+    case Nil => knownNil
+    case sx :: sxs => sx.productWith(productWithReversePrefixFilter(sxs, reverseLastElementLegal))(_::_) filter(reverseLastElementLegal, "filtered doesn't allow product")
+  }) map (_.reverse)
 
   def productFoldLeft[A,E](e: E)(fs: List[E => Scored[(E,A)]]): Scored[(E,List[A])] =
     fs match {

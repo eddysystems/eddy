@@ -511,8 +511,7 @@ class TestDen {
                            PlaceInfo(Xc2))
     testDen("this()", ApplyExp(ForwardDen(Xc,Map.empty), Nil, Nil))
     testDen("super()", ApplyExp(ForwardDen(Yc,Map.empty), Nil, Nil))
-    // TODO: This should only work as the first statement of a different constructor,
-    // which is not tracked by the PlaceInfo right now
+    // TODO: This should only work as the first statement of a different constructor, which is not tracked by the PlaceInfo right now
   }
 
   @Test def illegalConstructorForward(): Unit = {
@@ -525,6 +524,50 @@ class TestDen {
     implicit val env = Env(Array(Y,Yc,X,Xc), Map((f,2),(Xc,2),(X,2),(Y,3),(Yc,3)), PlaceInfo(f))
     testFail("this()")
     testFail("super()")
+  }
+
+  def setupGenericClass(): Env = {
+    /**
+     * equivalent to:
+     *
+     * class B<A> {}
+     *
+     * class X<A,BA extends B<A>> {
+     *   <T extends Number> A f(T) {
+     *     <caret>
+     *   }
+     * }
+     *
+     */
+
+    val A2 = SimpleTypeVar("A")
+    val B = NormalClassItem("B", LocalPkg, List(A2))
+
+    val A = SimpleTypeVar("A")
+    val BA = NormalTypeVar("BA", B.generic(List(A)), Nil)
+    val X = NormalClassItem("X", LocalPkg, List(A,BA))
+
+    val T = NormalTypeVar("T", NumberItem.simple, Nil)
+    val f = NormalMethodItem("f", X, List(T), A, List(T), isStatic=false)
+    Env(Array(A,A2,B,BA,X,T,f), Map((A,2),(BA,2),(X,2),(T,2),(f,2)), PlaceInfo(f))
+  }
+
+  @Test def genericClass(): Unit = {
+    implicit val env = setupGenericClass()
+
+    val X = env.allItems.find(_.name == "X").get.asInstanceOf[NormalClassItem]
+    val B = env.allItems.find(_.name == "B").get.asInstanceOf[NormalClassItem]
+
+    testDen("X<String,B<String>> x = null", "x", x => VarStmt(X.generic(List(StringType,B.generic(List(StringType)))), List((x, 0, Some(NullLit)))))
+  }
+
+  @Test def genericMethod(): Unit = {
+    implicit val env = setupGenericClass()
+    val f = env.allItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
+    val rexp = ExpStmt(ApplyExp(LocalMethodDen(f), List(StringType), List(StringLit("test", "\"test\""))))
+    testDen("this.<String>f(\"test\")", rexp)
+    testDen("<String>f(\"test\")", rexp)
+    testDen("f<String>(\"test\")", rexp)
   }
 
 }

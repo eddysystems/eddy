@@ -291,6 +291,7 @@ ExpHighNA AExp
   ExpHigh ColonColonTok Option[TypeArgs] Ident              { MethodRefAExp($1,$3,$4) }
   ExpHigh ColonColonTok Option[TypeArgs] NewTok             { NewRefAExp($1,$3) }
   ExpHigh TypeArgs                                          { TypeApplyAExp($1,$2) }
+  TypeArgs ExpHigh                                          { TypeApplyAExp($2,$1) }
 
 Left Group
   LParenTok { Paren }

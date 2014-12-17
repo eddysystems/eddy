@@ -191,26 +191,28 @@ object Semantics {
     case i: FieldItem => denoteField(i, depth)
   }
 
-  def denoteCallable(e: AExp)(implicit env: Env): Scored[Callable] = e match {
+  def denoteCallable(e: AExp)(implicit env: Env): Scored[(Callable,Option[List[AboveTypeArg]])] = e match {
     case NameAExp(n) => callableScores(n) flatMap {
-      case i: MethodItem if i.isStatic => known(StaticMethodDen(None,i))
-      case i: MethodItem if env.inScope(i) => known(LocalMethodDen(i))
-      case i: MethodItem => denoteMethod(i, 0)
-      case i: ConstructorItem => known(NewDen(i))
+      case i: MethodItem if i.isStatic => known(StaticMethodDen(None,i), None)
+      case i: MethodItem if env.inScope(i) => known(LocalMethodDen(i), None)
+      case i: MethodItem => denoteMethod(i, 0) map ((_,None))
+      case i: ConstructorItem => known(NewDen(i),None)
       case ThisItem(c) => uniformGood(1,c.constructors) flatMap {
         case cons if cons == env.place.place => fail("Can't forward to current constructor")
-        case cons => known(ForwardDen(cons,Map.empty))
+        case cons => known(ForwardDen(cons,Map.empty),None)
       }
       case SuperItem(c) => {
         val tenv = c.env
-        uniformGood(1,c.item.constructors) map (ForwardDen(_,tenv))
+        uniformGood(1,c.item.constructors) map (c => (ForwardDen(c,tenv),None))
       }
     }
     case ParenAExp(x,_) => biased(Pr.parensAroundCallable,denoteCallable(x)) // Java doesn't allow parentheses around callables, but we do
 
     // x is either a type or an expression, f is a method, static method, or constructor
-    case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
+    case FieldAExp(x,ts,f) => {
+      // TODO: also try applying ts to x
       // first, the ones where x is a type
+      // TODO: convert ts expressions to typeargs and check whether the type arguments fit
       val tdens = denoteType(x) flatMap (t => mapTypeCallableDiscards(t, t => callableFieldScores(t.item,f) flatMap {
           case f:MethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
           case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
@@ -219,15 +221,19 @@ object Semantics {
       val edens = denoteExp(x) flatMap (x => callableFieldScores(x.item,f) flatMap {
         case f:MethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
         case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
+        // TODO: also try applying the type arguments to the class (not the constructor)
         case f:ConstructorItem => discardCallable(x,single(NewDen(f),Pr.constructorFieldCallableWithObject))
       })
 
-      tdens ++ edens
+      if (!ts.isDefined) tdens ++ edens map ((_,None))
+      else notImplemented // TODO
     }
+
+    // C++-style application of type arguments to a generic method
+    case TypeApplyAExp(x,ts) => throw new NotImplementedError("Generics not implemented (denoteCallable:TypeApplyExp): " + e)
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
     case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
-    case TypeApplyAExp(x,ts) => throw new NotImplementedError("Generics not implemented (TypeApplyExp): " + e)
     case NewAExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
 
     // objects that are function-like interfaces should be callable, but that is handled in denoteExp: ApplyAExp
@@ -265,16 +271,14 @@ object Semantics {
       tdens++edens
     }
 
-    case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
-    case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
-    case TypeApplyAExp(x,ts) => throw new NotImplementedError("Generics not implemented (TypeApplyExp): " + e)
-    case NewAExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
-
     case ApplyAExp(f,xsn,around) => {
       val n = xsn.list.size
       val args = xsn.list map denoteExp
       // Either array index or call
-      val call = biased(Pr.callExp(xsn,around), denoteCallable(f) flatMap (ArgMatching.fiddleCall(_,args)))
+      val call = biased(Pr.callExp(xsn,around), denoteCallable(f) flatMap {
+        case (f,None) => ArgMatching.fiddleCall(f,args)
+        case (f,Some(ts)) => throw new NotImplementedError("Generic method calls not implemented")
+      })
       if (n == 0) call // No arguments is never array access
       else call ++ biased(Pr.indexCallExp(xsn,around),
         productWith(denoteExp(f).filter(f => hasDims(f.ty,n),show(e)+s": expected >= $n dimensions"),
@@ -321,8 +325,12 @@ object Semantics {
       biased(Pr.arrayExp,product(xs.list map denoteExp) map (is => ArrayExp(condTypes(is map (_.ty)),is)))
 
     case InstanceofAExp(x,t) => notImplemented // much more likely that you ask this if x.ty has strict subtypes that are also subtypes of t (in case x.ty or t is an interface type, otherwise this just means x.ty should be a supertype of t)
+    case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
+    case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
+    case NewAExp(ts,e) => throw new NotImplementedError("new expression not implemented: " + e)
 
     case WildAExp(b) => fail("wildcard types are not expressions")
+    case TypeApplyAExp(x,ts) => fail("type arguments make no sense for expression")
   }
 
   // Expressions with type restrictions
