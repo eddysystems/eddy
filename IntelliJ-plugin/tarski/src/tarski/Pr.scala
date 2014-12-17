@@ -70,8 +70,6 @@ object Pr {
   val floatLit = base
   val doubleLit = base
   val charLit = base
-  val booleanLit = base
-  val nullLit = base
   val stringLit = base
 
   // denoteType(AType)
