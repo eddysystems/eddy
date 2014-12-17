@@ -51,7 +51,11 @@ object Tarski {
         s.map(show(_)).asJava
     }}.all match {
       case Left(error) => Nil
-      case Right(all) => mergeTake(all)(Map.empty) map {case Alt(p,a) => Alt(p,a)}
+      case Right(all) => {
+        val rs = mergeTake(all)(Map.empty)
+        rs foreach {case Alt(p,r) => println(s"$p: $r")}
+        rs
+      }
     }).asJava
   }
 
