@@ -219,7 +219,7 @@ object Scores {
           case x:LazyScored[A] => if (first || x.p > p) loop(x force p,first=false)
                                   else new LazyFilter(x,f,error)
           case Best(p,x,r) => if (f(x)) Best(p,x,r._filter(f,null))
-                              else r._filter(f,error)
+                              else loop(r,first=false)
           case x:Bad if trackErrors => x
           case _:EmptyOrBad => if (error == null) Empty
                                else new Bad(OneError(error()))
