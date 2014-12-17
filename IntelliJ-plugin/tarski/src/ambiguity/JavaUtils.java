@@ -254,7 +254,9 @@ public class JavaUtils {
             } else if (b.s instanceof Best) { // We found the best one
               bads = null; // We've found at least one thing, so no need to track errors further
               final Best<B> bb = (Best<B>)b.s;
-              bs.add(new Biased<B>(b.q,bb.r()));
+              final Scored<B> r = bb.r();
+              if (!(r instanceof Empty$))
+                bs.add(new Biased<B>(b.q,r));
               return new Best<B>(b.p(),bb.x(),new Extractor<B>(this));
             } else if (bads != null) {
               bads = $colon$colon$.MODULE$.<Bad>apply((Bad)b.s,bads);
