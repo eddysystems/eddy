@@ -129,7 +129,7 @@ object Tries {
     new Trie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
   }
 
-  def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Prob): List[Alt[V]] = {
+  def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Double): List[Alt[V]] = {
     JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
 /*
     case class LevenshteinVisitor(dist: StringMatching.IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {

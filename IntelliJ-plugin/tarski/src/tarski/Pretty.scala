@@ -344,6 +344,7 @@ object Pretty {
       case x:TypeVar => prettyTypeVar(x)
       case IntersectType(ts) => pretty(AndList(ts.toList))
       case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok,RBrackTok))
+      case _ => impossible // Otherwise, Scala warns about nonexhaustive match for _: this.<local child>
     }
   }
   implicit def prettyTypeArg(t: TypeArg)(implicit env: Env): (Fixity,Tokens) = {

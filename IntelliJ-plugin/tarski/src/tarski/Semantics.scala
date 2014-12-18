@@ -204,13 +204,13 @@ object Semantics {
       case i: MethodItem if env.inScope(i) => known(LocalMethodDen(i), None)
       case i: MethodItem => denoteMethod(i, 0) map ((_,None))
       case i: ConstructorItem => known(NewDen(None,i),None)
-      case ThisItem(c) => uniformGood(1,c.constructors) flatMap {
+      case ThisItem(c) => uniformGood(Pr.forwardThis,c.constructors) flatMap {
         case cons if cons == env.place.place => fail("Can't forward to current constructor")
         case cons => known(ForwardDen(Some(c.inside), cons),None)
       }
       case SuperItem(c) => {
         val tenv = c.env
-        uniformGood(1,c.item.constructors) map (cc => (ForwardDen(Some(c),cc),None))
+        uniformGood(Pr.forwardSuper,c.item.constructors) map (cc => (ForwardDen(Some(c),cc),None))
       }
     }
     case ParenAExp(x,_) => biased(Pr.parensAroundCallable,denoteCallable(x)) // Java doesn't allow parentheses around callables, but we do

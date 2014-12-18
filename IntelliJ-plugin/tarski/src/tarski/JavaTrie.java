@@ -2,7 +2,7 @@ package tarski;
 
 import ambiguity.JavaUtils;
 import com.intellij.util.SmartList;
-
+import tarski.JavaScores.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -293,7 +293,8 @@ public class JavaTrie {
             if (p >= minProb) {
               int l = values.length();
               for (int i = 0; i < l; ++i) {
-                result.add(new tarski.Scores.Alt<V>(p, values.apply(i)));
+                //final DebugProb dp = new NameProb("typo",p);
+                result.add(new tarski.Scores.Alt<V>(p,values.apply(i)));
               }
             }
           }

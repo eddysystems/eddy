@@ -4,16 +4,18 @@ import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutp
 
 import ambiguity.JavaUtils._
 import ambiguity.Utility._
-import tarski.AST._
 import tarski.Items._
 import tarski.Scores._
+import tarski.JavaScores._
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
 
+import scala.annotation.tailrec
+
 object Environment {
   // Minimum probability before an object is considered a match for a query
-  val minimumProbability = Prob(.01)
+  val minimumProbability = .01
 
   // Lookup a string, approximately
   private def typoQuery(trie: Trie[Item], typed: String): List[Alt[Item]] = {
@@ -69,7 +71,7 @@ object Environment {
 
     // Get exact and typo probabilities for string queries
     def query(typed: String): List[Alt[Item]]
-    def exactQuery(typed: String): List[Alt[Item]]
+    def exactQuery(typed: String): List[Item]
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A]
 
     // Lookup by type.item
@@ -166,16 +168,20 @@ object Environment {
     def query(typed: String): List[Alt[Item]] =
       typoQuery(trie1,typed)++typoQuery(trie0,typed)
 
-    def exactQuery(typed: String): List[Alt[Item]] = {
-      val p = ambiguity.JavaUtils.poissonPDF(typed.length*Pr.typingErrorRate,0)
-      (trie1.exact(typed) ++ trie0.exact(typed)) map (Alt(p,_))
-    }
+    def exactQuery(typed: String): List[Item] =
+      trie1.exact(typed) ++ trie0.exact(typed)
 
     def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
-      val _f = Function.unlift( (x:Alt[Item]) => { if (filter.isDefinedAt(x.x)) Some(Alt(x.p, filter.apply(x.x))) else None } )
-      orderedAlternative(exactQuery(typed) collect _f map { case Alt(p,t) => Alt(exactProb,t) },
-                () => query(typed) collect _f map { case Alt(p,t) => Alt((1-exactProb)*p,t) },
-                error)
+      @tailrec def collectExact(is: List[Item], as: List[Alt[A]]): List[Alt[A]] = is match {
+        case Nil => as
+        case i::is => collectExact(is,if (filter.isDefinedAt(i)) Alt(exactProb,filter.apply(i))::as else as)
+      }
+      val compExactProb = pcomp(exactProb)
+      @tailrec def collectApprox(is: List[Alt[Item]], as: List[Alt[A]]): List[Alt[A]] = is match {
+        case Nil => as
+        case Alt(p,i)::is => collectApprox(is,if (filter.isDefinedAt(i)) Alt(pmul(compExactProb,p),filter.apply(i))::as else as)
+      }
+      orderedAlternative(collectExact(exactQuery(typed),Nil), () => collectApprox(query(typed),Nil), error)
     }
 
     def byItem(t: TypeItem): Scored[Value] = {

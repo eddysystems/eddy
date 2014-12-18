@@ -8,7 +8,8 @@ import tarski.Denotations.ThisExp
 import tarski.Environment._
 import tarski.Items._
 import tarski.Pretty._
-import tarski.Scores.Alt
+import tarski.Scores.{Alt,Prob}
+import tarski.JavaScores.pp
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
@@ -60,10 +61,8 @@ class TestEnvironment {
 
     // these should all return exactly one
     for (i <- things) {
-      val e = i.name.length * Pr.typingErrorRate
-      val p = ambiguity.JavaUtils.poissonPDF(e,0)
       val x = env.exactQuery(i.name)
-      assertEquals(s"found $x, expected exactly $i", List(Alt(p,i)), x)
+      assertEquals(s"found $x, expected exactly $i",List(i),x)
     }
   }
 
@@ -117,7 +116,7 @@ class TestEnvironment {
     val qr = env.query(typed).toSet
     val lr = things.collect( Function.unlift((item:Item) => {
       val p = Pr.typoProbability(item.name, typed)
-      if (p >= Environment.minimumProbability) Some(Alt(p,item)) else None
+      if (pp(p) >= Environment.minimumProbability) Some(Alt(p,item)) else None
     })).toSet
 
     println(s"exact match for query $typed -> ${env.exactQuery(typed)}")
