@@ -108,10 +108,6 @@ object Scores {
       }
   }
 
-  // Warn about error tracking
-  if (trackErrors)
-    println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
-
   // No options
   private val zeroProb = Prob("zero",0)
   sealed abstract class EmptyOrBad extends StrictScored[Nothing] {
@@ -289,4 +285,10 @@ object Scores {
   def oneError[A](error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error))
     else Empty
+
+  // Performance warnings for debugging code
+  if (trackErrors)
+    println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
+  if (trackProbabilities)
+    println("PERFORMANCE WARNING: Probability tracking is on, Scored will be slower than otherwise")
 }
