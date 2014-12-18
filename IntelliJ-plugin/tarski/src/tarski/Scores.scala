@@ -162,8 +162,8 @@ object Scores {
           case Best(p,x,r) => if (f(x)) Best(p,x,r._filter(f,null))
                               else loop(r,first=false)
           case x:Bad if trackErrors => x
-          case _:EmptyOrBad => if (error == null) Empty
-                               else new Bad(OneError(error()))
+          case _:EmptyOrBad => if (!trackErrors || error == null) Empty
+                               else { val e = error; new Bad(OneError(e())) } // Be careful to not reference error in a closure
         }
         s = loop(x,first=true)
         x = null; f = null; error = null
