@@ -84,21 +84,8 @@ object Items {
     def productElement(n: Int) = notImplemented
   }
 
-  trait GenericItem {
-    def tparams: List[TypeVar]
+  trait GenericItem extends WithTypeParams {
     def arity: Int = tparams.size
-
-    // checks whether the given types can be used in the parameter list
-    def matches(args: List[TypeArg]): Boolean = {
-      // TODO
-      false
-    }
-
-    // incremental match: checks whether arg fits, given that the prefix args is already checked
-    def matches(args: List[TypeArg], arg: TypeArg): Boolean = {
-      // TODO
-      false
-    }
   }
 
   trait RefTypeItem extends TypeItem { // Not sealed so that TypeVar can inherit from here

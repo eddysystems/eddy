@@ -20,53 +20,59 @@ object Denotations {
   // Callables
   sealed abstract class Callable extends Signature with HasDiscards {
     val f: CallableItem
+    def tparams: List[TypeVar] = f.tparams
+    def params: List[Type] = f.params
     def callItem: TypeItem
     def callType(ts: List[RefType]): Type
     def discard(ds: List[Stmt]) = DiscardCallableDen(ds,this)
     def beneath: Callable
   }
-  sealed abstract class NonNewCallable extends Callable {
-    def tparams: List[TypeVar] = f.tparams
-    def params: List[Type] = f.params
-  }
+  sealed abstract class NonNewCallable extends Callable
+
   case class MethodDen(obj: Exp, override val f: MethodItem) extends NonNewCallable {
+    def env(ts: List[RefType]) = obj.ty.asInstanceOf[Parent].env ++ (tparams zip ts map { case (tp,ta) => (tp,Some(ta)) }).toMap
     def callItem = f.retVal.item
-    def callType(ts: List[RefType]) = substitute(f.tparams,ts,f.retVal)
+    def callType(ts: List[RefType]) = f.retVal.substitute(env(ts))
     def discards = obj.discards
     def beneath = MethodDen(obj.beneath,f)
+    override def params = f.params.map( (t:Type) => t.substitute(obj.ty.asInstanceOf[Parent].env) )
+    // a method is called on an object, which will have a proper type at the time the call happens, so we only need to infer our own type arguments
+    def alltparams = tparams
   }
   case class LocalMethodDen(override val f: MethodItem) extends NonNewCallable {
     def callItem = f.retVal.item
-    def callType(ts: List[RefType]) = substitute(f.tparams,ts,f.retVal)
+    def callType(ts: List[RefType]) = substitute(f.tparams,ts,f.retVal) // this is raw, so we never have any relevant parent environment
     def discards = Nil
     def beneath = this
+    def alltparams = tparams // this is raw, so we never have any relevant parent environment
   }
   case class StaticMethodDen(obj: Option[Exp], override val f: MethodItem) extends NonNewCallable {
     def callItem = f.retVal.item
-    def callType(ts: List[RefType]) = substitute(f.tparams,ts,f.retVal)
+    def callType(ts: List[RefType]) = substitute(f.tparams,ts,f.retVal) // static methods don't use their parent type environment
     def discards = discardsOption(obj)
     def beneath = StaticMethodDen(obj map (_.beneath),f)
+    def alltparams = tparams // static methods cannot use their parent's type environment
   }
   case class ForwardDen(override val f: ConstructorItem, env: Tenv) extends NonNewCallable {
     def callItem = VoidItem
     def callType(ts: List[RefType]) = VoidType
     def discards = Nil
     def beneath = this
+    def alltparams = tparams // either this or super -- we cannot add type parameters to those
     override def params = f.params map (_ substitute env)
   }
   case class NewDen(override val f: ConstructorItem) extends Callable {
-    def tparams = f.parent.tparams ++ f.tparams // TODO: May need to recursively include higher parent parameters
-    def params = f.params
     def callItem = f.parent
     def callType(ts: List[RefType]) = f.parent.generic(ts.take(f.parent.arity),f.parent.parent.simple)
     def discards = Nil
     def beneath = this
+    // we can infer the type parameters of the class created, and those of the constructor used -- the class parameters go first
+    def alltparams = f.parent.tparams ++ tparams
   }
   // Evaluate and discard s, then be f
   case class DiscardCallableDen(s: List[Stmt], c: Callable) extends Callable {
     val f = c.f
-    def tparams = c.tparams
-    def params = c.params
+    def alltparams = c.alltparams
     def callItem = c.callItem
     def callType(ts: List[RefType]) = c.callType(ts)
     def discards = s ::: c.discards

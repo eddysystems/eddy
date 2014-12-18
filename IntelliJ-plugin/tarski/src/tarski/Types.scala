@@ -315,6 +315,17 @@ object Types {
   // None means the type variable is "raw" and therefore unknown.
   type Tenv = Map[TypeVar,Option[RefType]]
 
+  trait WithTypeParams {
+    def tparams: List[TypeVar]
+
+    // returns a function that determines whether a prefix of type arguments is a match for this
+    def makeReverseMatcher(parent: Parent): List[AboveTypeArg] => Boolean = {
+      // val filtered = tys zip ci.tparams map { case(tden,tvar) => tden.filter(t => tvar.matches(t.beneath), s"cannot use type $tden as type arg for $tvar") }
+      // TOOD: determine whether the given types are valid
+      (t: List[AboveTypeArg]) => false
+    }
+  }
+
   // Basic reference types
   val StringType       = StringItem.simple
   val CloneableType    = CloneableItem.simple
@@ -365,8 +376,7 @@ object Types {
   def unaryLegal(op: UnaryOp, t: Type) = unaryType(op,t).isDefined
   def binaryLegal(op: BinaryOp, t0: Type, t1: Type) = binaryType(op,t0,t1).isDefined
 
-  // Substitute given tenv as two lists
-  // TODO: This is invalid wherever used, since it doesn't take into account parent environments
+  // Substitute given tenv as two lists (assuming there is no parent environment to take into account)
   def substitute(vs: List[TypeVar], ts: List[RefType], t: Type): Type =
     if (vs.isEmpty) t
     else t.substitute((vs,ts.map(Some(_))).zipped.toMap)
@@ -627,13 +637,13 @@ object Types {
   // Method resolution: generics and overloads, 15.12.2
   // Given a list of callables, find the most specific one along with its type parameters
   // TODO: Handle explicit type parameters, possibly by prefiltering fs outside of this function
-  trait Signature {
-    def tparams: List[TypeVar]
-    def params: List[Type]
-
-    def isGeneric: Boolean = tparams.nonEmpty
+  trait Signature extends WithTypeParams {
     def arity: Int = params.size
+    def params: List[Type]
+    def alltparams: List[TypeVar] // all inferable type parameters, both our own and our parents'
+    def isGeneric: Boolean = alltparams.nonEmpty // needs inference
   }
+
   // given argument types ts, which signatures are still usable? ts is allowed to be shorter than f.params,
   // all signatures still possible after matching the prefix are returned.
   def resolveOptions[F <: Signature](fs: List[F], ts: List[Type]): List[(F,List[RefType])] = {
@@ -646,7 +656,7 @@ object Types {
       if (!f.isGeneric)
         if ((f.params.slice(0,ts.size),ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
         else None
-      else Inference.infer(f.tparams,f.params.slice(0,ts.size),ts)(form)
+      else Inference.infer(f.alltparams,f.params.slice(0,ts.size),ts)(form)
     def strictCompatible(f: F): Option[List[RefType]] = compatible(f,Inference.strictBounds, strictInvokeContext)
     def looseCompatible (f: F): Option[List[RefType]] = compatible(f,Inference.looseBounds , looseInvokeContext)
     // narrow down candidates

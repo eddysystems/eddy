@@ -126,8 +126,7 @@ object Semantics {
       case RawType(ci,parent) => {
         val tys = ts.list map denoteTypeArg
         // filter the types according to what fits where
-        val filtered = tys zip ci.tparams map { case(tden,tvar) => tden.filter(t => tvar.matches(t.beneath), s"cannot use type $tden as type arg for $tvar") }
-        product(filtered) flatMap { ls => collectTypeArgDiscards(ls, ts => single(GenericType(ci,ts,parent), Pr.base)) }
+        productWithReversePrefixFilter(tys, ci.makeReverseMatcher(parent)) flatMap { ls => collectTypeArgDiscards(ls, ts => single(GenericType(ci,ts,parent), Pr.base)) }
       }
       case x => fail(s"cannot apply parameters $ts to type $x")
     }}
