@@ -14,7 +14,7 @@ import static tarski.Scores.nestError;
 
 public class JavaScores {
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
-  static final boolean trackErrors = true;
+  static final boolean trackErrors = false;
 
   // To enable probability tracking, swap the comment blocks below and make the substitution
   //   double/*Prob*/   ->   DebugProb
@@ -24,6 +24,7 @@ public class JavaScores {
   static double pdiv(double x, double y) { return y == 0 ? 2 : x/y; }
 
   // Indirection functions so that we can swap in DebugProb for debugging
+  static final boolean trackProbabilities = false;
   static double pp(double x) { return x; }
   static double pmul(double x, double y) { return x*y; }
   static final double pzero = 0;
@@ -53,6 +54,7 @@ public class JavaScores {
     final DebugProb x;
     CompProb(DebugProb x) { super(x.prob); this.x = x; }
   }
+  static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
   static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
   static final DebugProb pzero = null;
