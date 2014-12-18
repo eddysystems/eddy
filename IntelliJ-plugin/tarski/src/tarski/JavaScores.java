@@ -17,8 +17,8 @@ public class JavaScores {
   static final boolean trackErrors = false;
 
   // To enable probability tracking, swap the comment blocks below and make the substitution
-  //   double/*Prob*/   ->   DebugProb
-  // Also swap the definition of Prob in Scores, and fix the compile error in JavaTrie.
+  //   double /*Prob*/   ->   DebugProb
+  // except without the space.  Also swap the definition of Prob in Scores, and fix the compile error in JavaTrie.
 
   // Divide two probabilities, turning infinity into 2
   static double pdiv(double x, double y) { return y == 0 ? 2 : x/y; }
@@ -30,6 +30,7 @@ public class JavaScores {
   static final double pzero = 0;
   static double padd(double x, double y) { return x+y; }
   static double pcomp(double x) { return 1-x; }
+  /**/
 
   // Named probabilities.  Very expensive, so enable only for debugging.
   /*
@@ -61,7 +62,7 @@ public class JavaScores {
   static DebugProb padd(DebugProb x, DebugProb y) { return y==pzero ? x : new AddProb(x,y); }
   static DebugProb pcomp(DebugProb x) { return new CompProb(x); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
-  */
+  /**/
 
   // s bias q
   static final class Biased<B> extends HasProb {
