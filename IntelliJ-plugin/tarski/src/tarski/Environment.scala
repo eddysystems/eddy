@@ -147,9 +147,9 @@ object Environment {
       }
     }
 
-    // Check if an item is in scope and not shadowed by another item
+    // Check if an item is in scope and not shadowed by another item (we can't shadow language items)
     def inScope(i: Item): Boolean =
-      scope.contains(i) && !scope.exists { case (ii,p) => p < scope.get(i).get && i.name == ii.name }
+      i.isInstanceOf[LangTypeItem] || scope.contains(i) && !scope.exists { case (ii,p) => p < scope.get(i).get && i.name == ii.name }
 
     // Enter a new block scope
     def pushScope: Env =
