@@ -4,6 +4,7 @@ import org.testng.AssertJUnit._
 import org.testng.annotations.Test
 import tarski.Base._
 import tarski.Denotations._
+import tarski.Environment.{PlaceInfo, Env}
 import tarski.Items._
 import tarski.Lexer._
 import tarski.Pretty._
@@ -13,7 +14,7 @@ import tarski.Types._
 import scala.language.implicitConversions
 
 class TestPretty {
-  implicit val env = baseEnv
+  implicit val env = testEnv
 
   def test[A](s: String, x: A)(implicit p: Pretty[A]) =
     assertEquals(s"$s -> ${show(tokens(x))}", lex(s).filterNot(isSpace), tokens(x))
@@ -43,4 +44,15 @@ class TestPretty {
     val cons = NormalConstructorItem(A,List(T),List(T))
     ApplyExp(NewDen(None,cons),List(IntegerItem.simple,StringItem.simple),List(StringLit("s",""""s"""")))
   })
+
+  @Test def qualifiedType() = {
+    val A = NormalClassItem("A",LocalPkg)
+    val B = NormalClassItem("B",A)
+    val C = NormalClassItem("C",LocalPkg)
+    val D = NormalClassItem("D",C)
+    val f = NormalMethodItem("f",C,Nil,VoidType,Nil,isStatic=false)
+    implicit val env = Env(Array(A,B,C,D,f), Map((A,3),(C,2),(D,2),(f,2)),PlaceInfo(f))
+    test("A.B", B.simple)
+    test("D", D.simple)
+  }
 }
