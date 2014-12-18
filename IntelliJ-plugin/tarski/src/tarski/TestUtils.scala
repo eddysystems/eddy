@@ -56,7 +56,7 @@ object TestUtils {
   def localEnvWithBase(locals: Item*): Env = {
     val X = NormalClassItem("XX", LocalPkg)
     val f = NormalMethodItem("ff", X, Nil, VoidType, Nil, false)
-    baseEnv.extend(Array(f,X) ++ locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
+    testEnv.extend(Array(f,X) ++ locals, Map((f,2),(X,2)) ++ locals.map((_,1)).toMap[Item,Int])
            .move(PlaceInfo(f))
   }
 
