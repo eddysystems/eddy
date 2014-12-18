@@ -18,6 +18,7 @@ import tarski.Items;
 import tarski.Items.Item;
 import tarski.Scores;
 import tarski.Types;
+import tarski.Scores.Alt;
 
 import java.util.List;
 
@@ -81,31 +82,38 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return e;
   }
 
+  private void dumpResults(Eddy eddy) {
+    System.out.println("results:");
+    final List<Alt<List<String>>> results = eddy.getResults();
+    final List<String> strings = eddy.getResultStrings();
+    for (int i=0;i<results.size();i++) {
+      Alt<List<String>> r = results.get(i);
+      System.out.println("  " + r.p() + ": " + strings.get(i) + " (" + r + ")");
+    }
+  }
+
   private void checkResult(Eddy eddy, String expected) {
-    System.out.println("results: ");
-    boolean found = false;
-    for (String s : eddy.getResultStrings()) {
-      if (s.equals(expected))
-        found = true;
-      System.out.println(s);
-    }
-    System.out.println("result denotations: ");
-    for (tarski.Scores.Alt<List<String>> r : eddy.getResults()) {
-      System.out.println(r);
-    }
-    assertTrue("eddy did not find correct solution: " + expected, found);
+    dumpResults(eddy);
+    assertTrue("eddy did not find correct solution: " + expected,
+               eddy.getResultStrings().contains(expected));
+  }
+
+  private void checkBest(Eddy eddy, String best) {
+    dumpResults(eddy);
+    final List<String> rs = eddy.getResultStrings();
+    assertTrue("eddy did not find best solution: " + best, rs.size() > 0 && rs.get(0) == best);
   }
 
   private void checkPriority(Eddy eddy, String high, String lo) {
-    System.out.println("results: ");
+    dumpResults(eddy);
     double phigh = 0, plo = 0;
-    for (int i = 0; i < eddy.getResults().size(); ++i) {
+    final List<String> strings = eddy.getResultStrings();
+    for (int i = 0; i < strings.size(); ++i) {
       double p = eddy.getResults().get(i).p();
-      if (eddy.getResults().get(i).equals(high))
+      if (strings.get(i).equals(high))
         phigh = p;
-      else if (eddy.getResults().get(i).equals(lo))
+      else if (strings.get(i).equals(lo))
         plo = p;
-      System.out.println("  " + p + ": " + eddy.getResultStrings().get(i) + " (" + eddy.getResults().get(i) + ")");
     }
     assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phigh + "), but shouldn't.", plo < phigh);
   }
@@ -197,4 +205,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     checkPriority(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>()", "List<OldOldOldType> = new ArrayList<OldOldOldType>()");
   }
 
+  public void testFizz() {
+    Eddy eddy = setupEddy("fizz.java");
+    checkBest(eddy, "fizz(\"s\",x,q);");
+  }
 }
