@@ -7,11 +7,10 @@ import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
-
 import java.util.PriorityQueue;
-
 import static java.lang.Math.max;
-import static tarski.Scores.*;
+import static tarski.Scores.oneError;
+import static tarski.Scores.nestError;
 
 public class JavaScores {
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
