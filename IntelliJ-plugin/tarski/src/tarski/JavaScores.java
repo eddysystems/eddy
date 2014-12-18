@@ -6,25 +6,73 @@ import scala.Function2;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import scala.collection.immutable.$colon$colon$;
-import scala.runtime.AbstractFunction1;
 import tarski.Scores.*;
-import static tarski.Scores.*;
+import static tarski.Scores.oneError;
+import static tarski.Scores.nestError;
 import java.util.*;
 import static java.lang.Math.max;
 
 public class JavaScores {
+  // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
+  static final boolean trackErrors = false;
+
+  // To enable probability tracking, swap the comment blocks below and make the substitution
+  //   double/*Prob*/   ->   DebugProb
+  // Also swap the definition of Prob in Scores, and fix the compile error in JavaTrie.
+
+  // Divide two probabilities, turning infinity into 2
+  static double pdiv(double x, double y) { return y == 0 ? 2 : x/y; }
+
+  // Indirection functions so that we can swap in DebugProb for debugging
+  static double pp(double x) { return x; }
+  static double pmul(double x, double y) { return x*y; }
+  static final double pzero = 0;
+  static double padd(double x, double y) { return x+y; }
+  static double pcomp(double x) { return 1-x; }
+
+  // Named probabilities.  Very expensive, so enable only for debugging.
+  /*
+  static class DebugProb {
+    final double prob;
+    DebugProb(double prob) { this.prob = prob; }
+    public boolean equals(Object y) { return y instanceof DebugProb && prob==((DebugProb)y).prob; }
+  }
+  static final class NameProb extends DebugProb {
+    final String name;
+    NameProb(String name, double prob) { super(prob); this.name = name; }
+  }
+  static final class MulProb extends DebugProb {
+    final DebugProb x,y;
+    MulProb(DebugProb x, DebugProb y) { super(x.prob*y.prob); this.x = x; this.y = y; }
+  }
+  static final class AddProb extends DebugProb {
+    final DebugProb x,y;
+    AddProb(DebugProb x, DebugProb y) { super(x.prob+y.prob); this.x = x; this.y = y; }
+  }
+  static final class CompProb extends DebugProb {
+    final DebugProb x;
+    CompProb(DebugProb x) { super(x.prob); this.x = x; }
+  }
+  static double pp(DebugProb x) { return x.prob; }
+  static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
+  static final DebugProb pzero = null;
+  static DebugProb padd(DebugProb x, DebugProb y) { return y==pzero ? x : new AddProb(x,y); }
+  static DebugProb pcomp(DebugProb x) { return new CompProb(x); }
+  static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
+  */
+
   // s bias q
   static final class Biased<B> extends HasProb {
-    final double q;
+    final double/*Prob*/ q;
     final Scored<B> s;
 
-    Biased(double q, Scored<B> s) {
+    Biased(double/*Prob*/ q, Scored<B> s) {
       this.q = q;
       this.s = s;
     }
 
     public double p() {
-      return q*s.p();
+      return pp(q)*s.p();
     }
   }
 
@@ -68,7 +116,7 @@ public class JavaScores {
     public FlatMapState(Scored<A> input, Function1<A,Scored<B>> f) {
       this.as = input;
       this.f = f;
-      if (trackErrors())
+      if (trackErrors)
         bads = (List)Nil$.MODULE$;
     }
 
@@ -94,7 +142,7 @@ public class JavaScores {
               final Scored<B> r = bb.r();
               if (!(r instanceof Empty$))
                 bs.add(new Biased<B>(b.q,r));
-              return new Best<B>(b.p(),bb.x(),new Extractor<B>(this));
+              return new Best<B>(pmul(b.q,bb.dp()),bb.x(),new Extractor<B>(this));
             } else if (bads != null) {
               bads = $colon$colon$.MODULE$.<Bad>apply((Bad)b.s,bads);
               continue;
@@ -111,7 +159,7 @@ public class JavaScores {
           as = ab.r();
           if (bs == null)
             bs = new PriorityQueue<Biased<B>>();
-          bs.add(new Biased<B>(ab.p(),f.apply(ab.x())));
+          bs.add(new Biased<B>(ab.dp(),f.apply(ab.x())));
           continue;
         } else if (bads == null)
           return (Scored)Empty$.MODULE$;
@@ -167,24 +215,24 @@ public class JavaScores {
       }
       Alt<A> a = heap.poll();
       error = null;
-      return new Best<A>(a.p(),a.x(),new Extractor<A>(this));
+      return new Best<A>(a.dp(),a.x(),new Extractor<A>(this));
     }
   }
 
   static public final class UniformState<A> extends State<A> {
-    private final double _p;
+    private final double/*Prob*/ _p;
     private A[] xs;
     private int i;
     private Function0<String> error;
 
-    public UniformState(double p, A[] xs, Function0<String> error) {
+    public UniformState(double/*Prob*/ p, A[] xs, Function0<String> error) {
       this._p = p;
       this.xs = xs == null || xs.length == 0 ? null : xs;
       this.error = this.xs == null ? error : null;
     }
 
     public double p() {
-      return xs == null ? 0 : _p;
+      return xs == null ? 0 : pp(_p);
     }
 
     public Scored<A> extract(final double goal) {
@@ -214,7 +262,7 @@ public class JavaScores {
         heap.add(options.head());
         options = (List)options.tail();
       }
-      if (trackErrors())
+      if (trackErrors)
         bads = (List)Nil$.MODULE$;
     }
 
@@ -239,7 +287,7 @@ public class JavaScores {
           bads = null; // We've found at least one option, so no need to track errors
           final Best<A> b = (Best<A>)s;
           heap.add(b.r());
-          return new Best<A>(b.p(),b.x(),new Extractor<A>(this));
+          return new Best<A>(b.dp(),b.x(),new Extractor<A>(this));
         } else if (bads != null)
           bads = $colon$colon$.MODULE$.<Bad>apply((Bad)s,bads);
       } while (heap.isEmpty() || heap.peek().p() > goal);
@@ -251,14 +299,14 @@ public class JavaScores {
   // Lazy version of x bias q
   static public final class LazyBias<A> extends LazyScored<A> {
     private LazyScored<A> x;
-    private final double q;
+    private final double/*Prob*/ q;
     private final double _p;
     private Scored<A> s;
 
-    public LazyBias(LazyScored<A> x, double q) {
+    public LazyBias(LazyScored<A> x, double/*Prob*/ q) {
       this.x = x;
       this.q = q;
-      this._p = x.p()*q;
+      this._p = x.p()*pp(q);
     }
 
     public double p() {
@@ -267,7 +315,7 @@ public class JavaScores {
 
     public Scored<A> force(double p) {
       if (s == null) {
-        final double pq = q==0 ? 1 : p/q;
+        final double pq = pdiv(p,q);
         Scored<A> x = this.x.force(pq); this.x = null;
         for (;;) {
           if (x instanceof LazyScored) {
@@ -279,7 +327,7 @@ public class JavaScores {
               s = new LazyBias<A>(_x,q);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<A>(q*_x.p(),_x.x(),_x.r().bias(q));
+            s = new Best<A>(pmul(q,_x.dp()),_x.x(),_x.r().bias(q));
           } else
             s = x;
           break;
@@ -323,8 +371,8 @@ public class JavaScores {
               s = new LazyPlus<A>(_x,y);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<A>(_x.p(),_x.x(),_x.r().$plus$plus(y));
-          } else if (trackErrors() && x instanceof Bad)
+            s = new Best<A>(_x.dp(),_x.x(),_x.r().$plus$plus(y));
+          } else if (trackErrors && x instanceof Bad)
             s = x.$plus$plus(y);
           else
             s = y;
@@ -335,18 +383,20 @@ public class JavaScores {
     }
   }
 
-  // Lazy version of x map f
-  static public final class LazyMap<A,B> extends LazyScored<B> {
+  // Lazy version of x map f bias p, where f and p are abstract.
+  static public abstract class LazyMapBase<A,B> extends LazyScored<B> {
     private Scored<A> x;
-    private Function1<A,B> f;
     private final double _p;
     private Scored<B> s;
 
-    LazyMap(Scored<A> x, Function1<A,B> f) {
+    LazyMapBase(Scored<A> x, double bound) {
       this.x = x;
-      this.f = f;
-      this._p = x.p();
+      this._p = bound;
     }
+
+    // Abstract interface
+    abstract protected LazyMapBase<A,B> clone(Scored<A> x); // Map a different Scored
+    abstract protected Best<B> map(double/*Prob*/ p, A x, Scored<B> r); // Apply the map
 
     public double p() {
       return _p;
@@ -354,7 +404,6 @@ public class JavaScores {
 
     public Scored<B> force(double p) {
       if (s == null) {
-        final Function1<A,B> f = this.f; this.f = null;
         Scored<A> x = this.x; this.x = null;
         for (boolean first=true;;first=false) {
           if (x instanceof LazyScored) {
@@ -363,10 +412,12 @@ public class JavaScores {
               x = _x.force(p);
               continue;
             } else
-              s = new LazyMap<A,B>(x,f);
+              s = clone(x);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<B>(_x.p(),f.apply(_x.x()),_x.r().map(f));
+            final Scored<A> xr = _x.r();
+            final Scored<B> fr = xr instanceof EmptyOrBad ? (Scored<B>)Empty$.MODULE$ : clone(xr);
+            s = map(_x.dp(),_x.x(),fr);
           } else
             s = (Scored)x;
           break;
@@ -374,6 +425,14 @@ public class JavaScores {
       }
       return s;
     }
+  }
+
+  // Lazy version of x map f
+  static public final class LazyMap<A,B> extends LazyMapBase<A,B> {
+    private Function1<A,B> f;
+    LazyMap(Scored<A> x, Function1<A,B> f) { super(x,x.p()); this.f = f; }
+    protected LazyMap<A,B> clone(Scored<A> x) { return new LazyMap<A,B>(x,f); }
+    protected Best<B> map(double/*Prob*/ p, A x, Scored<B> r) { return new Best<B>(p,f.apply(x),r); }
   }
 
   // Lazy version of x.productWith(y)(f)
@@ -396,23 +455,27 @@ public class JavaScores {
       return _p;
     }
 
-    static private class FX<A,B,C> extends AbstractFunction1<B,C> {
-      final A x;
-      final Function2<A,B,C> f;
-      FX(A x, Function2<A,B,C> f) { this.x = x; this.f = f; }
-      public C apply(B y) { return f.apply(x,y); }
+    static private final class FX<A,B,C> extends LazyMapBase<B,C> {
+      private final double/*Prob*/ px;
+      private final A x;
+      private final Function2<A,B,C> f;
+      FX(double/*Prob*/ px, A x, Scored<B> y, Function2<A,B,C> f) { super(y,pp(px)*y.p()); this.px = px; this.x = x; this.f = f; }
+      protected FX<A,B,C> clone(Scored<B> y) { return new FX<A,B,C>(px,x,y,f); }
+      protected Best<C> map(double/*Prob*/ py, B y, Scored<C> r) { return new Best<C>(pmul(px,py),f.apply(x,y),r); }
     }
 
-    static private class FY<A,B,C> extends AbstractFunction1<A,C> {
-      final B y;
-      final Function2<A,B,C> f;
-      FY(B y, Function2<A,B,C> f) { this.y = y; this.f = f; }
-      public C apply(A x) { return f.apply(x,y); }
+    static private final class FY<A,B,C> extends LazyMapBase<A,C> {
+      private final double/*Prob*/ py;
+      private final B y;
+      private final Function2<A,B,C> f;
+      FY(double/*Prob*/ py, Scored<A> x, B y, Function2<A,B,C> f) { super(x,x.p()*pp(py)); this.py = py; this.y = y; this.f = f; }
+      protected FY<A,B,C> clone(Scored<A> x) { return new FY<A,B,C>(py,x,y,f); }
+      protected Best<C> map(double/*Prob*/ px, A x, Scored<C> r) { return new Best<C>(pmul(px,py),f.apply(x,y),r); }
     }
 
     public Scored<C> force(double p) {
       if (s == null) {
-        final double px = yp == 0 ? 1 : p/yp;
+        final double px = pdiv(p,yp);
         Scored<A> x = this.x; this.x = null;
         Scored<B> y = this.y; this.y = null;
         final Function2<A,B,C> f = this.f; this.f = null;
@@ -429,7 +492,7 @@ public class JavaScores {
           else {
             final Best<A> _x = (Best<A>)x;
             final double xp = _x.p();
-            final double py = xp == 0 ? 1 : p/xp;
+            final double py = pdiv(p,xp);
             for (;;first=false) {
               if (y instanceof LazyScored) {
                 final LazyScored<B> _y = (LazyScored<B>)y;
@@ -442,14 +505,22 @@ public class JavaScores {
                 s = (Scored)y;
               else {
                 final Best<B> _y = (Best<B>)y;
+                final double/*Prob*/ xdp = _x.dp();
+                final double/*Prob*/ ydp = _y.dp();
                 final A xx = _x.x();
                 final B yx = _y.x();
                 final Scored<A> xr = _x.r();
                 final Scored<B> yr = _y.r();
-                final Scored<C> xr_yr = xr.productWith(yr,f),
-                                xx_yr = yr.map(new FX<A,B,C>(xx,f)),
-                                xr_yx = xr.map(new FY<A,B,C>(yx,f));
-                s = new Best<C>(xp*_y.p(),f.apply(xx,yx),xr_yr.$plus$plus(xr_yx.$plus$plus(xx_yr)));
+                LazyScored<C> r0 = yr instanceof EmptyOrBad ? null : new FX<A,B,C>(xdp,xx,yr,f),
+                              r1 = xr instanceof EmptyOrBad ? null : new FY<A,B,C>(ydp,xr,yx,f);
+                if ((r0 == null ? -1 : r0.p()) < (r1 == null ? -1 : r1.p())) {
+                  final LazyScored<C> t = r0; r0 = r1; r1 = t;
+                }
+                if (r1 != null)
+                  r0 = new LazyPlus<C>(r0,r1);
+                final Scored<C> r = r0 == null ? (Scored<C>)Empty$.MODULE$
+                                               : new LazyPlus<C>(r0,new LazyProductWith<A,B,C>(xr,yr,f));
+                s = new Best<C>(pmul(xdp,ydp),f.apply(xx,yx),r);
               }
               break;
             }
@@ -463,22 +534,22 @@ public class JavaScores {
   }
 
   static public final class LazyBiased<A> extends LazyScored<A> {
-    private final double _p;
+    private final double/*Prob*/ _p;
     private Function0<Scored<A>> f;
     private Scored<A> s;
 
-    LazyBiased(double p, Function0<Scored<A>> f) {
+    LazyBiased(double/*Prob*/ p, Function0<Scored<A>> f) {
       this._p = p;
       this.f = f;
     }
 
     public double p() {
-      return _p;
+      return pp(_p);
     }
 
     public Scored<A> force(double q) {
       if (s == null) {
-        double pq = _p == 0 ? 1 : q/_p;
+        final double pq = pdiv(q,_p);
         Scored<A> x = f.apply(); f = null;
         for (;;) {
           if (x instanceof LazyScored) {
@@ -490,7 +561,7 @@ public class JavaScores {
               s = new LazyBias<A>(_x,_p);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<A>(_p*_x.p(),_x.x(),_x.r().bias(_p));
+            s = new Best<A>(pmul(_p,_x.dp()),_x.x(),_x.r().bias(_p));
           } else
             s = (Scored)x;
           break;

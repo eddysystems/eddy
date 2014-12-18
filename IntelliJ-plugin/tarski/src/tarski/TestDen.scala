@@ -52,14 +52,12 @@ class TestDen {
     }
   }
 
-  def getProb[A](s: Scored[A], a: A): Prob = {
-    if (s.all.isLeft)
-      Prob(0.0)
-    else
-      s.all.right.get.find({ case Alt(p,i) => i == a }) match {
-        case None => Prob(0.0)
-        case Some(Alt(p,i)) => p
-      }
+  def probOf[A](s: Scored[A], a: A): Double = {
+    def loop(s: Stream[Alt[A]]): Double =
+      if (s.isEmpty) 0
+      else if (a == s.head.x) s.head.p
+      else loop(s.tail)
+    loop(s.stream)
   }
 
   def assertFinal(v: Local) =
@@ -454,10 +452,10 @@ class TestDen {
     val fixes = fix(lex("x = true"))
     // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
     def set(e: Exp): List[Stmt] = List(ExpStmt(AssignExp(None,e,true)))
-    val px = getProb(fixes,set(LocalVariableExp(x)))
-    val pXx = getProb(fixes,set(StaticFieldExp(None,Xx)))
-    val pYx = getProb(fixes,set(StaticFieldExp(None,Yx)))
-    val pZx = getProb(fixes,set(StaticFieldExp(None,Zx)))
+    val px = probOf(fixes,set(LocalVariableExp(x)))
+    val pXx = probOf(fixes,set(StaticFieldExp(None,Xx)))
+    val pYx = probOf(fixes,set(StaticFieldExp(None,Yx)))
+    val pZx = probOf(fixes,set(StaticFieldExp(None,Zx)))
 
     println("probabilities: ", px, pXx, pYx, pZx)
 

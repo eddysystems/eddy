@@ -5,6 +5,7 @@ import tarski.Environment.Env
 import tarski.Items.{Item, PackageItem}
 import tarski.Pretty._
 import tarski.Scores._
+import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
 
@@ -42,7 +43,7 @@ object Tarski {
         m.toList map {case (a,p) => Alt(p,a)} sortBy (-_.p)
       } else {
         val Alt(p,a) = s.head
-        mergeTake(s.tail)(m+((a,p+m.getOrElse(a,0.0))))
+        mergeTake(s.tail)(m+((a,padd(p,m.getOrElse(a,pzero)))))
       }
 
     (r.map { case (env,s) => {
@@ -76,7 +77,7 @@ object Tarski {
       val asts = ParseEddy.parse(ts)
       for (a <- asts; n = asts.count(a==_); if n > 1)
         throw new RuntimeException(s"AST duplicated $n times: $a")
-      uniform(1,asts,"Parse failed")
+      uniform(Pr.parse,asts,"Parse failed")
     })
     asts flatMap (denoteStmts(_)(env))
   }

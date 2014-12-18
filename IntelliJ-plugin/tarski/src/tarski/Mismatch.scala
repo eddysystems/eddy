@@ -34,10 +34,11 @@ object Mismatch {
   }
 
   // Penalty turning from parens into to parens
-  def pr(from: Int, to: Int): Prob =
+  def pr(from: Int, to: Int): Prob = Prob(s"change parens $from -> $to",
     if (from == to) 1
     else if (from == 0) 1.0 / to // Adding parentheses on the ends is more likely
     else .5 / (from+abs(from-to))
+  )
 
   // Ensure that ps starts and ends with all kinds of parentheses
   def ensure(ps: Runs): Runs = {

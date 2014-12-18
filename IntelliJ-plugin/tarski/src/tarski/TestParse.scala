@@ -61,7 +61,7 @@ class TestParse {
 
   def testBest(s: String, ss: List[AStmt]): Unit = {
     val clean = lex(s).filterNot(isSpace).map(fake)
-    val asts = Mismatch.repair(clean) flatMap (ts => uniform(1,ParseEddy.parse(ts),"Parse failed"))
+    val asts = Mismatch.repair(clean) flatMap (ts => uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed"))
     asts.best match {
       case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
       case Right(ast) => assertEquals(ss,ast)

@@ -14,22 +14,30 @@ object Scores {
    * where B is what we see as input.
    */
 
-  // Wrapper around probabilities
-  type Prob = Double
-  def Prob(p: Prob): Prob = p
+  // High probabilities compare first
   abstract class HasProb extends Comparable[HasProb] {
-    def p: Prob
+    def p: Double
     def compareTo(o: HasProb): Int = {
-      val p0: Double = p
-      val p1: Double = o.p
-      if (p0 > p1) -1 else if (p0 < p1) 1 else 0
+      val x = p
+      val y = o.p
+      if (x > y) -1 else if (x < y) 1 else 0
     }
   }
-  case class Alt[+A](p: Prob, x: A) extends HasProb // Explicit class to avoid boxing the probability
+
+  // Probabilities are either simple doubles (normally), or structures declared in Java (for debugging with names)
+  type Prob = Double
+  @inline def Prob(name: => String, p: Prob): Prob = p
+  //type Prob = DebugProb
+  //def Prob(name: String, p: Double): Prob = new NameProb(name,p)
+
+  // Probabilities
+  case class Alt[+A](dp: Prob, x: A) extends HasProb { // Explicit class to avoid boxing the probability
+    def p = pp(dp)
+  }
 
   sealed abstract class Scored[+A] extends HasProb {
     // Invariant: p >= probability of any option
-    def p: Prob
+    def p: Double
 
     // These force some evaluation
     private final def strict: StrictScored[A] = {
@@ -88,24 +96,24 @@ object Scores {
   // A lazy version of Scored
   abstract class LazyScored[+A] extends Scored[A] {
     // May return another LazyScored, usually with lower probability.  Optionally continue until prob <= p.
-    def force(hi: Prob): Scored[A]
+    def force(hi: Double): Scored[A]
 
     def bias(p: Prob): Scored[A] = new LazyBias(this,p)
     def ++[B >: A](s: Scored[B]): Scored[B] =
       if (p >= s.p) new LazyPlus(this,s)
       else s match {
         case s:LazyScored[B] => new LazyPlus(s,this)
-        case s:Best[B] => Best(s.p,s.x,s.r ++ this)
+        case s:Best[B] => Best(s.dp,s.x,s.r ++ this)
         case _:EmptyOrBad => impossible
       }
   }
 
-  // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
-  val trackErrors = true
+  // Warn about error tracking
   if (trackErrors)
     println("PERFORMANCE WARNING: Error tracking is on, Scored will be slower than otherwise")
 
   // No options
+  private val zeroProb = Prob("zero",0)
   sealed abstract class EmptyOrBad extends StrictScored[Nothing] {
     def p = 0
     def error: Error
@@ -131,10 +139,11 @@ object Scores {
   }
 
   // One best possibility, then lazily more
-  final case class Best[+A](p: Prob, x: A, r: Scored[A]) extends StrictScored[A] {
-    def bias(q: Prob) = Best(p*q,x,r bias q)
+  final case class Best[+A](dp: Prob, x: A, r: Scored[A]) extends StrictScored[A] {
+    def p = pp(dp)
+    def bias(q: Prob) = Best(pmul(dp,q),x,r bias q)
     def ++[B >: A](s: Scored[B]): Scored[B] =
-      if (p >= s.p) Best(p,x,r ++ s)
+      if (p >= s.p) Best(dp,x,r ++ s)
       else s match {
         case x:LazyScored[B] => new LazyPlus(x,this)
         case Best(q,y,s) => Best(q,y,s++this)
@@ -147,7 +156,7 @@ object Scores {
                                     private[this] var error: () => String) extends LazyScored[A] {
     val p = x.p
     private[this] var s: Scored[A] = null
-    def force(p: Prob) = {
+    def force(p: Double) = {
       if (s eq null) {
         @tailrec def loop(x: Scored[A], first: Boolean): Scored[A] = x match {
           case x:LazyScored[A] => if (first || x.p > p) loop(x force p,first=false)
@@ -169,7 +178,8 @@ object Scores {
   @inline def fail[A](error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error))
     else Empty
-  def known[A](x: A): Scored[A] = Best(1,x,Empty)
+  private val knownProb = Prob("known",1)
+  def known[A](x: A): Scored[A] = Best(knownProb,x,Empty)
   def single[A](x: A, p: Prob): Scored[A] = Best(p,x,Empty)
   def orError[A](x: Scored[A], error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error)) ++ x
@@ -179,7 +189,7 @@ object Scores {
   @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBiased(p,() => s)
 
   // Bound and delay
-  @inline def bounded[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBound(p,() => s)
+  @inline def bounded[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBound(pp(p),() => s)
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
     new UniformState[A](p,xs,if (trackErrors) () => error else null).extract(0)
