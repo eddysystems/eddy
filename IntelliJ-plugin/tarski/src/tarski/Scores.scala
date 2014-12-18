@@ -83,10 +83,8 @@ object Scores {
     // We are assumed independent of t
     def productWith[B,C](s: Scored[B])(f: (A,B) => C): Scored[C] = new LazyProductWith(this,s,f)
 
-    def productWithFilter[B,C](s: Scored[B], filter: (A,B) => Boolean)(f: (A,B) => C): Scored[C] = new LazyProductWith(this,s,f)
-
     // Filter, turning Empty into given error
-    final def filter(f: A => Boolean, error: => String): Scored[A] = _filter(f,if (trackErrors) () => error else null)
+    final def filter(f: A => Boolean, error: => String): Scored[A] = _filter(f, if (trackErrors) () => error else null)
     def _filter(f: A => Boolean, error: () => String): Scored[A] = new LazyFilter(this,f,error)
   }
 
