@@ -3,6 +3,7 @@ import com.eddysystems.eddy.EnvironmentProcessor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.projectRoots.impl.JavaAwareProjectJdkTableImpl;
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl;
@@ -64,8 +65,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   private Eddy makeEddy() {
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
-    Eddy eddy = new Eddy();
-    eddy.process(myFixture.getEditor());
+    final Eddy eddy = new Eddy();
+    DumbService.getInstance(myFixture.getProject()).runReadActionInSmartMode(new Runnable() { @Override public void run() {
+      eddy.process(myFixture.getEditor());
+    }});
     return eddy;
   }
 
