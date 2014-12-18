@@ -1,7 +1,7 @@
 package tarski
 
 import tarski.AST._
-import tarski.Base._
+import tarski.Base.LocalPkg
 import tarski.Denotations._
 import tarski.Environment.Env
 import tarski.Items._
@@ -298,10 +298,9 @@ object Pretty {
 
   // Denotations
   implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
-    def relative(i: Item) = i match {
-      case i:Member if i.parent != LocalPkg && i.parent != JavaLangPkg =>
-        (FieldFix, tokens(i.parent) ::: DotTok :: tokens(i.name))
-      case _ => pretty(i.name)
+    def relative(i: Item) = if (env.inScope(i)) pretty(i.name) else i match {
+      case i:Member if i.parent != LocalPkg => (FieldFix, tokens(i.parent) ::: DotTok :: tokens(i.name))
+      case _ => pretty(i.name) // we can't see this item, show it anyway
     }
     i match {
       // Types
