@@ -112,9 +112,17 @@ object Semantics {
     }
   }
 
-  // Types
+  // check whether a type is accessible in the environment (can be qualified by something in scope).
+  // pretty-printing will do the actual qualifying
+  @tailrec
+  def typeAccessible(t: Type)(implicit env: Env): Boolean = env.inScope(t.item) || (t match { case t:ClassType => t.parent match {
+    case p: ClassType => typeAccessible(p)
+    case p: PackageItem => true
+    case _ => false // we're not in scope, and we're a local class
+  } case _ => false })
+
   def denoteType(e: AExp)(implicit env: Env): Scored[AboveType] = e match {
-    case NameAExp(n) => typeScores(n)
+    case NameAExp(n) => typeScores(n) filter (typeAccessible, s"no accessible types for name $n" )
     case ParenAExp(x,_) => biased(Pr.parensAroundType,denoteType(x)) // Java doesn't allow parentheses around types, but we do
 
     // x is either a type or an expression, f is an inner type, method, or field
