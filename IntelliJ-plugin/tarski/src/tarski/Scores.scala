@@ -142,73 +142,6 @@ object Scores {
       }
   }
 
-  // Lazy version of x bias q
-  private final class LazyBias[A](private[this] var x: LazyScored[A],
-                                  private[this] val q: Prob) extends LazyScored[A] {
-    val p = x.p*q
-    private[this] var s: Scored[A] = null
-    def force(p: Prob) = {
-      if (s eq null) {
-        val pq = if (q==0.0) 1 else p/q
-        @tailrec def loop(x: Scored[A]): Scored[A] = x match {
-          case x:LazyScored[A] => if (x.p > pq) loop(x force pq)
-                                  else new LazyBias(x,q)
-          case Best(p,x,r) => Best(p*q,x,r bias q)
-          case x:EmptyOrBad => x
-        }
-        s = loop(x force pq)
-        x = null
-      }
-      s
-    }
-  }
-
-  // Lazy version of x ++ y, assuming x.p >= y.p
-  private final class LazyPlus[A](private[this] var x: LazyScored[A],
-                                  private[this] var y: Scored[A]) extends LazyScored[A] {
-    val p = x.p
-    private[this] var s: Scored[A] = null
-    def force(p: Prob) = {
-      if (s eq null) {
-        @tailrec def loop(x: Scored[A], y: Scored[A]): Scored[A] = {
-          val px = x.p
-          val py = y.p
-          val hi = if (px >= py) x else y
-          val lo = if (px >= py) y else x
-          hi match {
-            case hi:LazyScored[A] =>
-              if (hi.p > p) loop(hi force max(p,lo.p),lo)
-              else new LazyPlus(hi,lo)
-            case Best(q,z,r) => Best(q,z,r++lo)
-            case hi:Bad if trackErrors => hi++lo
-            case _:EmptyOrBad => lo
-          }
-        }
-        s = loop(x force max(p,y.p),y)
-        x = null; y = null
-      }
-      s
-    }
-  }
-
-  // Lazy version of x map f
-  private class LazyMap[A,B](private[this] var x: Scored[A], private[this] var f: A => B) extends LazyScored[B] {
-    val p = x.p
-    private[this] var s: Scored[B] = null
-    def force(p: Prob) = {
-      if (s eq null) {
-        @tailrec def loop(x: Scored[A], first: Boolean): Scored[B] = x match {
-          case x:LazyScored[A] => if (first || x.p > p) loop(x force p,first=false) else x map f
-          case Best(p,x,r) => Best(p,f(x),r map f)
-          case x:EmptyOrBad => x
-        }
-        s = loop(x,first=true)
-        x = null; f = null
-      }
-      s
-    }
-  }
-
   // Lazy version of filter
   private final class LazyFilter[A](private[this] var x: Scored[A], private[this] var f: A => Boolean,
                                     private[this] var error: () => String) extends LazyScored[A] {
@@ -232,37 +165,6 @@ object Scores {
     }
   }
 
-  // Lazy version of x.productWith(y)(f)
-  private final class LazyProductWith[A,B,C](private[this] var x: Scored[A], private[this] var y: Scored[B],
-                                             private[this] var f: (A,B) => C) extends LazyScored[C] {
-    private[this] val yp = y.p
-    val p = x.p*yp
-    private[this] var s: Scored[C] = null
-    def force(p: Prob) = {
-      if (s eq null) {
-        val px = if (yp==0.0) 1 else p/yp
-        @tailrec def loopX(x: Scored[A], first: Boolean): Scored[C] = x match {
-          case x:LazyScored[A] => if (first || x.p > px) loopX(x force px,first=false)
-                                  else new LazyProductWith(x,y,f)
-          case x:EmptyOrBad => x
-          case x:Best[A] => {
-            val py = if (x.p==0.0) 1 else p/x.p
-            @tailrec def loopY(y: Scored[B], first: Boolean): Scored[C] = y match {
-              case y:LazyScored[B] => if (first || y.p > py) loopY(y force py,first=false)
-                                      else new LazyProductWith(x,y,f)
-              case y:EmptyOrBad => y
-              case y:Best[B] => new Best(x.p*y.p,f(x.x,y.x),x.r.productWith(y)(f)++x.productWith(y.r)(f)++x.r.productWith(y.r)(f))
-            }
-            loopY(y,first)
-          }
-        }
-        s = loopX(x,first=true)
-        x = null; y = null; f = null
-      }
-      s
-    }
-  }
-
   // Score constructors
   @inline def fail[A](error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error))
@@ -274,41 +176,9 @@ object Scores {
     else x
 
   // Bias and delay
-  private final class LazyBiased[A](val p: Prob, private[this] var f: () => Scored[A]) extends LazyScored[A] {
-    private[this] var s: Scored[A] = null
-    def force(q: Prob) = {
-      if (s eq null) {
-        val pq = if (p==0.0) 1 else q/p
-        @tailrec def loop(x: Scored[A]): Scored[A] = x match {
-          case x:LazyScored[A] => if (x.p > pq) loop(x force pq)
-                                  else new LazyBias(x,p)
-          case x:Best[A] => Best(p*x.p,x.x,x.r bias p)
-          case x:EmptyOrBad => x
-        }
-        s = loop(f())
-        f = null
-      }
-      s
-    }
-  }
   @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBiased(p,() => s)
 
   // Bound and delay
-  private final class LazyBound[A](val p: Prob, private[this] var f: () => Scored[A]) extends LazyScored[A] {
-    private[this] var s: Scored[A] = null
-    def force(q: Prob) = {
-      if (s eq null) {
-        @tailrec def loop(x: Scored[A]): Scored[A] = x match {
-          case x:LazyScored[A] => if (x.p > q) loop(x force q)
-                                  else x
-          case x:StrictScored[A] => x
-        }
-        s = loop(f())
-        f = null
-      }
-      s
-    }
-  }
   @inline def bounded[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBound(p,() => s)
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =

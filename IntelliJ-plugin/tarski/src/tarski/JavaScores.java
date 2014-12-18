@@ -2,9 +2,11 @@ package tarski;
 
 import scala.Function0;
 import scala.Function1;
+import scala.Function2;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import scala.collection.immutable.$colon$colon$;
+import scala.runtime.AbstractFunction1;
 import tarski.Scores.*;
 import static tarski.Scores.*;
 import java.util.*;
@@ -243,6 +245,283 @@ public class JavaScores {
       } while (heap.isEmpty() || heap.peek().p() > goal);
       // If we hit goal without finding an option, return more laziness
       return new Extractor<A>(this);
+    }
+  }
+
+  // Lazy version of x bias q
+  static public final class LazyBias<A> extends LazyScored<A> {
+    private LazyScored<A> x;
+    private final double q;
+    private final double _p;
+    private Scored<A> s;
+
+    public LazyBias(LazyScored<A> x, double q) {
+      this.x = x;
+      this.q = q;
+      this._p = x.p()*q;
+    }
+
+    public double p() {
+      return _p;
+    }
+
+    public Scored<A> force(double p) {
+      if (s == null) {
+        final double pq = q==0 ? 1 : p/q;
+        Scored<A> x = this.x.force(pq); this.x = null;
+        for (;;) {
+          if (x instanceof LazyScored) {
+            final LazyScored<A> _x = (LazyScored<A>)x;
+            if (_x.p() > pq) {
+              x = _x.force(pq);
+              continue;
+            } else
+              s = new LazyBias<A>(_x,q);
+          } else if (x instanceof Best) {
+            final Best<A> _x = (Best<A>)x;
+            s = new Best<A>(q*_x.p(),_x.x(),_x.r().bias(q));
+          } else
+            s = x;
+          break;
+        }
+      }
+      return s;
+    }
+  }
+
+  // Lazy version of x ++ y, assuming x.p >= y.p
+  static public final class LazyPlus<A> extends LazyScored<A> {
+    private LazyScored<A> x;
+    private Scored<A> y;
+    private final double _p;
+    private Scored<A> s;
+
+    LazyPlus(LazyScored<A> x, Scored<A> y) {
+      this.x = x;
+      this.y = y;
+      this._p = x.p();
+    }
+
+    public double p() {
+      return _p;
+    }
+
+    public Scored<A> force(double p) {
+      if (s == null) {
+        Scored<A> x = this.x.force(max(p,y.p())); this.x = null;
+        Scored<A> y = this.y; this.y = null;
+        for (;;) {
+          if (x.p() < y.p()) {
+            Scored<A> t = x; x = y; y = t;
+          }
+          if (x instanceof LazyScored) {
+            final LazyScored<A> _x = (LazyScored<A>)x;
+            if (x.p() > p) {
+              x = _x.force(max(p,y.p()));
+              continue;
+            } else
+              s = new LazyPlus<A>(_x,y);
+          } else if (x instanceof Best) {
+            final Best<A> _x = (Best<A>)x;
+            s = new Best<A>(_x.p(),_x.x(),_x.r().$plus$plus(y));
+          } else if (trackErrors() && x instanceof Bad)
+            s = x.$plus$plus(y);
+          else
+            s = y;
+          break;
+        }
+      }
+      return s;
+    }
+  }
+
+  // Lazy version of x map f
+  static public final class LazyMap<A,B> extends LazyScored<B> {
+    private Scored<A> x;
+    private Function1<A,B> f;
+    private final double _p;
+    private Scored<B> s;
+
+    LazyMap(Scored<A> x, Function1<A,B> f) {
+      this.x = x;
+      this.f = f;
+      this._p = x.p();
+    }
+
+    public double p() {
+      return _p;
+    }
+
+    public Scored<B> force(double p) {
+      if (s == null) {
+        final Function1<A,B> f = this.f; this.f = null;
+        Scored<A> x = this.x; this.x = null;
+        for (boolean first=true;;first=false) {
+          if (x instanceof LazyScored) {
+            final LazyScored<A> _x = (LazyScored<A>)x;
+            if (first || _x.p() > p) {
+              x = _x.force(p);
+              continue;
+            } else
+              s = new LazyMap<A,B>(x,f);
+          } else if (x instanceof Best) {
+            final Best<A> _x = (Best<A>)x;
+            s = new Best<B>(_x.p(),f.apply(_x.x()),_x.r().map(f));
+          } else
+            s = (Scored)x;
+          break;
+        }
+      }
+      return s;
+    }
+  }
+
+  // Lazy version of x.productWith(y)(f)
+  static public final class LazyProductWith<A,B,C> extends LazyScored<C> {
+    private Scored<A> x;
+    private Scored<B> y;
+    private final double _p, yp;
+    private Function2<A,B,C> f;
+    private Scored<C> s;
+
+    LazyProductWith(Scored<A> x, Scored<B> y, Function2<A,B,C> f) {
+      this.x = x;
+      this.y = y;
+      this.f = f;
+      yp = y.p();
+      _p = x.p()*yp;
+    }
+
+    public double p() {
+      return _p;
+    }
+
+    static private class FX<A,B,C> extends AbstractFunction1<B,C> {
+      final A x;
+      final Function2<A,B,C> f;
+      FX(A x, Function2<A,B,C> f) { this.x = x; this.f = f; }
+      public C apply(B y) { return f.apply(x,y); }
+    }
+
+    static private class FY<A,B,C> extends AbstractFunction1<A,C> {
+      final B y;
+      final Function2<A,B,C> f;
+      FY(B y, Function2<A,B,C> f) { this.y = y; this.f = f; }
+      public C apply(A x) { return f.apply(x,y); }
+    }
+
+    public Scored<C> force(double p) {
+      if (s == null) {
+        final double px = yp == 0 ? 1 : p/yp;
+        Scored<A> x = this.x; this.x = null;
+        Scored<B> y = this.y; this.y = null;
+        final Function2<A,B,C> f = this.f; this.f = null;
+        for (boolean first=true;;first=false) {
+          if (x instanceof LazyScored) {
+            final LazyScored<A> _x = (LazyScored<A>)x;
+            if (first || _x.p() > px) {
+              x = _x.force(px);
+              continue;
+            } else
+              s = new LazyProductWith<A,B,C>(x,y,f);
+          } else if (x instanceof EmptyOrBad)
+            s = (Scored)x;
+          else {
+            final Best<A> _x = (Best<A>)x;
+            final double xp = _x.p();
+            final double py = xp == 0 ? 1 : p/xp;
+            for (;;first=false) {
+              if (y instanceof LazyScored) {
+                final LazyScored<B> _y = (LazyScored<B>)y;
+                if (first || y.p() > py) {
+                  y = _y.force(py);
+                  continue;
+                } else
+                  s = new LazyProductWith<A,B,C>(x,y,f);
+              } else if (y instanceof EmptyOrBad)
+                s = (Scored)y;
+              else {
+                final Best<B> _y = (Best<B>)y;
+                final A xx = _x.x();
+                final B yx = _y.x();
+                final Scored<A> xr = _x.r();
+                final Scored<B> yr = _y.r();
+                final Scored<C> xr_yr = xr.productWith(yr,f),
+                                xx_yr = yr.map(new FX<A,B,C>(xx,f)),
+                                xr_yx = xr.map(new FY<A,B,C>(yx,f));
+                s = new Best<C>(xp*_y.p(),f.apply(xx,yx),xr_yr.$plus$plus(xr_yx.$plus$plus(xx_yr)));
+              }
+              break;
+            }
+            break;
+          }
+          break;
+        }
+      }
+      return s;
+    }
+  }
+
+  static public final class LazyBiased<A> extends LazyScored<A> {
+    private final double _p;
+    private Function0<Scored<A>> f;
+    private Scored<A> s;
+
+    LazyBiased(double p, Function0<Scored<A>> f) {
+      this._p = p;
+      this.f = f;
+    }
+
+    public double p() {
+      return _p;
+    }
+
+    public Scored<A> force(double q) {
+      if (s == null) {
+        double pq = _p == 0 ? 1 : q/_p;
+        Scored<A> x = f.apply(); f = null;
+        for (;;) {
+          if (x instanceof LazyScored) {
+            final LazyScored<A> _x = (LazyScored<A>)x;
+            if (_x.p() > pq) {
+              x = _x.force(pq);
+              continue;
+            } else
+              s = new LazyBias<A>(_x,_p);
+          } else if (x instanceof Best) {
+            final Best<A> _x = (Best<A>)x;
+            s = new Best<A>(_p*_x.p(),_x.x(),_x.r().bias(_p));
+          } else
+            s = (Scored)x;
+          break;
+        }
+      }
+      return s;
+    }
+  }
+
+  static public final class LazyBound<A> extends LazyScored<A> {
+    private final double _p;
+    private Function0<Scored<A>> f;
+    private Scored<A> s;
+
+    LazyBound(double p, Function0<Scored<A>> f) {
+      this._p = p;
+      this.f = f;
+    }
+
+    public double p() {
+      return _p;
+    }
+
+    public Scored<A> force(double q) {
+      if (s == null) {
+        Scored<A> x = f.apply(); f = null;
+        while (x instanceof LazyScored && x.p() > q)
+          x = ((LazyScored<A>)x).force(q);
+        s = x;
+      }
+      return s;
     }
   }
 }
