@@ -393,11 +393,14 @@ object Pretty {
         case (StaticMethodDen(None,f),Nil) => tokens(f)
         case (StaticMethodDen(None,f),_) => tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name)
         case (StaticMethodDen(Some(x),f),_) => method(x,ts,f)
-        case (NewDen(c),_) => {
+        case (NewDen(p,c),_) => {
           val (ts0,ts1) = ts splitAt c.parent.tparams.size
-          NewTok :: tokensTypeArgs(ts1) ::: tokens(c.parent) ::: tokensTypeArgs(ts0)
+          if (p.isDefined)
+            NewTok :: tokensTypeArgs(ts1) ::: tokens(p.get)(prettyType) ::: List(DotTok) ::: tokens(c.parent) ::: tokensTypeArgs(ts0)
+          else
+            NewTok :: tokensTypeArgs(ts1) ::: tokens(c.parent) ::: tokensTypeArgs(ts0)
         }
-        case (ForwardDen(c,_),_) => {
+        case (ForwardDen(_,c),_) => {
           val self = env.getThis.self
           val forward =
             if (self == c.parent) ThisTok

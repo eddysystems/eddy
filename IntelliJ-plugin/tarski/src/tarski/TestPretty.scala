@@ -41,6 +41,6 @@ class TestPretty {
     val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(S))
     val cons = NormalConstructorItem(A,List(T),List(T))
-    ApplyExp(NewDen(cons),List(IntegerItem.simple,StringItem.simple),List(StringLit("s",""""s"""")))
+    ApplyExp(NewDen(None,cons),List(IntegerItem.simple,StringItem.simple),List(StringLit("s",""""s"""")))
   })
 }

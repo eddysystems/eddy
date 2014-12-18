@@ -126,6 +126,7 @@ object Types {
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
     def raw: RefType
+    def isSubtypeOf(x: RefType) = isSubtype(this, x)
 
     override def beneath: RefType = this
     override def discards: List[Denotations.Stmt] = Nil
@@ -231,7 +232,7 @@ object Types {
     def lo: RefType // Lower bound
     def hi: RefType // Upper bound
 
-    def supers = List(lo)
+    def supers = List(hi)
     def item = this
     def isFinal = false
     def isSimple = false
@@ -250,10 +251,14 @@ object Types {
     def raw: TypeVar = this
     def qualifiedName: Option[String] = None
 
-    def matches(t: TypeArg) = t match {
-      case r:RefType => isSubtype(lo,r) && isSubtype(r,hi)
-      case WildSub(r) => isSubtype(lo,r) && isSubtype(r,hi)
-      case WildSuper(r) => isSubtype(lo,r) && isSubtype(r,hi)
+    def matches(t: TypeArg)(implicit env: Tenv) = if (known) { val x = substitute; t match {
+      case r:RefType => r isSubtypeOf x
+      case WildSub(r) => r isSubtypeOf x
+      case WildSuper(r) => x == ObjectType
+    }} else t match {
+      case r:RefType => (lo isSubtypeOf r) && (r isSubtypeOf hi)
+      case WildSub(r) => lo == NullType && (r isSubtypeOf hi)
+      case WildSuper(r) => (lo isSubtypeOf r) && hi == ObjectType
     }
   }
   case class IntersectType(ts: Set[RefType]) extends RefType with NoDiscardsRefType {
@@ -319,10 +324,14 @@ object Types {
     def tparams: List[TypeVar]
 
     // returns a function that determines whether a prefix of type arguments is a match for this
-    def makeReverseMatcher(parent: Parent): List[AboveTypeArg] => Boolean = {
-      // val filtered = tys zip ci.tparams map { case(tden,tvar) => tden.filter(t => tvar.matches(t.beneath), s"cannot use type $tden as type arg for $tvar") }
-      // TOOD: determine whether the given types are valid
-      (t: List[AboveTypeArg]) => false
+    def  makeReverseIncrementalMatcher(parent: Option[Parent]): List[AboveTypeArg] => Boolean = {
+      // return a function which determines whether the first of the given TypeArgs (reverse of a prefix) match the corresponding tparam
+      val itparams = tparams.toIndexedSeq
+      implicit val tenv = parent map (_.env) getOrElse Map.empty
+      (t: List[AboveTypeArg]) => {
+        val p = itparams(t.size-1)
+        p matches t.head.beneath
+      }
     }
   }
 

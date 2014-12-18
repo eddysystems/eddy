@@ -252,11 +252,13 @@ object Scores {
     case List(sx) => sx map (List(_))
     case sx :: sxs => sx.productWith(product(sxs))(_::_)
   }
-  def productWithReversePrefixFilter[A](xs: List[Scored[A]], reverseLastElementLegal: List[A] => Boolean): Scored[List[A]] = (xs.reverse match {
-    case Nil => knownNil
-    case sx :: sxs => sx.productWith(productWithReversePrefixFilter(sxs, reverseLastElementLegal))(_::_) filter(reverseLastElementLegal, "filtered doesn't allow product")
-  }) map (_.reverse)
-
+  def productWithReversePrefixFilter[A](xs: List[Scored[A]], reverseLastElementLegal: List[A] => Boolean): Scored[List[A]] = {
+    def reverseProductWithReversePrefixFilter(xs: List[Scored[A]], reverseLastElementLegal: List[A] => Boolean): Scored[List[A]] = xs match {
+      case Nil => knownNil
+      case sx :: sxs => sx.productWith(reverseProductWithReversePrefixFilter(sxs, reverseLastElementLegal))(_::_) filter(reverseLastElementLegal, "filtered doesn't allow product")
+    }
+    reverseProductWithReversePrefixFilter(xs.reverse, reverseLastElementLegal) map (_.reverse)
+  }
   def productFoldLeft[A,E](e: E)(fs: List[E => Scored[(E,A)]]): Scored[(E,List[A])] =
     fs match {
       case Nil => known((e,Nil))

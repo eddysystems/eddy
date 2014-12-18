@@ -24,24 +24,27 @@ object Denotations {
     def params: List[Type] = f.params
     def callItem: TypeItem
     def callType(ts: List[RefType]): Type
+    def parent: Option[ClassType] // the parent type (for generic substitutions and in the case of NewDen, inference)
     def discard(ds: List[Stmt]) = DiscardCallableDen(ds,this)
     def beneath: Callable
   }
   sealed abstract class NonNewCallable extends Callable
 
   case class MethodDen(obj: Exp, override val f: MethodItem) extends NonNewCallable {
-    def env(ts: List[RefType]) = obj.ty.asInstanceOf[Parent].env ++ (tparams zip ts map { case (tp,ta) => (tp,Some(ta)) }).toMap
+    def env(ts: List[RefType]) = parent.get.env ++ (tparams zip ts map { case (tp,ta) => (tp,Some(ta)) }).toMap
     def callItem = f.retVal.item
     def callType(ts: List[RefType]) = f.retVal.substitute(env(ts))
+    def parent = Some(obj.ty.asInstanceOf[ClassType]) // if we've constructed a MethodDen, with obj, its type must be a Class, basically
     def discards = obj.discards
     def beneath = MethodDen(obj.beneath,f)
-    override def params = f.params.map( (t:Type) => t.substitute(obj.ty.asInstanceOf[Parent].env) )
+    override def params = f.params.map( (t:Type) => t.substitute(parent.get.env) )
     // a method is called on an object, which will have a proper type at the time the call happens, so we only need to infer our own type arguments
     def alltparams = tparams
   }
   case class LocalMethodDen(override val f: MethodItem) extends NonNewCallable {
     def callItem = f.retVal.item
     def callType(ts: List[RefType]) = substitute(f.tparams,ts,f.retVal) // this is raw, so we never have any relevant parent environment
+    def parent = None
     def discards = Nil
     def beneath = this
     def alltparams = tparams // this is raw, so we never have any relevant parent environment
@@ -49,24 +52,27 @@ object Denotations {
   case class StaticMethodDen(obj: Option[Exp], override val f: MethodItem) extends NonNewCallable {
     def callItem = f.retVal.item
     def callType(ts: List[RefType]) = substitute(f.tparams,ts,f.retVal) // static methods don't use their parent type environment
+    def parent = None
     def discards = discardsOption(obj)
     def beneath = StaticMethodDen(obj map (_.beneath),f)
     def alltparams = tparams // static methods cannot use their parent's type environment
   }
-  case class ForwardDen(override val f: ConstructorItem, env: Tenv) extends NonNewCallable {
+  case class ForwardDen(parent: Option[ClassType], override val f: ConstructorItem) extends NonNewCallable {
     def callItem = VoidItem
     def callType(ts: List[RefType]) = VoidType
     def discards = Nil
     def beneath = this
     def alltparams = tparams // either this or super -- we cannot add type parameters to those
-    override def params = f.params map (_ substitute env)
+    override def params = f.params map (_ substitute (if (parent.isDefined) parent.get.env else Map.empty))
   }
-  case class NewDen(override val f: ConstructorItem) extends Callable {
+  // parent is the parent of the class being created, i.e. in "new A<X>.B<Y>.C(x)", parent is A<X>.B<Y>
+  case class NewDen(parent: Option[ClassType], override val f: ConstructorItem) extends Callable {
     def callItem = f.parent
-    def callType(ts: List[RefType]) = f.parent.generic(ts.take(f.parent.arity),f.parent.parent.simple)
+    def callType(ts: List[RefType]) = f.parent.generic(ts.take(f.parent.arity), if (parent.isDefined) parent.get else f.parent.parent.simple)
     def discards = Nil
     def beneath = this
     // we can infer the type parameters of the class created, and those of the constructor used -- the class parameters go first
+    // TODO: this should be recursive to allow inferring new<U> A<T>.B<S>.C<X>(S a, T b, U c, X x)
     def alltparams = f.parent.tparams ++ tparams
   }
   // Evaluate and discard s, then be f
@@ -75,6 +81,7 @@ object Denotations {
     def alltparams = c.alltparams
     def callItem = c.callItem
     def callType(ts: List[RefType]) = c.callType(ts)
+    def parent = c.parent
     def discards = s ::: c.discards
     def beneath = c.beneath
   }

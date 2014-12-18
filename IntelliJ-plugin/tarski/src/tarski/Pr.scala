@@ -119,6 +119,8 @@ object Pr {
   val constructorFieldCallable = Prob(.5)
   // Exp.constructor (not legal, and makes even less sense)
   val constructorFieldCallableWithObject = Prob(.4)
+  // C++-style type arguments for a callable
+  val typeApplyCallable = Prob(.8)
 
   // denoteExp(AExp)
   val parenExp = base

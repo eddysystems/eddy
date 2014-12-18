@@ -198,7 +198,7 @@ class TestDen {
   @Test
   def cons(): Unit = {
     implicit val env = localEnvWithBase()
-    testDen("x = Object()", "x", x => VarStmt(ObjectType,(x,ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))
+    testDen("x = Object()", "x", x => VarStmt(ObjectType,(x,ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))))
   }
 
   @Test
@@ -209,7 +209,7 @@ class TestDen {
     implicit val env = localEnvWithBase().extend(Array(A,AC),Map((A,3),(AC,3)))
     // should result in A<Object> x = new A<Object>(new Object());
     testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
-      (x,ApplyExp(NewDen(AC),List(ObjectType),List(ApplyExp(NewDen(ObjectConsItem),Nil,Nil))))))
+      (x,ApplyExp(NewDen(None,AC),List(ObjectType),List(ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))))))
   }
 
   @Test
@@ -390,7 +390,7 @@ class TestDen {
 
     implicit val env = Env(Array(X,cons,f),Map((f,2),(X,3)),PlaceInfo(f))
     // We are not allowed to discard the possible side effects in the X constructor.
-    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(cons),Nil,Nil)),f),Nil,Nil))))
+    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(None,cons),Nil,Nil)),f),Nil,Nil))))
   }
 
   @Test def sideEffectsCons() = {
@@ -398,7 +398,7 @@ class TestDen {
     val cons = NormalConstructorItem(X,Nil,Nil)
     val Y = NormalClassItem("Y",X,Nil)
     implicit val env = localEnv(X,cons,Y)
-    testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(cons),Nil,Nil)),VarStmt(Y,List((y,0,None)))))
+    testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(None,cons),Nil,Nil)),VarStmt(Y,List((y,0,None)))))
   }
 
   @Test def sideEffectsFail() = {
@@ -487,7 +487,7 @@ class TestDen {
     val cons = NormalConstructorItem(X,Nil,Nil)
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,false)
     implicit val env = localEnv(X,cons,f)
-    val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(cons),Nil,Nil)),f),Nil,Nil)
+    val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(None,cons),Nil,Nil)),f),Nil,Nil)
     testDen("((X()).f()",best)
     testDen("((X()).f(",best)
   }
@@ -510,8 +510,8 @@ class TestDen {
     implicit val env = Env(Array(Y,Yc,X,Xc,This,Super),
                            Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2)),
                            PlaceInfo(Xc2))
-    testDen("this()", ApplyExp(ForwardDen(Xc,Map.empty), Nil, Nil))
-    testDen("super()", ApplyExp(ForwardDen(Yc,Map.empty), Nil, Nil))
+    testDen("this()", ApplyExp(ForwardDen(Some(X.simple),Xc), Nil, Nil))
+    testDen("super()", ApplyExp(ForwardDen(Some(Y.simple),Yc), Nil, Nil))
     // TODO: This should only work as the first statement of a different constructor, which is not tracked by the PlaceInfo right now
   }
 
@@ -569,6 +569,60 @@ class TestDen {
     testDen("this.<String>f(\"test\")", rexp)
     testDen("<String>f(\"test\")", rexp)
     testDen("f<String>(\"test\")", rexp)
+  }
+
+  @Test def typeApply(): Unit = {
+    val S = NormalClassItem("S", LocalPkg)
+    val T = NormalClassItem("T", LocalPkg)
+    val U = NormalClassItem("U", LocalPkg)
+    val AS = NormalTypeVar("A", S.simple, Nil)
+    val BT = NormalTypeVar("B", T.simple, Nil)
+    val CU = NormalTypeVar("C", U.simple, Nil)
+    val X = NormalClassItem("X", LocalPkg, List(AS,BT,CU))
+    val Y = NormalClassItem("Y", LocalPkg)
+    val f = NormalMethodItem("f", Y, Nil, VoidType, Nil, isStatic=false)
+
+    /** equivalent to
+      * class S {}
+      * class T {}
+      * class U {}
+      * class X<A extends S, B extends T, C extends U> {}
+      * class Y {
+      *   void f() {
+      *     X<S,T,U> x<caret>
+      *   }
+      * }
+     */
+
+    implicit val env = Env(Array(S,T,U,AS,BT,CU,X,Y,f), Map((X,3),(Y,2),(f,2),(S,3),(T,3),(U,3)), PlaceInfo(f))
+    // until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
+    testDen("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S.simple, T.simple, U.simple)), List((x,0,None))))
+    testFail("A<S,S,S> x")
+    testFail("A<S,S,T> x")
+    testFail("A<S,S,U> x")
+    testFail("A<S,T,S> x")
+    testFail("A<S,T,T> x")
+    testFail("A<S,U,S> x")
+    testFail("A<S,U,T> x")
+    testFail("A<S,U,U> x")
+    testFail("A<T,S,S> x")
+    testFail("A<T,S,T> x")
+    testFail("A<T,S,U> x")
+    testFail("A<T,T,S> x")
+    testFail("A<T,T,T> x")
+    testFail("A<T,T,U> x")
+    testFail("A<T,U,S> x")
+    testFail("A<T,U,T> x")
+    testFail("A<T,U,U> x")
+    testFail("A<U,S,S> x")
+    testFail("A<U,S,T> x")
+    testFail("A<U,S,U> x")
+    testFail("A<U,T,S> x")
+    testFail("A<U,T,T> x")
+    testFail("A<U,T,U> x")
+    testFail("A<U,U,S> x")
+    testFail("A<U,U,T> x")
+    testFail("A<U,U,U> x")
   }
 
 }

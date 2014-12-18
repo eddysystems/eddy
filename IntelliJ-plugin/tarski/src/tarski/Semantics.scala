@@ -77,6 +77,11 @@ object Semantics {
     val tys = ts map (_.beneath)
     f(tys) map (_.discard(discards))
   }
+  def collectTypeArgCallableDiscards(ts: List[AboveTypeArg], f: List[TypeArg] => Scores.Scored[(Callable,Option[List[TypeArg]])]): Scores.Scored[(Callable,Option[List[TypeArg]])] = {
+    val discards = (ts map (_.discards)).fold(Nil) { (x:List[Denotations.Stmt],y:List[Denotations.Stmt]) => (x :: y).asInstanceOf[List[Denotations.Stmt]] }
+    val tys = ts map (_.beneath)
+    f(tys) map { case (c,t) => (c.discard(discards),t) }
+  }
 
   def denoteTypeArg(e: AExp)(implicit env: Env): Scored[AboveTypeArg] = e match {
     // TODO: passing _, *, or a name should probably also work just as well as '?' (names at least for extends).
@@ -123,10 +128,13 @@ object Semantics {
     // TODO: add around to TypeApplyAExp
     case TypeApplyAExp(x,ts) => denoteType(x) bias Pr.typeApply flatMap { den => den.beneath match {
       // TODO: do something smarter, similar to fiddleCall, if there are bounded parameters?
-      case RawType(ci,parent) => {
+      case RawType(ci,parent) if ci.arity == ts.list.size => {
         val tys = ts.list map denoteTypeArg
         // filter the types according to what fits where
-        productWithReversePrefixFilter(tys, ci.makeReverseMatcher(parent)) flatMap { ls => collectTypeArgDiscards(ls, ts => single(GenericType(ci,ts,parent), Pr.base)) }
+        productWithReversePrefixFilter(tys, ci.makeReverseIncrementalMatcher(Some(parent))) flatMap { ls =>
+          println(s"collecting typeargs discards for $ls")
+          collectTypeArgDiscards(ls, ts => single(GenericType(ci,ts,parent), Pr.base))
+        }
       }
       case x => fail(s"cannot apply parameters $ts to type $x")
     }}
@@ -195,33 +203,33 @@ object Semantics {
       case i: MethodItem if i.isStatic => known(StaticMethodDen(None,i), None)
       case i: MethodItem if env.inScope(i) => known(LocalMethodDen(i), None)
       case i: MethodItem => denoteMethod(i, 0) map ((_,None))
-      case i: ConstructorItem => known(NewDen(i),None)
+      case i: ConstructorItem => known(NewDen(None,i),None)
       case ThisItem(c) => uniformGood(1,c.constructors) flatMap {
         case cons if cons == env.place.place => fail("Can't forward to current constructor")
-        case cons => known(ForwardDen(cons,Map.empty),None)
+        case cons => known(ForwardDen(Some(c.inside), cons),None)
       }
       case SuperItem(c) => {
         val tenv = c.env
-        uniformGood(1,c.item.constructors) map (c => (ForwardDen(c,tenv),None))
+        uniformGood(1,c.item.constructors) map (cc => (ForwardDen(Some(c),cc),None))
       }
     }
     case ParenAExp(x,_) => biased(Pr.parensAroundCallable,denoteCallable(x)) // Java doesn't allow parentheses around callables, but we do
 
     // x is either a type or an expression, f is a method, static method, or constructor
     case FieldAExp(x,ts,f) => {
-      // TODO: also try applying ts to x
       // first, the ones where x is a type
+      // TODO: also try applying ts to the type
       // TODO: convert ts expressions to typeargs and check whether the type arguments fit
       val tdens = denoteType(x) flatMap (t => mapTypeCallableDiscards(t, t => callableFieldScores(t.item,f) flatMap {
           case f:MethodItem if f.isStatic => single(StaticMethodDen(None,f), Pr.staticFieldCallable)
           case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
-          case f:ConstructorItem => single(NewDen(f), Pr.constructorFieldCallable)
+          case f:ConstructorItem => single(NewDen(Some(t.asInstanceOf[ClassType]), f), Pr.constructorFieldCallable) // only Classes have constructors, so t is a ClassType
         }))
       val edens = denoteExp(x) flatMap (x => callableFieldScores(x.item,f) flatMap {
         case f:MethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
         case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
         // TODO: also try applying the type arguments to the class (not the constructor)
-        case f:ConstructorItem => discardCallable(x,single(NewDen(f),Pr.constructorFieldCallableWithObject))
+        case f:ConstructorItem => discardCallable(x,single(NewDen(Some(x.ty.asInstanceOf[ClassType]),f),Pr.constructorFieldCallableWithObject)) // only Classes have constructors, so x.ty is a ClassType
       })
 
       if (!ts.isDefined) tdens ++ edens map ((_,None))
@@ -229,7 +237,16 @@ object Semantics {
     }
 
     // C++-style application of type arguments to a generic method
-    case TypeApplyAExp(x,ts) => throw new NotImplementedError("Generics not implemented (denoteCallable:TypeApplyExp): " + e)
+    case TypeApplyAExp(x,ts) => denoteCallable(x) flatMap {
+      // callable doesn't have typeargs yet
+      case (c,None) if ts.list.size == c.tparams.size =>
+        val tys = ts.list map denoteTypeArg
+        // filter the types according to what fits where
+        productWithReversePrefixFilter(tys, c.makeReverseIncrementalMatcher(c.parent)) flatMap { ls =>
+          collectTypeArgCallableDiscards(ls, ts => single((c,Some(ts)), Pr.typeApplyCallable))
+        }
+      case xden => fail(s"cannot apply type arguments $ts to callable $xden")
+    }
 
     case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
     case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
