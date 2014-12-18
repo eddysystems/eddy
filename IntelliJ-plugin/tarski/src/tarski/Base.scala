@@ -162,7 +162,7 @@ object Base {
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
 
-  // Standard base environment
+  // Standard base environment for tests
   val baseEnv = Env(Array(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
@@ -179,6 +179,11 @@ object Base {
     // Literals
     trueLit,falseLit,nullLit
   ))
+
+  // base environment with all class/interface items at scope level 7
+  val testEnv = Env(baseEnv.allItems, (baseEnv.allItems collect {
+    case t@(_:PackageItem|_:ClassItem) => (t,7)
+  }).toMap)
 
   // Things that EnvironmentProcessor won't add on its own
   val extraEnv = Env(Array(
