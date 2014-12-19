@@ -20,9 +20,11 @@ import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
-import static ambiguity.JavaUtils.pushScope;
-import static ambiguity.JavaUtils.popScope;
+
 import java.util.*;
+
+import static ambiguity.JavaUtils.popScope;
+import static ambiguity.JavaUtils.pushScope;
 
 /**
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
@@ -172,7 +174,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           // update global_env
           ArrayList<Item> items = new ArrayList<Item>(globals.values());
           items.addAll(globalImplicitConstructors.values());
-          global_env = Tarski.environment(globals.values());
+          global_env = Tarski.environment(items);
 
           logger.info("global_env ready.");
 

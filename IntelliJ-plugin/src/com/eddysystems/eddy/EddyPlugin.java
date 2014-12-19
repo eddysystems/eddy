@@ -75,6 +75,9 @@ public class EddyPlugin implements ProjectComponent {
                         });
                       }
 
+                      // TODO: make the global environment a project level component, so it's appropriately allocated for each project
+                      // TODO: make a trie for the libraries, and one trie for each file other than the one edited, and one for the file currently edited
+                      // TODO: add listeners to Psi rebuilding events
                       EnvironmentProcessor.initGlobalEnvironment(project);
 
                       if (sbar != null) {
