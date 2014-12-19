@@ -192,8 +192,10 @@ object Semantics {
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = i match {
-    case i: ParameterItem if env.inScope(i) => known(ParameterExp(i))
-    case i: LocalVariableItem if env.inScope(i) => known(LocalVariableExp(i))
+    case i: ParameterItem => if (env.inScope(i)) known(ParameterExp(i))
+                             else fail(s"Parameter $i is shadowed")
+    case i: LocalVariableItem => if (env.inScope(i)) known(LocalVariableExp(i))
+                                 else fail(s"Local variable $i is shadowed")
 
     // We can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
     case LitValue(x) => known(x)
