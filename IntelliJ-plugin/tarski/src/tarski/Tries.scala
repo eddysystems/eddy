@@ -15,13 +15,9 @@ object Tries {
     def compareTo(o: Named) = name.compareTo(o.name)
   }
 
-  trait TrieVisitor[V,X] {
-    // If you see k, do you want to continue descending?
-    // Return None if no, a new visitor that has absorbed the k if yes.
-    def next(k: Char): Option[TrieVisitor[V,X]]
-
-    // We found these values, filter and transform to output type
-    def found(t: TraversableOnce[V]): X
+  trait Delable {
+    def deleted: Boolean
+    def delete(): Unit
   }
 
   class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) {
@@ -55,16 +51,6 @@ object Tries {
       new ChildList
     }
 
-    def lookup[X](v: TrieVisitor[V,List[X]]): List[X] = {
-      var all: List[List[X]] = Nil
-      def loop(v: TrieVisitor[V,List[X]], node: Int): Unit = {
-        all = v.found(nodeValues(node)) :: all
-        children(node) foreach { case (c,i) => v next c foreach (loop(_,i)) }
-      }
-      loop(v,0)
-      all.flatten
-    }
-
     // Find an exact match
     def exact(s: String): List[V] = {
       val n = s.size
@@ -72,7 +58,7 @@ object Tries {
       def loop(node: Int, depth: Int): List[V] =
         if (depth == n) nodeValues(node).toList
         else {
-          var c = s(depth).toInt
+          val c = s(depth).toInt
           var lo = 0
           var hi = structure(node+1)
           while (lo < hi) {
@@ -103,10 +89,32 @@ object Tries {
       makeHelper(Array.empty)
   }
 
+  // a trie from which you can delete items
+  class DTrie[V <: Named with Delable](override val structure: Array[Int], override val values: Array[V]) extends Trie[V](structure, values) {
+
+    // nodevalues is a low-level function which will return deleted values. filter them yourself.
+
+    override def exact(s: String): List[V] = {
+      super.exact(s) filter (!_.deleted)
+    }
+    override def ++(t: Trie[V])(implicit tt: ClassTag[V]): DTrie[V] =
+      scoped("dtrie merge", makeDHelper(mergeDelable(values,t.values))) // some wasted ifs if t is not a DTrie
+    override def ++(t: Iterable[V])(implicit tt: ClassTag[V]): DTrie[V] =
+      scoped("trie extend",makeDHelper(mergeDelable(values,toSorted(t)))) // some wasted ifs because t shouldn't contain deleted items
+  }
+
+  object DTrie {
+    def apply[V <: Named with Delable](input: Iterable[V])(implicit tt: ClassTag[V]): DTrie[V] =
+      scoped("trie create",makeDHelper(toSorted(input)))
+
+    def empty[V <: Named with Delable](implicit tt: ClassTag[V]): DTrie[V] =
+      makeDHelper(Array.empty)
+  }
+
   // Sort input into an array
   private def toSorted[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Array[V] =
     scoped("sort array",{
-      var values = input.toArray
+      val values = input.toArray
       util.Arrays.sort(values.asInstanceOf[Array[Object]])
       values
     })
@@ -123,32 +131,55 @@ object Tries {
                 else                                              { j += 1; v1(j-1) }
     both
   }
+  private def mergeDelable[V <: Named with Delable](v0: Array[V], v1: Array[V])(implicit tt: ClassTag[V]): Array[V] = {
+    val n0 = v0.size
+    val n1 = v1.size
+    var nd = 0
+    for (k <- 0 until n0)
+      if (v0(k).deleted) nd += 1
+    for (k <- 0 until n1)
+      if (v1(k).deleted) nd += 1
+    val nc = n0+n1-nd
+    val both = new Array[V](nc)
+    var i = 0
+    var j = 0
+    var k = 0
+
+    while(k != nc) {
+      if (i == n0) {
+        // copy the rest of v1
+        while (k != nc) {
+          while(v1(j).deleted) j += 1
+          both(k) = v1(j)
+          k += 1
+        }
+      } else if (j == n1) {
+        // copy the rest of v0
+        while (k != nc) {
+          while(v0(i).deleted) i += 1
+          both(k) = v0(i)
+          k += 1
+        }
+      } else {
+        while(i != n0 && v0(i).deleted) i += 1
+        while(j != n1 && v1(j).deleted) j += 1
+        both(k) = if (v0(i).name <= v1(j).name) { i+=1; v0(i-1) } else { j+=1; v1(j-1) }
+         k += 1
+      }
+    }
+    both
+  }
 
   // Assumes values is already sorted.  values must never change.
   private def makeHelper[V <: Named](values: Array[V]): Trie[V] = {
     new Trie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
   }
+  private def makeDHelper[V <: Named with Delable](values: Array[V]): DTrie[V] = {
+    new DTrie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
+  }
 
   def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Double): List[Alt[V]] = {
     JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
-/*
-    case class LevenshteinVisitor(dist: StringMatching.IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
-      def next(k: Char): Option[LevenshteinVisitor] = {
-        val d = new StringMatching.IncrementalLevenshteinBound(typed,dist,k)
-        if (d.min > maxDistance) None else Some(LevenshteinVisitor(d))
-      }
-      def found(xs: TraversableOnce[V]): List[Alt[V]] = {
-        if (dist.distance > maxDistance) Nil else {
-        val d = StringMatching.levenshteinDistance(typed,dist.current)
-        if (d > maxDistance) Nil else {
-        val p = Pr.poissonPDF(expected,math.ceil(d).toInt)
-        if (p < minProb) Nil else {
-        xs.toList map (Alt(p,_))}}}
-      }
-    }
-    t.lookup(LevenshteinVisitor(StringMatching.EmptyIncrementalLevenshteinBound))
-  */
-
   }
 }
 
