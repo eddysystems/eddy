@@ -68,8 +68,8 @@ object Scores {
       case _:EmptyOrBad => false
     }
 
-    // Multiply all probabilities by p
-    def bias(p: Prob): Scored[A]
+    // Multiply all probabilities by p.  For internal use only: users should call biased(p,s).
+    def _bias(p: Prob): Scored[A]
 
     // Apply f to every alternative
     def map[B](f: A => B): Scored[B] = new LazyMap(this,f)
@@ -96,7 +96,7 @@ object Scores {
     // May return another LazyScored, usually with lower probability.  Optionally continue until prob <= p.
     def force(hi: Double): Scored[A]
 
-    def bias(p: Prob): Scored[A] = new LazyBias(this,p)
+    def _bias(p: Prob): Scored[A] = new LazyBias(this,p)
     def ++[B >: A](s: Scored[B]): Scored[B] =
       if (p >= s.p) new LazyPlus(this,s)
       else s match {
@@ -113,7 +113,7 @@ object Scores {
     def error: Error
     override def map[B](f: Nothing => B) = this
     override def flatMap[B](f: Nothing => Scored[B]) = this
-    override def bias(p: Prob) = this
+    override def _bias(p: Prob) = this
     override def productWith[B,C](s: Scored[B])(f: (Nothing,B) => C) = this
     override def _filter(f: Nothing => Boolean, error: () => String) = this
   }
@@ -135,7 +135,7 @@ object Scores {
   // One best possibility, then lazily more
   final case class Best[+A](dp: Prob, x: A, r: Scored[A]) extends StrictScored[A] {
     def p = pp(dp)
-    def bias(q: Prob) = Best(pmul(dp,q),x,r bias q)
+    def _bias(q: Prob) = Best(pmul(dp,q),x,r _bias q)
     def ++[B >: A](s: Scored[B]): Scored[B] =
       if (p >= s.p) Best(dp,x,r ++ s)
       else s match {

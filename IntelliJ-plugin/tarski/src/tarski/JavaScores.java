@@ -330,7 +330,7 @@ public class JavaScores {
               s = new LazyBias<A>(_x,q);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<A>(pmul(q,_x.dp()),_x.x(),_x.r().bias(q));
+            s = new Best<A>(pmul(q,_x.dp()),_x.x(),_x.r()._bias(q));
           } else
             s = x;
           break;
@@ -566,7 +566,7 @@ public class JavaScores {
               s = new LazyBias<A>(_x,_p);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<A>(pmul(_p,_x.dp()),_x.x(),_x.r().bias(_p));
+            s = new Best<A>(pmul(_p,_x.dp()),_x.x(),_x.r()._bias(_p));
           } else
             s = (Scored)x;
           break;
