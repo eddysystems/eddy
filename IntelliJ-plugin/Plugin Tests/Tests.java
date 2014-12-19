@@ -114,7 +114,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       final List<Alt<List<String>>> rs = eddy.getResults();
       final double p0 = rs.get(0).p(),
                    p1 = rs.get(1).p();
-      assertTrue("wanted margin "+margin+", got "+p1+" / "+p0+" = "+p1/p0, p1/p0 < margin);
+      final String m = "wanted margin "+margin+", got "+p1+" / "+p0+" = "+p1/p0;
+      System.out.println(m);
+      assertTrue(m, p1/p0 < margin);
     }
   }
 

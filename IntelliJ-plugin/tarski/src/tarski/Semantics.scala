@@ -191,21 +191,25 @@ object Semantics {
     objs flatMap (xd => single(MethodDen(xd,i), Pr.methodCallable(objs, xd, i)))
   }
 
-  def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = i match {
-    case i: ParameterItem => if (env.inScope(i)) known(ParameterExp(i))
-                             else fail(s"Parameter $i is shadowed")
-    case i: LocalVariableItem => if (env.inScope(i)) known(LocalVariableExp(i))
-                                 else fail(s"Local variable $i is shadowed")
+  def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = {
+    @inline def penalize(e: Exp) = if (env.inScope(i)) known(e) else single(e,Pr.outOfScope)
+    i match {
+      case i:ParameterItem => if (env.inScope(i)) known(ParameterExp(i))
+      else fail(s"Parameter $i is shadowed")
+      case i:LocalVariableItem => if (env.inScope(i)) known(LocalVariableExp(i))
+      else fail(s"Local variable $i is shadowed")
 
-    // We can always access this, static fields, or enums. Pretty-printing takes care of finding a proper name.
-    case LitValue(x) => known(x)
-    case i: StaticFieldItem => known(StaticFieldExp(None,i))
-    case i: EnumConstantItem => known(EnumConstantExp(None,i))
-    case i: ThisItem => known(ThisExp(i))
-    case i: SuperItem => known(SuperExp(i))
+      // We can always access this, static fields, or enums.
+      // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
+      case LitValue(x) => known(x)
+      case i:StaticFieldItem => penalize(StaticFieldExp(None,i))
+      case i:EnumConstantItem => penalize(EnumConstantExp(None,i))
+      case i:ThisItem => penalize(ThisExp(i))
+      case i:SuperItem => penalize(SuperExp(i))
 
-    case i: FieldItem if env.inScope(i) => known(LocalFieldExp(i))
-    case i: FieldItem => denoteField(i, depth)
+      case i:FieldItem if env.inScope(i) => known(LocalFieldExp(i))
+      case i:FieldItem => denoteField(i, depth)
+    }
   }
 
   def denoteCallable(e: AExp)(implicit env: Env): Scored[(Callable,Option[List[AboveTypeArg]])] = e match {
