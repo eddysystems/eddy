@@ -20,7 +20,8 @@ import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
-
+import static ambiguity.JavaUtils.pushScope;
+import static ambiguity.JavaUtils.popScope;
 import java.util.*;
 
 /**
@@ -85,96 +86,99 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   }
 
   static private void addBase(Converter env, GlobalSearchScope scope, boolean noProtected) {
-    // Extra things don't correspond to PsiElements
-    final Set<Item> extra = new HashSet<Item>();
-    for (Item i : tarski.Base.extraEnv().allItems())
-      extra.add(i);
+    pushScope("add base");
+    try {
+      // Extra things don't correspond to PsiElements
+      final Set<Item> extra = new HashSet<Item>();
+      for (Item i : tarski.Base.extraEnv().allItems())
+        extra.add(i);
 
-    // Add classes and packages
-    final JavaPsiFacade facade = JavaPsiFacade.getInstance(env.place.project);
-    for (Item item : tarski.Base.baseEnv().allItems()) {
-      if (extra.contains(item) || item instanceof ConstructorItem)
-        continue;
-      final String name = item.qualifiedName().get();
-      PsiElement psi;
-      if (item instanceof PackageItem)
-        psi = facade.findPackage(name);
-      else if (item instanceof ClassItem)
-        psi = facade.findClass(name,scope);
-      else
-        throw new NotImplementedError("Unknown base type "+item.getClass());
-      if (psi == null)
-        throw new RuntimeException("Couldn't find "+name);
-      env.locals.put(psi,item);
-    }
+      // Add classes and packages
+      final JavaPsiFacade facade = JavaPsiFacade.getInstance(env.place.project);
+      for (Item item : tarski.Base.baseEnv().allItems()) {
+        if (extra.contains(item) || item instanceof ConstructorItem)
+          continue;
+        final String name = item.qualifiedName().get();
+        PsiElement psi;
+        if (item instanceof PackageItem)
+          psi = facade.findPackage(name);
+        else if (item instanceof ClassItem)
+          psi = facade.findClass(name,scope);
+        else
+          throw new NotImplementedError("Unknown base type "+item.getClass());
+        if (psi == null)
+          throw new RuntimeException("Couldn't find "+name);
+        env.locals.put(psi,item);
+      }
 
-    // Add constructors
-    for (Item item : tarski.Base.baseEnv().allItems()) {
-      if (!(item instanceof ConstructorItem))
-        continue;
-      final String clsName = ((ConstructorItem)item).parent().qualifiedName().get();
-      final PsiClass cls = facade.findClass(clsName,scope);
-      assert cls != null;
-      final PsiMethod[] cons = cls.getConstructors();
-      if (cons.length != 1)
-        logger.warn("found constructors for Object: #" + cons.length);
-      env.locals.put(cons[0],item);
-    }
+      // Add constructors
+      for (Item item : tarski.Base.baseEnv().allItems()) {
+        if (!(item instanceof ConstructorItem))
+          continue;
+        final String clsName = ((ConstructorItem)item).parent().qualifiedName().get();
+        final PsiClass cls = facade.findClass(clsName,scope);
+        assert cls != null;
+        final PsiMethod[] cons = cls.getConstructors();
+        if (cons.length != 1)
+          logger.warn("found constructors for Object: #" + cons.length);
+        env.locals.put(cons[0],item);
+      }
 
-    // Add class members
-    for (Item item : tarski.Base.baseEnv().allItems()) {
-      if (extra.contains(item) || !(item instanceof ClassItem))
-        continue;
-      final String name = item.qualifiedName().get();
-      env.addClassMembers(facade.findClass(name,scope),(ClassItem)item,noProtected);
-    }
+      // Add class members
+      for (Item item : tarski.Base.baseEnv().allItems()) {
+        if (extra.contains(item) || !(item instanceof ClassItem))
+          continue;
+        final String name = item.qualifiedName().get();
+        env.addClassMembers(facade.findClass(name,scope),(ClassItem)item,noProtected);
+      }
+    } finally { popScope(); }
   }
 
   private static Map<PsiElement,Item> getGlobals(Place place) {
     if (globals_ready) {
       return globals;
     } else {
-
       synchronized (globals_lock) {
+        pushScope("make globals");
+        try {
+          if (globals == null) {
+            // get all classes from IntelliJ
+            globals = new HashMap<PsiElement, Item>();
+            globalImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
+          }
 
-        if (globals == null) {
-          // get all classes from IntelliJ
-          globals = new HashMap<PsiElement, Item>();
-          globalImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
-        }
+          logger.info("making globals...");
 
-        logger.info("making globals...");
+          final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
+          final GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project,true);
 
-        PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
-        GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project,true);
+          // Add all classes that are accessible from place (which is just project scope for globals)
+          final Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
+          final Map<PsiClass,ConstructorItem> fake_cons = new HashMap<PsiClass, ConstructorItem>();
+          final Converter env = new Converter(place,fake_globals,fake_cons,globals,globalImplicitConstructors);
+          addBase(env,scope,true);
 
-        // Add all classes that are accessible from place (which is just project scope for globals)
-        Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
-        Map<PsiClass,ConstructorItem> fake_cons = new HashMap<PsiClass, ConstructorItem>();
-        Converter env = new Converter(place,fake_globals,fake_cons,globals,globalImplicitConstructors);
-        addBase(env,scope,true);
+          for (String name : cache.getAllClassNames()) {
+            // keep IDE responsive
+            Utility.processEvents();
 
-        for (String name : cache.getAllClassNames()) {
-          // keep IDE responsive
-          Utility.processEvents();
+            for (PsiClass cls : cache.getClassesByName(name, scope))
+              if (!place.isInaccessible(cls, true))
+                env.addClass(cls, true, true);
+          }
 
-          for (PsiClass cls : cache.getClassesByName(name, scope))
-            if (!place.isInaccessible(cls, true))
-              env.addClass(cls, true, true);
-        }
+          logger.info("making global_env with " + globals.size() + " items.");
 
-        logger.info("making global_env with " + globals.size() + " items.");
+          // update global_env
+          ArrayList<Item> items = new ArrayList<Item>(globals.values());
+          items.addAll(globalImplicitConstructors.values());
+          global_env = Tarski.environment(globals.values());
 
-        // update global_env
-        ArrayList<Item> items = new ArrayList<Item>(globals.values());
-        items.addAll(globalImplicitConstructors.values());
-        global_env = Tarski.environment(globals.values());
+          logger.info("global_env ready.");
 
-        logger.info("global_env ready.");
-
-        globals_ready = true;
+          globals_ready = true;
+        } finally { popScope(); }
       }
-
       return globals;
     }
   }
@@ -183,19 +187,18 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
    * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names
    */
   public Env getJavaEnvironment() {
-
-    Map<PsiElement, Item> globals = getGlobals(place);
-    Map<PsiElement, Item> locals = new HashMap<PsiElement, Item>();
-    Map<PsiClass,ConstructorItem> localImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
-    Map<Item, Integer> scopeItems = new HashMap<Item, Integer>();
-    Converter env = new Converter(place,globals,globalImplicitConstructors,locals,localImplicitConstructors);
+    final Map<PsiElement,Item> globals = getGlobals(place);
+    final Map<PsiElement,Item> locals = new HashMap<PsiElement, Item>();
+    final Map<PsiClass,ConstructorItem> localImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
+    final Map<Item,Integer> scopeItems = new HashMap<Item, Integer>();
+    final Converter env = new Converter(place,globals,globalImplicitConstructors,locals,localImplicitConstructors);
 
     logger.info("getting local items...");
 
     // register locally visible items (each item will register things it contains, inherits from, etc.)
     for (ShadowElement<PsiPackage> spkg : packages) {
       final PsiPackage pkg = spkg.e;
-      Item ipkg = env.addContainer(pkg);
+      final Item ipkg = env.addContainer(pkg);
       scopeItems.put(ipkg,spkg.shadowingPriority);
     }
 
@@ -204,14 +207,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
       // add private/protected stuff that's not already visible
-      Item icls = env.addClass(cls, true, false);
+      final Item icls = env.addClass(cls, true, false);
       scopeItems.put(icls,scls.shadowingPriority);
     }
 
     // register methods (also register types used in this method)
     for (ShadowElement<PsiMethod> smethod : methods) {
       final PsiMethod method = smethod.e;
-      Item imethod = env.addMethod(method);
+      final Item imethod = env.addMethod(method);
       scopeItems.put(imethod,smethod.shadowingPriority);
     }
 
@@ -219,16 +222,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiVariable> svar : variables) {
       final PsiVariable var = svar.e;
       if (var instanceof PsiField) {
-        Item ivar = env.addField((PsiField) var);
+        final Item ivar = env.addField((PsiField) var);
         scopeItems.put(ivar,svar.shadowingPriority);
       } else {
         assert !globals.containsKey(var);
         assert !locals.containsKey(var);
-        Type t = env.convertType(var.getType());
-        boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
-        Item i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t,isFinal)
-               : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t,isFinal)
-               : null;
+        final Type t = env.convertType(var.getType());
+        final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
+        final Item i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t,isFinal)
+                     : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t,isFinal)
+                     : null;
         if (i == null)
           throw new scala.NotImplementedError("Unknown variable: " + var);
 
@@ -240,7 +243,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.info("added " + locals.size() + " locals");
 
-    List<Item> local_items = new ArrayList<Item>();
+    final List<Item> local_items = new ArrayList<Item>();
     local_items.addAll(locals.values());
     local_items.addAll(localImplicitConstructors.values());
 
@@ -248,7 +251,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     PlaceItem placeItem = null;
     boolean inside_continuable = false;
     boolean inside_breakable = false;
-    List<String> labels = new SmartList<String>();
+    final List<String> labels = new SmartList<String>();
     // walk straight up until we see a method, class, or package
     PsiElement place = this.place.place;
     while (place != null) {
@@ -274,16 +277,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         assert locals.containsKey(place) || globals.containsKey(place);
-        ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);
+        final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);
         assert scopeItems.containsKey(c);
-        int p = scopeItems.get(c);
-        ThisItem ti = new ThisItem(c);
+        final int p = scopeItems.get(c);
+        final ThisItem ti = new ThisItem(c);
         local_items.add(ti);
         scopeItems.put(ti,p);
 
-        ClassType s = c.base();
+        final ClassType s = c.base();
         assert s.item().isClass();
-        SuperItem si = new SuperItem(s);
+        final SuperItem si = new SuperItem(s);
         local_items.add(si);
         scopeItems.put(si,p);
       }
@@ -297,7 +300,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
             placeItem = (PlaceItem)locals.get(place);
         }
       } else if (place instanceof PsiJavaFile) {
-        PsiPackage pkg = this.place.getPackage((PsiJavaFile) place);
+        final PsiPackage pkg = this.place.getPackage((PsiJavaFile) place);
         if (pkg == null) {
           // probably we're top-level in a file without package statement, use LocalPackageItem
           if (placeItem == null)
@@ -329,14 +332,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     */
 
     // TODO: add information about whether we are inside a constructor and the first statement (and forwarding to this or super is available)
-    Item[] localArray = local_items.toArray(new Item[local_items.size()]);
-    Env tenv = Tarski.addEnvironment(global_env, localArray, scopeItems)
-                     .move(new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
+    final Item[] localArray = local_items.toArray(new Item[local_items.size()]);
+    final Env tenv = Tarski.addEnvironment(global_env, localArray, scopeItems)
+                           .move(new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
 
     logger.info("done");
-
     return tenv;
-
   }
 
   private String qualifiedName(PsiElement elem) {
