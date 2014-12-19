@@ -84,12 +84,13 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   static class EddyThread extends Thread {
-    private final Eddy eddy = new Eddy();
+    private final Eddy eddy;
     private final EddyFileListener owner;
 
     EddyThread(EddyFileListener owner) {
       this.setName("Eddy thread " + getId());
       this.owner = owner;
+      this.eddy = new Eddy(owner.project);
     }
 
     public void interrupt() {

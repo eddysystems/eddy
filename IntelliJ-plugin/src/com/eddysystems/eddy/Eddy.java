@@ -15,7 +15,6 @@ import com.intellij.psi.impl.source.tree.LeafElement;
 import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
-import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import tarski.Environment;
 import tarski.Scores;
@@ -28,6 +27,7 @@ import static ambiguity.JavaUtils.*;
 
 public class Eddy {
   private final @NotNull Logger logger = Logger.getInstance(getClass());
+  final private Project project;
 
   private boolean canceled;
 
@@ -38,7 +38,6 @@ public class Eddy {
   // information of where we were
   private PsiFile psifile = null;
   private Document document = null;
-  private Project project = null;
   private Editor editor = null;
   private PsiElement place = null;
 
@@ -52,8 +51,8 @@ public class Eddy {
   private int resultOffset = 0;
   boolean selectedExplicitly = true;
 
-  public Eddy() {
-    logger.setLevel(Level.INFO);
+  public Eddy(@NotNull final Project project) {
+    this.project = project;
   }
 
   public static boolean ready() {
@@ -120,13 +119,12 @@ public class Eddy {
 
   public void process(@NotNull Editor editor) {
     logger.info("processing eddy@" + hashCode() + "...");
+    assert project == editor.getProject();
 
     Document document = editor.getDocument();
-    Project project = editor.getProject();
 
     // reset object variables
     this.editor = editor;
-    this.project = project;
     found_existing = false;
     results = null;
     resultStrings = new SmartList<String>();
@@ -134,9 +132,6 @@ public class Eddy {
     // clear the offset
     resultOffset = 0;
     selectedExplicitly = false;
-
-    if (project == null)
-      return;
 
     psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
 

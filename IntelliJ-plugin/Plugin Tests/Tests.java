@@ -3,7 +3,6 @@ import com.eddysystems.eddy.EnvironmentProcessor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
-import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.projectRoots.impl.JavaAwareProjectJdkTableImpl;
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl;
@@ -18,43 +17,47 @@ import tarski.Base;
 import tarski.Items;
 import tarski.Items.Item;
 import tarski.Scores;
-import tarski.Types;
 import tarski.Scores.Alt;
+import tarski.Types;
 
 import java.util.List;
 
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
+import static ambiguity.JavaUtils.resetScope;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
   // TODO: initialize global environment once for all tests
 
+  static class ProjectDesc implements LightProjectDescriptor {
+    @Override
+    public ModuleType getModuleType() {
+      return StdModuleTypes.JAVA;
+    }
+
+    @Override
+    public Sdk getSdk() {
+      try {
+        ProjectJdkImpl jdk = (ProjectJdkImpl) JavaAwareProjectJdkTableImpl.getInstanceEx().getInternalJdk().clone();
+        jdk.setName("JDK");
+        return jdk;
+      } catch (CloneNotSupportedException e) {
+        System.out.println("cloning not supported: " + e);
+        return null;
+      }
+    }
+
+    @Override
+    public void configureModule(Module module, ModifiableRootModel model, ContentEntry contentEntry) {
+      model.getModuleExtension(LanguageLevelModuleExtension.class).setLanguageLevel(LanguageLevel.JDK_1_6);
+    }
+  }
+  static ProjectDesc desc = new ProjectDesc();
+
   @Override @NotNull
   public LightProjectDescriptor getProjectDescriptor() {
-    return new LightProjectDescriptor() {
-      @Override
-      public ModuleType getModuleType() {
-        return StdModuleTypes.JAVA;
-      }
-
-      @Override
-      public Sdk getSdk() {
-        try {
-          ProjectJdkImpl jdk = (ProjectJdkImpl) JavaAwareProjectJdkTableImpl.getInstanceEx().getInternalJdk().clone();
-          jdk.setName("JDK");
-          return jdk;
-        } catch (CloneNotSupportedException e) {
-          System.out.println("cloning not supported: " + e);
-          return null;
-        }
-      }
-
-      @Override
-      public void configureModule(Module module, ModifiableRootModel model, ContentEntry contentEntry) {
-        model.getModuleExtension(LanguageLevelModuleExtension.class).setLanguageLevel(LanguageLevel.JDK_1_6);
-      }
-    };
+    return desc;
   }
 
   @Override
@@ -63,12 +66,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private Eddy makeEddy() {
+    // in case a previous test existed not so cleanly
+    resetScope();
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
-    final Eddy eddy = new Eddy();
-    DumbService.getInstance(myFixture.getProject()).runReadActionInSmartMode(new Runnable() { @Override public void run() {
-      eddy.process(myFixture.getEditor());
-    }});
+    final Eddy eddy = new Eddy(myFixture.getProject());
+    eddy.process(myFixture.getEditor());
     return eddy;
   }
 
@@ -77,7 +80,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return makeEddy();
   }
 
-  private Eddy setupEddy(String filename) {
+  private Eddy setupEddy(final String filename) {
     pushScope("setup eddy");
     myFixture.configureByFile(filename);
     Eddy e = makeEddy();

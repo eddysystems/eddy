@@ -30,6 +30,10 @@ public class JavaUtils {
   }
   private static Stack<Scope> scopes;
 
+  public static void resetScope() {
+    scopes.clear();
+  }
+
   public static void pushScope(String name) {
     if (scopes == null) {
       scopes = new Stack<Scope>();

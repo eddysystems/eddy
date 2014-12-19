@@ -23,7 +23,7 @@ public class EddyPlugin implements ProjectComponent {
 
   private static Map<Project,EddyPlugin> projectMap = new HashMap<Project, EddyPlugin>();
 
-  static EddyPlugin getInstance(Project project) {
+  public static EddyPlugin getInstance(Project project) {
     return projectMap.get(project);
   }
 
@@ -93,6 +93,8 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void disposeComponent() {
+    System.out.println("disposing plugin.");
+
     projectMap.remove(project);
     StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
     if (sbar != null)

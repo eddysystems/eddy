@@ -19,8 +19,8 @@ public class EddyQuickFix extends BaseElementAtCaretIntentionAction implements H
 
   private Eddy eddy;
 
-  public EddyQuickFix() {
-    eddy = new Eddy();
+  public EddyQuickFix(Project project) {
+    eddy = new Eddy(project);
   }
 
   @NotNull
