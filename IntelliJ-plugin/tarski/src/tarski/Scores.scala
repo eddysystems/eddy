@@ -199,8 +199,8 @@ object Scores {
     new OrderedAlternativeState[A](xs,null,null).extract(0)
 
   // Requires: prob first >= prob andThen
-  @inline def orderedAlternative[A](first: List[Alt[A]], andthen: () => List[Alt[A]], error: => String): Scored[A] =
-    new OrderedAlternativeState[A](first,andthen,if (trackErrors) () => error else null).extract(0)
+  @inline def orderedAlternative[A](first: List[Alt[A]], andThen: => List[Alt[A]], error: => String): Scored[A] =
+    new OrderedAlternativeState[A](first,() => andThen,if (trackErrors) () => error else null).extract(0)
 
   // Fast version of x0 ++ x1 ++ ...  The list is assumed nonempty.
   @inline def multiple[A](ls: List[Scored[A]]): Scored[A] =
