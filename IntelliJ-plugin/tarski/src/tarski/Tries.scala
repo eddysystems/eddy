@@ -72,7 +72,7 @@ object Tries {
       def loop(node: Int, depth: Int): List[V] =
         if (depth == n) nodeValues(node).toList
         else {
-          var c = s(depth).toInt
+          val c = s(depth).toInt
           var lo = 0
           var hi = structure(node+1)
           while (lo < hi) {
