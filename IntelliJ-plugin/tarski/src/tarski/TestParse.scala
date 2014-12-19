@@ -30,6 +30,16 @@ class TestParse {
     check("doubles",DoubleLitTok,"0d 5D 5.3 5.3d .4e-8 .4e-8D 0x4.aP1_7 0x4.aP1_7d")
     check("chars",CharLitTok,"""'x' '\t' '\n' '\0133'""")
     check("strings",StringLitTok,""""xyz" "\n\b\r\t" "\0\1\2"""")
+
+    // We lex >> into GtTok RShiftSepTok GtTok.  Make sure we don't screw it up.
+    def prep(s: String, ts: Token*) =
+      assertEquals(ts.toList,prepare(lex(s)))
+    prep(">",GtTok)
+    prep(">>",GtTok,RShiftSepTok,GtTok)
+    prep(">>>",GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
+    prep("> >",GtTok,GtTok)
+    prep("> > >",GtTok,GtTok,GtTok)
+    prep("> >>",GtTok,GtTok,RShiftSepTok,GtTok)
   }
 
   @Test
@@ -47,7 +57,9 @@ class TestParse {
   }
 
   def testAST(s: String, ss: List[AStmt]*): Unit = {
-    val asts = ParseEddy.parse(lex(s).filterNot(isSpace).map(fake))
+    val tokens = prepare(lex(s))
+    println(s"tokens = $tokens")
+    val asts = ParseEddy.parse(tokens)
     for (e <- ss if !asts.contains(e)) {
       println()
     }
@@ -55,12 +67,14 @@ class TestParse {
   }
 
   def testASTPossible(s: String, ss: List[AStmt]): Unit = {
-    val asts = ParseEddy.parse(lex(s).filterNot(isSpace).map(fake))
+    val tokens = prepare(lex(s))
+    println(s"tokens = $tokens")
+    val asts = ParseEddy.parse(tokens)
     assertIn(ss,asts.toSet)
   }
 
   def testBest(s: String, ss: List[AStmt]): Unit = {
-    val clean = lex(s).filterNot(isSpace).map(fake)
+    val clean = prepare(lex(s))
     val asts = Mismatch.repair(clean) flatMap (ts => uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed"))
     asts.best match {
       case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
@@ -135,5 +149,13 @@ class TestParse {
   }
 
   @Test def genericType() =
-    testASTPossible("X<String,A<String>> x = null", VarAStmt(Nil, TypeApplyAExp(NameAExp("X"), CommaList(List(NameAExp("String"), TypeApplyAExp(NameAExp("A"), SingleList(NameAExp("String")))))), AST.SingleList(("x", 0, Some(NameAExp("null"))))))
+    testASTPossible("X<String,A<String>> x = null",
+      VarAStmt(Nil,TypeApplyAExp(NameAExp("X"),CommaList(List("String",TypeApplyAExp("A",SingleList("String"))))),
+        SingleList(("x",0,Some(NameAExp("null"))))))
+
+  // We lex >> into GtTok GtNoSepTok GtTok.  Make sure we don't screw it up.
+  @Test def rshift() = testAST("x >> y",BinaryAExp(RShiftOp,"x","y"))
+  @Test def urshift() = testAST("x >>> y",BinaryAExp(UnsignedRShiftOp,"x","y"))
+  @Test def rshiftSep() = testAST("x > > y")
+  @Test def urshiftSep() = testAST("x >> > y")
 }

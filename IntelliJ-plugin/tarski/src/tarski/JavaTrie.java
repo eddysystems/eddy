@@ -207,19 +207,19 @@ public class JavaTrie {
   }
 
   public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>> levenshteinLookup(Tries.Trie<V> t, String query, float maxDistance, double expected, double minProb) {
-    List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
+    final List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
+    final int[] structure = t.structure();
+    final V[] values = t.values();
 
-    // convert typed string to array of int to avoid dealing with string allocations all the time
-    char[] typed = query.toCharArray();
-    int typed_length = typed.length;
+    // Convert typed string to array of int to avoid dealing with string allocations all the time
+    final char[] typed = query.toCharArray();
+    final int typed_length = typed.length;
 
-    int[] s = t.structure();
+    // Allocate enough space for at least the query
+    final List<TriePos> pos = new ArrayList<TriePos>();
+    pos.add(new TriePos(typed_length,structure,0));
 
-    // allocate enough space for at least the query
-    List<TriePos> pos = new ArrayList<TriePos>();
-    pos.add(new TriePos(typed_length, s, 0));
-
-    // plan for at least this much, increase as needed
+    // Plan for at least this much, increase as needed
     char[] prefix = new char[typed_length];
     int level = 0;
 
@@ -243,7 +243,7 @@ public class JavaTrie {
         }
                 
         // next char
-        char c = current.current(s);
+        char c = current.current(structure);
         prefix[level] = c;
 
         // compute distance array in childPos and fill in distance and min_distance
@@ -270,23 +270,23 @@ public class JavaTrie {
 
         // descend into child if bound ok
         if (childPos.min_distance <= maxDistance) {
-          current.descend(childPos, s);
+          current.descend(childPos,structure);
           level++;
         }
       } else {
         // add this node's values
         if (current.distance <= maxDistance) {
-          scala.collection.mutable.IndexedSeqView<V,V[]> values = t.nodeValues(current.node_idx);
-          if (values.nonEmpty()) {
-            double d = levenshteinDistance(prefix, level, typed, typed.length);
-            double p = ambiguity.JavaUtils.poissonPDF(expected, (int) Math.ceil(d));
-            if (p >= minProb) {
-              int l = values.length();
-              for (int i = 0; i < l; ++i) {
+          final int node = current.node_idx;
+          final int lo = structure[node],
+                    hi = structure[node+2+2*structure[node+1]];
+          if (lo < hi) {
+            final double d = levenshteinDistance(prefix, level, typed, typed.length);
+            final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
+            if (p >= minProb)
+              for (int i=lo;i<hi;i++) {
                 //final DebugProb dp = new NameProb("typo",p);
-                result.add(new tarski.Scores.Alt<V>(p,values.apply(i)));
+                result.add(new tarski.Scores.Alt<V>(p,values[i]));
               }
-            }
           }
         }
         // pop this node

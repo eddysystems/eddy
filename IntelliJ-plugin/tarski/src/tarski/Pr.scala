@@ -95,6 +95,9 @@ object Pr {
   // Type<TArg,...>
   val typeApply = base
 
+  // Value not in scope (requiring qualification)
+  val outOfScope = Prob("out of scope",.7)
+
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
   def superFieldValue(values: Scored[Exp], c: TypeItem, f: FieldItem) = Prob("super field value",.8)
 

@@ -18,9 +18,10 @@ object Tokens {
   case class IdentTok(name: String) extends Token
 
   // Whitespace
-  case class WhitespaceTok(content: String) extends Token
-  case class EOLCommentTok(content: String) extends Token
-  case class CCommentTok(content: String) extends Token
+  sealed abstract class SpaceTok extends Token
+  case class WhitespaceTok(content: String) extends SpaceTok
+  case class EOLCommentTok(content: String) extends SpaceTok
+  case class CCommentTok(content: String) extends SpaceTok
 
   // Keywords: 3.9
   case object AbstractTok extends FixedToken
@@ -148,10 +149,12 @@ object Tokens {
   case object RShiftEqTok extends FixedToken
   case object UnsignedRShiftEqTok extends FixedToken
 
-  def isSpace(t: Token) = t match {
-    case WhitespaceTok(_)|EOLCommentTok(_)|CCommentTok(_) => true
-    case _ => false
-  }
+  // In fake, we split >> and >>> into GtToks, with separators in between
+  sealed abstract class PhantomTok extends Token
+  case object RShiftSepTok extends PhantomTok
+  case object UnsignedRShiftSepTok extends PhantomTok
+
+  def isSpace(t: Token) = t.isInstanceOf[SpaceTok]
 
   def show(t: Token): String = t match {
     case HoleTok => ""
@@ -278,6 +281,8 @@ object Tokens {
     case LShiftEqTok => "<<="
     case RShiftEqTok => ">>="
     case UnsignedRShiftEqTok => ">>>="
+    // Phantoms
+    case _:PhantomTok => throw new RuntimeException(s"Shouldn't be printing phantom token $t")
   }
 
   def show(ts: List[Token]): String =
@@ -286,15 +291,22 @@ object Tokens {
   def show[A](x: A)(implicit p: Pretty[A]): String =
     show(tokens(x))
 
-  // Turn matching identifiers into fake keywords, and some keywords into identifiers
-  def fake(t: Token): Token = t match {
-    case IdentTok(s) => s match {
+  // Prepare a token stream for parsing.
+  // 1. Turn matching identifiers into fake keywords.
+  // 2. Turn some keywords into identifiers.
+  // 3. Split >> and >>> into >'s and separators.
+  // 4. Strip whitespace.
+  def prepare(ts: List[Token]): List[Token] = ts flatMap {
+    case _:SpaceTok => Nil
+    case t@IdentTok(s) => List(s match {
       case "then" => ThenTok
       case "until" => UntilTok
       case "in" => InTok
       case _ => t
-    }
-    case _:ToIdentToken => IdentTok(show(t))
-    case _ => t
+    })
+    case t:ToIdentToken => List(IdentTok(show(t)))
+    case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
+    case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
+    case t => List(t)
   }
 }

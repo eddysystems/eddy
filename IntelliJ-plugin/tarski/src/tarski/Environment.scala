@@ -10,7 +10,7 @@ import tarski.JavaScores._
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
-
+import scala.collection.mutable
 import scala.annotation.tailrec
 
 object Environment {
@@ -58,8 +58,16 @@ object Environment {
     def extendLocal(things: Array[Item]): Env =
       extend(things,(things map ((_,1))).toMap)
 
-    // Is an item in scope?
-    def inScope(i: Item): Boolean
+    // Is an item in scope and not shadowed by another item?
+    private lazy val _inScope: java.util.Set[Item] = {
+      val set = new java.util.HashSet[Item]
+      Base.extraEnv.allItems foreach { case t:LangTypeItem => set.add(t); case _ => () }
+      val best = new mutable.HashMap[String,(Item,Int)]
+      scope foreach { case (i,n) => if (!best.contains(i.name) || n < best(i.name)._2) best(i.name) = (i,n) }
+      best foreach { case (_,(i,n)) => set.add(i) }
+      set
+    }
+    @inline final def inScope(i: Item): Boolean = _inScope.contains(i)
 
     // Enter and leave block scopes
     def pushScope: Env
@@ -146,10 +154,6 @@ object Environment {
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
       }
     }
-
-    // Check if an item is in scope and not shadowed by another item (we can't shadow language items)
-    def inScope(i: Item): Boolean =
-      i.isInstanceOf[LangTypeItem] || scope.contains(i) && !scope.exists { case (ii,p) => p < scope.get(i).get && i.name == ii.name }
 
     // Enter a new block scope
     def pushScope: Env =

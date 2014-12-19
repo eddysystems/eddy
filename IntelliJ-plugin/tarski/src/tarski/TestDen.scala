@@ -623,4 +623,35 @@ class TestDen {
     testFail("A<U,U,U> x")
   }
 
+  @Test def boxInt() = {
+    implicit val env = localEnvWithBase()
+    testDen("Integer x = 1","x",x => VarStmt(IntType.box,(x,1)))
+  }
+
+  @Test def boxByte() = {
+    implicit val env = localEnvWithBase()
+    testDen("Byte x = 1","x",x => VarStmt(ByteType.box,(x,1)))
+  }
+
+  @Test def fizz() = {
+    val A = NormalClassItem("A",LocalPkg)
+    val fizz = NormalMethodItem("fizz",A,Nil,IntType,List(StringType,IntType.box,DoubleType.box),isStatic=true)
+    val x = LocalVariableItem("x",IntType,true)
+    val q = LocalVariableItem("q",DoubleType,true)
+    implicit val env = baseEnv.extend(Array(A,fizz,x,q),Map(A->1,fizz->1,x->1,q->1)).move(PlaceInfo(fizz))
+    testDen("""fizz "s" x q""",ApplyExp(StaticMethodDen(None,fizz),Nil,List(StringLit("s","\"s\""),x,q)))
+  }
+
+  @Test def shadowedParameter() = {
+    val A = NormalClassItem("A",LocalPkg)
+    val B = NormalClassItem("B",LocalPkg)
+    val C = NormalClassItem("C",LocalPkg)
+    val f = NormalMethodItem("f",A,Nil,VoidType,List(B),isStatic=true)
+    val bx = ParameterItem("x",B,true)
+    val cx = LocalVariableItem("x",C,true)
+    def env(bs: Int, cs: Int) = baseEnv.extend(Array(A,B,C,f,bx,cx),Map(bx->bs,cx->cs)).move(PlaceInfo(f))
+    def unit(x: Unit) = x
+    unit({ implicit val bad = env(bs=2,cs=1); testFail("f x") })
+    unit({ implicit val good = env(bs=1,cs=2); testDen("f x",ApplyExp(StaticMethodDen(None,f),Nil,List(bx))) })
+  }
 }
