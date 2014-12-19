@@ -63,6 +63,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private Eddy makeEddy() {
+    EnvironmentProcessor.clearGlobalEnvironment();
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
