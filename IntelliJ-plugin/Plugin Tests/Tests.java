@@ -1,4 +1,5 @@
 import com.eddysystems.eddy.Eddy;
+import com.eddysystems.eddy.EddyPlugin;
 import com.eddysystems.eddy.EnvironmentProcessor;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
@@ -63,7 +64,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private Eddy makeEddy() {
-    EnvironmentProcessor.clearGlobalEnvironment();
+    EddyPlugin.getInstance(myFixture.getProject()).initLibrariesEnv();
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
@@ -129,7 +130,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testProbLE1() {
-    EnvironmentProcessor.clearGlobalEnvironment();
     Eddy eddy = setupEddy("denote_x.java");
     Base.checkEnv(eddy.getEnv());
     for (Scores.Alt<List<String>> result : eddy.getResults())
@@ -173,7 +173,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testProject() {
-    EnvironmentProcessor.clearGlobalEnvironment();
     Eddy eddy = setupEddy("dummy.java",
                           "JSON-java/JSONObject.java",
                           "JSON-java/CDL.java",

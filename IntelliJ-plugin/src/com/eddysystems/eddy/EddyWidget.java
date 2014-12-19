@@ -33,13 +33,13 @@ public class EddyWidget implements StatusBarWidget {
     @Nullable
     public String getTooltipText() {
       if (busy()) {
-        if (Eddy.ready())
+        if (plugin.isInitialized())
           return "let me think about this...";
         else
-          return "eddy is scanning the global environment.";
+          return "eddy is scanning libraries.";
       } else {
-        if (Eddy.ready())
-          return "eddy ready, knows about " + EnvironmentProcessor.globals.size() + " global items.";
+        if (plugin.isInitialized())
+          return "eddy ready.";
         else
           return "eddy disabled.";
       }

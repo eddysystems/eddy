@@ -22,9 +22,31 @@ public class EddyPlugin implements ProjectComponent {
   private EddyWidget widget = new EddyWidget(this);
 
   private static Map<Project,EddyPlugin> projectMap = new HashMap<Project, EddyPlugin>();
-
   public static EddyPlugin getInstance(Project project) {
     return projectMap.get(project);
+  }
+
+  private EnvironmentProcessor.JavaEnvironment librariesEnv = null;
+  public EnvironmentProcessor.JavaEnvironment getLibrariesEnv() { return librariesEnv; }
+  public boolean isInitialized() { return librariesEnv != null; }
+
+  public void initLibrariesEnv() {
+    if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      librariesEnv = EnvironmentProcessor.getLibrariesEnvironment(project);
+    } else {
+      final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+      if (sbar != null) {
+        sbar.setInfo("eddy is scanning libraries...");
+        widget.moreBusy();
+      }
+
+      librariesEnv = EnvironmentProcessor.getLibrariesEnvironment(project);
+
+      if (sbar != null) {
+        sbar.setInfo("eddy scan done.");
+        widget.lessBusy();
+      }
+    }
   }
 
   public EddyPlugin(Project project) {
@@ -64,26 +86,12 @@ public class EddyPlugin implements ProjectComponent {
                   ApplicationManager.getApplication().runReadAction(new Runnable() {
                     @Override
                     public void run() {
-                      final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-                      if (sbar != null) {
-                        ApplicationManager.getApplication().invokeLater(new Runnable() {
-                          @Override public void run() {
-                            sbar.setInfo("Initializing eddy...");
-                            sbar.addWidget(widget);
-                            widget.moreBusy();
-                          }
-                        });
-                      }
-
-                      // TODO: make the global environment a project level component, so it's appropriately allocated for each project
-                      // TODO: make a trie for the libraries, and one trie for each file other than the one edited, and one for the file currently edited
-                      // TODO: add listeners to Psi rebuilding events
-                      EnvironmentProcessor.initGlobalEnvironment(project);
-
-                      if (sbar != null) {
-                        sbar.setInfo("eddy initialized.");
-                        widget.lessBusy();
-                      }
+                      ApplicationManager.getApplication().invokeLater(new Runnable() {
+                        @Override public void run() {
+                          WindowManager.getInstance().getStatusBar(project).addWidget(widget);
+                        }
+                      });
+                      initLibrariesEnv();
                     }
                   });
                 }

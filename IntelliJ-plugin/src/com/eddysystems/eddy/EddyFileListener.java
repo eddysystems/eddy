@@ -65,7 +65,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected boolean enabled() {
-    return editor.getCaretModel().getCaretCount() == 1 && Eddy.ready();
+    return editor.getCaretModel().getCaretCount() == 1 && EddyPlugin.getInstance(project).isInitialized();
   }
 
   private static final Object current_eddythread_lock = new Object();

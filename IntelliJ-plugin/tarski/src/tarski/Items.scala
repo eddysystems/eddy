@@ -312,7 +312,7 @@ object Items {
   case class EnumConstantItem(name: Name, parent: ClassItem) extends StaticValue with ClassMember {
     assert(parent.isEnum) // TODO: make a separate maker for enums?
     override def item = parent
-    def ty = parent.simple
+    def ty = parent.raw
     def isFinal = true
   }
   case class LitValue(x: Lit) extends StaticValue {

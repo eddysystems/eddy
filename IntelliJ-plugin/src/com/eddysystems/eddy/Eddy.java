@@ -55,8 +55,8 @@ public class Eddy {
     this.project = project;
   }
 
-  public static boolean ready() {
-    return EnvironmentProcessor.globals_ready;
+  public boolean ready() {
+    return EddyPlugin.getInstance(project).isInitialized();
   }
 
   // applies a result in the editor

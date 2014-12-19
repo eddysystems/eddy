@@ -30,6 +30,14 @@ import static ambiguity.JavaUtils.pushScope;
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
  */
 public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
+
+  // a class storing information about the environment.
+  static class JavaEnvironment {
+    Map<PsiElement, Item> globals = new HashMap<PsiElement, Item>();
+    Map<PsiClass,ConstructorItem> globalImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
+    Env global_env;
+  }
+
   private static final @NotNull Logger logger = Logger.getInstance("EnvironmentProcessor");
 
   private final @NotNull Place place;
@@ -43,14 +51,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
   }
 
-  // a cache containing all the items in the global environment (everything outside this file)
-  // if the PSI referenced here changes, this map becomes useless (we can check with PsiElement.isValid())
-  static final Object globals_lock = new Object();
-  static boolean globals_ready = false;
-  static Map<PsiElement, Item> globals = null;
-  static Map<PsiClass,ConstructorItem> globalImplicitConstructors = null;
-  static Env global_env = null;
-
   // things that are in scope (not all these are accessible! things may be private, or not static while we are)
   private final List<ShadowElement<PsiPackage>> packages = new SmartList<ShadowElement<PsiPackage>>();
   private final List<ShadowElement<PsiClass>> classes = new SmartList<ShadowElement<PsiClass>>();
@@ -62,19 +62,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private boolean inStaticScope = false;
   private PsiElement currentFileContext;
   private boolean honorPrivate;
-
-  // TODO: we have to recompute (part of) this every time the Psi changes (we can assume only project files, not libraries, change)
-  static public void initGlobalEnvironment(@NotNull Project project) {
-    getGlobals(new Place(project,null));
-  }
-
-  static public void clearGlobalEnvironment() {
-    synchronized (globals_lock) {
-      globals_ready = false;
-      global_env = null;
-      globals = null;
-    }
-  }
 
   public EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
     this.place = new Place(project,place);
@@ -136,64 +123,54 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     } finally { popScope(); }
   }
 
-  private static Map<PsiElement,Item> getGlobals(Place place) {
-    if (globals_ready) {
-      return globals;
-    } else {
-      synchronized (globals_lock) {
-        pushScope("make globals");
-        try {
-          if (globals == null) {
-            // get all classes from IntelliJ
-            globals = new HashMap<PsiElement, Item>();
-            globalImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
-          }
+  protected static JavaEnvironment getLibrariesEnvironment(Project project) {
+    final Place place = new Place(project, null);
+    final JavaEnvironment jenv = new JavaEnvironment();
 
-          logger.info("making globals...");
+    pushScope("make globals");
+    logger.info("making globals...");
+    try {
+      final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
+      final GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project,true);
+      // TODO: enable this to restrict scope to only libraries once we have an updating project environment
+      //final GlobalSearchScope scope = LibraryScopeCache.getInstance(project).getScopeForLibraryUsedIn(Collections.<Module>emptyList());
 
-          final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
-          final GlobalSearchScope scope = new ProjectAndLibrariesScope(place.project,true);
+      // Add all classes that are accessible from place (which is just project scope for globals)
+      final Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
+      final Map<PsiClass,ConstructorItem> fake_cons = new HashMap<PsiClass, ConstructorItem>();
+      final Converter env = new Converter(place,fake_globals,fake_cons,jenv.globals,jenv.globalImplicitConstructors);
+      addBase(env,scope,true);
 
-          // Add all classes that are accessible from place (which is just project scope for globals)
-          final Map<PsiElement,Item> fake_globals = new HashMap<PsiElement,Item>();
-          final Map<PsiClass,ConstructorItem> fake_cons = new HashMap<PsiClass, ConstructorItem>();
-          final Converter env = new Converter(place,fake_globals,fake_cons,globals,globalImplicitConstructors);
-          addBase(env,scope,true);
+      for (String name : cache.getAllClassNames()) {
+        // keep IDE responsive
+        Utility.processEvents();
 
-          for (String name : cache.getAllClassNames()) {
-            // keep IDE responsive
-            Utility.processEvents();
-
-            for (PsiClass cls : cache.getClassesByName(name, scope))
-              if (!place.isInaccessible(cls, true))
-                env.addClass(cls, true, true);
-          }
-
-          logger.info("making global_env with " + globals.size() + " items.");
-
-          // update global_env
-          ArrayList<Item> items = new ArrayList<Item>(globals.values());
-          items.addAll(globalImplicitConstructors.values());
-          global_env = Tarski.environment(items);
-
-          logger.info("global_env ready.");
-
-          globals_ready = true;
-        } finally { popScope(); }
+        for (PsiClass cls : cache.getClassesByName(name, scope))
+          if (!place.isInaccessible(cls, true))
+            env.addClass(cls, true, true);
       }
-      return globals;
-    }
+
+      logger.info("making global_env with " + jenv.globals.size() + " items.");
+
+      // update global_env
+      ArrayList<Item> items = new ArrayList<Item>(jenv.globals.values());
+      items.addAll(jenv.globalImplicitConstructors.values());
+      jenv.global_env = Tarski.environment(items);
+
+      logger.info("global_env ready.");
+    } finally { popScope(); }
+    return jenv;
   }
 
   /**
    * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names
    */
   public Env getJavaEnvironment() {
-    final Map<PsiElement,Item> globals = getGlobals(place);
+    final JavaEnvironment jenv = EddyPlugin.getInstance(place.project).getLibrariesEnv();
     final Map<PsiElement,Item> locals = new HashMap<PsiElement, Item>();
     final Map<PsiClass,ConstructorItem> localImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
     final Map<Item,Integer> scopeItems = new HashMap<Item, Integer>();
-    final Converter env = new Converter(place,globals,globalImplicitConstructors,locals,localImplicitConstructors);
+    final Converter env = new Converter(place,jenv.globals,jenv.globalImplicitConstructors,locals,localImplicitConstructors);
 
     logger.info("getting local items...");
 
@@ -227,7 +204,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         final Item ivar = env.addField((PsiField) var);
         scopeItems.put(ivar,svar.shadowingPriority);
       } else {
-        assert !globals.containsKey(var);
+        assert !jenv.globals.containsKey(var);
         assert !locals.containsKey(var);
         final Type t = env.convertType(var.getType());
         final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
@@ -278,7 +255,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
-        assert locals.containsKey(place) || globals.containsKey(place);
+        assert locals.containsKey(place) || jenv.globals.containsKey(place);
         final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);
         assert scopeItems.containsKey(c);
         final int p = scopeItems.get(c);
@@ -295,9 +272,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
-          assert globals.containsKey(place) || locals.containsKey(place);
-          if (globals.containsKey(place))
-            placeItem = (PlaceItem)globals.get(place);
+          assert jenv.globals.containsKey(place) || locals.containsKey(place);
+          if (jenv.globals.containsKey(place))
+            placeItem = (PlaceItem)jenv.globals.get(place);
           else if (locals.containsKey(place))
             placeItem = (PlaceItem)locals.get(place);
         }
@@ -309,7 +286,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
             placeItem = Tarski.localPkg();
         } else {
           if (placeItem == null) {
-            assert locals.containsKey(pkg) || globals.containsKey(pkg);
+            assert locals.containsKey(pkg) || jenv.globals.containsKey(pkg);
             placeItem = (PlaceItem)env.addContainer(pkg);
           }
         }
@@ -321,21 +298,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     logger.info("environment (" + local_items.size() + " local items) taken inside " + placeItem + ", making env");
 
-    /*
-    for (NamedItem item: localItems.keySet()) {
-      if (item.qualifiedName().startsWith("java.lang."))
-        continue;
-      logger.debug("  " + item);
-    }
-
-    for (NamedItem item : items) {
-      logger.debug("  " + item + (localItems.containsKey(item) ? " scope level " + localItems.get(item).toString() : " not in scope."));
-    }
-    */
-
     // TODO: add information about whether we are inside a constructor and the first statement (and forwarding to this or super is available)
     final Item[] localArray = local_items.toArray(new Item[local_items.size()]);
-    final Env tenv = Tarski.addEnvironment(global_env, localArray, scopeItems)
+    final Env tenv = Tarski.addEnvironment(jenv.global_env, localArray, scopeItems)
                            .move(new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
 
     logger.info("done");
