@@ -413,16 +413,18 @@ public class JavaScores {
             final LazyScored<A> _x = (LazyScored<A>)x;
             if (first || _x.p() > p) {
               x = _x.force(p);
-              continue;
+              if (x instanceof EmptyOrBad)
+                s = (Scored<B>)x;
+              else
+                continue;
             } else
               s = clone(x);
-          } else if (x instanceof Best) {
+          } else { // LazyMapBase is used only for LazyScored or Best
             final Best<A> _x = (Best<A>)x;
             final Scored<A> xr = _x.r();
             final Scored<B> fr = xr instanceof EmptyOrBad ? (Scored<B>)Empty$.MODULE$ : clone(xr);
             s = map(_x.dp(),_x.x(),fr);
-          } else
-            s = (Scored)x;
+          }
           break;
         }
       }
