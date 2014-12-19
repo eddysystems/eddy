@@ -19,12 +19,9 @@ import tarski.Items.Item;
 import tarski.Scores;
 import tarski.Scores.Alt;
 import tarski.Types;
-
 import java.util.List;
-
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
-import static ambiguity.JavaUtils.resetScope;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
@@ -66,8 +63,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private Eddy makeEddy() {
-    // in case a previous test existed not so cleanly
-    resetScope();
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
@@ -82,10 +77,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   private Eddy setupEddy(final String filename) {
     pushScope("setup eddy");
-    myFixture.configureByFile(filename);
-    Eddy e = makeEddy();
-    popScope();
-    return e;
+    try {
+      myFixture.configureByFile(filename);
+      return makeEddy();
+    } finally { popScope(); }
   }
 
   private void dumpResults(Eddy eddy) {

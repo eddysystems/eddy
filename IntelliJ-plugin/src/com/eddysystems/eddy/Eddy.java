@@ -246,11 +246,11 @@ public class Eddy {
         return;
 
       pushScope("environment");
-      env = new EnvironmentProcessor(project, place, true).getJavaEnvironment();
-      final List<Tokens.Token> _tokens = tokens;
-      popPushScope("fix");
-      results = Tarski.fixJava(_tokens, env);
-      popScope();
+      try { env = new EnvironmentProcessor(project, place, true).getJavaEnvironment(); }
+      finally { popScope(); }
+      pushScope("fix");
+      try { results = Tarski.fixJava(tokens, env); }
+      finally { popScope(); }
 
       resultStrings = reformat(results, before_text);
     }

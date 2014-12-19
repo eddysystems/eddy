@@ -10,13 +10,11 @@ public class JavaTrie {
 
   // Should be parameterized over V extends Named.  That causes weird build issues, so we hard code V = Named.
   public static int[] makeTrieStructure(Tries.Named[] values) {
-    //JavaUtils.pushScope("trie structure");
     // Count nodes and determine maximum depth
     //      : *0-         : 1,3
     // a    : *1a#*0-     : 2,7
     // a b  : *2a#b#*0*0- : 3,11
     // a ab : *1a#*1b#*0- : 3,11
-    //JavaUtils.pushScope("count");
     int nodes = 1;
     int maxSize = 0;
     String prev = "";
@@ -31,12 +29,10 @@ public class JavaTrie {
     int structureSize = 4*nodes-1;
 
     // Determine node information: an array of (position,start) pairs.
-    //JavaUtils.popPushScope("allocate info+stack");
     int[] info = new int[2*nodes+1];
     int[] stack = new int[depth];
 
     // At first, each info pair is (children,start)
-    //JavaUtils.popPushScope("children");
     prev = "";
     int n = 1;
     for (int i = 0; i < values.length; ++i) {
@@ -59,7 +55,6 @@ public class JavaTrie {
     assert n == nodes;
 
     // Accumulate children into position
-    //JavaUtils.popPushScope("position");
     int total = 0;
     for (n = 0; n < nodes; ++n) {
       int next = total+2+2*info[2*n];
@@ -70,12 +65,10 @@ public class JavaTrie {
     info[2*nodes] = total;
 
     // Allocate structure
-    //JavaUtils.popPushScope("allocate structure");
     int[] structure = new int[structureSize];
 
     // Generate tree
     // Initialize value starts.  Child counts are correctly already zero.
-    //JavaUtils.popPushScope("structure");
     for (n = 0; n < nodes; ++n)
       structure[info[2*n]] = info[2*n+1];
     structure[info[2*nodes]] = values.length;
@@ -109,9 +102,6 @@ public class JavaTrie {
       prev = k;
     }
     assert n == nodes;
-
-    //JavaUtils.popScope();
-    //JavaUtils.popScope();
     return structure;
   }
   

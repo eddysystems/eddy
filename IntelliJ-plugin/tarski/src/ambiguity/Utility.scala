@@ -207,9 +207,7 @@ object Utility {
   }
 
   def scoped[R](name: String, f: => R): R = {
-    JavaUtils.pushScope(name);
-    val r = f
-    JavaUtils.popScope();
-    r
+    JavaUtils.pushScope(name)
+    try f finally JavaUtils.popScope()
   }
 }
