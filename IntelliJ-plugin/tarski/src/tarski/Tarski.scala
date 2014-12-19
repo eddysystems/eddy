@@ -76,8 +76,7 @@ object Tarski {
     show(tokens(ss.asScala.toList))
 
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
-    val clean = tokens.filterNot(isSpace).map(fake)
-    val asts = Mismatch.repair(clean) flatMap (ts => {
+    val asts = Mismatch.repair(prepare(tokens)) flatMap (ts => {
       val asts = ParseEddy.parse(ts)
       for (a <- asts; n = asts.count(a==_); if n > 1)
         throw new RuntimeException(s"AST duplicated $n times: $a")

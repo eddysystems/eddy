@@ -81,7 +81,11 @@ Type AExp
   ExpHigh                           { $1 }
   QuestionTok WildcardBounds        { WildAExp($2) }
 TypeArgs KList[AExp]
-  LtTok List[Type] GtTok            { $2 }
+  LtTok List[Type] GtSep GtTok      { $2 }
+GtSep Unit
+  ""                                { () }
+  RShiftSepTok                      { () }
+  UnsignedRShiftSepTok              { () }
 WildcardBounds Option[(Bound,AExp)]
   ""                                { None }
   ExtendsTok Type                   { Some((Extends,$2)) }
@@ -232,8 +236,8 @@ ExpRel[a] AExp
 ExpShift[a] AExp
   ExpAdd[a]                                                 { $1 }
   ExpShift[EJ] LShiftTok ExpAdd[EJ]                         { BinaryAExp(LShiftOp,$1,$3) }
-  ExpShift[EJ] RShiftTok ExpAdd[EJ]                         { BinaryAExp(RShiftOp,$1,$3) }
-  ExpShift[EJ] UnsignedRShiftTok ExpAdd[EJ]                 { BinaryAExp(UnsignedRShiftOp,$1,$3) }
+  ExpShift[EJ] GtTok RShiftSepTok GtTok ExpAdd[EJ]          { BinaryAExp(RShiftOp,$1,$5) }
+  ExpShift[EJ] GtTok UnsignedRShiftSepTok GtTok UnsignedRShiftSepTok GtTok ExpAdd[EJ] { BinaryAExp(UnsignedRShiftOp,$1,$7) }
 ExpAdd[a] AExp
   ExpMul[a]                                                 { $1 }
   ExpAdd[EJ] PlusTok ExpMul[a]                              { BinaryAExp(AddOp,$1,$3) }
