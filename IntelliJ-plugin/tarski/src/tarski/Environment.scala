@@ -108,7 +108,7 @@ object Environment {
     def extend(things: Array[Item], scope: Map[Item,Int]) =
       TwoEnv(trie0,trie1++things,
              byItem0,valuesByItem(trie1.values++things),
-             scope++scope,place)
+             this.scope++scope,place)
 
     def move(to: PlaceInfo) =
       TwoEnv(trie0,trie1,byItem0,byItem1,scope,to)
