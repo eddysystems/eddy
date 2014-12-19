@@ -377,10 +377,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   @Override
   public boolean execute(@NotNull PsiElement element, ResolveState state) {
 
-    // stop once we leave the file
-    if (currentFileContext == null)
-      return false;
-
     // if we are in static scope, a class member has to be declared static for us to see it
     // TODO: we should add these either way, and let the semantics logic take care of static scoping
     if (element instanceof PsiField || element instanceof PsiMethod) {
