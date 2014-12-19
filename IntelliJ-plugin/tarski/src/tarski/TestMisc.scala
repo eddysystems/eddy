@@ -51,8 +51,7 @@ class TestMisc {
   @Test def bias() = {
     val ax = alts("x",20,seed=81241)
     val p = Prob("bias",.7)
-    val x = multipleGood(ax)
-    test(ax map {case Alt(q,x) => Alt(pmul(p,q),x)},x bias p)
+    test(ax map {case Alt(q,x) => Alt(pmul(p,q),x)},biased(p,multipleGood(ax)))
   }
 
   @Test def map() = {

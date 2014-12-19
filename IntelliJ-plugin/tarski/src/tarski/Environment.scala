@@ -72,7 +72,7 @@ object Environment {
     // Get exact and typo probabilities for string queries
     def query(typed: String): List[Alt[Item]]
     def exactQuery(typed: String): List[Item]
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A]
+    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A]
 
     // Lookup by type.item
     def byItem(t: TypeItem): Scored[Value]
@@ -171,7 +171,7 @@ object Environment {
     def exactQuery(typed: String): List[Item] =
       trie1.exact(typed) ++ trie0.exact(typed)
 
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: String): Scored[A] = {
+    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A] = {
       @tailrec def collectExact(is: List[Item], as: List[Alt[A]]): List[Alt[A]] = is match {
         case Nil => as
         case i::is => collectExact(is,if (filter.isDefinedAt(i)) Alt(exactProb,filter.apply(i))::as else as)
@@ -181,7 +181,7 @@ object Environment {
         case Nil => as
         case Alt(p,i)::is => collectApprox(is,if (filter.isDefinedAt(i)) Alt(pmul(compExactProb,p),filter.apply(i))::as else as)
       }
-      orderedAlternative(collectExact(exactQuery(typed),Nil), () => collectApprox(query(typed),Nil), error)
+      orderedAlternative(collectExact(exactQuery(typed),Nil),collectApprox(query(typed),Nil),error)
     }
 
     def byItem(t: TypeItem): Scored[Value] = {

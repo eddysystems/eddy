@@ -134,7 +134,7 @@ object Semantics {
     }
 
     // TODO: add around to TypeApplyAExp
-    case TypeApplyAExp(x,ts) => denoteType(x) bias Pr.typeApply flatMap { den => den.beneath match {
+    case TypeApplyAExp(x,ts) => biased(Pr.typeApply,denoteType(x) flatMap { den => den.beneath match {
       // TODO: do something smarter, similar to fiddleCall, if there are bounded parameters?
       case RawType(ci,parent) if ci.arity == ts.list.size => {
         val tys = ts.list map denoteTypeArg
@@ -145,7 +145,7 @@ object Semantics {
         }
       }
       case x => fail(s"cannot apply parameters $ts to type $x")
-    }}
+    }})
 
     case ApplyAExp(x,EmptyList,BrackAround) => denoteType(x) flatMap (t => mapTypeTypeDiscards(t,t => known(ArrayType(t))))
 

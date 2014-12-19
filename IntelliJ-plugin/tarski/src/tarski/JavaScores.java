@@ -17,8 +17,8 @@ public class JavaScores {
   static final boolean trackErrors = false;
 
   // To enable probability tracking, swap the comment blocks below and make the substitution
-  //   double/*Prob*/   ->   DebugProb
-  // Also swap the definition of Prob in Scores, and fix the compile error in JavaTrie.
+  //   double /*Prob*/   ->   DebugProb
+  // except without the space.  Also swap the definition of Prob in Scores, and fix the compile error in JavaTrie.
 
   // Divide two probabilities, turning infinity into 2
   static double pdiv(double x, double y) { return y == 0 ? 2 : x/y; }
@@ -30,6 +30,7 @@ public class JavaScores {
   static final double pzero = 0;
   static double padd(double x, double y) { return x+y; }
   static double pcomp(double x) { return 1-x; }
+  /**/
 
   // Named probabilities.  Very expensive, so enable only for debugging.
   /*
@@ -61,7 +62,7 @@ public class JavaScores {
   static DebugProb padd(DebugProb x, DebugProb y) { return y==pzero ? x : new AddProb(x,y); }
   static DebugProb pcomp(DebugProb x) { return new CompProb(x); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
-  */
+  /**/
 
   // s bias q
   static final class Biased<B> extends HasProb {
@@ -329,7 +330,7 @@ public class JavaScores {
               s = new LazyBias<A>(_x,q);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<A>(pmul(q,_x.dp()),_x.x(),_x.r().bias(q));
+            s = new Best<A>(pmul(q,_x.dp()),_x.x(),_x.r()._bias(q));
           } else
             s = x;
           break;
@@ -412,16 +413,18 @@ public class JavaScores {
             final LazyScored<A> _x = (LazyScored<A>)x;
             if (first || _x.p() > p) {
               x = _x.force(p);
-              continue;
+              if (x instanceof EmptyOrBad)
+                s = (Scored<B>)x;
+              else
+                continue;
             } else
               s = clone(x);
-          } else if (x instanceof Best) {
+          } else { // LazyMapBase is used only for LazyScored or Best
             final Best<A> _x = (Best<A>)x;
             final Scored<A> xr = _x.r();
             final Scored<B> fr = xr instanceof EmptyOrBad ? (Scored<B>)Empty$.MODULE$ : clone(xr);
             s = map(_x.dp(),_x.x(),fr);
-          } else
-            s = (Scored)x;
+          }
           break;
         }
       }
@@ -563,36 +566,11 @@ public class JavaScores {
               s = new LazyBias<A>(_x,_p);
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
-            s = new Best<A>(pmul(_p,_x.dp()),_x.x(),_x.r().bias(_p));
+            s = new Best<A>(pmul(_p,_x.dp()),_x.x(),_x.r()._bias(_p));
           } else
             s = (Scored)x;
           break;
         }
-      }
-      return s;
-    }
-  }
-
-  static public final class LazyBound<A> extends LazyScored<A> {
-    private final double _p;
-    private Function0<Scored<A>> f;
-    private Scored<A> s;
-
-    LazyBound(double p, Function0<Scored<A>> f) {
-      this._p = p;
-      this.f = f;
-    }
-
-    public double p() {
-      return _p;
-    }
-
-    public Scored<A> force(double q) {
-      if (s == null) {
-        Scored<A> x = f.apply(); f = null;
-        while (x instanceof LazyScored && x.p() > q)
-          x = ((LazyScored<A>)x).force(q);
-        s = x;
       }
       return s;
     }
