@@ -575,29 +575,4 @@ public class JavaScores {
       return s;
     }
   }
-
-  static public final class LazyBound<A> extends LazyScored<A> {
-    private final double _p;
-    private Function0<Scored<A>> f;
-    private Scored<A> s;
-
-    LazyBound(double p, Function0<Scored<A>> f) {
-      this._p = p;
-      this.f = f;
-    }
-
-    public double p() {
-      return _p;
-    }
-
-    public Scored<A> force(double q) {
-      if (s == null) {
-        Scored<A> x = f.apply(); f = null;
-        while (x instanceof LazyScored && x.p() > q)
-          x = ((LazyScored<A>)x).force(q);
-        s = x;
-      }
-      return s;
-    }
-  }
 }

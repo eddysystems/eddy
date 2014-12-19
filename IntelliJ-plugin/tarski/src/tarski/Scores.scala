@@ -182,9 +182,6 @@ object Scores {
   // Bias and delay
   @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBiased(p,() => s)
 
-  // Bound and delay
-  @inline def bounded[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBound(pp(p),() => s)
-
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
     new UniformState[A](p,xs,if (trackErrors) () => error else null).extract(0)
 
