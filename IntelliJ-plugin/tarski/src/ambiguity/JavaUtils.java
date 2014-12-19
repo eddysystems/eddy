@@ -36,8 +36,11 @@ public class JavaUtils {
     return scopes;
   }
   private static final Stack<Scope> scopes = initScopes();
+  public static boolean skipScopes = false; // Used to silence tiny irrelevant scopes
 
   public static void pushScope(String name) {
+    if (skipScopes)
+      return;
     final Scope s = scopes.peek();
     if (s.leaf) {
       System.out.printf("%s%s\n",StringUtils.repeat("  ",scopes.size()-2),s.name);
@@ -48,6 +51,8 @@ public class JavaUtils {
 
   // IMPORTANT: Always call popScope as finally { popScope() } so that grep confirms safety
   public static void popScope() {
+    if (skipScopes)
+      return;
     assert scopes.size() > 1;
     final long end = System.nanoTime();
     final Scope s = scopes.pop();

@@ -206,8 +206,13 @@ object Utility {
     }
   }
 
-  def scoped[R](name: String, f: => R): R = {
+  def scoped[A](name: String, f: => A): A = {
     JavaUtils.pushScope(name)
     try f finally JavaUtils.popScope()
+  }
+  def silenced[A](f: => A): A = {
+    val s = JavaUtils.skipScopes
+    JavaUtils.skipScopes = true
+    try f finally JavaUtils.skipScopes = s
   }
 }

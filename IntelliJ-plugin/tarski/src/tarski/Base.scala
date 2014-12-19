@@ -5,7 +5,7 @@ import tarski.Denotations.{BooleanLit, NullLit}
 import tarski.Environment.Env
 import tarski.Items._
 import tarski.Types._
-
+import ambiguity.Utility._
 import scala.collection.mutable
 
 object Base {
@@ -163,7 +163,7 @@ object Base {
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
 
   // Standard base environment for tests
-  val baseEnv = Env(Array(
+  val baseEnv = silenced(Env(Array(
     // Packages
     JavaLangPkg,JavaIoPkg,LocalPkg,
     // Primitive types
@@ -178,17 +178,17 @@ object Base {
     ObjectConsItem,
     // Literals
     trueLit,falseLit,nullLit
-  ))
+  )))
 
   // base environment with all class/interface items at scope level 7
-  val testEnv = Env(baseEnv.allItems, (baseEnv.allItems collect {
+  val testEnv = silenced(Env(baseEnv.allItems, (baseEnv.allItems collect {
     case t@(_:PackageItem|_:ClassItem) => (t,7)
-  }).toMap)
+  }).toMap))
 
   // Things that EnvironmentProcessor won't add on its own
-  val extraEnv = Env(Array(
+  val extraEnv = silenced(Env(Array(
     LocalPkg,trueLit,falseLit,nullLit,
-    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem))
+    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem)))
 
   // Check that an environment has a unique copy of everything in baseEnv
   def checkEnv(env: Env): Unit = {
