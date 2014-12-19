@@ -7,6 +7,8 @@ import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
+
+import java.util.ArrayList;
 import java.util.PriorityQueue;
 import static java.lang.Math.max;
 import static tarski.Scores.oneError;
@@ -30,30 +32,61 @@ public class JavaScores {
   static final double pzero = 0;
   static double padd(double x, double y) { return x+y; }
   static double pcomp(double x) { return 1-x; }
+  static public Scores.Error ppretty(double x) { return new OneError(""+x); }
   /**/
 
   // Named probabilities.  Very expensive, so enable only for debugging.
   /*
-  static class DebugProb {
+  static abstract public class DebugProb {
     final double prob;
     DebugProb(double prob) { this.prob = prob; }
     public boolean equals(Object y) { return y instanceof DebugProb && prob==((DebugProb)y).prob; }
+    final public String toString() { return ""+prob; }
+    abstract public Scores.Error pretty();
   }
   static final class NameProb extends DebugProb {
     final String name;
     NameProb(String name, double prob) { super(prob); this.name = name; }
+    final public Scores.Error pretty() { return new OneError(prob+" : "+name); }
+  }
+  static private NestError nest(String e, Scores.Error... es) {
+    List xs = (List)Nil$.MODULE$;
+    for (int i=es.length-1;i>=0;i--) xs = $colon$colon$.MODULE$.apply(es[i],xs);
+    return new NestError(e,xs);
   }
   static final class MulProb extends DebugProb {
     final DebugProb x,y;
     MulProb(DebugProb x, DebugProb y) { super(x.prob*y.prob); this.x = x; this.y = y; }
+    final public Scores.Error pretty() {
+      final ArrayList<Scores.Error> es = new ArrayList<Scores.Error>();
+      flatten(es);
+      return nest("* : "+prob,es.toArray(new Scores.Error[es.size()]));
+    }
+    private void flatten(ArrayList<Scores.Error> es) {
+      if (x instanceof MulProb) ((MulProb)x).flatten(es); else es.add(x.pretty());
+      if (y instanceof MulProb) ((MulProb)y).flatten(es); else es.add(y.pretty());
+    }
   }
   static final class AddProb extends DebugProb {
     final DebugProb x,y;
     AddProb(DebugProb x, DebugProb y) { super(x.prob+y.prob); this.x = x; this.y = y; }
+    final public Scores.Error pretty() {
+      final ArrayList<Scores.Error> es = new ArrayList<Scores.Error>();
+      flatten(es);
+      return nest("+ : "+prob,es.toArray(new Scores.Error[es.size()]));
+    }
+    private void flatten(ArrayList<Scores.Error> es) {
+      if (x instanceof AddProb) ((AddProb)x).flatten(es); else es.add(x.pretty());
+      if (y instanceof AddProb) ((AddProb)y).flatten(es); else es.add(y.pretty());
+    }
   }
   static final class CompProb extends DebugProb {
     final DebugProb x;
-    CompProb(DebugProb x) { super(x.prob); this.x = x; }
+    CompProb(DebugProb x) { super(1-x.prob); this.x = x; }
+    final public Scores.Error pretty() {
+      final Scores.Error e = x.pretty();
+      return e instanceof OneError ? new OneError("1 - "+((OneError)e).e()) : nest("1 -",e);
+    }
   }
   static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
@@ -62,6 +95,7 @@ public class JavaScores {
   static DebugProb padd(DebugProb x, DebugProb y) { return y==pzero ? x : new AddProb(x,y); }
   static DebugProb pcomp(DebugProb x) { return new CompProb(x); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
+  static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
   /**/
 
   // s bias q

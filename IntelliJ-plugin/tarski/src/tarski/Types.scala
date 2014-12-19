@@ -496,7 +496,9 @@ object Types {
       case _ if from==to => true
       case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
       case (f: RefType, t: RefType) => widensRefUncheckedTo(f,t)
-      case (f: PrimType, t: RefType) => widensRefTo(f.box,t)
+      case (f: PrimType, t: RefType) =>
+        val fb = f.box
+        fb == t || widensRefTo(fb,t)
       case (f: RefType, t: PrimType) => f.unbox match {
         case Some(fp) => widensPrimTo(fp,t)
         case None => false
@@ -516,7 +518,9 @@ object Types {
     case (VoidType, _) => false
     case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
     case (f: RefType, t: RefType) => widensRefUncheckedTo(f,t)
-    case (f: PrimType, t: RefType) => widensRefTo(f.box,t)
+    case (f: PrimType, t: RefType) =>
+      val fb = f.box
+      fb == t || widensRefTo(fb,t)
     case (f: RefType, t: PrimType) => f.unbox match {
       case Some(fp) => widensPrimTo(fp,t)
       case None => false

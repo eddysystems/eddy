@@ -16,10 +16,9 @@ import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-import tarski.Environment;
-import tarski.Scores;
-import tarski.Tarski;
-import tarski.Tokens;
+import org.jetbrains.annotations.Nullable;
+import scala.collection.immutable.Map;
+import tarski.*;
 
 import java.util.List;
 
@@ -117,7 +116,7 @@ public class Eddy {
     canceled = true;
   }
 
-  public void process(@NotNull Editor editor) {
+  public void process(@NotNull Editor editor, final @Nullable String special) {
     logger.info("processing eddy@" + hashCode() + "...");
     assert project == editor.getProject();
 
@@ -164,8 +163,7 @@ public class Eddy {
     }
 
     if (elem != null) {
-
-      // bail if we're not inside a code block
+      // Bail if we're not inside a code block
       // TODO: remove this once we can handle class/method declarations
       PsiElement block = elem;
       while (block != null && !(block instanceof PsiClass) && !(block instanceof PsiMethod) && !(block instanceof PsiCodeBlock)) {
@@ -249,8 +247,22 @@ public class Eddy {
       try { env = new EnvironmentProcessor(project, place, true).getJavaEnvironment(); }
       finally { popScope(); }
       pushScope("fix");
-      try { results = Tarski.fixJava(tokens, env); }
-      finally { popScope(); }
+      try {
+        final Tarski.Enough enough = new Tarski.Enough() { @Override
+          public boolean enough(Map<List<String>,Object> m) {
+            if (m.size() < 4) return false;
+            if (special == null) return true;
+            final scala.collection.Iterator<List<String>> i =  m.keysIterator();
+            while (i.hasNext()) {
+              final List<String> x = i.next();
+              if (reformat(x).equals(special))
+                return true;
+            }
+            return false;
+          }
+        };
+        results = Tarski.fixJava(tokens,env,enough);
+      } finally { popScope(); }
 
       resultStrings = reformat(results, before_text);
     }
@@ -259,12 +271,7 @@ public class Eddy {
   private List<String> reformat(List<Scores.Alt<List<String>>> results, String before_text) {
     List<String> resultStrings = new SmartList<String>();
     for (Scores.Alt<List<String>> interpretation : results) {
-      String s = "";
-      for (String ss : interpretation.x()) {
-        s += reformat(ss) + " ";
-      }
-      if (!s.isEmpty())
-        s = s.substring(0,s.length()-1);
+      final String s = reformat(interpretation.x());
       resultStrings.add(s);
       logger.info("eddy result: '" + s + "' existing '" + before_text + "'");
       if (s.equals(before_text))
@@ -309,11 +316,22 @@ public class Eddy {
     return resultStrings.get(i);
   }
 
-  // the string should be a single syntactically valid statement
+  // The string should be a single syntactically valid statement
   private String reformat(@NotNull String in) {
     PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(in, place);
     CodeStyleManager.getInstance(project).reformat(elem, true);
     return elem.getText();
+  }
+
+  private String reformat(@NotNull List<String> in) {
+    String r = "";
+    boolean first = true;
+    for (final String s : in) {
+      if (first) first = false;
+      else r += " ";
+      r += reformat(s);
+    }
+    return r;
   }
 
   public String bestText() {

@@ -116,7 +116,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
           }
 
           EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
-          eddy.process(owner.editor);
+          eddy.process(owner.editor,null);
           EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
 
           if (!eddy.foundSomethingUseful() || isInterrupted())

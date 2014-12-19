@@ -30,16 +30,20 @@ object Tarski {
     }
   }
 
-  def fixJava(tokens: java.util.List[Token], env: Env): java.util.List[Alt[java.util.List[String]]] = {
-    val limit = 4 // Report at most this many alternatives
+  type Result = java.util.List[String]
+  abstract class Enough {
+    def enough(m: Map[Result,Prob]): Boolean
+  }
+
+  def fixJava(tokens: java.util.List[Token], env: Env, enough: Enough): java.util.List[Alt[Result]] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
 
     //println(s"fix found: empty ${r.isEmpty}, single ${r.isSingle}, best ${r.best}")
 
-    // Take up to limit elements, merging duplicates and adding their probabilities if found
-    def mergeTake[A](s: Stream[Alt[A]])(m: Map[A,Prob]): List[Alt[A]] =
-      if (m.size == limit || s.isEmpty) {
+    // Take elements until we have enough, merging duplicates and adding their probabilities if found
+    def mergeTake(s: Stream[Alt[Result]])(m: Map[Result,Prob]): List[Alt[Result]] =
+      if (s.isEmpty || enough.enough(m)) {
         m.toList map {case (a,p) => Alt(p,a)} sortBy (-_.p)
       } else {
         val Alt(p,a) = s.head

@@ -623,4 +623,22 @@ class TestDen {
     testFail("A<U,U,U> x")
   }
 
+  @Test def boxInt() = {
+    implicit val env = localEnvWithBase()
+    testDen("Integer x = 1","x",x => VarStmt(IntType.box,(x,1)))
+  }
+
+  @Test def boxByte() = {
+    implicit val env = localEnvWithBase()
+    testDen("Byte x = 1","x",x => VarStmt(ByteType.box,(x,1)))
+  }
+
+  @Test def fizz() = {
+    val A = NormalClassItem("A",LocalPkg,Nil)
+    val fizz = NormalMethodItem("fizz",A,Nil,IntType,List(StringType,IntType.box,DoubleType.box),isStatic=true)
+    val x = LocalVariableItem("x",IntType,true)
+    val q = LocalVariableItem("q",DoubleType,true)
+    implicit val env = baseEnv.extend(Array(A,fizz,x,q),Map(A->1,fizz->1,x->1,q->1)).move(PlaceInfo(fizz))
+    testDen("""fizz "s" x q""",ApplyExp(StaticMethodDen(None,fizz),Nil,List(StringLit("s","\"s\""),x,q)))
+  }
 }
