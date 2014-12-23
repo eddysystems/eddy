@@ -4,7 +4,7 @@ import ambiguity.Utility._
 import tarski.AST._
 import tarski.Base._
 import tarski.Constants._
-import tarski.Denotations.{HasDiscards, Exp}
+import tarski.Denotations.Exp
 import tarski.Items._
 import tarski.Operators._
 
@@ -14,7 +14,7 @@ import scala.annotation.tailrec
 object Types {
 
   // Types
-  sealed abstract class Type extends AboveType {
+  sealed abstract class Type {
     def item: TypeItem
     def supers: List[RefType] // Immediate super classes
     def isSimple: Boolean // Do we depend on any type parameters?
@@ -40,10 +40,6 @@ object Types {
 
     // If we're generic, become raw
     def raw: Type
-
-    def beneath = this
-    def discards: List[Denotations.Stmt] = Nil
-    def discard(ds: List[Denotations.Stmt]): AboveType = DiscardType(ds,this)
   }
   sealed abstract class LangType extends Type { // Primitive or void
     def supers = Nil
@@ -121,16 +117,11 @@ object Types {
   }
 
   // Reference types
-  sealed abstract class RefType extends Type with TypeArg with AboveRefType {
+  sealed abstract class RefType extends Type with TypeArg {
     def item: RefTypeItem
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
     def raw: RefType
-    def isSubtypeOf(x: RefType) = isSubtype(this, x)
-
-    override def beneath: RefType = this
-    override def discards: List[Denotations.Stmt] = Nil
-    override def discard(ds: List[Denotations.Stmt]): AboveRefType = DiscardRefType(ds,this)
   }
 
   // Class types are either Object, simple, raw, or generic
@@ -144,7 +135,7 @@ object Types {
     def safe: Option[ClassType]
     def raw: ClassType
   }
-  case object ObjectType extends ClassType with NoDiscardsRefType {
+  case object ObjectType extends ClassType {
     def item = ObjectItem
     def args = Nil
     def parent = JavaLangPkg
@@ -157,7 +148,7 @@ object Types {
     def safe = Some(this)
     def raw = this
   }
-  case class SimpleType(item: ClassItem, parent: Parent) extends ClassType with NoDiscardsRefType {
+  case class SimpleType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
     def env = parent.env
     def isRaw = parent.isRaw
@@ -168,7 +159,7 @@ object Types {
     def safe = parent.safe map (SimpleType(item,_))
     def raw = SimpleType(item,parent.raw)
   }
-  case class RawType(item: ClassItem, parent: Parent) extends ClassType with NoDiscardsRefType {
+  case class RawType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
     def env = item.tparams.foldLeft(parent.env)((env,p) => env+((p,None)))
     def isRaw = true
@@ -178,8 +169,8 @@ object Types {
     def safe = parent.safe map (RawType(item,_))
     def raw = this
   }
-  case class GenericType(item: ClassItem, args: List[TypeArg], parent: Parent) extends ClassType with NoDiscardsRefType {
-    def env() = capture(this,parent.env)._1
+  case class GenericType(item: ClassItem, args: List[TypeArg], parent: Parent) extends ClassType {
+    def env() = capture(item.tparams,args,parent.env)._1
     def isRaw = parent.isRaw
     def isSimple = false
     def known(implicit env: Tenv) = args.forall(_.known) && parent.known
@@ -193,15 +184,10 @@ object Types {
   }
 
   // Type arguments are either reference types or wildcards.  4.5.1
-  sealed trait TypeArg extends AboveTypeArg { // Inherited by RefType and Wildcard
+  sealed trait TypeArg { // Inherited by RefType and Wildcard
     def known(implicit env: Tenv): Boolean
     def substitute(implicit env: Tenv): TypeArg
     def safe: Option[TypeArg]
-
-    // AboveType support
-    def beneath = this
-    def discards: List[Denotations.Stmt] = Nil
-    def discard(ds: List[Denotations.Stmt]): AboveTypeArg = DiscardTypeArg(ds,this)
   }
   sealed trait Wildcard extends TypeArg {
     val t: RefType
@@ -217,7 +203,7 @@ object Types {
   }
 
   // Nonclass reference types: null, type variables, intersection types, and arrays
-  case object NullType extends RefType with NoDiscardsRefType {
+  case object NullType extends RefType {
     def item = NoTypeItem
     def supers = Nil
     def isFinal = true
@@ -229,8 +215,8 @@ object Types {
   }
   abstract class TypeVar extends RefType with RefTypeItem with RefEq {
     def name: Name
-    def lo: RefType // Lower bound
-    def hi: RefType // Upper bound
+    def lo: RefType // Lower bound (e.g., nulltype)
+    def hi: RefType // Upper bound (e.g., Object)
 
     def supers = List(hi)
     def item = this
@@ -250,18 +236,8 @@ object Types {
     def inside = this
     def raw: TypeVar = this
     def qualifiedName: Option[String] = None
-
-    def matches(t: TypeArg)(implicit env: Tenv) = if (known) { val x = substitute; t match {
-      case r:RefType => r isSubtypeOf x
-      case WildSub(r) => r isSubtypeOf x
-      case WildSuper(r) => x == ObjectType
-    }} else t match {
-      case r:RefType => (lo isSubtypeOf r) && (r isSubtypeOf hi)
-      case WildSub(r) => lo == NullType && (r isSubtypeOf hi)
-      case WildSuper(r) => (lo isSubtypeOf r) && hi == ObjectType
-    }
   }
-  case class IntersectType(ts: Set[RefType]) extends RefType with NoDiscardsRefType {
+  case class IntersectType(ts: Set[RefType]) extends RefType {
     def item = NoTypeItem
     def supers = ts.toList flatMap (_.supers)
     def isFinal = false
@@ -271,7 +247,7 @@ object Types {
     def safe = allSome(ts map (_.safe)) map IntersectType
     def raw = IntersectType(ts map (_.raw))
   }
-  case class ArrayType(t: Type) extends RefType with NoDiscardsRefType {
+  case class ArrayType(t: Type) extends RefType {
     def item = ArrayItem
     def supers = CloneableItem.simple :: SerializableItem.simple :: (t match {
       case t: RefType => t.supers map ArrayType
@@ -285,55 +261,9 @@ object Types {
     def raw = ArrayType(t.raw)
   }
 
-  // Support for attaching expressions to the top of types
-  sealed trait AboveType extends HasDiscards {
-    def beneath: Type
-    def discard(ds: List[Denotations.Stmt]): AboveType
-  }
-  case class DiscardType(discards: List[Denotations.Stmt], beneath: Type) extends AboveType {
-    def discard(ds: List[Denotations.Stmt]): AboveType = DiscardType(ds++discards,beneath)
-  }
-
-  // Support for attaching expressions to the top of typeargs
-  sealed trait AboveTypeArg extends HasDiscards {
-    def beneath: TypeArg
-    def discard(ds: List[Denotations.Stmt]): AboveTypeArg
-  }
-  case class DiscardTypeArg(discards: List[Denotations.Stmt], beneath: TypeArg) extends AboveTypeArg {
-    def discard(ds: List[Denotations.Stmt]): AboveTypeArg = DiscardTypeArg(ds++discards,beneath)
-  }
-
-  sealed trait AboveRefType extends AboveType with AboveTypeArg {
-    def beneath: RefType
-    def discard(ds: List[Denotations.Stmt]): AboveRefType
-  }
-  case class DiscardRefType(discards: List[Denotations.Stmt], beneath: RefType) extends AboveRefType {
-    def discard(ds: List[Denotations.Stmt]): AboveRefType = DiscardRefType(ds++discards,beneath)
-  }
-
-  sealed trait NoDiscardsRefType extends RefType {
-    override def beneath = this
-    override def discards: List[Denotations.Stmt] = Nil
-  }
-
   // Type environments
   // None means the type variable is "raw" and therefore unknown.
   type Tenv = Map[TypeVar,Option[RefType]]
-
-  trait WithTypeParams {
-    def tparams: List[TypeVar]
-
-    // returns a function that determines whether a prefix of type arguments is a match for this
-    def  makeReverseIncrementalMatcher(parent: Option[Parent]): List[AboveTypeArg] => Boolean = {
-      // return a function which determines whether the first of the given TypeArgs (reverse of a prefix) match the corresponding tparam
-      val itparams = tparams.toIndexedSeq
-      implicit val tenv = parent map (_.env) getOrElse Map.empty
-      (t: List[AboveTypeArg]) => {
-        val p = itparams(t.size-1)
-        p matches t.head.beneath
-      }
-    }
-  }
 
   // Basic reference types
   val StringType       = StringItem.simple
@@ -406,7 +336,7 @@ object Types {
   def isIterable(i: Type): Option[Type] = i match {
     case ArrayType(t) => Some(t)
     case _ => subItemType(i,IterableItem) match {
-      case Some(t:GenericType) => capture(t,Map.empty)._2 match {
+      case Some(t:GenericType) => capture(t.item.tparams,t.args,Map.empty)._2 match {
         case List(t) => Some(t)
         case _ => throw new RuntimeException("arity mismatch")
       }
@@ -415,15 +345,15 @@ object Types {
   }
 
   // Capture conversion for generic types with wildcards
-  def capture(t: GenericParent, base: Tenv): (Tenv,List[RefType]) = {
+  def capture(tparams: List[TypeVar], args: List[TypeArg], base: Tenv): (Tenv,List[RefType]) = {
     // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
-    case class FreshVar(name: Name) extends TypeVar with NoDiscardsRefType {
+    case class FreshVar(name: Name) extends TypeVar {
       def superItems = throw new RuntimeException("Should never happen")
       var lo: RefType = null
       var hi: RefType = null
     }
     var fills: List[Tenv => Unit] = Nil
-    val vts = (t.item.tparams,t.args).zipped map { case (v,t) => (v,t match {
+    val vts = (tparams,args).zipped map { case (v,t) => (v,t match {
       case t:RefType => t
       case t:Wildcard => {
         val f = new FreshVar(v.name)
@@ -647,10 +577,28 @@ object Types {
     case _ => false
   })
 
+  // Does type arguments match some type variables?  True if there *could be any* types that match both.
+  def couldMatch(vs: List[TypeVar], args: List[TypeArg]): Boolean = {
+    if (vs.size != args.size) false
+    else {
+      val (env,ts) = capture(vs,args,Map.empty)
+      (vs,args).zipped forall { case (v,a) => {
+        assert(v.lo == NullType)
+        val hi = v.hi.substitute(env)
+        a match {
+          case t:RefType => isSubtype(t,hi)
+          case WildSub(t) => isSubtype(t,hi) || isSubtype(hi,t)
+          case WildSuper(t) => isSubtype(t,hi)
+        }
+      }}
+    }
+  }
+
   // Method resolution: generics and overloads, 15.12.2
   // Given a list of callables, find the most specific one along with its type parameters
   // TODO: Handle explicit type parameters, possibly by prefiltering fs outside of this function
-  trait Signature extends WithTypeParams {
+  trait Signature {
+    def tparams: List[TypeVar]
     def arity: Int = params.size
     def params: List[Type]
     def alltparams: List[TypeVar] // all inferable type parameters, both our own and our parents'

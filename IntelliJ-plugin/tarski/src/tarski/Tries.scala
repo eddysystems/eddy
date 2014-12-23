@@ -66,26 +66,10 @@ object Tries {
     }
 
     // Find an exact match
-    def exact(s: String): List[V] = {
-      val n = s.size
-      @tailrec
-      def loop(node: Int, depth: Int): List[V] =
-        if (depth == n) nodeValues(node).toList
-        else {
-          val c = s(depth).toInt
-          var lo = 0
-          var hi = structure(node+1)
-          while (lo < hi) {
-            val mid = (lo+hi)>>1
-            val x = structure(node+2+2*mid)
-            if (c == x) { lo = mid; hi = mid-1 }
-            else if (c < x) hi = mid
-            else lo = mid+1
-          }
-          if (lo == hi) Nil
-          else loop(structure(node+2+2*lo+1),depth+1)
-        }
-      loop(0,0)
+    @inline final def exact(s: Array[Char]): List[V] = {
+      val n = JavaTrie.exactNode(this,s)
+      if (n < 0) Nil
+      else nodeValues(n).toList
     }
 
     // The two keys are assumed equal
@@ -127,28 +111,6 @@ object Tries {
   // Assumes values is already sorted.  values must never change.
   private def makeHelper[V <: Named](values: Array[V]): Trie[V] = {
     new Trie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
-  }
-
-  def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Double): List[Alt[V]] = {
-    JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
-/*
-    case class LevenshteinVisitor(dist: StringMatching.IncrementalDistance) extends TrieVisitor[V,List[Alt[V]]] {
-      def next(k: Char): Option[LevenshteinVisitor] = {
-        val d = new StringMatching.IncrementalLevenshteinBound(typed,dist,k)
-        if (d.min > maxDistance) None else Some(LevenshteinVisitor(d))
-      }
-      def found(xs: TraversableOnce[V]): List[Alt[V]] = {
-        if (dist.distance > maxDistance) Nil else {
-        val d = StringMatching.levenshteinDistance(typed,dist.current)
-        if (d > maxDistance) Nil else {
-        val p = Pr.poissonPDF(expected,math.ceil(d).toInt)
-        if (p < minProb) Nil else {
-        xs.toList map (Alt(p,_))}}}
-      }
-    }
-    t.lookup(LevenshteinVisitor(StringMatching.EmptyIncrementalLevenshteinBound))
-  */
-
   }
 }
 

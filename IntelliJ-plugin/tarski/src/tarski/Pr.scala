@@ -80,11 +80,6 @@ object Pr {
   // Type[]
   def arrayType(t: Type): Prob = base // given type t, how likely is t[]
 
-  // denoteTypeArg
-  val wildcard = base
-  val subWildcard = base
-  val superWildcard = Prob("super wildcard",.6)
-
   // denoteType(AExp)
   // (Type)
   val parensAroundType = Prob("parens around type",.8) // given type t, how likely is (t) (maybe more likely for generic types)
@@ -94,6 +89,7 @@ object Pr {
   val typeFieldOfExp = pmul(Prob("type field of exp",.6),fieldType)
   // Type<TArg,...>
   val typeApply = base
+  val boxType = Prob("box type",.5)
 
   // Value not in scope (requiring qualification)
   val outOfScope = Prob("out of scope",.7)

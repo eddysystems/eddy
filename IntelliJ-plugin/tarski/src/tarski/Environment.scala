@@ -17,11 +17,11 @@ object Environment {
   // Minimum probability before an object is considered a match for a query
   val minimumProbability = .01
 
-  // Lookup a string, approximately
-  private def typoQuery(trie: Trie[Item], typed: String): List[Alt[Item]] = {
+  // Lookup a string approximately-only (ignoring exact matches)
+  private def typoQuery(trie: Trie[Item], typed: Array[Char]): List[Alt[Item]] = {
     val expected = typed.length * Pr.typingErrorRate
     val maxErrors = Pr.poissonQuantile(expected,minimumProbability) // Never discards anything because it has too few errors
-    levenshteinLookup(trie,typed,maxErrors,expected,minimumProbability)
+    JavaTrie.levenshteinLookup(trie,typed,maxErrors,expected,minimumProbability)
   }
 
   // Information about where we are
@@ -78,9 +78,15 @@ object Environment {
     def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean): Scored[(Env,Value)]
 
     // Get exact and typo probabilities for string queries
-    def query(typed: String): List[Alt[Item]]
-    def exactQuery(typed: String): List[Item]
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A]
+    def _exactQuery(typed: Array[Char]): List[Item]
+    def _typoQuery(typed: Array[Char]): List[Alt[Item]]
+    def _query[A](typed: Array[Char], exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A]
+
+    // Convenience aliases taking String
+    @inline final def exactQuery(typed: String): List[Item] = _exactQuery(typed.toCharArray)
+    @inline final def typoQuery(typed: String): List[Alt[Item]] = _typoQuery(typed.toCharArray)
+    @inline final def query[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A] =
+      _query(typed.toCharArray,exactProb,filter,error)
 
     // Lookup by type.item
     def byItem(t: TypeItem): Scored[Value]
@@ -147,7 +153,8 @@ object Environment {
 
     // Fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {
-      def options(t: Trie[Item]) = t exact name collect { case x: LocalVariableItem => x }
+      val query = name.toCharArray
+      def options(t: Trie[Item]) = t exact query collect { case x: LocalVariableItem => x }
       options(trie0)++options(trie1) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
@@ -169,13 +176,13 @@ object Environment {
 
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly
-    def query(typed: String): List[Alt[Item]] =
-      typoQuery(trie1,typed)++typoQuery(trie0,typed)
+    def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
+      Environment.typoQuery(trie1,typed)++Environment.typoQuery(trie0,typed)
 
-    def exactQuery(typed: String): List[Item] =
+    def _exactQuery(typed: Array[Char]): List[Item] =
       trie1.exact(typed) ++ trie0.exact(typed)
 
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A] = {
+    def _query[A](typed: Array[Char], exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A] = {
       @tailrec def collectExact(is: List[Item], as: List[Alt[A]]): List[Alt[A]] = is match {
         case Nil => as
         case i::is => collectExact(is,if (filter.isDefinedAt(i)) Alt(exactProb,filter.apply(i))::as else as)
@@ -185,7 +192,7 @@ object Environment {
         case Nil => as
         case Alt(p,i)::is => collectApprox(is,if (filter.isDefinedAt(i)) Alt(pmul(compExactProb,p),filter.apply(i))::as else as)
       }
-      orderedAlternative(collectExact(exactQuery(typed),Nil),collectApprox(query(typed),Nil),error)
+      orderedAlternative(collectExact(_exactQuery(typed),Nil),collectApprox(_typoQuery(typed),Nil),error)
     }
 
     def byItem(t: TypeItem): Scored[Value] = {
@@ -208,12 +215,12 @@ object Environment {
 
   // What could this name be, assuming it is a type?
   def typeScores(name: String)(implicit env: Env): Scored[Type] = {
-    env.combinedQuery(name, Pr.exactType, { case t:TypeItem => t.raw }, s"Type $name not found")
+    env.query(name, Pr.exactType, { case t:TypeItem => t.raw }, s"Type $name not found")
   }
 
   // What could it be, given it's a callable?
   def callableScores(name: String)(implicit env: Env): Scored[PseudoCallableItem] =
-    env.combinedQuery(name, Pr.exactCallable, {
+    env.query(name, Pr.exactCallable, {
       case t:CallableItem => t
       case t@ThisItem(c) if env.place.forwardThisPossible(c) => t
       case t@SuperItem(c) if env.place.forwardSuperPossible(c.item) => t
@@ -221,7 +228,7 @@ object Environment {
 
   // What could this be, we know it's a value
   def valueScores(name: String)(implicit env: Env): Scored[Value] =
-    env.combinedQuery(name, Pr.exactValue, { case t:Value => t }, s"Value $name not found")
+    env.query(name, Pr.exactValue, { case t:Value => t }, s"Value $name not found")
 
   // Look up values by their type
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
@@ -260,20 +267,20 @@ object Environment {
 
   // What could this be, assuming it's a callable field of the given type?
   def callableFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[CallableItem] =
-    env.combinedQuery(name, Pr.exactCallableField, { case f:CallableItem if memberIn(f,t) => f }, s"Type ${show(t)} has no callable field $name")
+    env.query(name, Pr.exactCallableField, { case f:CallableItem if memberIn(f,t) => f }, s"Type ${show(t)} has no callable field $name")
 
   // What could this name be, assuming it is a member of the given type?
   def fieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[Value with Member] =
-    env.combinedQuery(name, Pr.exactField, { case f: Value with Member if memberIn(f,t) => f }, s"Type ${show(t)} has no field $name")
+    env.query(name, Pr.exactField, { case f: Value with Member if memberIn(f,t) => f }, s"Type ${show(t)} has no field $name")
 
   // what could this be, assuming it's a static member of the given type?
   def staticFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[StaticValue with Member] =
-    env.combinedQuery(name, Pr.exactStaticField, { case f:StaticFieldItem if memberIn(f,t) => f case f: EnumConstantItem if memberIn(f,t) => f },
+    env.query(name, Pr.exactStaticField, { case f:StaticFieldItem if memberIn(f,t) => f case f: EnumConstantItem if memberIn(f,t) => f },
                       s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?
   def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =
-    env.combinedQuery(name, Pr.exactTypeField, { case f: TypeItem if memberIn(f,t.item) => typeIn(f,t) }, s"Type ${show(t)} has no type field $name")
+    env.query(name, Pr.exactTypeField, { case f: TypeItem if memberIn(f,t.item) => typeIn(f,t) }, s"Type ${show(t)} has no type field $name")
 
   // The return type of our ambient function
   def returnType(implicit env: Env): Scored[Type] = {

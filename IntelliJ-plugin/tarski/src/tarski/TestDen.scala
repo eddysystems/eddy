@@ -10,11 +10,13 @@ import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Lexer._
 import tarski.Operators._
-import tarski.Scores.{Alt, Prob, Scored}
+import tarski.Scores._
 import tarski.Tarski.fix
 import tarski.TestUtils._
 import tarski.Types._
+import tarski.JavaScores._
 
+import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 class TestDen {
@@ -45,11 +47,15 @@ class TestDen {
     assertEquals(stmt, best(env2))
   }
 
-  def testFail(input: String)(implicit env: Env) = {
-    fix(lex(input)).all match {
-      case Left(_) => ()
-      case Right(fs) => throw new AssertionError(s"excepted no denotations, got $fs")
+  // Ensure that all options have probability at most bound
+  def testFail(input: String, bound: Double = -1)(implicit env: Env) = {
+    type A = (Env,List[Stmt])
+    @tailrec def check(s: Scored[A]): Unit = if (s.p > bound) s match {
+      case s:LazyScored[A] => check(s force bound)
+      case Best(p,(_,x),_) => throw new AssertionError(s"\nExpected probability <= $bound, got\n  $p : $x")
+      case _:EmptyOrBad => ()
     }
+    check(fix(lex(input)))
   }
 
   def probOf[A](s: Scored[A], a: A): Double = {
@@ -548,7 +554,7 @@ class TestDen {
 
     val T = NormalTypeVar("T", NumberItem.simple, Nil)
     val f = NormalMethodItem("f", X, List(T), A, List(T), isStatic=false)
-    Env(Array(A,A2,B,BA,X,T,f), Map((A,2),(BA,2),(X,2),(T,2),(f,2)), PlaceInfo(f))
+    baseEnv.extend(Array(A,A2,B,BA,X,T,f), Map((A,2),(BA,2),(X,2),(T,2),(f,2))).move(PlaceInfo(f))
   }
 
   @Test def genericClass(): Unit = {
@@ -570,57 +576,57 @@ class TestDen {
   }
 
   @Test def typeApply(): Unit = {
-    val S = NormalClassItem("S", LocalPkg)
-    val T = NormalClassItem("T", LocalPkg)
-    val U = NormalClassItem("U", LocalPkg)
-    val AS = NormalTypeVar("A", S.simple, Nil)
-    val BT = NormalTypeVar("B", T.simple, Nil)
-    val CU = NormalTypeVar("C", U.simple, Nil)
-    val X = NormalClassItem("X", LocalPkg, List(AS,BT,CU))
-    val Y = NormalClassItem("Y", LocalPkg)
-    val f = NormalMethodItem("f", Y, Nil, VoidType, Nil, isStatic=false)
-
-    /** equivalent to
-      * class S {}
-      * class T {}
-      * class U {}
-      * class X<A extends S, B extends T, C extends U> {}
-      * class Y {
-      *   void f() {
-      *     X<S,T,U> x<caret>
-      *   }
-      * }
+    /*
+     * class S {}
+     * class T {}
+     * class U {}
+     * class X<A extends S, B extends T, C extends U> {}
+     * class Y {
+     *   void f() {
+     *     X<S,T,U> x<caret>
+     *   }
+     * }
      */
+    val S = NormalClassItem("S",LocalPkg)
+    val T = NormalClassItem("T",LocalPkg)
+    val U = NormalClassItem("U",LocalPkg)
+    val AS = NormalTypeVar("A",S,Nil)
+    val BT = NormalTypeVar("B",T,Nil)
+    val CU = NormalTypeVar("C",U,Nil)
+    val X = NormalClassItem("X",LocalPkg,List(AS,BT,CU))
+    val Y = NormalClassItem("Y",LocalPkg)
+    val f = NormalMethodItem("f",Y,Nil,VoidType,Nil,isStatic=false)
 
     implicit val env = Env(Array(S,T,U,AS,BT,CU,X,Y,f), Map((X,3),(Y,2),(f,2),(S,3),(T,3),(U,3)), PlaceInfo(f))
-    // until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
-    testDen("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S.simple, T.simple, U.simple)), List((x,0,None))))
-    testFail("A<S,S,S> x")
-    testFail("A<S,S,T> x")
-    testFail("A<S,S,U> x")
-    testFail("A<S,T,S> x")
-    testFail("A<S,T,T> x")
-    testFail("A<S,U,S> x")
-    testFail("A<S,U,T> x")
-    testFail("A<S,U,U> x")
-    testFail("A<T,S,S> x")
-    testFail("A<T,S,T> x")
-    testFail("A<T,S,U> x")
-    testFail("A<T,T,S> x")
-    testFail("A<T,T,T> x")
-    testFail("A<T,T,U> x")
-    testFail("A<T,U,S> x")
-    testFail("A<T,U,T> x")
-    testFail("A<T,U,U> x")
-    testFail("A<U,S,S> x")
-    testFail("A<U,S,T> x")
-    testFail("A<U,S,U> x")
-    testFail("A<U,T,S> x")
-    testFail("A<U,T,T> x")
-    testFail("A<U,T,U> x")
-    testFail("A<U,U,S> x")
-    testFail("A<U,U,T> x")
-    testFail("A<U,U,U> x")
+    // Until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
+    testDen("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),List((x,0,None))))
+    def bad(s: String) = testFail(s,bound=1e-6)
+    bad("A<S,S,S> x")
+    bad("A<S,S,T> x")
+    bad("A<S,S,U> x")
+    bad("A<S,T,S> x")
+    bad("A<S,T,T> x")
+    bad("A<S,U,S> x")
+    bad("A<S,U,T> x")
+    bad("A<S,U,U> x")
+    bad("A<T,S,S> x")
+    bad("A<T,S,T> x")
+    bad("A<T,S,U> x")
+    bad("A<T,T,S> x")
+    bad("A<T,T,T> x")
+    bad("A<T,T,U> x")
+    bad("A<T,U,S> x")
+    bad("A<T,U,T> x")
+    bad("A<T,U,U> x")
+    bad("A<U,S,S> x")
+    bad("A<U,S,T> x")
+    bad("A<U,S,U> x")
+    bad("A<U,T,S> x")
+    bad("A<U,T,T> x")
+    bad("A<U,T,U> x")
+    bad("A<U,U,S> x")
+    bad("A<U,U,T> x")
+    bad("A<U,U,U> x")
   }
 
   @Test def boxInt() = {

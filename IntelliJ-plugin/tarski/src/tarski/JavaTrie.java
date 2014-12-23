@@ -163,7 +163,7 @@ public class JavaTrie {
   public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
     // make sure we have enough space
     if (typed_length+1 > d.length || meant_length+1 > d[0].length)
-      d = new float[Math.max(meant_length+1,d.length)][Math.max(typed.length+1,d[0].length)];
+      d = new float[Math.max(meant_length+1,d.length)][Math.max(typed_length+1,d[0].length)];
 
     // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
 
@@ -206,14 +206,18 @@ public class JavaTrie {
     return d[meant_length][typed_length];
   }
 
-  public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>> levenshteinLookup(Tries.Trie<V> t, String query, float maxDistance, double expected, double minProb) {
+  // Find approximate matches for a string.  Exact matches are ignored.
+  // We take char[] instead of String for typed to avoid string allocations (use _.toCharArray to convert)
+  public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>>
+  levenshteinLookup(final Tries.Trie<V> t, final char[] typed,
+                    final float maxDistance, final double expected, final double minProb) {
     final List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
     final int[] structure = t.structure();
     final V[] values = t.values();
-
-    // Convert typed string to array of int to avoid dealing with string allocations all the time
-    final char[] typed = query.toCharArray();
     final int typed_length = typed.length;
+
+    // Lookup exact node in order to exclude it during search
+    final int exact = exactNode(t,typed);
 
     // Allocate enough space for at least the query
     final List<TriePos> pos = new ArrayList<TriePos>();
@@ -274,13 +278,13 @@ public class JavaTrie {
           level++;
         }
       } else {
-        // add this node's values
-        if (current.distance <= maxDistance) {
+        // Add this node's values
+        if (current.distance <= maxDistance && current.node_idx != exact) {
           final int node = current.node_idx;
           final int lo = structure[node],
                     hi = structure[node+2+2*structure[node+1]];
           if (lo < hi) {
-            final double d = levenshteinDistance(prefix, level, typed, typed.length);
+            final double d = levenshteinDistance(prefix, level, typed, typed_length);
             final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
             if (p >= minProb)
               for (int i=lo;i<hi;i++) {
@@ -346,5 +350,27 @@ public class JavaTrie {
       pos.n_children = structure[pos.node_idx+1];
       pos.child = -1;
     }
+  }
+
+  // Find the node id for a given string, or -1 for not found
+  public static <V extends Tries.Named> int exactNode(Tries.Trie<V> t, final char[] query) {
+    final int n = query.length;
+    final int[] structure = t.structure();
+    int node = 0;
+    for (int i=0;i<n;i++) {
+      final int c = query[i];
+      int lo = 0,
+          hi = structure[node+1];
+      while (lo < hi) {
+        final int mid = (lo+hi)>>1;
+        final int x = structure[node+2+2*mid];
+        if (c == x) { lo = mid; hi = mid-1; }
+        else if (c < x) hi = mid;
+        else lo = mid+1;
+      }
+      if (lo == hi) return -1;
+      node = structure[node+2+2*lo+1];
+    }
+    return node;
   }
 }

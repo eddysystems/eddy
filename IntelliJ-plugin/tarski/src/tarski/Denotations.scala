@@ -5,20 +5,41 @@ import tarski.Base._
 import tarski.Items._
 import tarski.Operators._
 import tarski.Types._
+import tarski.Scores._
+import scala.annotation.tailrec
 
 object Denotations {
 
   trait HasDiscards {
     def discards: List[Stmt]
   }
-
+  trait HasDiscard[+A] extends HasDiscards {
+    def discard(ds: List[Stmt]): A
+  }
+  case class Above[+A](discards: List[Denotations.Stmt], beneath: A) extends HasDiscard[Above[A]] {
+    def discard(ds: List[Stmt]) = Above(ds++discards,beneath)
+    def map[B](f: A => B): Above[B] = Above(discards,f(beneath))
+    def mapA[B](f: A => Scored[B]): Scored[Above[B]] =
+      f(beneath) map (Above(discards,_))
+    def mapB[B <: HasDiscard[B]](f: A => Scored[B]): Scored[B] = discards match {
+      case Nil => f(beneath)
+      case ds => f(beneath) map (_.discard(ds))
+    }
+  }
+  def aboves[A](xs: List[Above[A]]): Above[List[A]] = {
+    @tailrec def loop(ds: List[List[Stmt]], as: List[A], xs: List[Above[A]]): Above[List[A]] = xs match {
+      case Nil => Above(ds.reverse.flatten,as.reverse)
+      case Above(d,a)::xs => loop(d::ds,a::as,xs)
+    }
+    loop(Nil,Nil,xs)
+  }
   def discardsOption[A <: HasDiscards](x: Option[A]) = x match {
     case None => Nil
     case Some(x) => x.discards
   }
 
   // Callables
-  sealed abstract class Callable extends Signature with HasDiscards {
+  sealed abstract class Callable extends Signature with HasDiscard[Callable] {
     val f: CallableItem
     def tparams: List[TypeVar] = f.tparams
     def params: List[Type] = f.params
@@ -90,7 +111,7 @@ object Denotations {
   type VarDecl = (LocalVariableItem,Dims,Option[Exp]) // name,dims,init
 
   // Statements
-  sealed abstract class Stmt extends HasDiscards {
+  sealed abstract class Stmt extends HasDiscard[Stmt] {
     def discard(ds: List[Stmt]) = ds match {
       case Nil => this
       case ds => DiscardStmt(ds,this)
@@ -178,7 +199,7 @@ object Denotations {
   }
 
   // It's all expressions from here
-  sealed abstract class Exp extends HasDiscards {
+  sealed abstract class Exp extends HasDiscard[Exp] {
     def ty: Type
     def item: TypeItem // Faster version of ty.item
     def discard(ds: List[Stmt]) = DiscardExp(ds,this)

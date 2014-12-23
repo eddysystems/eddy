@@ -94,8 +94,8 @@ class TestEnvironment {
       val t = Trie(w)
       assertEquals(st,t.structure.toList)
       for ((s,ss) <- w groupBy (_.name))
-        assertEquals(ss,t.exact(s))
-      assertEquals(Nil,t.exact("blah"))
+        assertEquals(ss,t.exact(s.toCharArray))
+      assertEquals(Nil,t.exact("blah".toCharArray))
     }
     for ((w0,_) <- st; (w1,_) <- st) {
       println(s"\nmerge: $w0, $w1")
@@ -113,10 +113,13 @@ class TestEnvironment {
       .map(s => NormalClassItem(s,LocalPkg) : Item)
     val env = Env(things)
 
-    val qr = env.query(typed).toSet
+    val qr = env.typoQuery(typed).toSet
     val lr = things.collect( Function.unlift((item:Item) => {
-      val p = Pr.typoProbability(item.name, typed)
-      if (pp(p) >= Environment.minimumProbability) Some(Alt(p,item)) else None
+      if (item.name == typed) None // Exact matches are not typos
+      else {
+        val p = Pr.typoProbability(item.name, typed)
+        if (pp(p) >= Environment.minimumProbability) Some(Alt(p,item)) else None
+      }
     })).toSet
 
     println(s"exact match for query $typed -> ${env.exactQuery(typed)}")
