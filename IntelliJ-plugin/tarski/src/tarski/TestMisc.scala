@@ -76,6 +76,17 @@ class TestMisc {
     test(ax flatMap af,x flatMap sf)
   }
 
+  @Test def flatMapBad() = {
+    for (bad <- 0 until 7) {
+      val ax = alts("x",20,seed=531)
+      val x = multipleGood(ax)
+      def f(x: String) = if ((x.hashCode&7)==bad) Nil else alts("fx",17,seed=x.hashCode) map {case Alt(p,y) => Alt(p,(x,y))}
+      def af(x: Alt[String]) = f(x.x) map {case Alt(p,y) => Alt(pmul(x.dp,p),y)}
+      def sf(x: String) = listScored(f(x),"bad")
+      test(ax flatMap af,x flatMap sf)
+    }
+  }
+
   @Test def productWith() = {
     val ax = alts("x",20,seed=12412)
     val ay = alts("y",17,seed=2412)
