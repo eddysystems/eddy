@@ -107,7 +107,6 @@ object Scores {
   }
 
   // No options
-  private val zeroProb = Prob("zero",0)
   sealed abstract class EmptyOrBad extends StrictScored[Nothing] {
     def p = 0
     def error: Error
