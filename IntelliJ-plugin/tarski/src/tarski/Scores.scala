@@ -182,24 +182,19 @@ object Scores {
   @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBiased(p,() => s)
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
-    new UniformState[A](p,xs,if (trackErrors) () => error else null).extract(0)
+    uniformThen(p,xs,fail(error))
+  @inline def uniform[A <: AnyRef](p: Prob, xs: List[A], error: => String): Scored[A] =
+    uniformThen(p,xs,fail(error))
 
   @inline def uniformGood[A <: AnyRef](p: Prob, xs: Array[A]): Scored[A] =
-    new UniformState[A](p,xs,null).extract(0)
+    uniformThen(p,xs,Empty)
 
-  @inline def uniform[A <: AnyRef](p: Prob, xs: Seq[A], error: => String)(implicit t: ClassTag[A]): Scored[A] =
-    new UniformState[A](p,xs.toArray,if (trackErrors) () => error else null).extract(0)
-
-  @inline def listScored[A](xs: List[Alt[A]], error: => String): Scored[A] =
-    new OrderedAlternativeState[A](xs,null,if (trackErrors) () => error else null).extract(0)
+  @inline def list[A](xs: List[Alt[A]], error: => String): Scored[A] =
+    listThen(xs,fail(error))
 
   // Assume no error (use Empty instead of Bad)
-  @inline def multipleGood[A](xs: List[Alt[A]]): Scored[A] =
-    new OrderedAlternativeState[A](xs,null,null).extract(0)
-
-  // Requires: prob first >= prob andThen
-  @inline def orderedAlternative[A](first: List[Alt[A]], andThen: => List[Alt[A]], error: => String): Scored[A] =
-    new OrderedAlternativeState[A](first,() => andThen,if (trackErrors) () => error else null).extract(0)
+  @inline def listGood[A](xs: List[Alt[A]]): Scored[A] =
+    listThen(xs,Empty)
 
   // Fast version of x0 ++ x1 ++ ...  The list is assumed nonempty.
   @inline def multiple[A](ls: List[Scored[A]]): Scored[A] =

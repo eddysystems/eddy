@@ -62,7 +62,7 @@ object Mismatch {
       case Nil => known(Nil)
       case (o@(Other(_),_))::rs => mutate(rs,n) map (o::_)
       case (k,i)::rs => {
-        val j = multipleGood(for (j <- (max(0,i-n) to (i+n)).toList) yield Alt(pr(i,j),j))
+        val j = listGood(for (j <- (max(0,i-n) to (i+n)).toList) yield Alt(pr(i,j),j))
         j flatMap (j => mutate(rs,n-abs(i-j)) map ((k,j)::_))
       }
     }

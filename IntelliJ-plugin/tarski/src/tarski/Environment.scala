@@ -183,16 +183,15 @@ object Environment {
       trie1.exact(typed) ++ trie0.exact(typed)
 
     def _query[A](typed: Array[Char], exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A] = {
-      @tailrec def collectExact(is: List[Item], as: List[Alt[A]]): List[Alt[A]] = is match {
-        case Nil => as
-        case i::is => collectExact(is,if (filter.isDefinedAt(i)) Alt(exactProb,filter.apply(i))::as else as)
+      @tailrec def exact(is: List[Item], s: Scored[A]): Scored[A] = is match {
+        case Nil => s
+        case i::is => exact(is,if (filter.isDefinedAt(i)) Best(exactProb,filter.apply(i),s) else s)
       }
-      val compExactProb = pcomp(exactProb)
-      @tailrec def collectApprox(is: List[Alt[Item]], as: List[Alt[A]]): List[Alt[A]] = is match {
+      @tailrec def approx(is: List[Alt[Item]], as: List[Alt[A]]): List[Alt[A]] = is match {
         case Nil => as
-        case Alt(p,i)::is => collectApprox(is,if (filter.isDefinedAt(i)) Alt(pmul(compExactProb,p),filter.apply(i))::as else as)
+        case Alt(p,i)::is => approx(is,if (filter.isDefinedAt(i)) Alt(p,filter.apply(i))::as else as)
       }
-      orderedAlternative(collectExact(_exactQuery(typed),Nil),collectApprox(_typoQuery(typed),Nil),error)
+      exact(_exactQuery(typed),biased(pcomp(exactProb),list(approx(_typoQuery(typed),Nil),error)))
     }
 
     def byItem(t: TypeItem): Scored[Value] = {
