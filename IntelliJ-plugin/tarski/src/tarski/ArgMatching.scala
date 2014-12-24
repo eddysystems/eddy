@@ -11,7 +11,7 @@ import scala.annotation.tailrec
 
 object ArgMatching {
   // TODO: specialize for given type arguments
-  def fiddleCall(f: Callable, args: List[Scored[Exp]])(implicit env: Env): Scored[ApplyExp] = {
+  def fiddleCall(f: Signature, args: List[Scored[Exp]])(implicit env: Env): Scored[(List[RefType],List[Exp])] = {
     // Should we find missing arguments in the environment?
     val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
@@ -56,7 +56,7 @@ object ArgMatching {
       }
     }
     if (!useEnv && n > na) fail(s"Too few arguments for function $f: $na < $n")
-    else orError(biased(Pr.dropArgs(math.max(0,na-n)),process(0,Nil,Nil,args) map {case (ts,xs) => ApplyExp(f,ts,xs)}),
+    else orError(biased(Pr.dropArgs(math.max(0,na-n)),process(0,Nil,Nil,args)),
                  s"Can't match arguments for function $f.")
   }
 }

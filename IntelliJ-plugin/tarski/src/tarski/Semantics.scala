@@ -101,9 +101,11 @@ object Semantics {
       val args = aboves(above)
       val as = args.beneath
       if (couldMatch(tparams,as)) known(args)
-      else fail(s"Arguments ${as map (a => showSep(a,"")) mkString ", "} don't fit type variables ${tparams map details mkString ", "}")
+      else failTypeArgs(tparams,as)
     })
   }
+  @inline def failTypeArgs(tparams: List[TypeVar], args: List[TypeArg])(implicit env: Env): Scored[Nothing] =
+    fail(s"Arguments ${args map (a => showSep(a,"")) mkString ", "} don't fit type variables ${tparams map details mkString ", "}")
 
   // check whether a type is accessible in the environment (can be qualified by something in scope).
   // pretty-printing will do the actual qualifying
@@ -220,20 +222,24 @@ object Semantics {
       // first, the ones where x is a type
       // TODO: Also try applying ts to the type
       // TODO: Convert ts expressions to type args and check whether the type arguments fit
-      val tdens = denoteType(x) flatMap (_.mapB[Callable](t => callableFieldScores(t.item,f) flatMap {
+      val tdens = denoteType(x) flatMap (_.mapB[Callable](t => callableFieldScores(t.item,f,show(e)) flatMap {
         case f:MethodItem if f.isStatic => single(StaticMethodDen(None,f),Pr.staticFieldCallable)
         case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
         case f:ConstructorItem => single(NewDen(Some(t.asInstanceOf[ClassType]),f),Pr.constructorFieldCallable) // only Classes have constructors, so t is a ClassType
       }))
-      val edens = denoteExp(x) flatMap (x => callableFieldScores(x.item,f) flatMap {
+      val edens = denoteExp(x) flatMap (x => callableFieldScores(x.item,f,show(e)) flatMap {
         case f:MethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),Pr.staticFieldCallableWithObject)
         case f:MethodItem => single(MethodDen(x,f),Pr.methodFieldCallable)
         // TODO: Also try applying the type arguments to the class (not the constructor)
         case f:ConstructorItem => discardCallable(x,single(NewDen(Some(x.ty.asInstanceOf[ClassType]),f),Pr.constructorFieldCallableWithObject)) // only Classes have constructors, so x.ty is a ClassType
       })
-
-      if (!ts.isDefined) tdens ++ edens map ((_,None))
-      else notImplemented // TODO
+      val cs = tdens ++ edens
+      ts match {
+        case None => cs map ((_,None))
+        case Some(ts) => product(ts.list map denoteTypeArg) flatMap (args => aboves(args) match {
+          case Above(ds,as) => cs map (c => (c.discard(ds),Some(as)))
+        })
+      }
     }
 
     // C++-style application of type arguments to a generic method
@@ -266,7 +272,8 @@ object Semantics {
     case ParenAExp(x,_) => biased(Pr.parenExp,denoteExp(x) map ParenExp)
 
     // x is either a type or an expression, f is an inner type, method, or field
-    case FieldAExp(x,ts,f) => if (ts.isDefined) throw new NotImplementedError("Generics not implemented (FieldExp): " + e) else {
+    case FieldAExp(_,Some(_),_) => fail(s"${show(e)}: Non-callable field access takes no template arguments")
+    case FieldAExp(x,None,f) =>
       // First, the ones where x is a type
       // TODO: penalize unnecessarily qualified field expressions?
       val tdens = denoteType(x) flatMap (_.mapB[Exp](t => staticFieldScores(t.item,f) flatMap {
@@ -280,15 +287,30 @@ object Semantics {
         case f: FieldItem => single(FieldExp(x,f), Pr.fieldExp)
       })
       tdens++edens
-    }
 
     case ApplyAExp(f,xsn,around) => {
       val n = xsn.list.size
       val args = xsn.list map denoteExp
       // Either array index or call
       val call = biased(Pr.callExp(xsn,around), denoteCallable(f) flatMap {
-        case (f,None) => ArgMatching.fiddleCall(f,args)
-        case (f,Some(ts)) => throw new NotImplementedError("Generic method calls not implemented")
+        case (f,None) => ArgMatching.fiddleCall(f,args) map { case (ts,xs) => ApplyExp(f,ts,xs) }
+        case (f,Some(ts)) =>
+          if (f.arity != ts.size) fail(s"${show(e)}: Arity mismatch: expected ${f.arity}, got ${ts.size}")
+          else if (!couldMatch(f.tparams,ts)) failTypeArgs(f.tparams,ts)
+          else {
+            // TODO: Map.empty may be wrong here
+            val tenv = capture(f.tparams,ts,Map.empty)._1
+            val fts = new Signature {
+              override def toString = s"$f<${ts map (showSep(_,"")) mkString ","}>"
+              def tparams = Nil
+              def alltparams = Nil
+              val params = f.params map (_.substitute(tenv))
+            }
+            ArgMatching.fiddleCall(fts,args) map {
+              case (_::_,_) => impossible
+              case (Nil,xs) => ApplyExp(f,ts,xs)
+            }
+          }
       })
       if (n == 0) call // No arguments is never array access
       else call ++ biased(Pr.indexCallExp(xsn,around),

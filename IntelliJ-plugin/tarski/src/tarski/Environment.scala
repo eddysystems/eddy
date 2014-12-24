@@ -265,8 +265,8 @@ object Environment {
   }
 
   // What could this be, assuming it's a callable field of the given type?
-  def callableFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[CallableItem] =
-    env.query(name, Pr.exactCallableField, { case f:CallableItem if memberIn(f,t) => f }, s"Type ${show(t)} has no callable field $name")
+  def callableFieldScores(t: TypeItem, name: String, error: => String)(implicit env: Env): Scored[CallableItem] =
+    env.query(name, Pr.exactCallableField, { case f:CallableItem if memberIn(f,t) => f }, s"Type ${show(t)} has no callable field $name: $error")
 
   // What could this name be, assuming it is a member of the given type?
   def fieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[Value with Member] =
