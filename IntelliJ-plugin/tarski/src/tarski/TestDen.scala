@@ -15,6 +15,7 @@ import tarski.Tarski.fix
 import tarski.TestUtils._
 import tarski.Types._
 import tarski.JavaScores._
+import tarski.Semantics._
 
 import scala.annotation.tailrec
 import scala.language.implicitConversions
@@ -600,7 +601,8 @@ class TestDen {
     implicit val env = Env(Array(S,T,U,AS,BT,CU,X,Y,f), Map((X,3),(Y,2),(f,2),(S,3),(T,3),(U,3)), PlaceInfo(f))
     // Until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
     testDen("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),List((x,0,None))))
-    def bad(s: String) = testFail(s,bound=1e-6)
+    testDen("A<S,S,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),List((x,0,None)))) // Unlikely, but should work
+    def bad(s: String) = testFail(s,bound=1e-5)
     bad("A<S,S,S> x")
     bad("A<S,S,T> x")
     bad("A<S,S,U> x")

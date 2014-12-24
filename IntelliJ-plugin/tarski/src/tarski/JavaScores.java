@@ -172,7 +172,6 @@ public class JavaScores {
             if (b.s instanceof LazyScored) { // Force and add back to heap
               final double limit = max(max(goal,asp),bs.isEmpty() ? 0 : bs.peek().p());
               bs.add(new Biased<B>(b.q,((LazyScored<B>)b.s).force(limit)));
-              continue;
             } else if (b.s instanceof Best) { // We found the best one
               bads = null; // We've found at least one thing, so no need to track errors further
               final Best<B> bb = (Best<B>)b.s;
@@ -180,10 +179,9 @@ public class JavaScores {
               if (!(r instanceof Empty$))
                 bs.add(new Biased<B>(b.q,r));
               return new Best<B>(pmul(b.q,bb.dp()),bb.x(),new Extractor<B>(this));
-            } else if (bads != null) {
+            } else if (bads != null)
               bads = $colon$colon$.MODULE$.<Bad>apply((Bad)b.s,bads);
-              continue;
-            }
+            continue;
           }
         }
         // Otherwise, dig into as
@@ -240,18 +238,16 @@ public class JavaScores {
 
     public Scored<A> extract(final double goal) {
       if (heap.isEmpty()) {
-        if (more != null) {
-          absorb(more.apply());
-          more = null;
-        }
-        if (heap.isEmpty()) {
-          if (error == null)
-            return (Scored<A>)Empty$.MODULE$;
-          return oneError(error);
-        }
+        if (error == null)
+          return (Scored<A>)Empty$.MODULE$;
+        return oneError(error);
       }
       Alt<A> a = heap.poll();
       error = null;
+      if (heap.isEmpty() && more != null) {
+        absorb(more.apply());
+        more = null;
+      }
       return new Best<A>(a.dp(),a.x(),new Extractor<A>(this));
     }
   }
