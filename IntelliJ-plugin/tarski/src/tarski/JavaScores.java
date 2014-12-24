@@ -211,8 +211,9 @@ public class JavaScores {
   // Requires p >= then.p()
   static public <A> Scored<A> uniformThen(double/*Prob*/ p, A[] xs, Scored<A> then) {
     assert p >= then.p();
-    for (int i=xs.length-1;i>=0;i--)
-      then = new Best<A>(p,xs[i],then);
+    if (xs != null)
+      for (int i=xs.length-1;i>=0;i--)
+        then = new Best<A>(p,xs[i],then);
     return then;
   }
   static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<A> xs, Scored<A> then) {
