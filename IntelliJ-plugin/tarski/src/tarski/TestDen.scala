@@ -667,4 +667,17 @@ class TestDen {
     unit({ implicit val bad = env(bs=2,cs=1); testFail("f x") })
     unit({ implicit val good = env(bs=1,cs=2); testDen("f x",ApplyExp(StaticMethodDen(None,f),Nil,List(bx))) })
   }
+
+  @Test def newObject() = testDen("new Object()",ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))
+  @Test def newObjectBare() = testDen("new Object",ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))
+
+  @Test def classInPackage() = {
+    val P = PackageItem("P","P")
+    val A = NormalClassItem("A",P)
+    val cons = NormalConstructorItem(A,Nil,Nil)
+    implicit val env = localEnv().extend(Array(P,A,cons),Map.empty)
+    val e = ApplyExp(NewDen(None,cons),Nil,Nil)
+    testDen("P.A()",e)
+    testDen("new P.A()",e)
+  }
 }

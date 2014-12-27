@@ -110,18 +110,16 @@ object Pr {
 
   // (callable)
   val parensAroundCallable = Prob("parens around callable",.8)
-  // Type.staticMethod
-  val staticFieldCallable = base
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
-  // Exp.method
-  val methodFieldCallable = base
   // Type.constructor (not legal in Java. Also makes no sense)
   val constructorFieldCallable = Prob("constructor field callable",.5)
   // Exp.constructor (not legal, and makes even less sense)
   val constructorFieldCallableWithObject = Prob("constructor field callable with object",.4)
   // C++-style type arguments for a callable
   val typeApplyCallable = Prob("C++ style type application for callable",.8)
+  // new in front of a non-constructor callable
+  val dropNew = Prob("drop new",.1)
 
   // denoteExp(AExp)
   val parenExp = base
