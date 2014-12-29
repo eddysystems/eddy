@@ -411,10 +411,9 @@ object Pretty {
       case (MethodDen(x,f),ts) => method(x,ts,f)
       case (LocalMethodDen(f),Nil) => pretty(f)
       case (LocalMethodDen(f),ts) => method(ThisExp(env.getThis),ts,f)
-      case (StaticMethodDen(x:Exp,f),ts) => method(x,ts,f)
-      case (StaticMethodDen(_:Above[_]|_:Callable,_),_) => impossible
-      case (StaticMethodDen(NoneDen,f),Nil) => pretty(f)
-      case (StaticMethodDen(NoneDen,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
+      case (StaticMethodDen(Some(x),f),ts) => method(x,ts,f)
+      case (StaticMethodDen(None,f),Nil) => pretty(f)
+      case (StaticMethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
       case (NewDen(p,c),ts) =>
         val (ts0,ts1) = ts splitAt c.parent.tparams.size
         (NewFix,NewTok :: tokensTypeArgs(ts1) ::: (p match {
@@ -496,8 +495,7 @@ object Pretty {
   implicit def prettyDen(x: Den)(implicit env: Env): (Fixity,Tokens) = x match {
     case x:Exp => prettyExp(x)
     case x:Callable => prettyCallable(x,Nil)
-    case Above(ds,t:Type) => prettyAbove(Above(ds,t))
-    case Above(_,_) => impossible
-    case NoneDen => (HighestFix,List(IdentTok("NoneDen")))
+    case TypeDen(ds,t) => above(ds,t)
+    case NoneDen => pretty("NoneDen")
   }
 }

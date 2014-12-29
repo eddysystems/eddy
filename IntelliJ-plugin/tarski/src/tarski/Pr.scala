@@ -75,18 +75,14 @@ object Pr {
   val stringLit = base
 
   // denoteType(AType)
-  // Type.Type
-  val fieldType = base // Given Types t and f, how likely is a type expression t.f (can assume t.f is legal)
   // Type[]
   def arrayType(t: Type): Prob = base // given type t, how likely is t[]
 
   // denoteType(AExp)
   // (Type)
   val parensAroundType = Prob("parens around type",.8) // given type t, how likely is (t) (maybe more likely for generic types)
-  // Type.Type
-  val typeFieldOfType = fieldType
   // Exp.Type
-  val typeFieldOfExp = pmul(Prob("type field of exp",.6),fieldType)
+  val typeFieldOfExp = Prob("type field of exp",.6)
   // Type<TArg,...>
   val typeApply = base
   val boxType = Prob("box type",.5)
@@ -122,7 +118,6 @@ object Pr {
   val dropNew = Prob("drop new",.1)
 
   // denoteExp(AExp)
-  val parenExp = base
   val staticFieldExp = base
   val enumFieldExp = base
   val staticFieldExpWithObject = Prob("static field with object",.8)

@@ -13,6 +13,9 @@ object Denotations {
   sealed abstract class Den extends HasDiscards {
     def strip: Den
   }
+  sealed abstract class ExpOrType extends Den with HasDiscard[ExpOrType] {
+    def item: TypeItem
+  }
 
   // For use in StaticMethodDen, etc.
   case object NoneDen extends Den {
@@ -26,7 +29,7 @@ object Denotations {
   trait HasDiscard[+A] extends HasDiscards {
     def discard(ds: List[Stmt]): A
   }
-  case class Above[+A](discards: List[Denotations.Stmt], beneath: A) extends Den with HasDiscard[Above[A]] {
+  case class Above[+A](discards: List[Denotations.Stmt], beneath: A) extends HasDiscard[Above[A]] {
     def strip = Above(Nil,beneath)
     def discard(ds: List[Stmt]) = Above(ds++discards,beneath)
     def map[B](f: A => B): Above[B] = Above(discards,f(beneath))
@@ -47,6 +50,22 @@ object Denotations {
   def discardsOption[A <: HasDiscards](x: Option[A]) = x match {
     case None => Nil
     case Some(x) => x.discards
+  }
+
+  // Wrapped types
+  case class TypeDen(discards: List[Stmt], beneath: Type) extends ExpOrType with HasDiscard[TypeDen] {
+    def item = beneath.item
+    def array = TypeDen(discards,ArrayType(beneath))
+
+    def strip = discards match {
+      case Nil => this
+      case _ => TypeDen(Nil,beneath)
+    }
+    def discard(ds: List[Stmt]) = ds match {
+      case Nil => this
+      case ds => TypeDen(ds++discards,beneath)
+    }
+    def flatMap[A](f: Type => Scored[A]): Scored[Above[A]] = f(beneath) map (Above(discards,_))
   }
 
   // Callables
@@ -85,13 +104,13 @@ object Denotations {
     def strip = this
     def alltparams = tparams // this is raw, so we never have any relevant parent environment
   }
-  case class StaticMethodDen(x: Den, override val f: MethodItem) extends NonNewCallable {
+  case class StaticMethodDen(x: Option[Exp], override val f: MethodItem) extends NonNewCallable {
     def env(ts: List[TypeArg]) = capture(tparams,ts,Map.empty)._1 // Static methods don't use their parent environment
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(env(ts))
     def parent = None
-    def discards = x.discards
-    def strip = StaticMethodDen(x.strip,f)
+    def discards = discardsOption(x)
+    def strip = StaticMethodDen(x map (_.strip),f)
     def alltparams = tparams // static methods cannot use their parent's type environment
   }
   case class ForwardDen(parent: Option[ClassType], override val f: ConstructorItem) extends NonNewCallable {
@@ -218,7 +237,7 @@ object Denotations {
   }
 
   // It's all expressions from here
-  sealed abstract class Exp extends Den with HasDiscard[Exp] {
+  sealed abstract class Exp extends ExpOrType with HasDiscard[Exp] {
     def ty: Type
     def item: TypeItem // Faster version of ty.item
     def discard(ds: List[Stmt]) = ds match {

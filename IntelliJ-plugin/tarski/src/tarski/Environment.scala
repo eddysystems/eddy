@@ -102,7 +102,7 @@ object Environment {
     // Get exact and typo probabilities for string queries
     def _exactQuery(typed: Array[Char]): List[Item]
     def _typoQuery(typed: Array[Char]): List[Alt[Item]]
-    def _collect[A](typed: Array[Char], filter: PartialFunction[Item,A], error: => String): Scored[A] = {
+    def _collect[A](typed: Array[Char], error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[A]): Scored[A] = is match {
         case Nil => s
         case i::is => exact(is,if (filter.isDefinedAt(i)) Best(Pr.exact,filter.apply(i),s) else s)
@@ -113,12 +113,25 @@ object Environment {
       }
       exact(_exactQuery(typed),biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error)))
     }
+    def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
+      @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
+        case Nil => s
+        case i::is => exact(is,Best(Pr.exact,i,s))
+      }
+      @tailrec def approx(is: List[Alt[Item]], as: List[Alt[Item]]): List[Alt[Item]] = is match {
+        case Nil => as
+        case Alt(p,i)::is => approx(is,Alt(p,i)::as)
+      }
+      exact(_exactQuery(typed),biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error))) flatMap f
+    }
 
     // Convenience aliases taking String
     @inline final def exactQuery(typed: String): List[Item] = _exactQuery(typed.toCharArray)
     @inline final def typoQuery(typed: String): List[Alt[Item]] = _typoQuery(typed.toCharArray)
-    @inline final def collect[A](typed: String, filter: PartialFunction[Item,A], error: => String): Scored[A] =
-      _collect(typed.toCharArray,filter,error)
+    @inline final def collect[A](typed: String, error: => String, filter: PartialFunction[Item,A]): Scored[A] =
+      _collect(typed.toCharArray,error,filter)
+    @inline final def flatMap[A](typed: String, error: => String, f: Item => Scored[A]): Scored[A] =
+      _flatMap(typed.toCharArray,error,f)
 
     // Lookup by type.item
     def byItem(t: TypeItem): Scored[Value]
@@ -266,35 +279,24 @@ object Environment {
   // - TODO: things that appear often in this file/class/function are more likely
   // - TODO: things that are declared close by are more likely
 
-  // What could this name be, assuming it is a type?
-  def typeScores(name: String)(implicit env: Env): Scored[Type] = {
-    env.collect(name, { case t:TypeItem => t.raw }, s"Type $name not found")
-  }
-
   // What could it be, given it's a callable?
   def callableScores(name: String)(implicit env: Env): Scored[PseudoCallableItem] =
-    env.collect(name, {
+    env.collect(name, s"Callable $name not found", {
       case t:CallableItem => t
       case t@ThisItem(c) if env.place.forwardThisPossible(c) => t
       case t@SuperItem(c) if env.place.forwardSuperPossible(c.item) => t
-    }, s"Callable $name not found")
-
-  // What could this be, we know it's a value
-  def valueScores(name: String)(implicit env: Env): Scored[Value] =
-    env.collect(name, { case t:Value => t }, s"Value $name not found")
+    })
 
   // Look up values by their type
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
     env.byItem(t)
 
   // Does a member belong to a type?
-  def memberIn(f: Item, t: TypeItem): Boolean = f match {
-    case f: Member => f.parent match {
-      case p:ClassItem => isSubitem(t,p)
-      case _ => false
-    }
+  def memberIn(f: Member, t: TypeItem): Boolean = f.parent match {
+    case p:ClassItem => isSubitem(t,p)
     case _ => false
   }
+  def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
 
   // Assuming a member belongs to a type, what is its fully applied type?
   def typeIn(f: TypeItem, t: Type): Type = f match {

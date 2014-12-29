@@ -8,6 +8,7 @@ import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
 import tarski.Types.{ClassType, LangType, VoidType}
+import ambiguity.Utility._
 
 import scala.language.implicitConversions
 
@@ -33,6 +34,9 @@ object TestUtils {
   implicit def toExp(x: ThisItem): Exp = ThisExp(x)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
   implicit def toExps(e: Exp): List[Exp] = List(e)
+
+  // Callable implicit conversions
+  implicit def toCall(x: MethodItem): Callable = if (x.isStatic) StaticMethodDen(None,x) else impossible
 
   // Type implicit conversions
   implicit def toType(c: ClassItem): ClassType = c.simple
