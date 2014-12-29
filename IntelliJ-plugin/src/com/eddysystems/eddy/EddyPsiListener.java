@@ -2,6 +2,7 @@ package com.eddysystems.eddy;
 
 import com.intellij.psi.*;
 import com.intellij.psi.impl.PsiTreeChangeEventImpl;
+import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 
 public class EddyPsiListener implements PsiTreeChangeListener {
@@ -10,6 +11,10 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   EddyPsiListener(@NotNull final EnvironmentProcessor.JavaEnvironment env) {
     this.env = env;
+  }
+
+  public boolean isInsideCodeBlock(PsiElement elem) {
+    return PsiTreeUtil.getParentOfType(elem, PsiCodeBlock.class, true) != null;
   }
 
   // we have write access inside these callbacks
@@ -21,12 +26,12 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void childAdded(@NotNull PsiTreeChangeEvent event) {
     System.out.println("child added to " + event.getParent() + ": " + event.getChild());
-    // TODO: traverse children of event.getChild() (incl itself) to see which are items that need to be added. Add them.
-
-    // TODO: check if parent is visible from the outside (otherwise, only the scope processor should add stuff in here)
-    // we're invisible for this purpose if we're inside a code block, or if we're inside a local class
-
     PsiElement elem = event.getChild();
+
+    // we're invisible to the outside if we're inside a code block, or if we're inside a local class (inside a code block)
+    if (isInsideCodeBlock(elem))
+      return;
+
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
       env.addItem(elem);
     }
@@ -41,6 +46,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     System.out.println("child being removed from " + event.getParent() + ": " + event.getChild());
     // TODO: traverse children of event.getChild() (incl itself) to see which are items that need to be deleted. Delete them.
     // TODO: walk up tree to see if this operation changes an item (e.g. by deleting one of its extends, or one of its modifiers)
+    // TODO: if a PsiPackageStatement is deleted, all classes in this file suddenly switch to LocalPkg!
   }
 
   @Override
@@ -53,6 +59,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     System.out.println("child of " + event.getParent() + ": " + event.getOldChild() + " being replaced with something new");
 
     // TODO: properly translate to delete/add pair
+    // TODO: if a PsiPackageStatement is modified, all classes in this file change to the package with the new name!
   }
 
   @Override

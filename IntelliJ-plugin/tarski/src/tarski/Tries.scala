@@ -86,6 +86,13 @@ object Tries {
       makeDHelper(mergeDelable(values,t.values)) // some wasted ifs if t is not a DTrie
     override def ++(t: Iterable[V])(implicit tt: ClassTag[V]): DTrie[V] =
       makeDHelper(mergeDelable(values,toSorted(t))) // some wasted ifs because t shouldn't contain deleted items
+
+    // replace a value with another value (which must have the same name)
+    def overwrite(value: V, replacement: V): Unit = {
+      assert(value.name == replacement.name)
+      val view = nodeValues(JavaTrie.exactNode(this,value.name.toCharArray))
+      (0 until view.length).collectFirst( { case i if view(i) == value => view(i) = replacement } )
+    }
   }
 
   object DTrie {

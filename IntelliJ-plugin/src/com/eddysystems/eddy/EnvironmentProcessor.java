@@ -145,6 +145,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // add to localItems and addedItems
       assert lookup(elem) == null;
 
+      // don't add inaccessible things
+      if (converter.place.isInaccessible((PsiModifierListOwner)elem, true))
+        return;
+
       // this adds to localItems and localImplicitConstructors
       Item it = converter.addItem(elem);
 
@@ -164,9 +168,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     void deleteItem(PsiElement elem) {
-
-      // TODO: if a PsiPackageStatement is deleted, all classes in this file suddenly switch to LocalPkg!
-      // TODO: if a PsiPackageStatement is modified, all classes in this file change to the package with the new name!
 
       // this is called from beforeDelete, so elem is still valid
 
@@ -220,9 +221,42 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    // attributes of this item have changed, but references to it remain legal (e.g. modifiers, base, supers, etc.; name cannot change this way)
+    // attributes of this item have changed, but references to it remain valid (e.g. modifiers, base, supers, etc.; name cannot change this way)
     void changeItem(PsiElement elem) {
+      // find the item
+      Item it = lookup(elem);
+
+      if (it == null)
+        return;
+
+      System.out.println("changing " + it);
+
       // TODO: wipe cached fields in associated Item
+    }
+
+    // the name of this item has changed, but references to it remain valid (must be re-inserted into the trie, but no other action necessary)
+    void changeItemName(PsiElement elem, String newname) {
+      // find the item
+      Item it = lookup(elem);
+
+      if (it == null)
+        return;
+
+      System.out.println("changing the name of " + it + " to " + newname);
+
+      // delete from trie (by overwriting the corresponding stored item with a deleted dummy) and add to addedItems
+      Item dummy = new SimpleTypeVar(it.name());
+      dummy.delete();
+      dTrie.overwrite(it, dummy);
+
+      addedItems.put(elem, it);
+      if (localImplicitConstructors.containsKey(elem)) {
+        ConstructorItem itc = localImplicitConstructors.get(elem);
+        dTrie.overwrite(itc, dummy);
+        addedImplicitConstructors.put((PsiClass)elem, itc);
+      }
+
+      // TODO: set stored name in it to newname
     }
   }
 
