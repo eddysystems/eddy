@@ -29,13 +29,13 @@ class TestPretty {
   })
   @Test def genericStaticMethod() = test("A.<Object>f()", {
     val A = NormalClassItem("A", LocalPkg)
-    ApplyExp(StaticMethodDen(None, NormalMethodItem("f", A, List(SimpleTypeVar("T")), IntType, Nil, isStatic=true)), List(ObjectType), Nil)
+    ApplyExp(StaticMethodDen(NoneDen, NormalMethodItem("f", A, List(SimpleTypeVar("T")), IntType, Nil, isStatic=true)), List(ObjectType), Nil)
   })
   @Test def genericPlacement() = test("pkg.L.<String>fill(1,\"s\")", {
     val P = PackageItem("pkg", "pkg")
     val L = NormalClassItem("L", P, List(SimpleTypeVar("A")))
     val fill = NormalMethodItem("fill", L, List(SimpleTypeVar("A")), VoidType, List(IntType, StringItem.simple), isStatic=true)
-    ApplyExp(StaticMethodDen(None, fill), List(StringItem.simple), List(IntLit(1, "1"), StringLit("s","\"s\"")))
+    ApplyExp(StaticMethodDen(NoneDen, fill), List(StringItem.simple), List(IntLit(1, "1"), StringLit("s","\"s\"")))
   })
   @Test def genericNew() = test("new<String>A<Integer>(\"s\")", {
     val S = SimpleTypeVar("S")

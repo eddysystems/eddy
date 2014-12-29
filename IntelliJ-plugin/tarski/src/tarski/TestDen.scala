@@ -131,7 +131,7 @@ class TestDen {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = NormalMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)),isStatic=true)
     implicit val env = Env(Array(Main,f),Map((Main,2),(f,2)),PlaceInfo(f))
-    testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(None,f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
+    testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(NoneDen,f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
   @Test def arrayType() = {
@@ -395,7 +395,7 @@ class TestDen {
 
     implicit val env = Env(Array(X,cons,f),Map((f,2),(X,3)),PlaceInfo(f))
     // We are not allowed to discard the possible side effects in the X constructor.
-    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(None,cons),Nil,Nil)),f),Nil,Nil))))
+    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(ApplyExp(NewDen(None,cons),Nil,Nil),f),Nil,Nil))))
   }
 
   @Test def sideEffectsCons() = {
@@ -442,7 +442,7 @@ class TestDen {
     val s = LocalVariableItem("s",StringType,true)
     val b = LocalVariableItem("b",BooleanType,true)
     implicit val env = Env(Array(X,f),Map((X,3),(f,2)),PlaceInfo(f)).extendLocal(Array(x,d,s,b))
-    testDen("f(s,b,d,x)", ApplyExp(StaticMethodDen(None,f), Nil, List(x,d,s,b)))
+    testDen("f(s,b,d,x)", ApplyExp(StaticMethodDen(NoneDen,f), Nil, List(x,d,s,b)))
   }
 
   @Test def omittedQualifier() = {
@@ -482,7 +482,7 @@ class TestDen {
     for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
       val x = LocalVariableItem("x",A.generic(List(w)),true)
       implicit val env = localEnv(A,x,F,f)
-      testDen("f(x)",ApplyExp(StaticMethodDen(None,f),List(ObjectType),List(x)))
+      testDen("f(x)",ApplyExp(StaticMethodDen(NoneDen,f),List(ObjectType),List(x)))
     }
   }
 
@@ -652,7 +652,7 @@ class TestDen {
     val x = LocalVariableItem("x",IntType,true)
     val q = LocalVariableItem("q",DoubleType,true)
     implicit val env = baseEnv.extend(Array(A,fizz,x,q),Map(A->1,fizz->1,x->1,q->1)).move(PlaceInfo(fizz))
-    testDen("""fizz "s" x q""",ApplyExp(StaticMethodDen(None,fizz),Nil,List(StringLit("s","\"s\""),x,q)))
+    testDen("""fizz "s" x q""",ApplyExp(StaticMethodDen(NoneDen,fizz),Nil,List(StringLit("s","\"s\""),x,q)))
   }
 
   @Test def shadowedParameter() = {
@@ -665,10 +665,10 @@ class TestDen {
     def env(bs: Int, cs: Int) = baseEnv.extend(Array(A,B,C,f,bx,cx),Map(bx->bs,cx->cs)).move(PlaceInfo(f))
     def unit(x: Unit) = x
     unit({ implicit val bad = env(bs=2,cs=1); testFail("f x") })
-    unit({ implicit val good = env(bs=1,cs=2); testDen("f x",ApplyExp(StaticMethodDen(None,f),Nil,List(bx))) })
+    unit({ implicit val good = env(bs=1,cs=2); testDen("f x",ApplyExp(StaticMethodDen(NoneDen,f),Nil,List(bx))) })
   }
 
-  @Test def memberToMixfix() = {
+  @Test def memberToInfix() = {
     val A = NormalClassItem("A", LocalPkg)
     val f = NormalMethodItem("f", A, Nil, VoidType, List(A), isStatic=true)
     val a = ParameterItem("a", A, true)

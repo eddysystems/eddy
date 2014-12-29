@@ -178,16 +178,11 @@ object Pr {
   // denoteLabel
   val labelNone = base
 
-  val exactType = base
-  val exactCallable = base
-  val exactValue = base
+  val exact = Prob("exact",.98)
+  val typo = Prob("typo",.02)
+  assert(pp(exact) > pp(typo))
   val objectOfType = base
-  val exactValueOfType = base
   val objectOfItem = base
-  val exactCallableField = base
-  val exactField = base
-  val exactStaticField = base
-  val exactTypeField = base
 
   // ArgMatching
   def dropArgs(dropped: Int) = Prob(s"drop $dropped args",math.pow(.3, dropped))
