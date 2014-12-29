@@ -165,8 +165,8 @@ object Environment {
       implicit val env: Env = this
       val v0 = sByItem.get(t)
       val v0r = if (v0 == null) emptyValues else v0
-      val v1 = sByItem.get(t)
-      val v1r = if (v1 == null) emptyValues else v1
+      val v1 = dByItem.get(t)
+      val v1r = if (v1 == null) emptyValues else v1 filter (!_.deleted)
       val v2 = vByItem.get(t)
       val v2r = if (v2 == null) emptyValues else v2
       uniform(Pr.objectOfItem, v0r ++ v1r ++ v2r, s"Value of item ${show(t)} not found")
