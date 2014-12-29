@@ -199,6 +199,6 @@ object Base {
       assert(t eq b,s"Versions of $n in baseEnv (${b.getClass}) and env (${t.getClass}) differ")
       seen += n
     })))
-    names foreach {case (n,_) => assert(seen contains n, s"env does not contain $n")}
+    names foreach {case (n,i) => assert(seen contains n, s"env does not contain '$n': ${i.print}")}
   }
 }

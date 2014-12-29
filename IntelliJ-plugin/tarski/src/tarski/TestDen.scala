@@ -654,4 +654,20 @@ class TestDen {
     unit({ implicit val bad = env(bs=2,cs=1); testFail("f x") })
     unit({ implicit val good = env(bs=1,cs=2); testDen("f x",ApplyExp(StaticMethodDen(None,f),Nil,List(bx))) })
   }
+
+  @Test def memberToMixfix() = {
+    val A = NormalClassItem("A", LocalPkg)
+    val f = NormalMethodItem("f", A, Nil, VoidType, List(A), isStatic=true)
+    val a = ParameterItem("a", A, true)
+    implicit val env = baseEnv.extend(Array(A,f,a), Map(A->2,f->2,a->1)).move(PlaceInfo(f))
+    testDen("a f a", ApplyExp(MethodDen(ParameterExp(a), f), Nil, List(ParameterExp(a))))
+  }
+
+  @Test def javascriptStyleMember() = {
+    val A = NormalClassItem("A", LocalPkg)
+    val f = NormalFieldItem("f", A, A, isFinal=false)
+    val a = ParameterItem("a", A, isFinal=true)
+    implicit val env = baseEnv.extend(Array(A,f,a), Map(A->2,f->2,a->1))
+    testDen("a[f] = a", AssignExp(None, FieldExp(ParameterExp(a), f), ParameterExp(a)))
+  }
 }

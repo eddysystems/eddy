@@ -1,26 +1,38 @@
 package tarski
 
 import tarski.Denotations.Stmt
-import tarski.Environment.Env
-import tarski.Items.{Item, PackageItem}
+import tarski.Environment.{ThreeEnv, PlaceInfo, Env}
+import tarski.Items.{Value, TypeItem, Item, PackageItem}
 import tarski.Pretty._
 import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
+import tarski.Tries.{DTrie, Trie}
 
 import scala.collection.JavaConverters._
 
 object Tarski {
 
-  def environment(jvalues: java.util.Collection[Item]): Env = {
-    val vs = jvalues.asScala.toArray // Copy because jvalues may change during addObjects due to lazy conversion
-    val all = vs++Base.extraEnv.allItems
-    Env(all,Map.empty)
+  def makeTrie(jvalues: java.util.Collection[Item]): Trie[Item] = {
+    Trie(jvalues.asScala)
   }
 
-  def addEnvironment(env: Env, values: Array[Item], scope: java.util.Map[Item,Integer]): Env =
-    env.extend(values, scope.asScala.toMap.mapValues(_.intValue))
+  def makeTrie(jvalues: Array[Item]): Trie[Item] = {
+    Trie(jvalues)
+  }
+
+  def makeDTrie(jvalues: java.util.Collection[Item]): DTrie[Item] = {
+    DTrie(jvalues.asScala)
+  }
+
+  def environment(sTrie: Trie[Item], dTrie: DTrie[Item], vTrie: Trie[Item],
+                  sByItem: java.util.Map[TypeItem,Array[Value]],
+                  dByItem: java.util.Map[TypeItem,Array[Value]],
+                  vByItem: java.util.Map[TypeItem,Array[Value]],
+                  scope: java.util.Map[Item,Integer], place: PlaceInfo): Env = {
+    new ThreeEnv(sTrie, dTrie, vTrie, sByItem, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
+  }
 
   def localPkg(): PackageItem = Base.LocalPkg
 

@@ -11,7 +11,7 @@ import tarski.Types._
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
   // inherits from Product => only case things or abstract classes can have this trait without implementing Product
-  sealed trait Item extends RefEq with Product with Tries.Named {
+  sealed trait Item extends RefEq with Product with Tries.Named with Tries.Delable {
     def name: Name
     def qualifiedName: Option[Name] // A name that is valid anywhere
     override def toString: String = qualifiedName getOrElse name
@@ -145,12 +145,16 @@ object Items {
 
     // All constructors of this class
     def constructors: Array[ConstructorItem]
+
+    // invalidate constructors cache (if there is such a thing)
+    def invalidateConstructors(): Unit
   }
 
   private val noConstructors: Array[ConstructorItem] = Array()
   trait BaseItem extends ClassItem {
     val fieldNames: java.util.Set[String] = new java.util.HashSet[String]()
     var constructors: Array[ConstructorItem] = noConstructors
+    def invalidateConstructors(): Unit = {}
     def declaresField(kid: Name) = fieldNames.contains(kid)
   }
 
@@ -185,6 +189,7 @@ object Items {
     def isFinal = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
+    def invalidateConstructors(): Unit = {}
 
     // Not sure why we need these
     def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
@@ -208,6 +213,7 @@ object Items {
     def isEnum = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
+    def invalidateConstructors(): Unit = {}
 
     // Not sure why we need these
     def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
@@ -235,6 +241,7 @@ object Items {
 
     def declaresField(kid: Name) = false
     val constructors = noConstructors
+    def invalidateConstructors(): Unit = {}
   }
 
   case object ArrayItem extends RefTypeItem {

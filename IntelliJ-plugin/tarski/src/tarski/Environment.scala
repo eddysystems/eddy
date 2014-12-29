@@ -41,6 +41,7 @@ object Environment {
       case cons:ConstructorItem => c==cons.parent.base.item && c.constructors.length>0
       case _ => false
     }
+    // TODO: in static scope?
   }
   val localPlace = PlaceInfo(Base.LocalPkg)
 
@@ -74,53 +75,6 @@ object Environment {
     def popScope: Env
 
     // Add variables and fields
-    def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,LocalVariableItem)]
-    def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean): Scored[(Env,Value)]
-
-    // Get exact and typo probabilities for string queries
-    def query(typed: String): List[Alt[Item]]
-    def exactQuery(typed: String): List[Item]
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A]
-
-    // Lookup by type.item
-    def byItem(t: TypeItem): Scored[Value]
-
-    // Fragile or slow, only use for tests
-    def exactLocal(name: String): LocalVariableItem
-    def allItems: Array[Item]
-
-    // get the innermost (current) ThisItem
-    def getThis: ThisItem = scope.collect({ case (i:ThisItem,n) => (i,n) }).minBy(_._2)._1
-  }
-
-  // Constructors for Env
-  object Env {
-    def apply(items: Array[Item], scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace): Env =
-      scoped("make env",
-        TwoEnv(Trie(items),Trie.empty,
-               valuesByItem(items),new java.util.HashMap[TypeItem,Array[Value]](),
-               scope,place))
-  }
-
-  // Store two tries and two byItems: one large one for globals, one small one for locals.
-  case class TwoEnv(private val trie0: Trie[Item],
-                    private val trie1: Trie[Item],
-                    private val byItem0: java.util.Map[TypeItem,Array[Value]],
-                    private val byItem1: java.util.Map[TypeItem,Array[Value]],
-                    scope: Map[Item,Int],
-                    place: PlaceInfo) extends Env {
-    // Slow, use only for tests
-    def allItems: Array[Item] = trie0.values++trie1.values
-
-    // Add some new things to an existing environment
-    def extend(things: Array[Item], scope: Map[Item,Int]) =
-      TwoEnv(trie0,trie1++things,
-             byItem0,valuesByItem(trie1.values++things),
-             this.scope++scope,place)
-
-    def move(to: PlaceInfo) =
-      TwoEnv(trie0,trie1,byItem0,byItem1,scope,to)
-
     def newVariable(name: String, t: Type, isFinal: Boolean) = place.place match {
       case c: CallableItem =>
         if (scope exists { case (v:LocalVariableItem,_) => v.name == name; case _ => false })
@@ -145,6 +99,119 @@ object Environment {
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
 
+    // Get exact and typo probabilities for string queries
+    def query(typed: String): List[Alt[Item]]
+    def exactQuery(typed: String): List[Item]
+
+    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A] = {
+      @tailrec def collectExact(is: List[Item], as: List[Alt[A]]): List[Alt[A]] = is match {
+        case Nil => as
+        case i::is => collectExact(is,if (filter.isDefinedAt(i)) Alt(exactProb,filter.apply(i))::as else as)
+      }
+      val compExactProb = pcomp(exactProb)
+      @tailrec def collectApprox(is: List[Alt[Item]], as: List[Alt[A]]): List[Alt[A]] = is match {
+        case Nil => as
+        case Alt(p,i)::is => collectApprox(is,if (filter.isDefinedAt(i)) Alt(pmul(compExactProb,p),filter.apply(i))::as else as)
+      }
+      orderedAlternative(collectExact(exactQuery(typed),Nil),collectApprox(query(typed),Nil),error)
+    }
+
+    // Lookup by type.item
+    def byItem(t: TypeItem): Scored[Value]
+
+    // Fragile or slow, only use for tests
+    def exactLocal(name: String): LocalVariableItem
+    def allItems: Array[Item]
+
+    // get the innermost (current) ThisItem
+    def getThis: ThisItem = scope.collect({ case (i:ThisItem,n) => (i,n) }).minBy(_._2)._1
+  }
+
+  // Constructors for Env
+  object Env {
+    def apply(items: Array[Item], scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace): Env =
+        TwoEnv(Trie(items),Trie.empty,
+               valuesByItem(items),new java.util.HashMap[TypeItem,Array[Value]](),
+               scope,place)
+  }
+
+  case class ThreeEnv(private val sTrie: Trie[Item], // never rebuilt (large)
+                      private val dTrie: DTrie[Item], // occasionally rebuilt (medium)
+                      private val vTrie: Trie[Item], // rebuilt all the time, including by this Env's functions returning new Envs (small)
+                      private val sByItem: java.util.Map[TypeItem,Array[Value]],
+                      private val dByItem: java.util.Map[TypeItem,Array[Value]],
+                      private val vByItem: java.util.Map[TypeItem,Array[Value]],
+                      scope: Map[Item,Int], place: PlaceInfo) extends Env {
+
+    val emptyValues = new Array[Value](0)
+
+    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,sByItem,dByItem,vByItem,scope,to)
+
+    // Enter and leave block scopes
+    override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,sByItem,dByItem,vByItem,
+                                           scope map { case (i,n) => (i,n+1) },
+                                           place)
+
+    override def popScope: Env = ThreeEnv(sTrie,dTrie,vTrie,sByItem,dByItem,vByItem,
+                                           scope collect { case (i,n) if n>1 => (i,n-1) },
+                                           place)
+
+    // Lookup by type.item
+    override def byItem(t: TypeItem): Scored[Value] = {
+      implicit val env: Env = this
+      val v0 = sByItem.get(t)
+      val v0r = if (v0 == null) emptyValues else v0
+      val v1 = sByItem.get(t)
+      val v1r = if (v1 == null) emptyValues else v1
+      val v2 = vByItem.get(t)
+      val v2r = if (v2 == null) emptyValues else v2
+      uniform(Pr.objectOfItem, v0r ++ v1r ++ v2r, s"Value of item ${show(t)} not found")
+    }
+
+    // Add more objects
+    override def extend(things: Array[Item], scope: Map[Item, Int]): Env =
+      ThreeEnv(sTrie,dTrie,vTrie ++ things, sByItem,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place)
+
+    // Slow, use only for tests
+    override def allItems: Array[Item] = sTrie.values ++ (dTrie.values filter (!_.deleted)) ++ vTrie.values
+
+    // Fragile or slow, only use for tests
+    override def exactLocal(name: String): LocalVariableItem = {
+      def options(t: Trie[Item]) = t exact name collect { case x: LocalVariableItem => x }
+      options(sTrie)++options(dTrie)++options(vTrie) match {
+        case List(x) => x
+        case Nil => throw new RuntimeException(s"No local variable $name")
+        case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
+      }
+    }
+
+    override def exactQuery(typed: String): List[Item] =
+      sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)
+
+    // Get exact and typo probabilities for string queries
+    override def query(typed: String): List[Alt[Item]] =
+      typoQuery(sTrie,typed)++typoQuery(dTrie,typed)++typoQuery(vTrie,typed)
+  }
+
+  // Store two tries and two byItems: one large one for globals, one small one for locals.
+  case class TwoEnv(private val trie0: Trie[Item],
+                    private val trie1: Trie[Item],
+                    private val byItem0: java.util.Map[TypeItem,Array[Value]],
+                    private val byItem1: java.util.Map[TypeItem,Array[Value]],
+                    scope: Map[Item,Int],
+                    place: PlaceInfo) extends Env {
+    // Slow, use only for tests
+    def allItems: Array[Item] = trie0.values++trie1.values
+
+    // Add some new things to an existing environment
+    def extend(things: Array[Item], scope: Map[Item,Int]) =
+      TwoEnv(trie0,trie1++things,
+             byItem0,valuesByItem(trie1.values++things),
+             this.scope++scope,place)
+
+    def move(to: PlaceInfo) =
+      TwoEnv(trie0,trie1,byItem0,byItem1,scope,to)
+
     // Fragile, only use for tests
     def exactLocal(name: String): LocalVariableItem = {
       def options(t: Trie[Item]) = t exact name collect { case x: LocalVariableItem => x }
@@ -168,25 +235,12 @@ object Environment {
              place)
 
     // Get typo probabilities for string queries
-    // TODO: should match camel-case smartly
+    // TODO: should match camel-case smartly (requires word database?)
     def query(typed: String): List[Alt[Item]] =
       typoQuery(trie1,typed)++typoQuery(trie0,typed)
 
     def exactQuery(typed: String): List[Item] =
       trie1.exact(typed) ++ trie0.exact(typed)
-
-    def combinedQuery[A](typed: String, exactProb: Prob, filter: PartialFunction[Item,A], error: => String): Scored[A] = {
-      @tailrec def collectExact(is: List[Item], as: List[Alt[A]]): List[Alt[A]] = is match {
-        case Nil => as
-        case i::is => collectExact(is,if (filter.isDefinedAt(i)) Alt(exactProb,filter.apply(i))::as else as)
-      }
-      val compExactProb = pcomp(exactProb)
-      @tailrec def collectApprox(is: List[Alt[Item]], as: List[Alt[A]]): List[Alt[A]] = is match {
-        case Nil => as
-        case Alt(p,i)::is => collectApprox(is,if (filter.isDefinedAt(i)) Alt(pmul(compExactProb,p),filter.apply(i))::as else as)
-      }
-      orderedAlternative(collectExact(exactQuery(typed),Nil),collectApprox(query(typed),Nil),error)
-    }
 
     def byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this

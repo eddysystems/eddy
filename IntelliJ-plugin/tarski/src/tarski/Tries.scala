@@ -2,7 +2,6 @@ package tarski
 
 import java.util
 
-import ambiguity.Utility._
 import tarski.Scores._
 
 import scala.annotation.tailrec
@@ -16,8 +15,10 @@ object Tries {
   }
 
   trait Delable {
-    def deleted: Boolean
-    def delete(): Unit
+    var deleted: Boolean = false
+    def delete(): Unit = {
+      deleted = true
+    }
   }
 
   class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) {
@@ -76,14 +77,14 @@ object Tries {
 
     // The two keys are assumed equal
     def ++(t: Trie[V])(implicit tt: ClassTag[V]): Trie[V] =
-      scoped("trie merge",makeHelper(merge(values,t.values)))
+      makeHelper(merge(values,t.values))
     def ++(t: Iterable[V])(implicit tt: ClassTag[V]): Trie[V] =
-      scoped("trie extend",makeHelper(merge(values,toSorted(t))))
+      makeHelper(merge(values,toSorted(t)))
   }
 
   object Trie {
     def apply[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Trie[V] =
-      scoped("trie create",makeHelper(toSorted(input)))
+      makeHelper(toSorted(input))
 
     def empty[V <: Named](implicit tt: ClassTag[V]): Trie[V] =
       makeHelper(Array.empty)
@@ -98,26 +99,25 @@ object Tries {
       super.exact(s) filter (!_.deleted)
     }
     override def ++(t: Trie[V])(implicit tt: ClassTag[V]): DTrie[V] =
-      scoped("dtrie merge", makeDHelper(mergeDelable(values,t.values))) // some wasted ifs if t is not a DTrie
+      makeDHelper(mergeDelable(values,t.values)) // some wasted ifs if t is not a DTrie
     override def ++(t: Iterable[V])(implicit tt: ClassTag[V]): DTrie[V] =
-      scoped("trie extend",makeDHelper(mergeDelable(values,toSorted(t)))) // some wasted ifs because t shouldn't contain deleted items
+      makeDHelper(mergeDelable(values,toSorted(t))) // some wasted ifs because t shouldn't contain deleted items
   }
 
   object DTrie {
     def apply[V <: Named with Delable](input: Iterable[V])(implicit tt: ClassTag[V]): DTrie[V] =
-      scoped("trie create",makeDHelper(toSorted(input)))
+      makeDHelper(toSorted(input))
 
     def empty[V <: Named with Delable](implicit tt: ClassTag[V]): DTrie[V] =
       makeDHelper(Array.empty)
   }
 
   // Sort input into an array
-  private def toSorted[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Array[V] =
-    scoped("sort array",{
-      val values = input.toArray
-      util.Arrays.sort(values.asInstanceOf[Array[Object]])
-      values
-    })
+  private def toSorted[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Array[V] = {
+    val values = input.toArray
+    util.Arrays.sort(values.asInstanceOf[Array[Object]])
+    values
+  }
 
   // Merge two sorted arrays
   private def merge[V <: Named](v0: Array[V], v1: Array[V])(implicit tt: ClassTag[V]): Array[V] = {
