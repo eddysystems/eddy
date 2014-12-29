@@ -4,6 +4,7 @@ import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -27,7 +28,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Editor editor;
   private final @NotNull Document document;
   private final @NotNull PsiFile psifile;
-  private static final @NotNull Logger logger = Logger.getInstance("EddyFileListener");
+  private final @NotNull Logger logger;
 
   private static final @NotNull Object active_lock = new Object();
   private static EddyFileListener active_instance = null;
@@ -39,6 +40,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   private boolean inChange = false;
 
   public EddyFileListener(@NotNull Project project, TextEditor editor, @NotNull PsiFile psifile) {
+    logger = Logger.getInstance("EddyFileListener@" + editor);
     logger.setLevel(Level.INFO);
 
     this.project = project;
@@ -101,30 +103,34 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
     @Override
     public void run() {
-      // must be in smart mode, must be inside read action
-      final long start = System.nanoTime();
-      DumbService.getInstance(owner.project).runReadActionInSmartMode(new Runnable() {
-          @Override
-          public void run() {
-          // if we waited for smart mode, don't wait too much longer
-          try {
-            int millis = new Double(200-(System.nanoTime()-start)/1e3).intValue();
-            if (millis > 0)
-              sleep(millis);
-          } catch (InterruptedException e) {
-            return;
+      try {
+        // must be in smart mode, must be inside read action
+        final long start = System.nanoTime();
+        DumbService.getInstance(owner.project).runReadActionInSmartMode(new Runnable() {
+            @Override
+            public void run() {
+            // if we waited for smart mode, don't wait too much longer
+            try {
+              int millis = new Double(200-(System.nanoTime()-start)/1e3).intValue();
+              if (millis > 0)
+                sleep(millis);
+
+              EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
+              eddy.process(owner.editor,null);
+              EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
+
+              if (!eddy.foundSomethingUseful() || isInterrupted())
+                return;
+
+              showHint();
+            } catch (InterruptedException e) {
+              // ignore
+            }
           }
-
-          EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
-          eddy.process(owner.editor,null);
-          EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
-
-          if (!eddy.foundSomethingUseful() || isInterrupted())
-            return;
-
-          showHint();
-        }
-      });
+        });
+      } catch (RuntimeInterruptedException e) {
+        // ignore
+      }
     }
 
     protected void showHint() {
@@ -137,7 +143,6 @@ public class EddyFileListener implements CaretListener, DocumentListener {
         @Override public void run() {
           // whoever showed the hint last is it
           synchronized (active_lock) {
-            logger.info("made EddyAction for eddy@" + eddy.hashCode());
             HintManager.getInstance().showQuestionHint(owner.editor, hintText, offset, offset + 1, new EddyAction(eddy));
             active_instance = owner;
           }
@@ -187,7 +192,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       return;
     if (!enabled())
       return;
-    logger.debug("caret position changed");
+    System.out.println("caret position changed: " + e.getOldPosition() + " -> " + e.getNewPosition());
+    //logger.debug("caret position changed");
     process();
   }
 

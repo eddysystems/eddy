@@ -18,11 +18,12 @@ import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.collection.immutable.Map;
-import tarski.*;
+import tarski.Environment;
+import tarski.Scores;
+import tarski.Tarski;
+import tarski.Tokens;
 
 import java.util.List;
-
-import static ambiguity.JavaUtils.*;
 
 public class Eddy {
   private final @NotNull Logger logger = Logger.getInstance(getClass());
@@ -243,27 +244,21 @@ public class Eddy {
       if (canceled)
         return;
 
-      pushScope("environment");
-      try { env = new EnvironmentProcessor(project, place, true).getJavaEnvironment(); }
-      finally { popScope(); }
-      pushScope("fix");
-      try {
-        final Tarski.Enough enough = new Tarski.Enough() { @Override
-          public boolean enough(Map<List<String>,Object> m) {
-            if (m.size() < 4) return false;
-            if (special == null) return true;
-            final scala.collection.Iterator<List<String>> i =  m.keysIterator();
-            while (i.hasNext()) {
-              final List<String> x = i.next();
-              if (reformat(x).equals(special))
-                return true;
-            }
-            return false;
+      env = EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(place);
+      final Tarski.Enough enough = new Tarski.Enough() { @Override
+        public boolean enough(Map<List<String>,Object> m) {
+          if (m.size() < 4) return false;
+          if (special == null) return true;
+          final scala.collection.Iterator<List<String>> i =  m.keysIterator();
+          while (i.hasNext()) {
+            final List<String> x = i.next();
+            if (reformat(x).equals(special))
+              return true;
           }
-        };
-        results = Tarski.fixJava(tokens,env,enough);
-      } finally { popScope(); }
-
+          return false;
+        }
+      };
+      results = Tarski.fixJava(tokens,env,enough);
       resultStrings = reformat(results, before_text);
     }
   }

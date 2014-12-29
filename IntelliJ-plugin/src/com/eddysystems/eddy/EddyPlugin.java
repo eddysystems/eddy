@@ -9,11 +9,15 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupManager;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.WindowManager;
+import com.intellij.psi.PsiManager;
+import com.intellij.psi.PsiTreeChangeListener;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.eddysystems.eddy.EnvironmentProcessor.JavaEnvironment;
 
 public class EddyPlugin implements ProjectComponent {
   private Project project;
@@ -26,13 +30,18 @@ public class EddyPlugin implements ProjectComponent {
     return projectMap.get(project);
   }
 
-  private EnvironmentProcessor.JavaEnvironment librariesEnv = null;
-  public EnvironmentProcessor.JavaEnvironment getLibrariesEnv() { return librariesEnv; }
-  public boolean isInitialized() { return librariesEnv != null; }
+  private PsiTreeChangeListener psiListener = null;
+  private JavaEnvironment env = null;
+  public JavaEnvironment getEnv() { return env; }
+  public boolean isInitialized() { return env != null; }
 
-  public void initLibrariesEnv() {
+  public void initEnv() {
+    if (psiListener != null) {
+      PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
+    }
+
     if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
-      librariesEnv = EnvironmentProcessor.getLibrariesEnvironment(project);
+      env = EnvironmentProcessor.getEnvironment(project);
     } else {
       final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
       if (sbar != null) {
@@ -40,7 +49,9 @@ public class EddyPlugin implements ProjectComponent {
         widget.moreBusy();
       }
 
-      librariesEnv = EnvironmentProcessor.getLibrariesEnvironment(project);
+      env = EnvironmentProcessor.getEnvironment(project);
+      psiListener = new EddyPsiListener(env);
+      PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
 
       if (sbar != null) {
         sbar.setInfo("eddy scan done.");
@@ -88,10 +99,11 @@ public class EddyPlugin implements ProjectComponent {
                     public void run() {
                       ApplicationManager.getApplication().invokeLater(new Runnable() {
                         @Override public void run() {
-                          WindowManager.getInstance().getStatusBar(project).addWidget(widget);
+                          final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+                          if (sbar != null) sbar.addWidget(widget);
                         }
                       });
-                      initLibrariesEnv();
+                      initEnv();
                     }
                   });
                 }
@@ -106,10 +118,16 @@ public class EddyPlugin implements ProjectComponent {
   public void disposeComponent() {
     System.out.println("disposing plugin.");
 
+    assert ApplicationManager.getApplication().isDispatchThread();
+
     projectMap.remove(project);
     StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
     if (sbar != null)
       sbar.removeWidget(widget.ID());
+
+    if (psiListener != null) {
+      PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
+    }
   }
 
   @NotNull

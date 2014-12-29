@@ -18,30 +18,28 @@ import java.util.*;
 
 public class Converter {
   public final Place place;
-  private final Map<PsiElement,Item> globals;
-  public final Map<PsiClass, ConstructorItem> globalImplicitConstructors; // Implicit constructors, indexed by their PsiClass
+  public final EnvironmentProcessor.JavaEnvironment jenv;
   public final Map<PsiElement, Item> locals; // We will add to this
   public final Map<PsiClass, ConstructorItem> localImplicitConstructors; // Implicit constructors, indexed by their PsiClass
 
   private final @NotNull Logger logger = Logger.getInstance(getClass());
 
   Converter(Place place,
-            Map<PsiElement, Item> globals, Map<PsiClass,ConstructorItem> globalImplicitConstructors,
+            EnvironmentProcessor.JavaEnvironment jenv,
             Map<PsiElement, Item> locals, Map<PsiClass,ConstructorItem> localImplicitConstructors) {
     this.place = place;
-    this.globals = globals;
+    this.jenv = jenv;
     this.locals = locals;
-    this.globalImplicitConstructors = globalImplicitConstructors;
     this.localImplicitConstructors = localImplicitConstructors;
   }
 
   @Nullable Item lookup(PsiElement e) {
-    Item i = globals.get(e);
+    Item i = jenv.lookup(e);
     return i != null ? i : locals.get(e);
   }
 
   @Nullable ConstructorItem lookupImplicitConstructor(PsiClass c) {
-    ConstructorItem i = globalImplicitConstructors.get(c);
+    ConstructorItem i = jenv.lookupImplicitConstructor(c);
     return i != null ? i : localImplicitConstructors.get(c);
   }
 
@@ -332,11 +330,31 @@ public class Converter {
       return _constructors;
     }
 
+    @Override
+    public void invalidateConstructors() {
+      _constructors = null;
+    }
+
     // Necessary only due to screwy Java/Scala interop
     public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
+  }
+
+  // used to dynamically add items from Psi tree change events
+  Item addItem(PsiElement elem) {
+    if (elem instanceof PsiClass) {
+      return addClass((PsiClass)elem, true, true);
+    } else if (elem instanceof PsiMethod) {
+      return addMethod((PsiMethod)elem);
+    } else if (elem instanceof PsiField) {
+      return addField((PsiField)elem);
+    } else if (elem instanceof PsiPackage) {
+      return addContainer(elem);
+    } else {
+      throw new RuntimeException("adding unknown item type: " + elem);
+    }
   }
 
   RefTypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
