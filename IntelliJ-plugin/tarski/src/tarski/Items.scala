@@ -36,17 +36,11 @@ object Items {
     val superItems = supers map (_.item)
     def lo = NullType
     val hi = glb(supers)
-
-    override def beneath: RefType = this
-    override def discards = Nil
   }
   case class SimpleTypeVar(name: String) extends TypeVar {
     def superItems = List(ObjectItem)
     def lo = NullType
     def hi = ObjectType
-
-    override def beneath: RefType = this
-    override def discards = Nil
   }
 
   // Packages
@@ -84,7 +78,8 @@ object Items {
     def productElement(n: Int) = notImplemented
   }
 
-  trait GenericItem extends WithTypeParams {
+  trait GenericItem {
+    def tparams: List[TypeVar]
     def arity: Int = tparams.size
   }
 

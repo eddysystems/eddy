@@ -80,11 +80,6 @@ object Pr {
   // Type[]
   def arrayType(t: Type): Prob = base // given type t, how likely is t[]
 
-  // denoteTypeArg
-  val wildcard = base
-  val subWildcard = base
-  val superWildcard = Prob("super wildcard",.6)
-
   // denoteType(AExp)
   // (Type)
   val parensAroundType = Prob("parens around type",.8) // given type t, how likely is (t) (maybe more likely for generic types)
@@ -94,6 +89,7 @@ object Pr {
   val typeFieldOfExp = pmul(Prob("type field of exp",.6),fieldType)
   // Type<TArg,...>
   val typeApply = base
+  val boxType = Prob("box type",.5)
 
   // Value not in scope (requiring qualification)
   val outOfScope = Prob("out of scope",.7)
@@ -114,18 +110,16 @@ object Pr {
 
   // (callable)
   val parensAroundCallable = Prob("parens around callable",.8)
-  // Type.staticMethod
-  val staticFieldCallable = base
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
-  // Exp.method
-  val methodFieldCallable = base
   // Type.constructor (not legal in Java. Also makes no sense)
   val constructorFieldCallable = Prob("constructor field callable",.5)
   // Exp.constructor (not legal, and makes even less sense)
   val constructorFieldCallableWithObject = Prob("constructor field callable with object",.4)
   // C++-style type arguments for a callable
   val typeApplyCallable = Prob("C++ style type application for callable",.8)
+  // new in front of a non-constructor callable
+  val dropNew = Prob("drop new",.1)
 
   // denoteExp(AExp)
   val parenExp = base

@@ -30,6 +30,7 @@ object TestUtils {
   implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString)
   implicit def toExp(x: LocalVariableItem): Exp = LocalVariableExp(x)
   implicit def toExp(x: ParameterItem): Exp = ParameterExp(x)
+  implicit def toExp(x: ThisItem): Exp = ThisExp(x)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
   implicit def toExps(e: Exp): List[Exp] = List(e)
 

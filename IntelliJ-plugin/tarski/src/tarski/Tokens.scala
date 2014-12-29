@@ -285,11 +285,17 @@ object Tokens {
     case _:PhantomTok => throw new RuntimeException(s"Shouldn't be printing phantom token $t")
   }
 
+  def showSep(ts: List[Token], sep: String): String =
+    ts map show mkString sep
+
+  def showSep[A](x: A, sep: String)(implicit p: Pretty[A]): String =
+    tokens(x) map show mkString sep
+
   def show(ts: List[Token]): String =
     ts map show mkString " "
 
   def show[A](x: A)(implicit p: Pretty[A]): String =
-    show(tokens(x))
+    tokens(x) map show mkString " "
 
   // Prepare a token stream for parsing.
   // 1. Turn matching identifiers into fake keywords.

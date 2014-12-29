@@ -202,7 +202,7 @@ ExpCommas AExp
 
 alias EJ ExpJuxt
 alias ExpBinary   ExpCond[ExpJuxt]
-alias ExpBinaryNJ ExpCond[ExpNew]
+alias ExpBinaryNJ ExpCond[ExpWild]
 alias ExpBinaryNP ExpCond[ExpJuxtNP]
 ExpCond[a] AExp
   ExpOrOr[a]                                                { $1 }
@@ -254,23 +254,20 @@ ExpUnary[a] AExp
   LParenTok Type Right ExpUnary[EJ]                         { CastAExp($2,$4) }
 
 ExpJuxt AExp
-  ExpNew                                                    { $1 }
-  ExpNew SingleJuxt1[ExpNewNA]                              { ApplyAExp($1,$2,NoAround) }
+  ExpWild                                                   { $1 }
+  ExpWild SingleJuxt1[ExpWildNA]                            { ApplyAExp($1,$2,NoAround) }
 ExpJuxtNP AExp
-  ExpNewNP                                                  { $1 }
-  ExpNew SingleJuxt1[ExpNewNA]                              { ApplyAExp($1,$2,NoAround) }
+  ExpWildNP                                                 { $1 }
+  ExpWild SingleJuxt1[ExpWildNA]                            { ApplyAExp($1,$2,NoAround) }
 
-ExpNew AExp
+ExpWild AExp
   ExpHigh                                                   { $1 }
-  NewTok Option[TypeArgs] ExpJuxt                           { NewAExp($2,$3) }
   QuestionTok WildcardBounds                                { WildAExp($2) }
-ExpNewNA AExp
+ExpWildNA AExp
   ExpHighNA                                                 { $1 }
-  NewTok Option[TypeArgs] ExpJuxt                           { NewAExp($2,$3) }
   QuestionTok WildcardBounds                                { WildAExp($2) }
-ExpNewNP AExp
+ExpWildNP AExp
   ExpHighNP                                                 { $1 }
-  NewTok Option[TypeArgs] ExpJuxt                           { NewAExp($2,$3) }
   QuestionTok WildcardBounds                                { WildAExp($2) }
 
 ExpHigh AExp
@@ -281,21 +278,27 @@ ExpHighNP AExp
   LeftNP Right                                              { ArrayAExp(EmptyList,     Grouped($1,$2)) }
   LeftNP ExpBinaryNJ Right                                  { ArrayAExp(SingleList($2),Grouped($1,$3)) }
   LeftNP Commas2[ExpBinary] Right                           { ArrayAExp(CommaList($2), Grouped($1,$3)) }
-  LeftNP Juxts2[ExpNew] Right                               { ArrayAExp(JuxtList($2),  Grouped($1,$3)) }
+  LeftNP Juxts2[ExpWild] Right                              { ArrayAExp(JuxtList($2),  Grouped($1,$3)) }
 ExpParens AExp
   LParenTok ExpAssignNC Right                               { ParenAExp($2,           Grouped(Paren,$3)) }
   LParenTok Right                                           { ArrayAExp(EmptyList,    Grouped(Paren,$2)) }
   LParenTok Commas2[ExpBinary] Right                        { ArrayAExp(CommaList($2),Grouped(Paren,$3)) }
-  LParenTok Juxts2[ExpNew] Right                            { ArrayAExp(JuxtList($2), Grouped(Paren,$3)) }
+  LParenTok Juxts2[ExpWild] Right                           { ArrayAExp(JuxtList($2), Grouped(Paren,$3)) }
 ExpHighNA AExp
-  Ident                                                     { NameAExp($1) }
-  Lit                                                       { $1 }
-  ExpHigh DotTok Option[TypeArgs] Ident                     { FieldAExp($1,$3,$4) }
+  ExpNew                                                    { $1 }
   ExpHigh Left List[ExpAssignNC] Right                      { ApplyAExp($1,$3,Grouped($2,$4)) }
-  ExpHigh ColonColonTok Option[TypeArgs] Ident              { MethodRefAExp($1,$3,$4) }
-  ExpHigh ColonColonTok Option[TypeArgs] NewTok             { NewRefAExp($1,$3) }
+ExpNew AExp
+  ExpPrimary                                                { $1 }
+  NewTok Option[TypeArgs] ExpPrimary                        { NewAExp($2,$3) }
+ExpPrimary AExp
+  Lit                                                       { $1 }
+  Ident                                                     { NameAExp($1) }
+  ExpHigh DotTok Option[TypeArgs] Ident                     { FieldAExp($1,$3,$4) }
   ExpHigh TypeArgs                                          { TypeApplyAExp($1,$2) }
   TypeArgs ExpHigh                                          { TypeApplyAExp($2,$1) }
+
+// TODO: ExpHigh ColonColonTok Option[TypeArgs] Ident       { MethodRefAExp($1,$3,$4) }
+// TODO: ExpHigh ColonColonTok Option[TypeArgs] NewTok      { NewRefAExp($1,$3) }
 
 Left Group
   LParenTok { Paren }

@@ -9,6 +9,7 @@ import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.PriorityQueue;
 import static java.lang.Math.max;
 import static tarski.Scores.oneError;
@@ -172,7 +173,6 @@ public class JavaScores {
             if (b.s instanceof LazyScored) { // Force and add back to heap
               final double limit = max(max(goal,asp),bs.isEmpty() ? 0 : bs.peek().p());
               bs.add(new Biased<B>(b.q,((LazyScored<B>)b.s).force(limit)));
-              continue;
             } else if (b.s instanceof Best) { // We found the best one
               bads = null; // We've found at least one thing, so no need to track errors further
               final Best<B> bb = (Best<B>)b.s;
@@ -180,10 +180,9 @@ public class JavaScores {
               if (!(r instanceof Empty$))
                 bs.add(new Biased<B>(b.q,r));
               return new Best<B>(pmul(b.q,bb.dp()),bb.x(),new Extractor<B>(this));
-            } else if (bads != null) {
+            } else if (bads != null)
               bads = $colon$colon$.MODULE$.<Bad>apply((Bad)b.s,bads);
-              continue;
-            }
+            continue;
           }
         }
         // Otherwise, dig into as
@@ -209,79 +208,46 @@ public class JavaScores {
     }
   }
 
-  static public final class OrderedAlternativeState<A> extends State<A> {
-    private PriorityQueue<Alt<A>> heap;
-    private Function0<List<Alt<A>>> more;
-    private Function0<String> error;
-
-    // Requires: prob first >= prob andThen
-    public OrderedAlternativeState(List<Alt<A>> list, Function0<List<Alt<A>>> more, Function0<String> error) {
-      this.error = error;
-      heap = new PriorityQueue<Alt<A>>();
-      absorb(list);
-      if (more != null && heap.isEmpty())
-        absorb(more.apply());
-      else
-        this.more = more;
+  // Requires p >= then.p()
+  static public <A> Scored<A> uniformThen(double/*Prob*/ p, A[] xs, Scored<A> then) {
+    assert p >= then.p();
+    if (xs != null)
+      for (int i=xs.length-1;i>=0;i--)
+        then = new Best<A>(p,xs[i],then);
+    return then;
+  }
+  static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<A> xs, Scored<A> then) {
+    assert p >= then.p();
+    while (xs.nonEmpty()) {
+      then = new Best<A>(p,xs.head(),then);
+      xs = (List)xs.tail();
     }
-
-    private void absorb(List<Alt<A>> list) {
-      while (!list.isEmpty()) {
-        heap.add(list.head());
-        list = (List<Alt<A>>)list.tail();
-      }
-    }
-
-    // Current probability bound
-    public double p() {
-      Alt<A> a = heap.peek();
-      return a == null ? 0 : a.p();
-    }
-
-    public Scored<A> extract(final double goal) {
-      if (heap.isEmpty()) {
-        if (more != null) {
-          absorb(more.apply());
-          more = null;
-        }
-        if (heap.isEmpty()) {
-          if (error == null)
-            return (Scored<A>)Empty$.MODULE$;
-          return oneError(error);
-        }
-      }
-      Alt<A> a = heap.poll();
-      error = null;
-      return new Best<A>(a.dp(),a.x(),new Extractor<A>(this));
-    }
+    return then;
   }
 
-  static public final class UniformState<A> extends State<A> {
-    private final double/*Prob*/ _p;
-    private A[] xs;
-    private int i;
-    private Function0<String> error;
-
-    public UniformState(double/*Prob*/ p, A[] xs, Function0<String> error) {
-      this._p = p;
-      this.xs = xs == null || xs.length == 0 ? null : xs;
-      this.error = this.xs == null ? error : null;
-    }
-
-    public double p() {
-      return xs == null ? 0 : pp(_p);
-    }
-
-    public Scored<A> extract(final double goal) {
-      if (xs == null) {
-        if (error == null)
-          return (Scored<A>)Empty$.MODULE$;
-        return oneError(error);
-      }
-      final A x = xs[i++];
-      if (i == xs.length)
-        xs = null;
-      return new Best<A>(_p,x,new Extractor<A>(this));
+  // Requires a.p >= then.p for any a in xs.
+  static public <A> Scored<A> listThen(List<Alt<A>> xs, Scored<A> then) {
+    final int n = xs.size();
+    switch (n) {
+      case 0:
+        return then;
+      case 1:
+        final Alt<A> x = xs.head();
+        assert x.p() >= then.p();
+        return new Best<A>(x.dp(),x.x(),then);
+      default:
+        final Object[] sx = new Object[xs.size()];
+        for (int i=0;i<n;i++) {
+          sx[i] = xs.head();
+          xs = (List)xs.tail();
+        }
+        Arrays.sort(sx);
+        assert ((Alt)sx[n-1]).p() >= then.p();
+        for (int i=n-1;i>=0;i--) {
+          final Alt<A> a = (Alt<A>)sx[i];
+          then = new Best<A>(a.dp(),a.x(),then);
+        }
+        return then;
     }
   }
 

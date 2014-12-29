@@ -53,26 +53,10 @@ object Tries {
     }
 
     // Find an exact match
-    def exact(s: String): List[V] = {
-      val n = s.size
-      @tailrec
-      def loop(node: Int, depth: Int): List[V] =
-        if (depth == n) nodeValues(node).toList
-        else {
-          val c = s(depth).toInt
-          var lo = 0
-          var hi = structure(node+1)
-          while (lo < hi) {
-            val mid = (lo+hi)>>1
-            val x = structure(node+2+2*mid)
-            if (c == x) { lo = mid; hi = mid-1 }
-            else if (c < x) hi = mid
-            else lo = mid+1
-          }
-          if (lo == hi) Nil
-          else loop(structure(node+2+2*lo+1),depth+1)
-        }
-      loop(0,0)
+    @inline def exact(s: Array[Char]): List[V] = {
+      val n = JavaTrie.exactNode(this,s)
+      if (n < 0) Nil
+      else nodeValues(n).toList
     }
 
     // The two keys are assumed equal
@@ -95,7 +79,7 @@ object Tries {
 
     // nodevalues is a low-level function which will return deleted values. filter them yourself.
 
-    override def exact(s: String): List[V] = {
+    @inline override def exact(s: Array[Char]): List[V] = {
       super.exact(s) filter (!_.deleted)
     }
     override def ++(t: Trie[V])(implicit tt: ClassTag[V]): DTrie[V] =
@@ -174,12 +158,9 @@ object Tries {
   private def makeHelper[V <: Named](values: Array[V]): Trie[V] = {
     new Trie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
   }
+
   private def makeDHelper[V <: Named with Delable](values: Array[V]): DTrie[V] = {
     new DTrie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
-  }
-
-  def levenshteinLookup[V <: Named](t: Trie[V], typed: String, maxDistance: Float, expected: Double, minProb: Double): List[Alt[V]] = {
-    JavaTrie.levenshteinLookup(t,typed,maxDistance,expected,minProb)
   }
 }
 

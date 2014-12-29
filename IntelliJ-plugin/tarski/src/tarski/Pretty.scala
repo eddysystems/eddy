@@ -299,8 +299,9 @@ object Pretty {
   // Denotations
   implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
     def relative(i: Item) = if (env.inScope(i)) pretty(i.name) else i match {
-      case i:Member if i.parent != LocalPkg => (FieldFix, tokens(i.parent) ::: DotTok :: tokens(i.name))
-      case _ => pretty(i.name) // we can't see this item, show it anyway
+      case i:Member if i.parent != LocalPkg && i.parent != Base.JavaLangPkg =>
+        (FieldFix, tokens(i.parent) ::: DotTok :: tokens(i.name))
+      case _ => pretty(i.name) // We can't see this item, show it anyway
     }
     i match {
       // Types
@@ -384,7 +385,7 @@ object Pretty {
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,ts,a) => {
       // TODO: If ts is inferable, don't print it
-      def method(x: Exp, ts: List[RefType], f: Item): Tokens =
+      def method(x: Exp, ts: List[TypeArg], f: Item): Tokens =
         left(FieldFix,x) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name)
       val callable: Tokens = (f,ts) match {
         case (MethodDen(x,f),_) => method(x,ts,f)
@@ -475,5 +476,12 @@ object Pretty {
   implicit def prettyForInit(i: ForInit)(implicit env: Env): (Fixity,Tokens) = i match {
     case v: VarStmt => prettyStmt(v)
     case ForExps(es) => (SemiFix, tokens(CommaList(es)) ::: List(SemiTok))
+  }
+
+  // Print a type variable with bound details
+  def details(v: TypeVar)(implicit env: Env): String = {
+    val mid = v.name
+    val pre = if (v.lo == NullType) mid else s"${showSep(v.lo,"")} extends $mid"
+    if (v.hi == ObjectType) pre else s"$pre extends ${showSep(v.hi,"")}"
   }
 }
