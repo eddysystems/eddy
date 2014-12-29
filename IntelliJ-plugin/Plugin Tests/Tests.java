@@ -1,6 +1,10 @@
 import com.eddysystems.eddy.Eddy;
 import com.eddysystems.eddy.EddyPlugin;
-import com.eddysystems.eddy.EnvironmentProcessor;
+import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
+import com.intellij.openapi.command.WriteCommandAction;
+import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.ex.EditorEx;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
@@ -10,6 +14,7 @@ import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl;
 import com.intellij.openapi.roots.ContentEntry;
 import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
+import com.intellij.openapi.util.Computable;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
@@ -19,8 +24,8 @@ import tarski.*;
 import tarski.Items.Item;
 import tarski.Scores.Alt;
 
-import java.util.ArrayList;
 import java.util.List;
+
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
 
@@ -63,8 +68,32 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
+  private boolean editorAction(Editor editor, String actionId) {
+    final DataContext dataContext = ((EditorEx)editor).getDataContext();
+
+    final ActionManagerEx managerEx = ActionManagerEx.getInstanceEx();
+    final AnAction action = managerEx.getAction(actionId);
+    final AnActionEvent event = new AnActionEvent(null, dataContext, ActionPlaces.UNKNOWN, new Presentation(), managerEx, 0);
+
+    return WriteCommandAction.runWriteCommandAction(getProject(), new Computable<Boolean>() {
+      @Override
+      public Boolean compute() {
+        action.update(event);
+
+        if (!event.getPresentation().isEnabled()) {
+          return false;
+        }
+
+        managerEx.fireBeforeActionPerformed(action, dataContext, event);
+        action.actionPerformed(event);
+        managerEx.fireAfterActionPerformed(action, dataContext, event);
+        return true;
+      }
+    });
+  }
+
   private Eddy makeEddy(@Nullable String special) {
-    EddyPlugin.getInstance(myFixture.getProject()).initLibrariesEnv();
+    EddyPlugin.getInstance(myFixture.getProject()).initEnv();
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
@@ -137,15 +166,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   // actual tests
   public void testCreateEddy() throws Exception {
-    for (int i = 0; i < 2; i++) {
-      System.out.println("iteration " + i);
-      setupEddy(null,"dummy.java");
-    }
+    Eddy eddy = setupEddy(null,"dummy.java");
+    Base.checkEnv(eddy.getEnv());
   }
 
   public void testProbLE1() {
     Eddy eddy = setupEddy(null,"denote_x.java");
-    Base.checkEnv(eddy.getEnv());
     for (Scores.Alt<List<String>> result : eddy.getResults())
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
@@ -186,27 +212,25 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("implicitly defined constructor (C) not in environment", Cc);
   }
 
-  public void testProject() {
-    Eddy eddy = setupEddy(null,"dummy.java",
-                          "JSON-java/JSONObject.java",
-                          "JSON-java/CDL.java",
-                          "JSON-java/Cookie.java",
-                          "JSON-java/CookieList.java",
-                          "JSON-java/HTTP.java",
-                          "JSON-java/HTTPTokener.java",
-                          "JSON-java/JSONArray.java",
-                          "JSON-java/JSONException.java",
-                          "JSON-java/JSONML.java",
-                          "JSON-java/JSONString.java",
-                          "JSON-java/JSONStringer.java",
-                          "JSON-java/JSONTokener.java",
-                          "JSON-java/JSONWriter.java",
-                          "JSON-java/Kim.java",
-                          "JSON-java/Property.java",
-                          "JSON-java/README",
-                          "JSON-java/XML.java",
-                          "JSON-java/XMLTokener.java");
-    Base.checkEnv(eddy.getEnv());
+  /* yak shaving.
+  public void testFileSwitching() {
+    myFixture.configureByFiles("file1.java", "file2.java");
+    EddyPlugin.getInstance(myFixture.getProject()).initEnv();
+    // make sure we see the right things in file1
+    VirtualFile[] files = FileEditorManager.getInstance(myFixture.getProject()).getOpenFiles();
+    assert files.length == 2;
+    for (VirtualFile file : files) {
+      System.out.println("open file: " + file.getCanonicalPath());
+    }
+    System.out.println("Startup, editor content: \n" + myFixture.getEditor().getDocument().getCharsSequence());
+    PsiFile psifile = PsiManager.getInstance(myFixture.getProject()).findFile(files[1]);
+    editorAction(((TextEditor)FileEditorManager.getInstance(myFixture.getProject()).getSelectedEditor(files[1])).getEditor(), IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT);
+  }
+  */
+
+  public void testClosingBrace() {
+    Eddy eddy = setupEddy(null,"closingBrace.java");
+    checkBest(eddy,"}",.9);
   }
 
   public void testPartialEditTypeConflict() {
