@@ -179,6 +179,7 @@ object Pr {
   def dropArgs(dropped: Int) = Prob(s"drop $dropped args",math.pow(.3, dropped))
   def shuffleArgs = Prob("shuffle args",.5)
   def addArg = Prob("add arg",.5)
+  def missingArgList = Prob("missing argument list",.2)
 
   // Named simple values
   val parse = Prob("parse",1)

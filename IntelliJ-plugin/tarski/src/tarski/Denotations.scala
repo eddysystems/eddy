@@ -13,9 +13,10 @@ object Denotations {
   sealed abstract class Den extends HasDiscards {
     def strip: Den
   }
-  sealed abstract class ExpOrType extends Den with HasDiscard[ExpOrType] {
+  sealed trait ExpOrType extends Den with HasDiscard[ExpOrType] {
     def item: TypeItem
   }
+  sealed trait ExpOrCallable extends Den with HasDiscard[ExpOrCallable]
 
   trait HasDiscards {
     def discards: List[Stmt]
@@ -63,7 +64,7 @@ object Denotations {
   }
 
   // Callables
-  sealed abstract class Callable extends Den with Signature with HasDiscard[Callable] {
+  sealed abstract class Callable extends ExpOrCallable with Signature with HasDiscard[Callable] {
     def f: CallableItem
     def tparams: List[TypeVar]
     def params: List[Type]
@@ -258,7 +259,7 @@ object Denotations {
   }
 
   // It's all expressions from here
-  sealed abstract class Exp extends ExpOrType with HasDiscard[Exp] {
+  sealed abstract class Exp extends ExpOrType with ExpOrCallable with HasDiscard[Exp] {
     def ty: Type
     def item: TypeItem // Faster version of ty.item
     def discard(ds: List[Stmt]) = ds match {
