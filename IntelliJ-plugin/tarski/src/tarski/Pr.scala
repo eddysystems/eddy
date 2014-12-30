@@ -185,4 +185,5 @@ object Pr {
   val parse = Prob("parse",1)
   val forwardThis = Prob("forward this",1)
   val forwardSuper = Prob("forward super",1)
+  val constructor = Prob("constructor",1)
 }

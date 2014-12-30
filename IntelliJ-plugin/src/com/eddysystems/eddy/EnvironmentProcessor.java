@@ -577,7 +577,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     local_items.addAll(localImplicitConstructors.values());
 
     // find out which element we are inside (method, class or interface, or package)
-    PlaceItem placeItem = null;
+    ParentItem placeItem = null;
     boolean inside_continuable = false;
     boolean inside_breakable = false;
     final List<String> labels = new SmartList<String>();
@@ -623,9 +623,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
           if (jenv.knows(place))
-            placeItem = (PlaceItem)jenv.items.get(place);
+            placeItem = (ParentItem)jenv.items.get(place);
           else if (locals.containsKey(place))
-            placeItem = (PlaceItem)locals.get(place);
+            placeItem = (ParentItem)locals.get(place);
           else
             assert false : "cannot find placeItem";
         }
@@ -638,7 +638,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         } else {
           if (placeItem == null) {
             assert locals.containsKey(pkg) || jenv.knows(pkg);
-            placeItem = (PlaceItem)env.addContainer(pkg);
+            placeItem = (ParentItem)env.addContainer(pkg);
           }
         }
         break;

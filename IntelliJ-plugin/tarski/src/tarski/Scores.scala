@@ -172,9 +172,15 @@ object Scores {
     if (trackErrors) new Bad(OneError(error))
     else Empty
   private val knownProb = Prob("known",1)
-  def known[A](x: A): Scored[A] = Best(knownProb,x,Empty)
-  def single[A](x: A, p: Prob): Scored[A] = Best(p,x,Empty)
-  def orError[A](x: Scored[A], error: => String): Scored[A] =
+  @inline def known[A](x: A): Scored[A] = Best(knownProb,x,Empty)
+  @inline def knownThen[A](x: A, s: Scored[A]) =
+    if (trackErrors) known(x)++s
+    else Best(knownProb,x,s)
+  @inline def bestThen[A](p: Prob, x: A, s: Scored[A]) =
+    if (trackErrors) single(x,p)++s
+    else Best(p,x,s)
+  @inline def single[A](x: A, p: Prob): Scored[A] = Best(p,x,Empty)
+  @inline def orError[A](x: Scored[A], error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error)) ++ x
     else x
 

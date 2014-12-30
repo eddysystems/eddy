@@ -161,11 +161,13 @@ object Base {
 
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
+  if (ObjectItem.constructors.length==0)
+    ObjectItem.constructors = Array(ObjectConsItem)
 
   // Standard base environment for tests
   val baseEnv = silenced(Env(Array(
     // Packages
-    JavaLangPkg,JavaIoPkg,LocalPkg,
+    JavaLangPkg,JavaIoPkg,
     // Primitive types
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem,
     // Classes
@@ -187,7 +189,7 @@ object Base {
 
   // Things that EnvironmentProcessor won't add on its own
   val extraEnv = silenced(Env(Array(
-    LocalPkg,trueLit,falseLit,nullLit,
+    trueLit,falseLit,nullLit,
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem)))
 
   // Check that an environment has a unique copy of everything in baseEnv

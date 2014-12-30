@@ -49,14 +49,12 @@ class TestDen {
   }
 
   // Ensure that all options have probability at most bound
-  def testFail(input: String, bound: Double = -1)(implicit env: Env) = {
-    type A = (Env,List[Stmt])
-    @tailrec def check(s: Scored[A]): Unit = if (s.p > bound) s match {
-      case s:LazyScored[A] => check(s force bound)
-      case Best(p,(_,x),_) => throw new AssertionError(s"\nExpected probability <= $bound, got\n  $p : $x")
-      case _:EmptyOrBad => ()
-    }
-    check(fix(lex(input)))
+  def testFail(input: String, bound: Double = -1)(implicit env: Env) =
+    checkFail(fix(lex(input)),bound)(_._2)
+  @tailrec final def checkFail[A,B](s: Scored[A], bound: Double = -1)(f: A => B): Unit = if (s.p > bound) s match {
+    case s:LazyScored[A] => checkFail(s force bound,bound)(f)
+    case Best(p,x,_) => throw new AssertionError(s"\nExpected probability <= $bound, got\n  $p : ${f(x)}")
+    case _:EmptyOrBad => ()
   }
 
   def probOf[A](s: Scored[A], a: A): Double = {
@@ -209,8 +207,8 @@ class TestDen {
   @Test
   def genericConsObject(): Unit = {
     val T = SimpleTypeVar("T")
-    val A = NormalClassItem("A",LocalPkg,List(T))
-    val AC = NormalConstructorItem(A,Nil,List(T))
+    lazy val A: ClassItem = NormalClassItem("A",LocalPkg,List(T),constructors=Array(AC))
+    lazy val AC = NormalConstructorItem(A,Nil,List(T))
     implicit val env = localEnvWithBase().extend(Array(A,AC),Map((A,3),(AC,3)))
     // should result in A<Object> x = new A<Object>(new Object());
     testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
@@ -389,8 +387,8 @@ class TestDen {
     assertFinal(x); ForeachStmt(IntType,x,ArrayExp(IntType,List(1,2)),HoleStmt) })
 
   @Test def sideEffects() = {
-    val X = NormalClassItem("X",LocalPkg)
-    val cons = NormalConstructorItem(X,Nil,Nil)
+    lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
+    lazy val cons = NormalConstructorItem(X,Nil,Nil)
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,true)
 
     implicit val env = Env(Array(X,cons,f),Map((f,2),(X,3)),PlaceInfo(f))
@@ -399,8 +397,8 @@ class TestDen {
   }
 
   @Test def sideEffectsCons() = {
-    val X = NormalClassItem("X",LocalPkg)
-    val cons = NormalConstructorItem(X,Nil,Nil)
+    lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
+    lazy val cons = NormalConstructorItem(X,Nil,Nil)
     val Y = NormalClassItem("Y",X,Nil)
     implicit val env = localEnv(X,cons,Y)
     testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(None,cons),Nil)),VarStmt(Y,List((y,0,None)))))
@@ -488,8 +486,8 @@ class TestDen {
 
   // Mismatched parentheses
   @Test def mismatchedParens() = {
-    val X = NormalClassItem("X",LocalPkg)
-    val cons = NormalConstructorItem(X,Nil,Nil)
+    lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
+    lazy val cons = NormalConstructorItem(X,Nil,Nil)
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,false)
     implicit val env = localEnv(X,cons,f)
     val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(None,cons),Nil)),f),Nil)
@@ -689,12 +687,17 @@ class TestDen {
 
   @Test def classInPackage() = {
     val P = PackageItem("P","P")
-    val A = NormalClassItem("A",P)
-    val cons = NormalConstructorItem(A,Nil,Nil)
+    lazy val A: ClassItem = NormalClassItem("A",P,constructors=Array(cons))
+    lazy val cons = NormalConstructorItem(A,Nil,Nil)
     implicit val env = localEnv().extend(Array(P,A,cons),Map.empty)
     val e = ApplyExp(NewDen(None,cons),Nil)
     testDen("P.A()",e)
     testDen("new P.A()",e)
+  }
+
+  @Test def noLocalPkg(): Unit = {
+    val is = localEnvWithBase().exactQuery("")
+    if (is.nonEmpty) throw new AssertionError(s"Unexpected empty strings: ${is map (_.getClass)}")
   }
 
   @Test def fieldAccess() = {

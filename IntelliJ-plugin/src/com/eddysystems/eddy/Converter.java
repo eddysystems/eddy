@@ -103,8 +103,8 @@ public class Converter {
           // This happens. For instance in java.lang.SecurityManager.getClassContext()
           return item.raw();
         } else if (parent == null) {
-          Item container = addContainer(place.containing(tcls));
-          return item.generic(params,((ParentItem)container).inside());
+          ParentItem container = addContainer(place.containing(tcls));
+          return item.generic(params,container.inside());
         } else {
           return item.generic(params,parent);
         }
@@ -124,11 +124,11 @@ public class Converter {
     throw new NotImplementedError("Unknown type: " + t.getCanonicalText() + " type " + t.getClass().getCanonicalName());
   }
 
-  Item addContainer(PsiElement elem) {
+  ParentItem addContainer(PsiElement elem) {
     {
       Item i = lookup(elem);
       if (i != null)
-        return i;
+        return (ParentItem)i;
     }
     if (elem == null)
       return tarski.Tarski.localPkg();
@@ -137,15 +137,12 @@ public class Converter {
     if (elem instanceof PsiMethod)
       return addMethod((PsiMethod) elem);
     if (elem instanceof PsiClass)
-      return addClass((PsiClass) elem, false, false);
+      return (ParentItem)addClass((PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
-      PsiPackage pkg = (PsiPackage)elem;
-      PackageItem item;
-      if (pkg.getName() == null) {
-        item = tarski.Tarski.localPkg();
-      } else {
-        item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
-      }
+      final PsiPackage pkg = (PsiPackage)elem;
+      if (pkg.getName() == null)
+        return tarski.Tarski.localPkg();
+      final PackageItem item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
       locals.put(pkg,item);
       return item;
     }
@@ -640,7 +637,7 @@ public class Converter {
       return addTypeParam((PsiTypeParameter)cls);
 
     // Make and add the class
-    final ParentItem parent = (ParentItem)addContainer(place.containing(cls));
+    final ParentItem parent = addContainer(place.containing(cls));
     ClassItem item = new LazyClass(this,cls,parent);
     locals.put(cls,item);
 

@@ -169,21 +169,30 @@ object Semantics {
     def ty:      Boolean = (m&2)!=0
     def call:    Boolean = (m&4)!=0
     def inNew:   Boolean = (m&8)!=0
+    def pack:    Boolean = (m&16)!=0
+
     def callExp: Boolean = (m&(1|4))!=0
     def onlyCallExp: Mode = Mode(m&(1|4|8))
     def onlyTyCall:  Mode = Mode(m&(2|4|8))
-    def |(n: Mode):  Mode = Mode(m|n.m)
-  }
-  val NoMode      = Mode(0)
-  val ExpMode     = Mode(1)
-  val TypeMode    = Mode(2)
-  val CallMode    = Mode(4)
-  val NewMode     = Mode(4|8)
 
-  @inline def denoteExp    (e: AExp)(implicit env: Env): Scored[Exp]       = denote(e,ExpMode).asInstanceOf[Scored[Exp]]
-  @inline def denoteType   (e: AExp)(implicit env: Env): Scored[TypeDen]   = denote(e,TypeMode).asInstanceOf[Scored[TypeDen]]
-  @inline def denoteExpType(e: AExp)(implicit env: Env): Scored[ExpOrType] = denote(e,ExpMode|TypeMode).asInstanceOf[Scored[ExpOrType]]
-  @inline def denoteNew    (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
+    def |(n: Mode):  Mode = Mode(m|n.m)
+
+    override def toString = {
+      def f(s: String, b: Boolean) = if (b) List(s) else Nil
+      s"Mode(${f("exp",exp)++f("ty",ty)++f("call",call)++f("new",inNew) mkString "|"})"
+    }
+  }
+  val NoMode   = Mode(0)
+  val ExpMode  = Mode(1)
+  val TypeMode = Mode(2)
+  val CallMode = Mode(4)
+  val NewMode  = Mode(4|8)
+  val PackMode = Mode(16)
+
+  @inline def denoteExp   (e: AExp)(implicit env: Env): Scored[Exp]       = denote(e,ExpMode).asInstanceOf[Scored[Exp]]
+  @inline def denoteType  (e: AExp)(implicit env: Env): Scored[TypeDen]   = denote(e,TypeMode).asInstanceOf[Scored[TypeDen]]
+  @inline def denoteParent(e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
+  @inline def denoteNew   (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
 
   @inline def knownNotNew[A](m: Mode, x: A): Scored[A] = single(x,if (m.inNew) 1 else Pr.dropNew)
   @inline def biasedNotNew[A](m: Mode, x: => Scored[A]): Scored[A] = if (m.inNew) x else biased(Pr.dropNew,x)
@@ -202,18 +211,22 @@ object Semantics {
     case x:ALit if m.exp => denoteLit(x)
 
     // Names
-    case NameAExp(n) if m==TypeMode => env.collect(n,s"Type $n not found",{
-      case t:TypeItem if typeAccessible(t) => TypeDen(Nil,t.raw)
-    })
-    case NameAExp(n) => env.flatMap(n,s"Value $n not found",{
+    case NameAExp(n) => env.flatMap(n,s"Name $n not found",{
       case v:Value if m.exp => denoteValue(v,depth=0)
-      case t:TypeItem if m.ty => if (typeAccessible(t)) known(TypeDen(Nil,t.raw))
-                                 else fail(s"${show(t)} is inaccessible")
+      case t:TypeItem =>
+        if (!typeAccessible(t)) fail(s"${show(t)} is inaccessible")
+        else {
+          val s = if (!m.callExp) fail("Not in call mode") else t match {
+            case t:ClassItem if t.constructors.length==0 => fail(s"$t has no constructors")
+            case t:ClassItem => fixCall(m,uniformGood(Pr.constructor,t.constructors) map (NewDen(None,_)))
+            case _ => fail(s"$t is not a class, and therefore has no constructors")
+          }
+          if (m.ty) knownThen(TypeDen(Nil,t.raw),s) else s
+        }
       case c:PseudoCallableItem if m.callExp => fixCall(m,c match {
         case i:MethodItem if i.isStatic => knownNotNew(m,StaticMethodDen(None,i))
         case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i))
         case i:MethodItem => biasedNotNew(m,denoteMethod(i,0))
-        case i:ConstructorItem => known(NewDen(None,i))
         case ThisItem(c) if env.place.forwardThisPossible(c) =>
           biasedNotNew(m,uniformGood(Pr.forwardThis,c.constructors) flatMap {
             case cons if cons == env.place.place => fail("Can't forward to current constructor")
@@ -223,8 +236,10 @@ object Semantics {
           val tenv = c.env
           uniformGood(Pr.forwardSuper,c.item.constructors) map (ForwardDen(Some(c),_))
         })
+        case _ => fail(s"Unusable callable $c")
       })
-      case i => fail(s"$i doesn't match mode $m")
+      case p:PackageItem if m.pack => known(PackageDen(p))
+      case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
     })
 
     // Parentheses.  Java doesn't allow parentheses around types or callables, but we do.
@@ -232,6 +247,7 @@ object Semantics {
     case ParenAExp(x,_) if m.exp => denote(x,m) flatMap {
       case x:Exp => known(ParenExp(x))
       case x:TypeDen => single(x,Pr.weirdParens)
+      case x:PackageDen => single(x,Pr.weirdParens)
       case x:Callable => if (m.call) single(x,Pr.weirdParens)
                          else bareCall(x) map ParenExp
     }
@@ -240,37 +256,62 @@ object Semantics {
     // Fields.  x is either a type or an expression, f is an inner type, method, field, or constructor.
     case FieldAExp(_,Some(_),_) if !m.callExp => fail(s"${show(e)}: Unexpected type arguments in mode $m")
     case FieldAExp(x,ts,f) =>
+      // Is f a field of x?
+      def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
+        case (x:ExpOrType,p:ClassItem) => isSubitem(x.item,p)
+        case (PackageDen(x),p) => x eq p
+        case _ => false
+      }
+      def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
       // TODO: Also try applying ts to the type
       // TODO: Convert ts expressions to type args and check whether the type arguments fit
       val mc = if (ts.isEmpty) m else m.onlyCallExp
       val fs = env.collect(f,s"$f doesn't look like a field",{
-        case f:Value        with Member if mc.exp     && maybeMemberIn(f) => f
-        case f:TypeItem     with Member if mc.ty      && maybeMemberIn(f) => f
-        case f:CallableItem with Member if mc.callExp && maybeMemberIn(f) => f
+        case f:Value      with Member if mc.exp     && maybeMemberIn(f) => f
+        case f:TypeItem   with Member                                   => f
+        case f:MethodItem with Member if mc.callExp && maybeMemberIn(f) => f
       })
-      val cs = product(denoteExpType(x),fs) flatMap {case (x,f) => (x,f) match {
-        case _ if !memberIn(f,x.item) => fail(s"${show(x)} does not contain $f")
-        // Types
-        case (x:Exp,f:TypeItem) if mc.ty => single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
-        case (TypeDen(ds,t:Type),f:TypeItem) if mc.ty => known(TypeDen(ds,typeIn(f,t)))
-        // Expressions
-        case (x:Exp,    f:EnumConstantItem) if mc.exp => single(EnumConstantExp(Some(x),f),Pr.enumFieldExpWithObject)
-        case (t:TypeDen,f:EnumConstantItem) if mc.exp => single(EnumConstantExp(None,f).discard(t.discards),Pr.enumFieldExp)
-        case (x:Exp,    f:FieldItem)        if f.isStatic && mc.exp => single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
-        case (t:TypeDen,f:FieldItem)        if f.isStatic && mc.exp => single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
-        case (x:Exp,    f:FieldItem)        if mc.exp => single(FieldExp(x,f),Pr.fieldExp)
-        // Callables
-        case (_,f:CallableItem) if mc.callExp => fixCall(mc,(x,f) match {
-          case (x:Exp,    f:MethodItem) if f.isStatic => single(StaticMethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
-          case (x:TypeDen,f:MethodItem) if f.isStatic => knownNotNew(mc,StaticMethodDen(None,f).discard(x.discards))
-          case (x:Exp,    f:MethodItem) => knownNotNew(mc,MethodDen(x,f))
-          case (x:TypeDen,f:MethodItem) => fail(s"${show(e)}: Can't call non-static $f without object")
-          // TODO: Also try applying the type arguments to the class (not the constructor)
-          // Only Classes have constructors, so t or x.ty below must be a ClassType
-          case (x:Exp,    f:ConstructorItem) => single(NewDen(Some(x.ty.asInstanceOf[ClassType]),f).discard(effects(x)),Pr.constructorFieldCallableWithObject)
-          case (TypeDen(ds,t:Type),f:ConstructorItem) => single(NewDen(Some(t.asInstanceOf[ClassType]),f).discard(ds),Pr.constructorFieldCallable)
+      val cs = product(denoteParent(x),fs) flatMap {case (x,f) => f match {
+        case _ if !memberIn(f,x) => fail(s"${show(x)} does not contain $f")
+        case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
+          case (x:PackageDen,_) => fail("Values aren't members of packages")
+          case (x:Exp,    f:EnumConstantItem) => single(EnumConstantExp(Some(x),f),Pr.enumFieldExpWithObject)
+          case (t:TypeDen,f:EnumConstantItem) => single(EnumConstantExp(None,f).discard(t.discards),Pr.enumFieldExp)
+          case (x:Exp,    f:FieldItem) => if (f.isStatic) single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
+                                          else single(FieldExp(x,f),Pr.fieldExp)
+          case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
+                                          else fail(s"Can't access non-static field $f without object")
+        }
+        case f:TypeItem =>
+          val types = if (!mc.ty || ts.nonEmpty) fail(s"${show(e)}: Unexpected or invalid type field") else x match {
+            case _:PackageDen => known(TypeDen(Nil,f.raw))
+            case TypeDen(ds,t) => known(TypeDen(ds,typeIn(f,t)))
+            case x:Exp => single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
+          }
+          val cons = if (!mc.callExp) fail(s"${show(e)}: Not in call or exp mode") else f match {
+            case f:ClassItem if f.constructors.length>0 =>
+              val cons = uniformGood(Pr.constructor,f.constructors)
+              fixCall(mc,x match {
+                // TODO: Also try applying the type arguments to the class (not the constructor)
+                // Only Classes have constructors, so t or x.ty below must be a ClassType
+                case PackageDen(p) => cons map (NewDen(None,_))
+                case TypeDen(ds,tp) =>
+                  val t = Some(tp.asInstanceOf[ClassType])
+                  biased(Pr.constructorFieldCallable,cons map (NewDen(t,_).discard(ds)))
+                case x:Exp =>
+                  val t = Some(x.ty.asInstanceOf[ClassType])
+                  val ds = effects(x)
+                  biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(t,_).discard(ds)))
+              })
+            case _ => fail(s"$f has no constructors")
+          }
+          types++cons
+        case f:MethodItem => fixCall(mc,x match {
+          case x:Exp     if f.isStatic => single(StaticMethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
+          case x:TypeDen if f.isStatic => knownNotNew(mc,StaticMethodDen(None,f).discard(x.discards))
+          case x:Exp     => knownNotNew(mc,MethodDen(x,f))
+          case x:TypeDen => fail(s"${show(e)}: Can't call non-static $f without object")
         })
-        // Failure
         case _ => fail(s"Invalid field ${show(x)}  .  ${show(f)}")
       }}
       ts match {
@@ -307,12 +348,11 @@ object Semantics {
     case ApplyAExp(f,xsn,around) if m.exp =>
       val n = xsn.list.size
       val args = xsn.list map denoteExp
-      val fs = denote(f,CallMode | (if (m.ty && around==BrackAround) TypeMode else NoMode))
+      val fs = denote(f,CallMode | (if (m.ty && around==BrackAround) TypeMode else NoMode)).asInstanceOf[Scored[TypeOrCallable]]
       // Either array index or call
       val call = biased(Pr.callExp(xsn,around), fs flatMap {
         case f:TypeDen => known(f.array) // t[]
         case f:Callable => ArgMatching.fiddleCall(f,args)
-        case _:Exp => impossible
       })
       if (n == 0) call // No arguments is never array access
       else call ++ biased(Pr.indexCallExp(xsn,around),
@@ -358,7 +398,7 @@ object Semantics {
     case ArrayAExp(xs,a) if m.exp =>
       biased(Pr.arrayExp,product(xs.list map denoteExp) map (is => ArrayExp(condTypes(is map (_.ty)),is)))
 
-    case _ => fail(s"${show(e)}: doesn't match mode $m")
+    case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
   }
 
   // Expressions with type restrictions
