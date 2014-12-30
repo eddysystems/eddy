@@ -139,13 +139,10 @@ public class Converter {
     if (elem instanceof PsiClass)
       return (ParentItem)addClass((PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
-      PsiPackage pkg = (PsiPackage)elem;
-      PackageItem item;
-      if (pkg.getName() == null) {
-        item = tarski.Tarski.localPkg();
-      } else {
-        item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
-      }
+      final PsiPackage pkg = (PsiPackage)elem;
+      if (pkg.getName() == null)
+        return tarski.Tarski.localPkg();
+      final PackageItem item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
       locals.put(pkg,item);
       return item;
     }
