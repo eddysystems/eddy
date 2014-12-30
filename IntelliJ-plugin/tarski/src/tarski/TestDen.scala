@@ -699,9 +699,9 @@ class TestDen {
 
   @Test def fieldAccess() = {
     val T = NormalClassItem("T", LocalPkg)
-    val t = LocalVariableItem("t", T.simple, isFinal=true)
     val x = NormalFieldItem("x", IntType, T, isFinal=false)
-    implicit val env = localEnv().extendLocal(Array(T,x), 3)
+    val t = LocalVariableItem("t", T.simple, isFinal=true)
+    implicit val env = localEnv().extendLocal(Array(T,x), 3).extendLocal(Array(t), 1)
     testDen("t.x = 1", AssignExp(None, FieldExp(t, x), 1))
   }
 }
