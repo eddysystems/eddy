@@ -7,7 +7,7 @@ import scala.util.Random
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
 
-class TestMisc {
+class TestScores {
   @Test def scores() = scoped("scores",{
     // flatMap n things m times
     val n = 1000
@@ -30,7 +30,7 @@ class TestMisc {
 
     // Repeatedly flatMap
     def f(d: D) = d match { case D(i,j) => single(D(i,j+1),p(i,j+1)) }
-    0 until m foreach (i => scores = scoped(s"f $i",scores flatMap f))
+    0 until m foreach (i => scores = scores flatMap f)
 
     // Compute results independently
     def pi(i: Int, j: Int = 0, r: Double = 1): Double =
