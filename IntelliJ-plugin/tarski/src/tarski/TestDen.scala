@@ -131,7 +131,7 @@ class TestDen {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = NormalMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)),isStatic=true)
     implicit val env = Env(Array(Main,f),Map((Main,2),(f,2)),PlaceInfo(f))
-    testDen("f({1,2,3,4})", ApplyExp(StaticMethodDen(None,f),Nil,List(ArrayExp(IntType,List(1,2,3,4)))))
+    testDen("f({1,2,3,4})", ApplyExp(f,List(ArrayExp(IntType,List(1,2,3,4)))))
   }
 
   @Test def arrayType() = {
@@ -203,7 +203,7 @@ class TestDen {
   @Test
   def cons(): Unit = {
     implicit val env = localEnvWithBase()
-    testDen("x = Object()", "x", x => VarStmt(ObjectType,(x,ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))))
+    testDen("x = Object()", "x", x => VarStmt(ObjectType,(x,ApplyExp(NewDen(None,ObjectConsItem),Nil))))
   }
 
   @Test
@@ -214,7 +214,7 @@ class TestDen {
     implicit val env = localEnvWithBase().extend(Array(A,AC),Map((A,3),(AC,3)))
     // should result in A<Object> x = new A<Object>(new Object());
     testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
-      (x,ApplyExp(NewDen(None,AC),List(ObjectType),List(ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))))))
+      (x,ApplyExp(TypeApply(NewDen(None,AC),List(ObjectType)),List(ApplyExp(NewDen(None,ObjectConsItem),Nil))))))
   }
 
   @Test
@@ -262,7 +262,7 @@ class TestDen {
     val y = LocalVariableItem("y",Y.simple,true)
     implicit val env = Env(Array(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
 
-    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(CastExp(X.simple,y),Xf))))
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),List(FieldExp(CastExp(X.simple,y),Xf))))
   }
 
   @Test
@@ -296,7 +296,7 @@ class TestDen {
     val Super = SuperItem(Y.base)
     implicit val env = Env(Array(X,Y,Xf,Yf,m,This,Super), Map((This,2),(Super,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
-    testDen("m(f)", ApplyExp(LocalMethodDen(m),Nil,List(FieldExp(SuperExp(Super),Xf))))
+    testDen("m(f)", ApplyExp(LocalMethodDen(m),List(FieldExp(SuperExp(Super),Xf))))
   }
 
   @Test
@@ -395,7 +395,7 @@ class TestDen {
 
     implicit val env = Env(Array(X,cons,f),Map((f,2),(X,3)),PlaceInfo(f))
     // We are not allowed to discard the possible side effects in the X constructor.
-    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(None,cons),Nil,Nil)),f),Nil,Nil))))
+    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(None,cons),Nil)),f),Nil))))
   }
 
   @Test def sideEffectsCons() = {
@@ -403,7 +403,7 @@ class TestDen {
     val cons = NormalConstructorItem(X,Nil,Nil)
     val Y = NormalClassItem("Y",X,Nil)
     implicit val env = localEnv(X,cons,Y)
-    testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(None,cons),Nil,Nil)),VarStmt(Y,List((y,0,None)))))
+    testDen("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(None,cons),Nil)),VarStmt(Y,List((y,0,None)))))
   }
 
   @Test def sideEffectsFail() = {
@@ -442,7 +442,7 @@ class TestDen {
     val s = LocalVariableItem("s",StringType,true)
     val b = LocalVariableItem("b",BooleanType,true)
     implicit val env = Env(Array(X,f),Map((X,3),(f,2)),PlaceInfo(f)).extendLocal(Array(x,d,s,b))
-    testDen("f(s,b,d,x)", ApplyExp(StaticMethodDen(None,f), Nil, List(x,d,s,b)))
+    testDen("f(s,b,d,x)", ApplyExp(f,List(x,d,s,b)))
   }
 
   @Test def omittedQualifier() = {
@@ -482,7 +482,7 @@ class TestDen {
     for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
       val x = LocalVariableItem("x",A.generic(List(w)),true)
       implicit val env = localEnv(A,x,F,f)
-      testDen("f(x)",ApplyExp(StaticMethodDen(None,f),List(ObjectType),List(x)))
+      testDen("f(x)",ApplyExp(TypeApply(f,List(ObjectType)),List(x)))
     }
   }
 
@@ -492,7 +492,7 @@ class TestDen {
     val cons = NormalConstructorItem(X,Nil,Nil)
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,false)
     implicit val env = localEnv(X,cons,f)
-    val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(None,cons),Nil,Nil)),f),Nil,Nil)
+    val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(None,cons),Nil)),f),Nil)
     testDen("((X()).f()",best)
     testDen("((X()).f(",best)
   }
@@ -501,7 +501,7 @@ class TestDen {
     val X = NormalClassItem("X",LocalPkg)
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,false)
     implicit val env = localEnv(X,f)
-    testDen("f", ApplyExp(LocalMethodDen(f),Nil,Nil))
+    testDen("f", ApplyExp(LocalMethodDen(f),Nil))
   }
 
   @Test def constructorForward(): Unit = {
@@ -515,8 +515,8 @@ class TestDen {
     implicit val env = Env(Array(Y,Yc,X,Xc,This,Super),
                            Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2)),
                            PlaceInfo(Xc2))
-    testDen("this()", ApplyExp(ForwardDen(Some(X.simple),Xc), Nil, Nil))
-    testDen("super()", ApplyExp(ForwardDen(Some(Y.simple),Yc), Nil, Nil))
+    testDen("this()", ApplyExp(ForwardDen(Some(X.simple),Xc),Nil))
+    testDen("super()", ApplyExp(ForwardDen(Some(Y.simple),Yc),Nil))
     // TODO: This should only work as the first statement of a different constructor, which is not tracked by the PlaceInfo right now
   }
 
@@ -572,9 +572,9 @@ class TestDen {
     implicit val env = setupGenericClass()
     val f = env.allItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
     val This = env.allItems.find(_.isInstanceOf[ThisItem]).get.asInstanceOf[ThisItem]
-    testDen("""this.<Integer>f(7)""",ApplyExp(MethodDen(This,f),List(IntType.box),List(7)))
-    testDen("""<Integer>f(7)""",ApplyExp(LocalMethodDen(f),List(IntType.box),List(7)))
-    testDen("""f<Integer>(7)""",ApplyExp(LocalMethodDen(f),List(IntType.box),List(7)))
+    testDen("""this.<Integer>f(7)""",ApplyExp(TypeApply(MethodDen(This,f),List(IntType.box)),List(7)))
+    testDen("""<Integer>f(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
+    testDen("""f<Integer>(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
     // These three fail because f's type argument extends Number
     testFail("""this.<String>f("test")""")
     testFail("""<String>f("test")""")
@@ -652,7 +652,7 @@ class TestDen {
     val x = LocalVariableItem("x",IntType,true)
     val q = LocalVariableItem("q",DoubleType,true)
     implicit val env = baseEnv.extend(Array(A,fizz,x,q),Map(A->1,fizz->1,x->1,q->1)).move(PlaceInfo(fizz))
-    testDen("""fizz "s" x q""",ApplyExp(StaticMethodDen(None,fizz),Nil,List(StringLit("s","\"s\""),x,q)))
+    testDen("""fizz "s" x q""",ApplyExp(fizz,List(StringLit("s","\"s\""),x,q)))
   }
 
   @Test def shadowedParameter() = {
@@ -665,15 +665,15 @@ class TestDen {
     def env(bs: Int, cs: Int) = baseEnv.extend(Array(A,B,C,f,bx,cx),Map(bx->bs,cx->cs)).move(PlaceInfo(f))
     def unit(x: Unit) = x
     unit({ implicit val bad = env(bs=2,cs=1); testFail("f x") })
-    unit({ implicit val good = env(bs=1,cs=2); testDen("f x",ApplyExp(StaticMethodDen(None,f),Nil,List(bx))) })
+    unit({ implicit val good = env(bs=1,cs=2); testDen("f x",ApplyExp(f,List(bx))) })
   }
 
-  @Test def memberToMixfix() = {
+  @Test def memberToInfix() = {
     val A = NormalClassItem("A", LocalPkg)
     val f = NormalMethodItem("f", A, Nil, VoidType, List(A), isStatic=true)
     val a = ParameterItem("a", A, true)
-    implicit val env = baseEnv.extend(Array(A,f,a), Map(A->2,f->2,a->1)).move(PlaceInfo(f))
-    testDen("a f a", ApplyExp(MethodDen(ParameterExp(a), f), Nil, List(ParameterExp(a))))
+    implicit val env = baseEnv.extend(Array(A,f,a),Map(A->2,f->2,a->1)).move(PlaceInfo(f))
+    testDen("a f a", ApplyExp(MethodDen(ParameterExp(a),f),List(ParameterExp(a))))
   }
 
   @Test def javascriptStyleMember() = {
@@ -684,15 +684,15 @@ class TestDen {
     testDen("a[f] = a", AssignExp(None, FieldExp(ParameterExp(a), f), ParameterExp(a)))
   }
 
-  @Test def newObject() = testDen("new Object()",ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))
-  @Test def newObjectBare() = testDen("new Object",ApplyExp(NewDen(None,ObjectConsItem),Nil,Nil))
+  @Test def newObject() = testDen("new Object()",ApplyExp(NewDen(None,ObjectConsItem),Nil))
+  @Test def newObjectBare() = testDen("new Object",ApplyExp(NewDen(None,ObjectConsItem),Nil))
 
   @Test def classInPackage() = {
     val P = PackageItem("P","P")
     val A = NormalClassItem("A",P)
     val cons = NormalConstructorItem(A,Nil,Nil)
     implicit val env = localEnv().extend(Array(P,A,cons),Map.empty)
-    val e = ApplyExp(NewDen(None,cons),Nil,Nil)
+    val e = ApplyExp(NewDen(None,cons),Nil)
     testDen("P.A()",e)
     testDen("new P.A()",e)
   }

@@ -51,16 +51,6 @@ object Semantics {
     case _ => impossible
   }
 
-  // If an expression has side effects, evaluate it and return a type
-  def discardType(e: Exp, f: Scored[Type]): Scored[Above[Type]] = {
-    val ds = effects(e)
-    f map (Above(ds,_))
-  }
-  def discardCallable(e: Exp, f: Scored[Callable]): Scored[Callable] = effects(e) match {
-    case Nil => f
-    case ds => f map (_.discard(ds))
-  }
-
   def collectDiscardsA[A,B](xs: List[Above[A]])(f: List[A] => Scored[B]): Scored[Above[B]] =
     aboves(xs) mapA f
   def collectDiscardsB[A,B<:HasDiscard[B],C](xs: List[Above[A]])(f: List[A] => Scored[(B,C)]): Scored[(B,C)] =
@@ -86,11 +76,11 @@ object Semantics {
       // this does not work for ? super Integer.
       case WildAExp(b) => b match {
         case None => known(Above(Nil,WildSub(ObjectType)))
-        case Some((AST.Extends,t)) => denoteType(t) flatMap (_ mapA (fix(_) map WildSub))
-        case Some((AST.Super,  t)) => denoteType(t) flatMap (_ mapA (fix(_) map WildSuper))
+        case Some((AST.Extends,t)) => denoteType(t) flatMap (_ flatMap (fix(_) map WildSub))
+        case Some((AST.Super,  t)) => denoteType(t) flatMap (_ flatMap (fix(_) map WildSuper))
       }
       case ParenAExp(e,_) => denoteTypeArg(e)
-      case _ => denoteType(e) flatMap (_ mapA fix)
+      case _ => denoteType(e) flatMap (_ flatMap fix)
     }
   }
 
@@ -108,40 +98,17 @@ object Semantics {
   @inline def failTypeArgs(tparams: List[TypeVar], args: List[TypeArg])(implicit env: Env): Scored[Nothing] =
     fail(s"Arguments ${args map (a => showSep(a,"")) mkString ", "} don't fit type variables ${tparams map details mkString ", "}")
 
-  // check whether a type is accessible in the environment (can be qualified by something in scope).
-  // pretty-printing will do the actual qualifying
+  // Check whether a type is accessible in the environment (can be qualified by something in scope).
+  // Pretty-printing will do the actual qualifying
   @tailrec
-  def typeAccessible(t: Type)(implicit env: Env): Boolean = env.inScope(t.item) || (t match { case t:ClassType => t.parent match {
-    case p: ClassType => typeAccessible(p)
-    case p: PackageItem => true
-    case _ => false // we're not in scope, and we're a local class
-  } case _ => false })
-
-  def denoteType(e: AExp)(implicit env: Env): Scored[Above[Type]] = e match {
-    case NameAExp(n) => typeScores(n) filter (typeAccessible, s"no accessible types for name $n" ) map (Above(Nil,_))
-    case ParenAExp(x,_) => biased(Pr.parensAroundType,denoteType(x)) // Java doesn't allow parentheses around types, but we do
-
-    // x is either a type or an expression, f is an inner type, method, or field
-    case FieldAExp(x,ts,f) => if (ts.isDefined) fail("inner classes' type arguments go after the class") else {
-      // First, the ones where x is a type
-      val tdens = biased(Pr.typeFieldOfType, denoteType(x) flatMap (_ mapA (typeFieldScores(_,f))))
-      val edens = biased(Pr.typeFieldOfExp,  denoteExp(x) flatMap (x => discardType(x,typeFieldScores(x.ty,f))) )
-      tdens ++ edens
+  def typeAccessible(t: TypeItem)(implicit env: Env): Boolean = env.inScope(t) || (t match {
+    case t:ClassItem => t.parent match {
+      case p:ClassType => typeAccessible(p.item)
+      case p:PackageItem => true
+      case _ => false // We're not in scope, and we're a local class
     }
-
-    // TODO: add around to TypeApplyAExp
-    case TypeApplyAExp(x,ts) => biased(Pr.typeApply,denoteType(x) flatMap (_ mapB {
-      // TODO: Do something smarter, similar to fiddleCall, if there are bounded parameters?
-      case RawType(c,parent) => filterTypeArgs(c.tparams,ts.list) map (_ map (GenericType(c,_,parent)))
-      case x => fail(s"cannot apply parameters $ts to type $x")
-    }))
-
-    case ApplyAExp(x,EmptyList,BrackAround) => denoteType(x) map (_ map ArrayType)
-
-    case WildAExp(_) => fail("wildcards are type arguments, not types")
-    case _:ALit|_:ApplyAExp|_:UnaryAExp|_:BinaryAExp|_:CastAExp|_:CondAExp|_:AssignAExp|_:ArrayAExp|_:InstanceofAExp
-        |_:NewAExp|_:NewRefAExp|_:MethodRefAExp => fail(show(e)+": is not a type")
-  }
+    case _ => false
+  })
 
   // Are we contained in the given type, or in something contained in the given type?
   @tailrec
@@ -197,128 +164,162 @@ object Semantics {
     }
   }
 
-  def denoteCallable(e: AExp, inNew: Boolean)(implicit env: Env): Scored[(Callable,Option[List[TypeArg]])] = {
-    def knownNotNew[A](x: A): Scored[A] = single(x,if (inNew) 1 else Pr.dropNew)
-    def biasedNotNew[A](x: => Scored[A]): Scored[A] = if (inNew) x else biased(Pr.dropNew,x)
-    def dropNew(p: Prob) = if (inNew) pmul(p,Pr.dropNew) else p
-    e match {
-      case NameAExp(n) =>
-        callableScores(n) flatMap {
-          case i: MethodItem if i.isStatic => knownNotNew(StaticMethodDen(None,i),None)
-          case i: MethodItem if env.inScope(i) => knownNotNew(LocalMethodDen(i),None)
-          case i: MethodItem => biasedNotNew(denoteMethod(i, 0) map ((_,None)))
-          case i: ConstructorItem => known(NewDen(None,i),None)
-          case ThisItem(c) => biasedNotNew(uniformGood(Pr.forwardThis,c.constructors) flatMap {
-            case cons if cons == env.place.place => fail("Can't forward to current constructor")
-            case cons => known(ForwardDen(Some(c.inside), cons),None)
-          })
-          case SuperItem(c) => biasedNotNew({
-            val tenv = c.env
-            uniformGood(Pr.forwardSuper,c.item.constructors) map (cc => (ForwardDen(Some(c),cc),None))
-          })
-        }
-
-      // Java doesn't allow parentheses around callables, but we do
-      case ParenAExp(x,_) => biased(Pr.parensAroundCallable,denoteCallable(x,inNew))
-
-      // x is either a type or an expression, f is a method, static method, or constructor
-      case FieldAExp(x,ts,f) => {
-        // first, the ones where x is a type
-        // TODO: Also try applying ts to the type
-        // TODO: Convert ts expressions to type args and check whether the type arguments fit
-        val tdens = denoteType(x) flatMap (_.mapB[Callable](t => callableFieldScores(t.item,f,show(e)) flatMap {
-          case f:MethodItem if f.isStatic => knownNotNew(StaticMethodDen(None,f))
-          case f:MethodItem => fail(show(f)+" is not static, and is used without an object.")
-          case f:ConstructorItem => single(NewDen(Some(t.asInstanceOf[ClassType]),f),Pr.constructorFieldCallable) // only Classes have constructors, so t is a ClassType
-        }))
-        val edens = denoteExp(x) flatMap (x => callableFieldScores(x.item,f,show(e)) flatMap {
-          case f:MethodItem if f.isStatic => single(StaticMethodDen(Some(x),f),dropNew(Pr.staticFieldCallableWithObject))
-          case f:MethodItem => knownNotNew(MethodDen(x,f))
-          // TODO: Also try applying the type arguments to the class (not the constructor)
-          case f:ConstructorItem => discardCallable(x,single(NewDen(Some(x.ty.asInstanceOf[ClassType]),f),Pr.constructorFieldCallableWithObject)) // only Classes have constructors, so x.ty is a ClassType
-        })
-        val cs = tdens ++ edens
-        ts match {
-          case None => cs map ((_,None))
-          case Some(ts) => product(ts.list map denoteTypeArg) flatMap (args => aboves(args) match {
-            case Above(ds,as) => cs map (c => (c.discard(ds),Some(as)))
-          })
-        }
-      }
-
-      // C++-style application of type arguments to a generic method
-      case TypeApplyAExp(x,ts) => denoteCallable(x,inNew) flatMap {
-        // Callable doesn't have type args yet
-        case (c,None) => biased(Pr.typeApplyCallable,filterTypeArgs(c.tparams,ts.list) map {case Above(ds,ts) => (c.discard(ds),Some(ts))})
-        case c => fail(s"Cannot apply type arguments $ts to callable $c")
-      }
-
-      case NewAExp(Some(_),_) => notImplemented
-      case NewAExp(None,x) => biasedNotNew(denoteCallable(x,inNew))
-
-      case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
-      case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
-
-      // Objects that are function-like interfaces should be callable, but that is handled in denoteExp: ApplyAExp
-      case CondAExp(c,x,y) => fail(s"${show(e)}: Conditional is not callable") // TODO: Should be callable if x and y are
-      case _:ALit|_:ApplyAExp|_:UnaryAExp|_:BinaryAExp|_:CastAExp|_:AssignAExp|_:InstanceofAExp|_:WildAExp|_:ArrayAExp =>
-        fail(s"${show(e)}: Expression is not callable")
-    }
+  case class Mode(m: Int) extends AnyVal {
+    def exp:     Boolean = (m&1)!=0
+    def ty:      Boolean = (m&2)!=0
+    def call:    Boolean = (m&4)!=0
+    def inNew:   Boolean = (m&8)!=0
+    def callExp: Boolean = (m&(1|4))!=0
+    def onlyCallExp: Mode = Mode(m&(1|4|8))
+    def onlyTyCall:  Mode = Mode(m&(2|4|8))
+    def |(n: Mode):  Mode = Mode(m|n.m)
   }
+  val NoMode      = Mode(0)
+  val ExpMode     = Mode(1)
+  val TypeMode    = Mode(2)
+  val CallMode    = Mode(4)
+  val NewMode     = Mode(4|8)
 
-  def denoteExp(e: AExp)(implicit env: Env): Scored[Exp] = e match {
-    case NameAExp(n) => valueScores(n) flatMap (denoteValue(_,depth=0))
-    case x: ALit => denoteLit(x)
-    case ParenAExp(x,_) => biased(Pr.parenExp,denoteExp(x) map ParenExp)
+  @inline def denoteExp    (e: AExp)(implicit env: Env): Scored[Exp]       = denote(e,ExpMode).asInstanceOf[Scored[Exp]]
+  @inline def denoteType   (e: AExp)(implicit env: Env): Scored[TypeDen]   = denote(e,TypeMode).asInstanceOf[Scored[TypeDen]]
+  @inline def denoteExpType(e: AExp)(implicit env: Env): Scored[ExpOrType] = denote(e,ExpMode|TypeMode).asInstanceOf[Scored[ExpOrType]]
+  @inline def denoteNew    (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
 
-    // x is either a type or an expression, f is an inner type, method, or field
-    case FieldAExp(_,Some(_),_) => fail(s"${show(e)}: Non-callable field access takes no template arguments")
-    case FieldAExp(x,None,f) =>
-      // First, the ones where x is a type
-      // TODO: penalize unnecessarily qualified field expressions?
-      val tdens = denoteType(x) flatMap (_.mapB[Exp](t => fieldScores(t.item,f) flatMap {
-        case f: EnumConstantItem => single(EnumConstantExp(None,f),Pr.enumFieldExp)
-        case f: FieldItem if f.isStatic => single(StaticFieldExp(None,f),Pr.staticFieldExp)
-      }))
-      // Now, x is an expression
-      val edens = denoteExp(x) flatMap (x => fieldScores(x.item,f) flatMap {
-        case f: EnumConstantItem => single(EnumConstantExp(Some(x),f), Pr.enumFieldExpWithObject)
-        case f: FieldItem if f.isStatic => single(StaticFieldExp(Some(x),f), Pr.staticFieldExpWithObject)
-        case f: FieldItem => single(FieldExp(x,f), Pr.fieldExp)
+  @inline def knownNotNew[A](m: Mode, x: A): Scored[A] = single(x,if (m.inNew) 1 else Pr.dropNew)
+  @inline def biasedNotNew[A](m: Mode, x: => Scored[A]): Scored[A] = if (m.inNew) x else biased(Pr.dropNew,x)
+  @inline def dropNew(m: Mode, p: Prob) = if (m.inNew) pmul(p,Pr.dropNew) else p
+
+  // Turn f into f(), etc.
+  // TODO: Make Pr.missingArgList much higher for explicit new
+  def bareCall(f: Callable)(implicit env: Env): Scored[Exp] =
+    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil))
+  def fixCall(m: Mode, f: => Scored[Callable])(implicit env: Env): Scored[ExpOrCallable] =
+    if (m.call) f
+    else biased(Pr.missingArgList,f flatMap (ArgMatching.fiddleCall(_,Nil))) // Turn f into f(), etc.
+
+  def denote(e: AExp, m: Mode)(implicit env: Env): Scored[Den] = e match {
+    // Literals
+    case x:ALit if m.exp => denoteLit(x)
+
+    // Names
+    case NameAExp(n) if m==TypeMode => env.collect(n,s"Type $n not found",{
+      case t:TypeItem if typeAccessible(t) => TypeDen(Nil,t.raw)
+    })
+    case NameAExp(n) => env.flatMap(n,s"Value $n not found",{
+      case v:Value if m.exp => denoteValue(v,depth=0)
+      case t:TypeItem if m.ty => if (typeAccessible(t)) known(TypeDen(Nil,t.raw))
+                                 else fail(s"${show(t)} is inaccessible")
+      case c:PseudoCallableItem if m.callExp => fixCall(m,c match {
+        case i:MethodItem if i.isStatic => knownNotNew(m,StaticMethodDen(None,i))
+        case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i))
+        case i:MethodItem => biasedNotNew(m,denoteMethod(i,0))
+        case i:ConstructorItem => known(NewDen(None,i))
+        case ThisItem(c) if env.place.forwardThisPossible(c) =>
+          biasedNotNew(m,uniformGood(Pr.forwardThis,c.constructors) flatMap {
+            case cons if cons == env.place.place => fail("Can't forward to current constructor")
+            case cons => known(ForwardDen(Some(c.inside),cons))
+          })
+        case SuperItem(c) if env.place.forwardSuperPossible(c.item) => biasedNotNew(m,{
+          val tenv = c.env
+          uniformGood(Pr.forwardSuper,c.item.constructors) map (ForwardDen(Some(c),_))
+        })
       })
-      tdens++edens
+      case i => fail(s"$i doesn't match mode $m")
+    })
 
-    case ApplyAExp(f,xsn,around) => {
+    // Parentheses.  Java doesn't allow parentheses around types or callables, but we do.
+    case ParenAExp(x,_) if m==ExpMode => denoteExp(x) map ParenExp
+    case ParenAExp(x,_) if m.exp => denote(x,m) flatMap {
+      case x:Exp => known(ParenExp(x))
+      case x:TypeDen => single(x,Pr.weirdParens)
+      case x:Callable => if (m.call) single(x,Pr.weirdParens)
+                         else bareCall(x) map ParenExp
+    }
+    case ParenAExp(x,_) => biased(Pr.weirdParens,denote(x,m))
+
+    // Fields.  x is either a type or an expression, f is an inner type, method, field, or constructor.
+    case FieldAExp(_,Some(_),_) if !m.callExp => fail(s"${show(e)}: Unexpected type arguments in mode $m")
+    case FieldAExp(x,ts,f) =>
+      // TODO: Also try applying ts to the type
+      // TODO: Convert ts expressions to type args and check whether the type arguments fit
+      val mc = if (ts.isEmpty) m else m.onlyCallExp
+      val fs = env.collect(f,s"$f doesn't look like a field",{
+        case f:Value        with Member if mc.exp     && maybeMemberIn(f) => f
+        case f:TypeItem     with Member if mc.ty      && maybeMemberIn(f) => f
+        case f:CallableItem with Member if mc.callExp && maybeMemberIn(f) => f
+      })
+      val cs = product(denoteExpType(x),fs) flatMap {case (x,f) => (x,f) match {
+        case _ if !memberIn(f,x.item) => fail(s"${show(x)} does not contain $f")
+        // Types
+        case (x:Exp,f:TypeItem) if mc.ty => single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
+        case (TypeDen(ds,t:Type),f:TypeItem) if mc.ty => known(TypeDen(ds,typeIn(f,t)))
+        // Expressions
+        case (x:Exp,    f:EnumConstantItem) if mc.exp => single(EnumConstantExp(Some(x),f),Pr.enumFieldExpWithObject)
+        case (t:TypeDen,f:EnumConstantItem) if mc.exp => single(EnumConstantExp(None,f).discard(t.discards),Pr.enumFieldExp)
+        case (x:Exp,    f:FieldItem)        if f.isStatic && mc.exp => single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
+        case (t:TypeDen,f:FieldItem)        if f.isStatic && mc.exp => single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
+        case (x:Exp,    f:FieldItem)        if mc.exp => single(FieldExp(x,f),Pr.fieldExp)
+        // Callables
+        case (_,f:CallableItem) if mc.callExp => fixCall(mc,(x,f) match {
+          case (x:Exp,    f:MethodItem) if f.isStatic => single(StaticMethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
+          case (x:TypeDen,f:MethodItem) if f.isStatic => knownNotNew(mc,StaticMethodDen(None,f).discard(x.discards))
+          case (x:Exp,    f:MethodItem) => knownNotNew(mc,MethodDen(x,f))
+          case (x:TypeDen,f:MethodItem) => fail(s"${show(e)}: Can't call non-static $f without object")
+          // TODO: Also try applying the type arguments to the class (not the constructor)
+          // Only Classes have constructors, so t or x.ty below must be a ClassType
+          case (x:Exp,    f:ConstructorItem) => single(NewDen(Some(x.ty.asInstanceOf[ClassType]),f).discard(effects(x)),Pr.constructorFieldCallableWithObject)
+          case (TypeDen(ds,t:Type),f:ConstructorItem) => single(NewDen(Some(t.asInstanceOf[ClassType]),f).discard(ds),Pr.constructorFieldCallable)
+        })
+        // Failure
+        case _ => fail(s"Invalid field ${show(x)}  .  ${show(f)}")
+      }}
+      ts match {
+        case None => cs
+        case Some(ts) => product(cs.asInstanceOf[Scored[NotTypeApply]],product(ts.list map denoteTypeArg)) flatMap {
+          case (c,args) => aboves(args) match { case Above(ds,as) =>
+            if (couldMatch(c.tparams,as)) known(TypeApply(c.discard(ds),as))
+            else failTypeArgs(c.tparams,as)
+          }
+        }
+      }
+
+    // Type application.  TODO: add around to TypeApplyAExp
+    // For callables, this is C++-style application of type arguments to a generic method
+    case TypeApplyAExp(x,ts) => denote(x,m) flatMap {
+      // TODO: Do something smarter, similar to fiddleCall, if there are bounded parameters?
+      case TypeDen(ds0,RawType(c,parent)) => filterTypeArgs(c.tparams,ts.list) map {
+        case Above(ds1,ts) => TypeDen(ds0++ds1,GenericType(c,ts,parent))
+      }
+      case c:NotTypeApply => fixCall(m,biased(Pr.typeApplyCallable,filterTypeArgs(c.tparams,ts.list) flatMap {
+        case Above(ds,ts) => if (couldMatch(c.tparams,ts)) known(TypeApply(c.discard(ds),ts))
+                             else failTypeArgs(c.tparams,ts)
+      }))
+      case x => fail(s"Cannot apply parameters $ts to $x")
+    }
+
+    // Explicit new
+    case NewAExp(Some(_),_) => notImplemented
+    case NewAExp(None,x) if m.callExp => fixCall(m,biasedNotNew(m,denoteNew(x)))
+
+    // Application
+    case ApplyAExp(f,EmptyList,BrackAround) if m==TypeMode =>
+      denoteType(f) map (_.array) // This case also shows up below
+    case ApplyAExp(f,xsn,around) if m.exp =>
       val n = xsn.list.size
       val args = xsn.list map denoteExp
+      val fs = denote(f,CallMode | (if (m.ty && around==BrackAround) TypeMode else NoMode))
       // Either array index or call
-      val call = biased(Pr.callExp(xsn,around), denoteCallable(f,inNew=false) flatMap {
-        case (f,None) => ArgMatching.fiddleCall(f,args) map { case (ts,xs) => ApplyExp(f,ts,xs) }
-        case (f,Some(ts)) =>
-          if (f.arity != ts.size) fail(s"${show(e)}: Arity mismatch: expected ${f.arity}, got ${ts.size}")
-          else if (!couldMatch(f.tparams,ts)) failTypeArgs(f.tparams,ts)
-          else {
-            // TODO: Map.empty may be wrong here
-            val tenv = capture(f.tparams,ts,Map.empty)._1
-            val fts = new Signature {
-              override def toString = s"$f<${ts map (showSep(_,"")) mkString ","}>"
-              def tparams = Nil
-              def alltparams = Nil
-              val params = f.params map (_.substitute(tenv))
-            }
-            ArgMatching.fiddleCall(fts,args) map {
-              case (_::_,_) => impossible
-              case (Nil,xs) => ApplyExp(f,ts,xs)
-            }
-          }
+      val call = biased(Pr.callExp(xsn,around), fs flatMap {
+        case f:TypeDen => known(f.array) // t[]
+        case f:Callable => ArgMatching.fiddleCall(f,args)
+        case _:Exp => impossible
       })
       if (n == 0) call // No arguments is never array access
       else call ++ biased(Pr.indexCallExp(xsn,around),
         productWith(denoteExp(f).filter(f => hasDims(f.ty,n),show(e)+s": expected >= $n dimensions"),
                     product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp)))
-    }
 
-    case UnaryAExp(op,x) => denoteExp(x) flatMap {
+    case UnaryAExp(op,x) if m.exp => denoteExp(x) flatMap {
       case x if unaryLegal(op,x.ty) => single(op match {
         case op:ImpOp => ImpExp(op,x)
         case op:NonImpOp => NonImpExp(op,x)
@@ -326,24 +327,24 @@ object Semantics {
       case x => fail(s"${show(e)}: invalid unary ${show(token(op))} on type ${show(x.ty)}")
     }
 
-    case BinaryAExp(op,x,y) => product(denoteExp(x),denoteExp(y)) flatMap {case (x,y) => {
+    case BinaryAExp(op,x,y) if m.exp => product(denoteExp(x),denoteExp(y)) flatMap {case (x,y) => {
       val tx = x.ty
       val ty = y.ty
       if (binaryLegal(op,tx,ty)) single(BinaryExp(op,x,y), Pr.binaryExp)
       else fail("${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
     }}
 
-    case CastAExp(t,x) => product(denoteType(t),denoteExp(x)) flatMap {case (t,x) => t mapB (t => {
+    case CastAExp(t,x) if m.exp => product(denoteType(t),denoteExp(x)) flatMap {case (TypeDen(ds,t),x) => {
       val tx = x.ty
-      if (castsTo(tx,t)) single(CastExp(t,x), Pr.castExp)
+      if (castsTo(tx,t)) single(CastExp(t,x).discard(ds),Pr.castExp)
       else fail("${show(e)}: can't cast ${show(tx)} to ${show(t)}")
-    })}
+    }}
 
-    case CondAExp(c,x,y) =>
+    case CondAExp(c,x,y) if m.exp =>
       biased(Pr.condExp,product(denoteBool(c),denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
         CondExp(c,x,y,condType(x.ty,y.ty))})
 
-    case AssignAExp(op,x,y) => {
+    case AssignAExp(op,x,y) if m.exp => {
       product(denoteVariable(x),denoteExp(y)) flatMap {case (x,y) => {
         val tx = x.ty
         val ty = y.ty
@@ -354,16 +355,10 @@ object Semantics {
       }}
     }
 
-    case ArrayAExp(xs,a) =>
+    case ArrayAExp(xs,a) if m.exp =>
       biased(Pr.arrayExp,product(xs.list map denoteExp) map (is => ArrayExp(condTypes(is map (_.ty)),is)))
 
-    case InstanceofAExp(x,t) => notImplemented // much more likely that you ask this if x.ty has strict subtypes that are also subtypes of t (in case x.ty or t is an interface type, otherwise this just means x.ty should be a supertype of t)
-    case MethodRefAExp(x,ts,f) => throw new NotImplementedError("MethodRefs not implemented: " + e)
-    case NewRefAExp(x,t) => throw new NotImplementedError("NewRef not implemented: " + e)
-
-    case WildAExp(b) => fail("wildcard types are not expressions")
-    case TypeApplyAExp(x,ts) => fail("type arguments make no sense for expression")
-    case NewAExp(ts,e) => fail("new expressions are handled as callables")
+    case _ => fail(s"${show(e)}: doesn't match mode $m")
   }
 
   // Expressions with type restrictions
@@ -411,7 +406,7 @@ object Semantics {
     case BinaryExp(_,_,_) => false
     case AssignExp(_,_,_) => false
     case ParenExp(x) => isVariable(x)
-    case ApplyExp(_,_,_) => false
+    case ApplyExp(_,_) => false
     case FieldExp(_,f) => !f.isFinal
     case LocalFieldExp(f) => !f.isFinal
     case StaticFieldExp(_,f) => !f.isFinal
@@ -543,7 +538,7 @@ object Semantics {
   def above(s: Scored[(Env,Stmt)]): Scored[(Env,List[Stmt])] = s map { case (env,s) =>
     s.discards match {
       case Nil => (env,List(s))
-      case ds => (env,(s.beneath::ds).reverse)
+      case ds => (env,(s.strip::ds).reverse)
     }}
   def noAbove(s: Scored[Exp]): Scored[Exp] = s flatMap (a =>
     if (a.discards.nonEmpty) fail("No room for above statements in this context")

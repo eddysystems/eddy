@@ -74,21 +74,15 @@ object Pr {
   val charLit = base
   val stringLit = base
 
+  val weirdParens = Prob("parens around type or callable",.8)
+
   // denoteType(AType)
-  // Type.Type
-  val fieldType = base // Given Types t and f, how likely is a type expression t.f (can assume t.f is legal)
   // Type[]
   def arrayType(t: Type): Prob = base // given type t, how likely is t[]
 
   // denoteType(AExp)
-  // (Type)
-  val parensAroundType = Prob("parens around type",.8) // given type t, how likely is (t) (maybe more likely for generic types)
-  // Type.Type
-  val typeFieldOfType = fieldType
   // Exp.Type
-  val typeFieldOfExp = pmul(Prob("type field of exp",.6),fieldType)
-  // Type<TArg,...>
-  val typeApply = base
+  val typeFieldOfExp = Prob("type field of exp",.6)
   val boxType = Prob("box type",.5)
 
   // Value not in scope (requiring qualification)
@@ -108,8 +102,6 @@ object Pr {
   def shadowedMethodCallable(values: Scored[Exp], obj: Exp, c: TypeItem, f: MethodItem) = methodCallable(values, obj, f)
   def superMethodCallable(values: Scored[Exp], c: TypeItem, f: MethodItem) = Prob("super method callable",.8)
 
-  // (callable)
-  val parensAroundCallable = Prob("parens around callable",.8)
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
   // Type.constructor (not legal in Java. Also makes no sense)
@@ -122,7 +114,6 @@ object Pr {
   val dropNew = Prob("drop new",.1)
 
   // denoteExp(AExp)
-  val parenExp = base
   val staticFieldExp = base
   val enumFieldExp = base
   val staticFieldExpWithObject = Prob("static field with object",.8)
@@ -178,21 +169,17 @@ object Pr {
   // denoteLabel
   val labelNone = base
 
-  val exactType = base
-  val exactCallable = base
-  val exactValue = base
+  val exact = Prob("exact",.98)
+  val typo = Prob("typo",.02)
+  assert(pp(exact) > pp(typo))
   val objectOfType = base
-  val exactValueOfType = base
   val objectOfItem = base
-  val exactCallableField = base
-  val exactField = base
-  val exactStaticField = base
-  val exactTypeField = base
 
   // ArgMatching
   def dropArgs(dropped: Int) = Prob(s"drop $dropped args",math.pow(.3, dropped))
   def shuffleArgs = Prob("shuffle args",.5)
   def addArg = Prob("add arg",.5)
+  def missingArgList = Prob("missing argument list",.2)
 
   // Named simple values
   val parse = Prob("parse",1)

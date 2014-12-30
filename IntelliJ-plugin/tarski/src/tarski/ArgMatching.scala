@@ -1,28 +1,32 @@
 package tarski
 
-import tarski.Denotations.{ApplyExp, Callable, Exp}
+import tarski.Denotations.{ApplyExp,Callable,Exp}
 import tarski.Environment.Env
 import tarski.Scores._
 import tarski.Types._
 import tarski.Semantics.denoteValue
+import tarski.Denotations.{TypeApply,NotTypeApply}
 import ambiguity.Utility._
 
 import scala.annotation.tailrec
 
 object ArgMatching {
   // TODO: specialize for given type arguments
-  def fiddleCall(f: Signature, args: List[Scored[Exp]])(implicit env: Env): Scored[(List[RefType],List[Exp])] = {
+  def fiddleCall(f: Callable, args: List[Scored[Exp]])(implicit env: Env): Scored[ApplyExp] = {
     // Should we find missing arguments in the environment?
     val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
     val n = f.params.size
     val na = args.size
-    type Args = (List[RefType],List[Exp])
-    def process(k: Int, targs: List[RefType], used: List[Exp], unused: List[Scored[Exp]]): Scored[Args] = {
+    @inline def finish(types: List[RefType], args: List[Exp]): ApplyExp = types match {
+      case Nil => ApplyExp(f,args)
+      case _ => ApplyExp(TypeApply(f.asInstanceOf[NotTypeApply],types),args)
+    }
+    def process(k: Int, targs: List[RefType], used: List[Exp], unused: List[Scored[Exp]]): Scored[ApplyExp] = {
       if (k == n)
-        known((targs,used))
+        known(finish(targs,used))
       else {
-        def add(x: Exp, xs: List[Scored[Exp]]): Scored[Args] = {
+        def add(x: Exp, xs: List[Scored[Exp]]): Scored[ApplyExp] = {
           val args = used :+ x
           val tys = args map (_.ty)
           resolveOptions(List(f),tys) match {
@@ -31,7 +35,7 @@ object ArgMatching {
             case _ => impossible
           }
         }
-        type Opts = List[Scored[Args]]
+        type Opts = List[Scored[ApplyExp]]
         val options0: Opts = unused match {
           case Nil => if (useEnv) Nil else impossible
           case x::xs => {
