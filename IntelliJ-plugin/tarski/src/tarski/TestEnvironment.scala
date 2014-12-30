@@ -98,7 +98,7 @@ class TestEnvironment {
       assertEquals(Nil,t.exact("blah".toCharArray))
     }
     for ((w0,_) <- st; (w1,_) <- st) {
-      println(s"\nmerge: $w0, $w1")
+      //println(s"\nmerge: $w0, $w1")
       val t0 = Trie(w0)
       val t1 = Trie(w1)
       for (t <- List(t0++t1,t0++w1))
