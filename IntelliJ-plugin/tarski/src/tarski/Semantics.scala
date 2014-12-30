@@ -187,7 +187,7 @@ object Semantics {
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(x) => known(x)
-      case i:StaticFieldItem => penalize(StaticFieldExp(None,i))
+      case i:FieldItem if i.isStatic => penalize(StaticFieldExp(None,i))
       case i:EnumConstantItem => penalize(EnumConstantExp(None,i))
       case i:ThisItem => penalize(ThisExp(i))
       case i:SuperItem => penalize(SuperExp(i))
@@ -276,14 +276,14 @@ object Semantics {
     case FieldAExp(x,None,f) =>
       // First, the ones where x is a type
       // TODO: penalize unnecessarily qualified field expressions?
-      val tdens = denoteType(x) flatMap (_.mapB[Exp](t => staticFieldScores(t.item,f) flatMap {
+      val tdens = denoteType(x) flatMap (_.mapB[Exp](t => fieldScores(t.item,f) flatMap {
         case f: EnumConstantItem => single(EnumConstantExp(None,f),Pr.enumFieldExp)
-        case f: StaticFieldItem => single(StaticFieldExp(None,f),Pr.staticFieldExp)
+        case f: FieldItem if f.isStatic => single(StaticFieldExp(None,f),Pr.staticFieldExp)
       }))
       // Now, x is an expression
       val edens = denoteExp(x) flatMap (x => fieldScores(x.item,f) flatMap {
         case f: EnumConstantItem => single(EnumConstantExp(Some(x),f), Pr.enumFieldExpWithObject)
-        case f: StaticFieldItem => single(StaticFieldExp(Some(x),f), Pr.staticFieldExpWithObject)
+        case f: FieldItem if f.isStatic => single(StaticFieldExp(Some(x),f), Pr.staticFieldExpWithObject)
         case f: FieldItem => single(FieldExp(x,f), Pr.fieldExp)
       })
       tdens++edens

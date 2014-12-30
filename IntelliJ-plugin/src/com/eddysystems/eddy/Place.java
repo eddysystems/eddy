@@ -13,7 +13,7 @@ public class Place {
   public final @Nullable PsiClass placeClass;
   public final @Nullable PsiPackage pkg;
 
-  Place(Project project, PsiElement place) {
+  Place(@NotNull Project project, @Nullable PsiElement place) {
     this.project = project;
     this.place = place;
     file = PsiTreeUtil.getParentOfType(place, PsiJavaFile.class, false);
@@ -25,6 +25,10 @@ public class Place {
 
   @Nullable PsiPackage getPackage(PsiJavaFile file) {
     return file == null ? null : JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
+  }
+
+  @NotNull PsiPackage getElementPackage(@NotNull PsiElement elem) {
+    return JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile)(elem.getContainingFile())).getPackageName());
   }
 
   PsiElement containing(PsiElement elem) {
@@ -58,7 +62,7 @@ public class Place {
    * Check if a thing (member or class) is private or protected and therefore not accessible
    * @param element The thing to check whether it's inaccessible because it may be private or protected
    * @param noProtected Consider all protected, private, or package local items inaccessible
-   * @return whether the element is private or protected and not accessible because of it
+   * @return whether the element is not accessible
    */
   boolean isInaccessible(PsiModifierListOwner element, boolean noProtected) {
     // TODO: this does not fully take into account the crazier access rules for protected members (6.6.1/6.6.2)

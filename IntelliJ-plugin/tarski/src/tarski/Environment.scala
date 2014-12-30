@@ -55,9 +55,9 @@ object Environment {
     // Add more objects
     def extend(things: Array[Item], scope: Map[Item,Int]): Env
 
-    // Add local objects (they all appear in inScope with priority 1)
-    def extendLocal(things: Array[Item]): Env =
-      extend(things,(things map ((_,1))).toMap)
+    // Add local objects (they all appear in inScope with priority scope)
+    def extendLocal(things: Array[Item], scope: Int = 1): Env =
+      extend(things,(things map ((_,scope))).toMap)
 
     // Is an item in scope and not shadowed by another item?
     private lazy val _inScope: java.util.Set[Item] = {
@@ -325,11 +325,6 @@ object Environment {
   // What could this name be, assuming it is a member of the given type?
   def fieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[Value with Member] =
     env.query(name, Pr.exactField, { case f: Value with Member if memberIn(f,t) => f }, s"Type ${show(t)} has no field $name")
-
-  // what could this be, assuming it's a static member of the given type?
-  def staticFieldScores(t: TypeItem, name: String)(implicit env: Env): Scored[StaticValue with Member] =
-    env.query(name, Pr.exactStaticField, { case f:StaticFieldItem if memberIn(f,t) => f case f: EnumConstantItem if memberIn(f,t) => f },
-                      s"Type ${show(t)} has no static field $name")
 
   // What could this be, assuming it is a type field of the given type?
   def typeFieldScores(t: Type, name: String)(implicit env: Env): Scored[Type] =

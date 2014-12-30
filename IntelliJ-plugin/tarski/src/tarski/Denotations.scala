@@ -246,9 +246,10 @@ object Denotations {
     def discards = discardsOption(obj)
     def beneath = EnumConstantExp(obj map (_.beneath),c)
   }
-  case class StaticFieldExp(obj: Option[Exp], field: StaticFieldItem) extends Exp {
+  case class StaticFieldExp(obj: Option[Exp], field: FieldItem) extends Exp {
+    assert(field.isStatic)
     def item = field.item
-    def ty = field.ty
+    def ty = field.inside
     def discards = discardsOption(obj)
     def beneath = StaticFieldExp(obj map (_.beneath),field)
   }

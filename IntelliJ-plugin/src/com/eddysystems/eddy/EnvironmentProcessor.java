@@ -21,7 +21,6 @@ import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Tries;
-import tarski.Types;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
 
@@ -75,6 +74,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     Tries.DTrie dTrie = null;
     Map<TypeItem,Value[]> dByItem = null;
 
+    // dynamic by item needs to be rebuilt a lot more than the trie.
+    boolean byItemNeedsRebuild = false;
+
     boolean knows(PsiElement elem) {
       // we need not check for constructors, they're indexed by their class -- we know the constructor iff we know the class.
       return items.containsKey(elem) || localItems.containsKey(elem);
@@ -106,7 +108,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       ArrayList<Item> items = new ArrayList<Item>(this.localItems.values());
       items.addAll(localImplicitConstructors.values());
       dTrie = Tarski.makeDTrie(items);
-      dByItem = JavaUtils.valuesByItem(items.toArray(new Item[items.size()]));
+      dByItem = JavaUtils.valuesByItem((Item[])dTrie.values());
+
+      // clear volatile stores
+      addedImplicitConstructors.clear();
+      addedItems.clear();
       nDeletions = 0;
     }
 
@@ -122,6 +128,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     Env getLocalEnvironment(PsiElement place) {
       if (localEnvNeedsRebuild()) {
         buildDynamicEnv();
+      } else if (byItemNeedsRebuild) {
+        dByItem = JavaUtils.valuesByItem((Item[])dTrie.values());
       }
 
       return new EnvironmentProcessor(project, place, true).getLocalEnvironment(this);
@@ -133,6 +141,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       newitems.addAll(addedItems.values());
       newitems.addAll(addedImplicitConstructors.values());
       final Item[] newArray = newitems.toArray(new Item[newitems.size()]);
+      System.out.println("made environment: " + sTrie.values().length + " static, " + dTrie.values().length + " dynamic, " + newArray.length + " volatile.");
       return Tarski.environment(sTrie, dTrie, Tarski.makeTrie(newArray), sByItem, dByItem, JavaUtils.valuesByItem(newArray), inScope, pinfo);
     }
 
@@ -153,18 +162,38 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       Item it = converter.addItem(elem);
 
       // we may have to remove an implicit constructor if we just added a constructor
-      if (it instanceof ConstructorItem) {
-        assert elem.getParent() instanceof PsiClass;
-        if (localImplicitConstructors.containsKey(elem.getParent())) {
-          localImplicitConstructors.remove(elem.getParent());
-        }
-      }
+      if (it instanceof ConstructorItem)
+        deleteImplicitConstructor((PsiClass)(elem.getParent()));
 
       // save a copy in added*
       addedItems.put(elem,it);
       if (it instanceof ClassItem && localImplicitConstructors.containsKey((PsiClass)elem)) {
         addedImplicitConstructors.put((PsiClass)elem, localImplicitConstructors.get(elem));
       }
+
+      // if we added a class, check if we can fill in some of the undefined references
+      if (it instanceof RefTypeItem) {
+        // go through all (local) items and check whether we can fill in some undefined references
+        // this may add inheritance structure that invalidates valuesByItem
+        for (Item i : localItems.values())
+          if (i instanceof Converter.ReferencingItem)
+            byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).fillUnresolvedReferences();
+      }
+    }
+
+    // delete an implicitly defined constructor, if there is any
+    void deleteImplicitConstructor(PsiClass cls) {
+      if (!localImplicitConstructors.containsKey(cls))
+        return;
+
+      ConstructorItem it = localImplicitConstructors.get(cls);
+      it.delete();
+
+      localImplicitConstructors.remove(cls);
+
+      // make sure to remove it from added if it hasn't propagated to the Trie yet
+      if (addedImplicitConstructors.containsKey(cls))
+        addedImplicitConstructors.remove(cls);
     }
 
     void deleteItem(PsiElement elem) {
@@ -203,46 +232,132 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           it instanceof FieldItem) {
         // nobody should hold references to these types if items, so we should be fine.
       } else if (it instanceof MethodItem) {
-        // we may be the parent of local classes, but those classes would already have been deleted
+        // we may be the parent of local classes, but those classes are only scanned in scope
       } else if (it instanceof ConstructorItem) {
-        // we may be the parent of local classes, but those classes would already have been delete
+        // we may be the parent of local classes, but those classes are only scanned in scope
 
         // constructors array in owning class
-        ((ConstructorItem) it).parent().invalidateConstructors();
+        ((CachedConstructorsItem) ((ConstructorItem) it).parent()).invalidateConstructors();
+
+        // if this was the last constructor, make an implicit one
+        PsiClass cls = (PsiClass)elem.getParent();
+        ClassItem cit = (ClassItem)lookup(cls);
+        if (cls.getConstructors().length == 1) {
+          addedImplicitConstructors.put(cls,converter.addImplicitConstructor(cls,cit));
+        }
       } else if (it instanceof PackageItem) {
-        // we may be the parent of classes, but those classes would already have been deleted
-      } else if (it instanceof Types.TypeVar) {
-        // TODO: same as class?
-      } else if (it instanceof ClassItem) {
-        // we may be the parent of classes, but those classes would already have been deleted
-        // TODO: supers, base, item in all values with derived types, ...
+        // we may be the parent of local classes, but those classes are only scanned in scope
+      } else if (it instanceof RefTypeItem) {
+        // we may be the parent of local classes (if we're a class), but those classes are only scanned in scope
+
+        // go through all (local) items and check whether they store a reference to it (rebuild values by item if needed)
+        for (Item i : localItems.values()) {
+          if (i instanceof Converter.ReferencingItem) {
+            byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).flushReference(it);
+          }
+        }
+
       } else {
         throw new RuntimeException("don't know what to update for deleted " + elem + ": " + it);
       }
     }
 
-    // attributes of this item have changed, but references to it remain valid (e.g. modifiers, base, supers, etc.; name cannot change this way)
-    void changeItem(PsiElement elem) {
+    void changeModifiers(PsiModifierListOwner elem) {
       // find the item
       Item it = lookup(elem);
-
       if (it == null)
         return;
 
-      System.out.println("changing " + it);
+      System.out.println("changing the modifiers on " + it + " to " + elem.getModifierList());
 
-      // TODO: wipe cached fields in associated Item
+      // the psi allows things that are not legal -- we don't
+      if (it instanceof SettableFinalItem)
+        ((SettableFinalItem)(it)).setFinal(elem.hasModifierProperty(PsiModifier.FINAL));
+      else
+        System.out.println("  can't set final modifier on " + it);
+
+      if (it instanceof SettableStaticItem)
+        ((SettableStaticItem)(it)).setStatic(elem.hasModifierProperty(PsiModifier.STATIC));
+      else
+        System.out.println("  can't set static modifier on " + it);
+    }
+
+    void changeTypeParameters(PsiTypeParameterListOwner elem) {
+      Item it = lookup(elem);
+      if (it == null)
+        return;
+
+      System.out.println("changing the type parameters of " + it + " to " + elem.getTypeParameterList());
+
+      ((CachedTypeParametersItem)it).invalidateTypeParameters();
+    }
+
+    void changeBase(PsiClass elem) {
+      Item it = lookup(elem);
+      if (it == null)
+        return;
+
+      System.out.println("changing the base class of " + it + " to " + elem.getExtendsList());
+
+      ((CachedBaseItem)it).invalidateBase();
+      byItemNeedsRebuild = true;
+    }
+
+    void changeImplements(PsiClass elem) {
+      Item it = lookup(elem);
+      if (it == null)
+        return;
+
+      System.out.println("changing the implements list of " + it + " to " + elem.getImplementsList());
+
+      ((CachedSupersItem)it).invalidateSupers();
+      byItemNeedsRebuild = true;
+    }
+
+    void changeParameters(PsiMethod elem) {
+      Item it = lookup(elem);
+      if (it == null)
+        return;
+
+      System.out.println("changing the implements list of " + it + " to " + elem.getParameterList());
+
+      ((CachedParametersItem)it).invalidateParameters();
+    }
+
+    void changeReturnType(PsiMethod elem) {
+      Item it = lookup(elem);
+      if (it == null)
+        return;
+
+      System.out.println("changing the return type of " + it + " to " + elem.getReturnType());
+
+      if (it instanceof ConstructorItem) {
+        // if it is a constructor and we add a return type, we're making it into a method.
+        deleteItem(elem);
+        addItem(elem);
+      } else {
+        assert it instanceof MethodItem;
+        // if we remove a return type from a method which is called the same as its containing class, we make it into a constructor
+        if (elem.getReturnType() == null && elem.getName().equals(((PsiClass)elem.getParent()).getName())) {
+          deleteItem(elem);
+          addItem(elem);
+        } else {
+          ((CachedReturnTypeItem)it).invalidateReturnType();
+        }
+      }
+
+      // TODO: rebuild valuesByItem (once methods are part of it by return type)
     }
 
     // the name of this item has changed, but references to it remain valid (must be re-inserted into the trie, but no other action necessary)
-    void changeItemName(PsiElement elem, String newname) {
+    void changeItemName(PsiNamedElement elem) {
       // find the item
       Item it = lookup(elem);
 
       if (it == null)
         return;
 
-      System.out.println("changing the name of " + it + " to " + newname);
+      System.out.println("changing the name of " + it + " to " + elem.getName());
 
       // delete from trie (by overwriting the corresponding stored item with a deleted dummy) and add to addedItems
       Item dummy = new SimpleTypeVar(it.name());
@@ -256,7 +371,17 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         addedImplicitConstructors.put((PsiClass)elem, itc);
       }
 
-      // TODO: set stored name in it to newname
+      ((CachedNameItem)it).refreshName();
+
+      // name changes will make references invalid (unresolved, most likely)
+      if (it instanceof RefTypeItem) {
+        // go through all (local) items and check whether they store a reference to it
+        for (Item i : localItems.values()) {
+          if (i instanceof Converter.ReferencingItem) {
+            byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).flushReference(it);
+          }
+        }
+      }
     }
   }
 
