@@ -55,9 +55,9 @@ object Environment {
     // Add more objects
     def extend(things: Array[Item], scope: Map[Item,Int]): Env
 
-    // Add local objects (they all appear in inScope with priority 1)
-    def extendLocal(things: Array[Item]): Env =
-      extend(things,(things map ((_,1))).toMap)
+    // Add local objects (they all appear in inScope with priority scope)
+    def extendLocal(things: Array[Item], scope: Int = 1): Env =
+      extend(things,(things map ((_,scope))).toMap)
 
     // Is an item in scope and not shadowed by another item?
     private lazy val _inScope: java.util.Set[Item] = {

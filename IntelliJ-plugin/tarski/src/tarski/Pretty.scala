@@ -309,7 +309,7 @@ object Pretty {
 
       // Static members
       case i: EnumConstantItem => relative(i)
-      case i: StaticFieldItem => relative(i)
+      case i: FieldItem if i.isStatic => relative(i)
       case i: MethodItem if i.isStatic => relative(i)
 
       // Non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)

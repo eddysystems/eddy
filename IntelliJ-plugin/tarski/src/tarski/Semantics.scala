@@ -154,7 +154,7 @@ object Semantics {
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(x) => known(x)
-      case i:StaticFieldItem => penalize(StaticFieldExp(None,i))
+      case i:FieldItem if i.isStatic => penalize(StaticFieldExp(None,i))
       case i:EnumConstantItem => penalize(EnumConstantExp(None,i))
       case i:ThisItem => penalize(ThisExp(i))
       case i:SuperItem => penalize(SuperExp(i))
@@ -273,12 +273,14 @@ object Semantics {
       })
       val cs = product(denoteParent(x),fs) flatMap {case (x,f) => f match {
         case _ if !memberIn(f,x) => fail(s"${show(x)} does not contain $f")
-        case f:Value => (x,f) match {
-          case (x:Exp,    f:EnumConstantItem) if mc.exp => single(EnumConstantExp(Some(x),f),Pr.enumFieldExpWithObject)
-          case (t:TypeDen,f:EnumConstantItem) if mc.exp => single(EnumConstantExp(None,f).discard(t.discards),Pr.enumFieldExp)
-          case (x:Exp,    f:StaticFieldItem)  if mc.exp => single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
-          case (t:TypeDen,f:StaticFieldItem)  if mc.exp => single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
-          case (x:Exp,    f:FieldItem)        if mc.exp => single(FieldExp(x,f),Pr.fieldExp)
+        case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
+          case (x:PackageDen,_) => fail("Values aren't members of packages")
+          case (x:Exp,    f:EnumConstantItem) => single(EnumConstantExp(Some(x),f),Pr.enumFieldExpWithObject)
+          case (t:TypeDen,f:EnumConstantItem) => single(EnumConstantExp(None,f).discard(t.discards),Pr.enumFieldExp)
+          case (x:Exp,    f:FieldItem) => if (f.isStatic) single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
+                                          else single(FieldExp(x,f),Pr.fieldExp)
+          case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
+                                          else fail(s"Can't access non-static field $f without object")
         }
         case f:TypeItem =>
           val types = if (!mc.ty || ts.nonEmpty) fail(s"${show(e)}: Unexpected or invalid type field") else x match {

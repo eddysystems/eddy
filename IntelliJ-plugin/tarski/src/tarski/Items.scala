@@ -139,16 +139,12 @@ object Items {
 
     // All constructors of this class
     def constructors: Array[ConstructorItem]
-
-    // invalidate constructors cache (if there is such a thing)
-    def invalidateConstructors(): Unit
   }
 
   private val noConstructors: Array[ConstructorItem] = Array()
   trait BaseItem extends ClassItem {
     val fieldNames: java.util.Set[String] = new java.util.HashSet[String]()
     var constructors: Array[ConstructorItem] = noConstructors
-    def invalidateConstructors(): Unit = {}
     def declaresField(kid: Name) = fieldNames.contains(kid)
   }
 
@@ -183,9 +179,8 @@ object Items {
     def isFinal = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
-    def invalidateConstructors(): Unit = {}
 
-    // Not sure why we need these
+    // needed because Item is Product
     def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
     def productArity = notImplemented
     def productElement(n: Int) = notImplemented
@@ -207,9 +202,7 @@ object Items {
     def isEnum = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
-    def invalidateConstructors(): Unit = {}
 
-    // Not sure why we need these
     def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
     def productArity = notImplemented
     def productElement(n: Int) = notImplemented
@@ -220,22 +213,6 @@ object Items {
               isFinal: Boolean = false, fields: Set[String] = Set(),
               constructors: => Array[ConstructorItem] = noConstructors): ClassItem =
       new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,fields,constructors)
-  }
-
-  case class UnresolvedClassItem(name: Name, pkgName: Name, args: List[TypeArg], isFinal: Boolean) extends ClassItem {
-    def isClass = true
-    def isEnum = false
-    val parent = PackageItem(pkgName,pkgName)
-    def base = ObjectType
-    def supers = List(base)
-    def superItems = List(ObjectItem)
-    lazy val tparams = (1 to args.size).map(x => SimpleTypeVar("T"+x)).toList
-
-    def generic: ClassType = generic(args, parent)
-
-    def declaresField(kid: Name) = false
-    val constructors = noConstructors
-    def invalidateConstructors(): Unit = {}
   }
 
   case object ArrayItem extends RefTypeItem {
@@ -279,10 +256,6 @@ object Items {
     def item: TypeItem // The item of our type
     def isFinal: Boolean
   }
-  sealed abstract class StaticValue extends Value {
-    def ty: Type
-    def item = ty.item
-  }
   sealed abstract class LocalValue extends Value {
     def qualifiedName = None
     override def toString = "local:" + name
@@ -306,27 +279,32 @@ object Items {
   abstract class FieldItem extends Value with ClassMember {
     def inside: Type
     def item = inside.item
+    def isStatic: Boolean
   }
-  abstract class StaticFieldItem extends StaticValue with ClassMember
   case class ParameterItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
   case class LocalVariableItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
-  case class EnumConstantItem(name: Name, parent: ClassItem) extends StaticValue with ClassMember {
+  case class EnumConstantItem(name: Name, parent: ClassItem) extends Value with ClassMember {
     assert(parent.isEnum) // TODO: make a separate maker for enums?
-    override def item = parent
+    def item = parent
     def ty = parent.raw
     def isFinal = true
   }
-  case class LitValue(x: Lit) extends StaticValue {
+  case class LitValue(x: Lit) extends Value {
     val name = show(x)
     val qualifiedName = Some(name)
     val ty = x.ty
-    override val item = x.item
+    val item = x.item
     def isFinal = true
   }
 
   // Normal values
-  case class NormalFieldItem(name: Name, inside: Type, parent: ClassItem, isFinal: Boolean) extends FieldItem
-  case class NormalStaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean) extends StaticFieldItem
+  case class NormalFieldItem(name: Name, inside: Type, parent: ClassItem, isFinal: Boolean) extends FieldItem {
+    val isStatic = false
+  }
+  case class NormalStaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean) extends FieldItem {
+    val isStatic = true
+    def inside: Type = ty
+  }
 
   // Callables
   sealed trait PseudoCallableItem extends Item // MethodItem or this or super
@@ -351,5 +329,42 @@ object Items {
   case class DefaultConstructorItem(parent: ClassItem) extends ConstructorItem {
     val tparams = Nil
     val params = Nil
+  }
+
+  // traits used by lazy classes that can change some of their fields
+  trait CachedConstructorsItem {
+    def invalidateConstructors(): Unit
+  }
+
+  trait CachedTypeParametersItem {
+    def invalidateTypeParameters(): Unit
+  }
+
+  trait CachedBaseItem {
+    def invalidateBase(): Unit
+  }
+
+  trait CachedSupersItem {
+    def invalidateSupers(): Unit
+  }
+
+  trait CachedReturnTypeItem {
+    def invalidateReturnType(): Unit
+  }
+
+  trait CachedParametersItem {
+    def invalidateParameters(): Unit
+  }
+
+  trait SettableFinalItem {
+    def setFinal(f: Boolean): Unit
+  }
+
+  trait SettableStaticItem {
+    def setStatic(f: Boolean): Unit
+  }
+
+  trait CachedNameItem {
+    def refreshName(): Unit
   }
 }
