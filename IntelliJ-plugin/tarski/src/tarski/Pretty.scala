@@ -503,6 +503,7 @@ object Pretty {
   }
   implicit def prettyDen(x: Den)(implicit env: Env): (Fixity,Tokens) = x match {
     case x:Exp => prettyExp(x)
+    case PackageDen(p) => pretty(p)
     case x:Callable => prettyCallable(x)
     case TypeDen(ds,t) => above(ds,t)
   }

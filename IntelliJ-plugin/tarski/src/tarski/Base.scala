@@ -161,6 +161,8 @@ object Base {
 
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
+  if (ObjectItem.constructors.length==0)
+    ObjectItem.constructors = Array(ObjectConsItem)
 
   // Standard base environment for tests
   val baseEnv = silenced(Env(Array(

@@ -16,8 +16,7 @@ import tarski.Types._
 
 class TestEnvironment {
 
-  @Test
-  def testStaticShadowedByLocal() = {
+  @Test def testStaticShadowedByLocal() = {
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val yf = NormalStaticFieldItem("y",FloatType,main,true)
     val f = NormalMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)),true)
@@ -28,8 +27,7 @@ class TestEnvironment {
     assertEquals(tokens(yf), List(IdentTok("Main"),DotTok, IdentTok("y")))
   }
 
-  @Test
-  def nestedThisExp(): Unit = {
+  @Test def nestedThisExp(): Unit = {
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
     val Y = NormalClassItem("Y", X, Nil, ObjectType, Nil)
     val tX = ThisItem(X)
@@ -39,8 +37,7 @@ class TestEnvironment {
     assertEquals(tokens(ThisExp(tY)), List(ThisTok))
   }
 
-  @Test
-  def levenshteinDistance(): Unit = {
+  @Test def levenshteinDistance(): Unit = {
     val meant = "isInstanceOf"
     val typed = "isInstnaceof"
     val d = StringMatching.levenshteinDistance(meant, typed)
@@ -106,8 +103,7 @@ class TestEnvironment {
     }
   }
 
-  @Test
-  def trieQuery(): Unit = {
+  @Test def trieQuery(): Unit = {
     val typed = "test"
     val things = Array("test","tset","verylongName","LongLongName","TestName","testName","NameTest","iTest")
       .map(s => NormalClassItem(s,LocalPkg) : Item)

@@ -27,7 +27,7 @@ object Environment {
   // Information about where we are
   // TODO: add information about static scope
   // TODO: add information about whether we're in a spot where we can delegate constructor calls
-  case class PlaceInfo(place: PlaceItem,
+  case class PlaceInfo(place: ParentItem,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
                        labels: List[String] = Nil) {
@@ -105,7 +105,7 @@ object Environment {
     def _collect[A](typed: Array[Char], error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[A]): Scored[A] = is match {
         case Nil => s
-        case i::is => exact(is,if (filter.isDefinedAt(i)) Best(Pr.exact,filter.apply(i),s) else s)
+        case i::is => exact(is,if (filter.isDefinedAt(i)) bestThen(Pr.exact,filter.apply(i),s) else s)
       }
       @tailrec def approx(is: List[Alt[Item]], as: List[Alt[A]]): List[Alt[A]] = is match {
         case Nil => as
@@ -116,7 +116,7 @@ object Environment {
     def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
         case Nil => s
-        case i::is => exact(is,Best(Pr.exact,i,s))
+        case i::is => exact(is,bestThen(Pr.exact,i,s))
       }
       @tailrec def approx(is: List[Alt[Item]], as: List[Alt[Item]]): List[Alt[Item]] = is match {
         case Nil => as
@@ -282,13 +282,6 @@ object Environment {
   // Look up values by their type
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
     env.byItem(t)
-
-  // Does a member belong to a type?
-  def memberIn(f: Member, t: TypeItem): Boolean = f.parent match {
-    case p:ClassItem => isSubitem(t,p)
-    case _ => false
-  }
-  def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
 
   // Assuming a member belongs to a type, what is its fully applied type?
   def typeIn(f: TypeItem, t: Type): Type = f match {

@@ -19,8 +19,7 @@ object Items {
   }
 
   // Something which we can be inside
-  sealed trait PlaceItem extends Item
-  sealed trait ParentItem extends PlaceItem {
+  sealed trait ParentItem extends Item {
     def inside: Parent
     def raw: Parent
     def simple: Parent
@@ -226,7 +225,7 @@ object Items {
   case class UnresolvedClassItem(name: Name, pkgName: Name, args: List[TypeArg], isFinal: Boolean) extends ClassItem {
     def isClass = true
     def isEnum = false
-    val parent = PackageItem(pkgName, pkgName)
+    val parent = PackageItem(pkgName,pkgName)
     def base = ObjectType
     def supers = List(base)
     def superItems = List(ObjectItem)
@@ -265,7 +264,7 @@ object Items {
 
   trait Member extends Item {
     def name: Name
-    def parent: PlaceItem // Could be a package
+    def parent: ParentItem // Package, class, or callable.
     def qualifiedName = parent.qualifiedName map {
       case "" => name
       case s => s + "." + name
@@ -330,19 +329,17 @@ object Items {
   case class NormalStaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean) extends StaticFieldItem
 
   // Callables
-  sealed trait PseudoCallableItem extends Item // Callable or this or super
-  sealed abstract class CallableItem extends PseudoCallableItem with PlaceItem with GenericItem {
-    def params: List[Type]
-  }
-  sealed trait CallableParentItem extends CallableItem with SimpleParentItem {
+  sealed trait PseudoCallableItem extends Item // MethodItem or this or super
+  sealed abstract class CallableItem extends SimpleParentItem with GenericItem with ClassMember {
     def parent: ClassItem
+    def params: List[Type]
     def simple: Parent = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
   }
-  abstract class MethodItem extends CallableParentItem with ClassMember {
+  abstract class MethodItem extends CallableItem with PseudoCallableItem {
     def retVal: Type
     def isStatic: Boolean
   }
-  abstract class ConstructorItem extends CallableParentItem with ClassMember {
+  abstract class ConstructorItem extends CallableItem {
     def name = parent.name
   }
 
