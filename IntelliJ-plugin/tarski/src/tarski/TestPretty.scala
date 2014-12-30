@@ -26,24 +26,27 @@ class TestPretty {
   @Test def genericMethod() = test("B.a.<Object>f()", {
     val A = NormalClassItem("A", LocalPkg)
     val B = NormalClassItem("B", LocalPkg)
-    ApplyExp(MethodDen(StaticFieldExp(None, NormalStaticFieldItem("a", A.simple, B, isFinal=false)), NormalMethodItem("f", A, List(SimpleTypeVar("T")), IntType, Nil, isStatic=false)), List(ObjectType), Nil)
+    ApplyExp(TypeApply(MethodDen(StaticFieldExp(None,NormalStaticFieldItem("a",A.simple,B,isFinal=false)),
+                                 NormalMethodItem("f",A,List(SimpleTypeVar("T")),IntType,Nil,isStatic=false)),
+                       List(ObjectType)),
+             Nil)
   })
   @Test def genericStaticMethod() = test("A.<Object>f()", {
     val A = NormalClassItem("A", LocalPkg)
-    ApplyExp(NormalMethodItem("f", A, List(SimpleTypeVar("T")), IntType, Nil, isStatic=true), List(ObjectType), Nil)
+    ApplyExp(TypeApply(NormalMethodItem("f",A,List(SimpleTypeVar("T")),IntType,Nil,isStatic=true),List(ObjectType)),Nil)
   })
   @Test def genericPlacement() = test("pkg.L.<String>fill(1,\"s\")", {
     val P = PackageItem("pkg", "pkg")
     val L = NormalClassItem("L", P, List(SimpleTypeVar("A")))
     val fill = NormalMethodItem("fill", L, List(SimpleTypeVar("A")), VoidType, List(IntType, StringItem.simple), isStatic=true)
-    ApplyExp(fill, List(StringItem.simple), List(IntLit(1, "1"), StringLit("s","\"s\"")))
+    ApplyExp(TypeApply(fill,List(StringItem.simple)), List(IntLit(1, "1"), StringLit("s","\"s\"")))
   })
   @Test def genericNew() = test("new<String>A<Integer>(\"s\")", {
     val S = SimpleTypeVar("S")
     val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(S))
     val cons = NormalConstructorItem(A,List(T),List(T))
-    ApplyExp(NewDen(None,cons),List(IntegerItem.simple,StringItem.simple),List(StringLit("s",""""s"""")))
+    ApplyExp(TypeApply(NewDen(None,cons),List(IntegerItem.simple,StringItem.simple)),List(StringLit("s",""""s"""")))
   })
 
   @Test def qualifiedType() = {

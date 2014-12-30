@@ -279,14 +279,6 @@ object Environment {
   // - TODO: things that appear often in this file/class/function are more likely
   // - TODO: things that are declared close by are more likely
 
-  // What could it be, given it's a callable?
-  def callableScores(name: String)(implicit env: Env): Scored[PseudoCallableItem] =
-    env.collect(name, s"Callable $name not found", {
-      case t:CallableItem => t
-      case t@ThisItem(c) if env.place.forwardThisPossible(c) => t
-      case t@SuperItem(c) if env.place.forwardSuperPossible(c.item) => t
-    })
-
   // Look up values by their type
   def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
     env.byItem(t)

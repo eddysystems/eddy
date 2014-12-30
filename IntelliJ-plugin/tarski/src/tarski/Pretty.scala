@@ -383,7 +383,7 @@ object Pretty {
     case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
-    case ApplyExp(f,ts,a) => (ApplyFix, tokens((f,ts)) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
+    case ApplyExp(f,a) => (ApplyFix, tokens(f) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
     case FieldExp(x,f) => prettyField(x,f)
     case LocalFieldExp(f) => pretty(f)
     case StaticFieldExp(None,f) => pretty(f)
@@ -403,31 +403,40 @@ object Pretty {
       (ApplyFix, NewTok :: outer(t,is,Nil))
     }
   }
-  implicit def prettyCallable(fts: (Callable,List[TypeArg]))(implicit env: Env): (Fixity,Tokens) = {
+  implicit def prettyCallable(f: Callable)(implicit env: Env): (Fixity,Tokens) = {
     def method(x: Exp, ts: List[TypeArg], f: Item): (Fixity,Tokens) =
       fix(FieldFix,left(_,x) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
+    def gnu(p: Option[ClassType], c: ConstructorItem, ts: List[TypeArg]) = {
+      val (ts0,ts1) = ts splitAt c.parent.tparams.size
+      (NewFix,NewTok :: tokensTypeArgs(ts1) ::: (p match {
+        case None => Nil
+        case Some(p) => tokens(p)(prettyType) ::: List(DotTok)
+      }) ::: tokens(c.parent) ::: tokensTypeArgs(ts0))
+    }
+    def forward(c: ConstructorItem, ts: List[TypeArg]) = {
+      val self = env.getThis.self
+      val forward =
+        if (self == c.parent) ThisTok
+        else if (self.base.item == c.parent) SuperTok
+        else throw new RuntimeException(s"Can't forward to constructor ${show(c)} if this has type ${show(self)}")
+      (ApplyFix,tokensTypeArgs(ts) ::: List(forward))
+    }
     // TODO: If ts is inferable, don't print it
-    fts match {
-      case (MethodDen(x,f),ts) => method(x,ts,f)
-      case (LocalMethodDen(f),Nil) => pretty(f)
-      case (LocalMethodDen(f),ts) => method(ThisExp(env.getThis),ts,f)
-      case (StaticMethodDen(Some(x),f),ts) => method(x,ts,f)
-      case (StaticMethodDen(None,f),Nil) => pretty(f)
-      case (StaticMethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
-      case (NewDen(p,c),ts) =>
-        val (ts0,ts1) = ts splitAt c.parent.tparams.size
-        (NewFix,NewTok :: tokensTypeArgs(ts1) ::: (p match {
-          case None => Nil
-          case Some(p) => tokens(p)(prettyType) ::: List(DotTok)
-        }) ::: tokens(c.parent) ::: tokensTypeArgs(ts0))
-      case (ForwardDen(_,c),ts) =>
-        val self = env.getThis.self
-        val forward =
-          if (self == c.parent) ThisTok
-          else if (self.base.item == c.parent) SuperTok
-          else throw new RuntimeException(s"Can't forward to constructor ${show(c)} if this has type ${show(self)}")
-        (ApplyFix,tokensTypeArgs(ts) ::: List(forward))
-      case (DiscardCallableDen(ds,f),ts) => above(ds,(f,ts))
+    f match {
+      case           MethodDen(x,f) => method(x,Nil,f)
+      case TypeApply(MethodDen(x,f),ts) => method(x,ts,f)
+      case           LocalMethodDen(f) => pretty(f)
+      case TypeApply(LocalMethodDen(f),ts) => method(ThisExp(env.getThis),ts,f)
+      case           StaticMethodDen(Some(x),f) => method(x,Nil,f)
+      case TypeApply(StaticMethodDen(Some(x),f),ts) => method(x,ts,f)
+      case           StaticMethodDen(None,f) => pretty(f)
+      case TypeApply(StaticMethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
+      case           NewDen(p,c) => gnu(p,c,Nil)
+      case TypeApply(NewDen(p,c),ts) => gnu(p,c,ts)
+      case           ForwardDen(_,c) => forward(c,Nil)
+      case TypeApply(ForwardDen(_,c),ts) => forward(c,ts)
+      case           DiscardCallableDen(ds,f) => above(ds,f)
+      case TypeApply(DiscardCallableDen(ds,f),ts) => above(ds,TypeApply(f,ts))
     }
   }
   def tokensTypeArgs[A](ts: List[A])(implicit p: Pretty[A]): Tokens = ts match {
@@ -494,8 +503,7 @@ object Pretty {
   }
   implicit def prettyDen(x: Den)(implicit env: Env): (Fixity,Tokens) = x match {
     case x:Exp => prettyExp(x)
-    case x:Callable => prettyCallable(x,Nil)
+    case x:Callable => prettyCallable(x)
     case TypeDen(ds,t) => above(ds,t)
-    case NoneDen => pretty("NoneDen")
   }
 }

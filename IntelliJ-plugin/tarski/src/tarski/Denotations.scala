@@ -17,12 +17,6 @@ object Denotations {
     def item: TypeItem
   }
 
-  // For use in StaticMethodDen, etc.
-  case object NoneDen extends Den {
-    def strip = this
-    def discards = Nil
-  }
-
   trait HasDiscards {
     def discards: List[Stmt]
   }
@@ -70,32 +64,59 @@ object Denotations {
 
   // Callables
   sealed abstract class Callable extends Den with Signature with HasDiscard[Callable] {
-    val f: CallableItem
-    def tparams: List[TypeVar] = f.tparams
-    def params: List[Type] = f.params
+    def f: CallableItem
+    def tparams: List[TypeVar]
+    def params: List[Type]
     def callItem: TypeItem
     def callType(ts: List[TypeArg]): Type
     def parent: Option[ClassType] // the parent type (for generic substitutions and in the case of NewDen, inference)
-    def discard(ds: List[Stmt]) = ds match {
+    def discard(ds: List[Stmt]): Callable
+    def strip: Callable
+  }
+  sealed abstract class NotTypeApply extends Callable {
+    def tparams = f.tparams
+    def params = f.params
+    def strip: NotTypeApply
+    def discard(ds: List[Stmt]): NotTypeApply = ds match {
       case Nil => this
       case ds => DiscardCallableDen(ds,this)
     }
-    def strip: Callable
   }
-  sealed abstract class NonNewCallable extends Callable
 
-  case class MethodDen(x: Exp, override val f: MethodItem) extends NonNewCallable {
+  case class TypeApply(c: NotTypeApply, ts: List[TypeArg]) extends Callable {
+    def f = c.f
+    def tparams = Nil
+    def alltparams = Nil
+    lazy val params = {
+      // TODO: Map.empty may be wrong here
+      val env = capture(f.tparams,ts,Map.empty)._1
+      f.params map (_.substitute(env))
+    }
+    def callItem = c.callItem
+    def callType(ts2: List[TypeArg]) = ts2 match {
+      case Nil => c.callType(ts)
+      case _ => throw new RuntimeException("TypeApply already has type arguments")
+    }
+    def parent = c.parent
+    def strip = TypeApply(c.strip,ts)
+    def discards = c.discards
+    def discard(ds: List[Stmt]) = ds match {
+      case Nil => this
+      case ds => TypeApply(c.discard(ds),ts)
+    }
+  }
+  case class MethodDen(x: Exp, override val f: MethodItem) extends NotTypeApply {
     def env(ts: List[TypeArg]) = capture(tparams,ts,parent.get.env)._1
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(env(ts))
-    def parent = Some(x.ty.asInstanceOf[ClassType]) // if we've constructed a MethodDen, with obj, its type must be a Class, basically
+    def parent = Some(x.ty.asInstanceOf[ClassType]) // If we've constructed a MethodDen, with obj, its type must be a Class, basically
     def discards = x.discards
     def strip = MethodDen(x.strip,f)
     override def params = f.params.map( (t:Type) => t.substitute(parent.get.env) )
     // a method is called on an object, which will have a proper type at the time the call happens, so we only need to infer our own type arguments
     def alltparams = tparams
   }
-  case class LocalMethodDen(override val f: MethodItem) extends NonNewCallable {
+  case class LocalMethodDen(override val f: MethodItem) extends NotTypeApply {
     def env(ts: List[TypeArg]) = capture(tparams,ts,Map.empty)._1 // We're local, and thus have no parent environment
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(env(ts))
@@ -104,7 +125,7 @@ object Denotations {
     def strip = this
     def alltparams = tparams // this is raw, so we never have any relevant parent environment
   }
-  case class StaticMethodDen(x: Option[Exp], override val f: MethodItem) extends NonNewCallable {
+  case class StaticMethodDen(x: Option[Exp], override val f: MethodItem) extends NotTypeApply {
     def env(ts: List[TypeArg]) = capture(tparams,ts,Map.empty)._1 // Static methods don't use their parent environment
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(env(ts))
@@ -113,7 +134,7 @@ object Denotations {
     def strip = StaticMethodDen(x map (_.strip),f)
     def alltparams = tparams // static methods cannot use their parent's type environment
   }
-  case class ForwardDen(parent: Option[ClassType], override val f: ConstructorItem) extends NonNewCallable {
+  case class ForwardDen(parent: Option[ClassType], override val f: ConstructorItem) extends NotTypeApply {
     def callItem = VoidItem
     def callType(ts: List[TypeArg]) = VoidType
     def discards = Nil
@@ -122,7 +143,7 @@ object Denotations {
     override def params = f.params map (_ substitute (if (parent.isDefined) parent.get.env else Map.empty))
   }
   // parent is the parent of the class being created, i.e. in "new A<X>.B<Y>.C(x)", parent is A<X>.B<Y>
-  case class NewDen(parent: Option[ClassType], override val f: ConstructorItem) extends Callable {
+  case class NewDen(parent: Option[ClassType], override val f: ConstructorItem) extends NotTypeApply {
     def callItem = f.parent
     def callType(ts: List[TypeArg]) = f.parent.generic(ts.take(f.parent.arity),parent match {
       case Some(p) => p
@@ -135,7 +156,7 @@ object Denotations {
     def alltparams = f.parent.tparams ++ tparams
   }
   // Evaluate and discard s, then be f
-  case class DiscardCallableDen(s: List[Stmt], c: Callable) extends Callable {
+  case class DiscardCallableDen(s: List[Stmt], c: NotTypeApply) extends NotTypeApply {
     val f = c.f
     def alltparams = c.alltparams
     def callItem = c.callItem
@@ -349,11 +370,11 @@ object Denotations {
     def discards = e.discards
     def strip = ParenExp(e.strip)
   }
-  case class ApplyExp(f: Callable, targs: List[TypeArg], args: List[Exp]) extends StmtExp {
+  case class ApplyExp(f: Callable, args: List[Exp]) extends StmtExp {
     def item = f.callItem
-    def ty = f.callType(targs)
+    def ty = f.callType(Nil)
     def discards = f.discards ::: args flatMap (_.discards)
-    def strip = ApplyExp(f.strip,targs,args map (_.strip))
+    def strip = ApplyExp(f.strip,args map (_.strip))
   }
   case class IndexExp(e: Exp, i: Exp) extends Exp {
     def item = e.ty match {

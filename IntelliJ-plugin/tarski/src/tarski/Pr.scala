@@ -74,17 +74,15 @@ object Pr {
   val charLit = base
   val stringLit = base
 
+  val weirdParens = Prob("parens around type or callable",.8)
+
   // denoteType(AType)
   // Type[]
   def arrayType(t: Type): Prob = base // given type t, how likely is t[]
 
   // denoteType(AExp)
-  // (Type)
-  val parensAroundType = Prob("parens around type",.8) // given type t, how likely is (t) (maybe more likely for generic types)
   // Exp.Type
   val typeFieldOfExp = Prob("type field of exp",.6)
-  // Type<TArg,...>
-  val typeApply = base
   val boxType = Prob("box type",.5)
 
   // Value not in scope (requiring qualification)
@@ -104,8 +102,6 @@ object Pr {
   def shadowedMethodCallable(values: Scored[Exp], obj: Exp, c: TypeItem, f: MethodItem) = methodCallable(values, obj, f)
   def superMethodCallable(values: Scored[Exp], c: TypeItem, f: MethodItem) = Prob("super method callable",.8)
 
-  // (callable)
-  val parensAroundCallable = Prob("parens around callable",.8)
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
   // Type.constructor (not legal in Java. Also makes no sense)

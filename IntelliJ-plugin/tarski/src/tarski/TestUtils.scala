@@ -36,7 +36,7 @@ object TestUtils {
   implicit def toExps(e: Exp): List[Exp] = List(e)
 
   // Callable implicit conversions
-  implicit def toCall(x: MethodItem): Callable = if (x.isStatic) StaticMethodDen(None,x) else impossible
+  implicit def toCall(x: MethodItem): NotTypeApply = if (x.isStatic) StaticMethodDen(None,x) else impossible
 
   // Type implicit conversions
   implicit def toType(c: ClassItem): ClassType = c.simple
