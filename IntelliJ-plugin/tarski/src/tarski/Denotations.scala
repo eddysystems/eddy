@@ -113,7 +113,7 @@ object Denotations {
     def parent = Some(x.ty.asInstanceOf[ClassType]) // If we've constructed a MethodDen, with obj, its type must be a Class, basically
     def discards = x.discards
     def strip = MethodDen(x.strip,f)
-    override def params = f.params.map( (t:Type) => t.substitute(parent.get.env) )
+    override def params = { val tenv = parent.get.env; f.params.map( (t:Type) => t.substitute(tenv) ) }
     // a method is called on an object, which will have a proper type at the time the call happens, so we only need to infer our own type arguments
     def alltparams = tparams
   }

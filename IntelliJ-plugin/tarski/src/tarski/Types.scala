@@ -229,7 +229,7 @@ object Types {
     def substitute(implicit env: Tenv): RefType = env.get(this) match {
       case None => this
       case Some(Some(t)) => t
-      case Some(None) => throw new RuntimeException("raw variable encountered in substitute")
+      case Some(None) => hi.substitute // if we encounter a type variable in a raw type, substitute its upper bound
     }
     def safe = Some(this)
     def simple = this
@@ -424,6 +424,7 @@ object Types {
   def assignsTo(from: Type, to: Type): Boolean = {
     (from,to) match {
       case _ if from==to => true
+      case (VoidType,_)|(_,VoidType) => false
       case (f: PrimType, t: PrimType) => widensPrimTo(f,t)
       case (f: RefType, t: RefType) => widensRefUncheckedTo(f,t)
       case (f: PrimType, t: RefType) =>
