@@ -438,10 +438,12 @@ object Denotations {
 
   // Is an expression definitely side effect free?
   def noEffects(e: Exp): Boolean = e match {
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:StaticFieldExp|_:LocalFieldExp
+    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:LocalFieldExp
         |_:ThisExp|_:SuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp|_:DiscardExp => false
-    case FieldExp(x,f) => noEffects(x)
+    case StaticFieldExp(None,_) => true
+    case StaticFieldExp(Some(x),_) => noEffects(x)
+    case FieldExp(x,_) => noEffects(x)
     case NonImpExp(op,x) => pure(op) && noEffects(x)
     case BinaryExp(op,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
     case ParenExp(x) => noEffects(x)
@@ -460,9 +462,11 @@ object Denotations {
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
   def effects(e: Exp): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e))
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:StaticFieldExp|_:LocalFieldExp
+    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:LocalFieldExp
         |_:ThisExp|_:SuperExp => Nil
     case _:CastExp|_:IndexExp => Nil
+    case StaticFieldExp(None,_) => Nil
+    case StaticFieldExp(Some(x),_) => effects(x)
     case FieldExp(x,_) => effects(x)
     case NonImpExp(_,x) => effects(x)
     case BinaryExp(_,x,y) => effects(x)++effects(y)
