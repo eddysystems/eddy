@@ -51,14 +51,6 @@ object Semantics {
     case _ => impossible
   }
 
-  def collectDiscardsA[A,B](xs: List[Above[A]])(f: List[A] => Scored[B]): Scored[Above[B]] =
-    aboves(xs) mapA f
-  def collectDiscardsB[A,B<:HasDiscard[B],C](xs: List[Above[A]])(f: List[A] => Scored[(B,C)]): Scored[(B,C)] =
-    aboves(xs) match {
-      case Above(Nil,xs) => f(xs)
-      case Above(ds,xs) => f(xs) map { case (b,c) => (b.discard(ds),c) }
-    }
-
   def denoteTypeArg(e: AExp)(implicit env: Env): Scored[Above[TypeArg]] = {
     def fix(t: Type): Scored[RefType] = t match {
       case t:RefType => known(t)
