@@ -212,7 +212,7 @@ class TestDen {
     implicit val env = localEnvWithBase().extend(Array(A,AC),Map((A,3),(AC,3)))
     // should result in A<Object> x = new A<Object>(new Object());
     testDen("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),
-      (x,ApplyExp(TypeApply(NewDen(None,AC),List(ObjectType)),List(ApplyExp(NewDen(None,ObjectConsItem),Nil))))))
+      (x,ApplyExp(NewDen(None,AC,Some(List(ObjectType))),List(ApplyExp(NewDen(None,ObjectConsItem),Nil))))))
   }
 
   @Test
@@ -559,10 +559,8 @@ class TestDen {
 
   @Test def genericClass(): Unit = {
     implicit val env = setupGenericClass()
-
     val X = env.allItems.find(_.name == "X").get.asInstanceOf[NormalClassItem]
     val B = env.allItems.find(_.name == "B").get.asInstanceOf[NormalClassItem]
-
     testDen("X<String,B<String>> x = null", "x", x => VarStmt(X.generic(List(StringType,B.generic(List(StringType)))), List((x, 0, Some(NullLit)))))
   }
 
@@ -684,6 +682,18 @@ class TestDen {
 
   @Test def newObject() = testDen("new Object()",ApplyExp(NewDen(None,ObjectConsItem),Nil))
   @Test def newObjectBare() = testDen("new Object",ApplyExp(NewDen(None,ObjectConsItem),Nil))
+
+  @Test def newGeneric() = {
+    val T = SimpleTypeVar("T")
+    val S = SimpleTypeVar("S")
+    val B = NormalClassItem("B",LocalPkg)
+    val C = NormalClassItem("C",LocalPkg)
+    lazy val A: ClassItem = NormalClassItem("A",LocalPkg,List(T),constructors=Array(cons))
+    lazy val cons = NormalConstructorItem(A,List(S),Nil)
+    implicit val env = localEnv().extend(Array(A,cons,B,C),Map(A->1,B->1,C->1))
+    testDen("x = new<C>A<B>","x",x =>
+      VarStmt(A.generic(List(B)),(x,ApplyExp(TypeApply(NewDen(None,cons,Some(List(B))),List(C)),Nil))))
+  }
 
   @Test def classInPackage() = {
     val P = PackageItem("P","P")

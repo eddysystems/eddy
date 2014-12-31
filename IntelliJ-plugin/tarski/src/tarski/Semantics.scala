@@ -84,19 +84,48 @@ object Semantics {
     }
   }
 
-  def filterTypeArgs(tparams: List[TypeVar], args: List[AExp])(implicit env: Env): Scored[Above[List[TypeArg]]] = {
-    val nv = tparams.size
-    val na = args.size
-    if (nv != na) fail(s"Type arity mismatch: expected $nv (${tparams mkString ", "}), got $na")
-    else product(args map denoteTypeArg) flatMap (above => {
-      val args = aboves(above)
-      val as = args.beneath
-      if (couldMatch(tparams,as)) known(args)
-      else failTypeArgs(tparams,as)
-    })
+  // Prepare to check n type arguments, producing a function which consumes that many type arguments.
+  def prepareTypeArgs(n: Int, f: Den)(implicit env: Env): Scored[Above[List[TypeArg]] => Scored[Den]] = {
+    def absorb(vs: List[TypeVar], f: List[TypeArg] => TypeOrCallable)(above: Above[List[TypeArg]]): Scored[TypeOrCallable] =
+      above match { case Above(ds,ts) =>
+        if (couldMatch(vs,ts)) known(f(ts).discard(ds))
+        else fail(s"Arguments ${ts map (a => showSep(a,"")) mkString ", "} don't fit type variables ${vs map details mkString ", "}")
+      }
+    f match {
+      case _ if n==0 => known((ts: Above[List[TypeArg]]) => known(f))
+      case _:Exp|_:PackageDen => fail(s"${show(f)}: expressions and packages take no type arguments")
+      case f:TypeApply => fail(s"${show(f)} expects no more type arguments, got $n")
+      case NewDen(p,f,None) =>
+        val v0 = f.parent.tparams
+        val v1 = f.tparams
+        val n0 = v0.size
+        val n1 = v1.size
+        if (n == n0) known(absorb(v0,ts => NewDen(p,f,Some(ts))))
+        else if (n == n0+n1) known(absorb(v0++v1,ts => {
+          val (ts0,ts1) = ts splitAt n0
+          TypeApply(NewDen(p,f,Some(ts0)),ts1)
+        })) else fail(s"${show(f)} expects $n0 or ${n0+n1} type arguments, got $n")
+      case f:NotTypeApply =>
+        val vs = f.tparams
+        if (n == vs.size) known(absorb(vs,TypeApply(f,_)))
+        else fail(s"${show(f)}: expects ${vs.size} type arguments, got $n")
+      case TypeDen(ds,RawType(c,p)) =>
+        val vs = c.tparams
+        if (n == vs.size) known(absorb(vs,ts => TypeDen(ds,GenericType(c,ts,p))))
+        else fail(s"${show(f)}: expects ${vs.size} type arguments, got $n")
+      case TypeDen(_,t) => fail(s"${show(t)}: can't add type arguments to a non-raw type")
+    }
   }
-  @inline def failTypeArgs(tparams: List[TypeVar], args: List[TypeArg])(implicit env: Env): Scored[Nothing] =
-    fail(s"Arguments ${args map (a => showSep(a,"")) mkString ", "} don't fit type variables ${tparams map details mkString ", "}")
+  def addTypeArgs(fs: Scored[Den], ts: KList[AExp])(implicit env: Env): Scored[Den] = ts match {
+    case EmptyList => fs // Ignore empty type parameter lists
+    case ts =>
+      val n = ts.list.size
+      product(fs flatMap (prepareTypeArgs(n,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
+  }
+  def addTypeArgs(fs: Scored[Den], ts: Option[KList[AExp]])(implicit env: Env): Scored[Den] = ts match {
+    case None => fs
+    case Some(ts) => addTypeArgs(fs,ts)
+  }
 
   // Check whether a type is accessible in the environment (can be qualified by something in scope).
   // Pretty-printing will do the actual qualifying
@@ -314,33 +343,19 @@ object Semantics {
         })
         case _ => fail(s"Invalid field ${show(x)}  .  ${show(f)}")
       }}
-      ts match {
-        case None => cs
-        case Some(ts) => product(cs.asInstanceOf[Scored[NotTypeApply]],product(ts.list map denoteTypeArg)) flatMap {
-          case (c,args) => aboves(args) match { case Above(ds,as) =>
-            if (couldMatch(c.tparams,as)) known(TypeApply(c.discard(ds),as))
-            else failTypeArgs(c.tparams,as)
-          }
-        }
-      }
+      addTypeArgs(cs,ts)
 
     // Type application.  TODO: add around to TypeApplyAExp
     // For callables, this is C++-style application of type arguments to a generic method
-    case TypeApplyAExp(x,ts) => denote(x,m) flatMap {
-      // TODO: Do something smarter, similar to fiddleCall, if there are bounded parameters?
-      case TypeDen(ds0,RawType(c,parent)) => filterTypeArgs(c.tparams,ts.list) map {
-        case Above(ds1,ts) => TypeDen(ds0++ds1,GenericType(c,ts,parent))
-      }
-      case c:NotTypeApply => fixCall(m,biased(Pr.typeApplyCallable,filterTypeArgs(c.tparams,ts.list) flatMap {
-        case Above(ds,ts) => if (couldMatch(c.tparams,ts)) known(TypeApply(c.discard(ds),ts))
-                             else failTypeArgs(c.tparams,ts)
-      }))
-      case x => fail(s"Cannot apply parameters $ts to $x")
+    case TypeApplyAExp(x,ts) => {
+      def n = ts.size
+      if (n==0) denote(x,m)
+      else addTypeArgs(denote(x,m.onlyTyCall),ts)
     }
 
     // Explicit new
-    case NewAExp(Some(_),_) => notImplemented
-    case NewAExp(None,x) if m.callExp => fixCall(m,biasedNotNew(m,denoteNew(x)))
+    case NewAExp(ts,x) if m.callExp =>
+      fixCall(m,biasedNotNew(m,addTypeArgs(denoteNew(x),ts).asInstanceOf[Scored[Callable]]))
 
     // Application
     case ApplyAExp(f,EmptyList,BrackAround) if m==TypeMode =>

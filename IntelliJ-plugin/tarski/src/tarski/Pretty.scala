@@ -406,8 +406,7 @@ object Pretty {
   implicit def prettyCallable(f: Callable)(implicit env: Env): (Fixity,Tokens) = {
     def method(x: Exp, ts: List[TypeArg], f: Item): (Fixity,Tokens) =
       fix(FieldFix,left(_,x) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
-    def gnu(p: Option[ClassType], c: ConstructorItem, ts: List[TypeArg]) = {
-      val (ts0,ts1) = ts splitAt c.parent.tparams.size
+    def gnu(p: Option[ClassType], c: ConstructorItem, ts0: List[TypeArg], ts1: List[TypeArg]) = {
       (NewFix,NewTok :: tokensTypeArgs(ts1) ::: (p match {
         case None => Nil
         case Some(p) => tokens(p)(prettyType) ::: List(DotTok)
@@ -431,8 +430,8 @@ object Pretty {
       case TypeApply(StaticMethodDen(Some(x),f),ts) => method(x,ts,f)
       case           StaticMethodDen(None,f) => pretty(f)
       case TypeApply(StaticMethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
-      case           NewDen(p,c) => gnu(p,c,Nil)
-      case TypeApply(NewDen(p,c),ts) => gnu(p,c,ts)
+      case           NewDen(p,c,ts0) => gnu(p,c,ts0 getOrElse Nil,Nil)
+      case TypeApply(NewDen(p,c,ts0),ts1) => gnu(p,c,ts0 getOrElse Nil,ts1)
       case           ForwardDen(_,c) => forward(c,Nil)
       case TypeApply(ForwardDen(_,c),ts) => forward(c,ts)
       case           DiscardCallableDen(ds,f) => above(ds,f)
@@ -443,8 +442,6 @@ object Pretty {
     case Nil => Nil
     case ts => LtTok :: separate(ts.map(tokens(_)),List(CommaTok)) ::: List(GtTok)
   }
-  def tokensSig(f: Signature)(implicit env: Env): Tokens =
-    tokensTypeArgs(f.tparams) ::: LParenTok :: tokens(CommaList(f.params)) ::: List(RParenTok)
   def prettyInit(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case ArrayExp(_,xs) => prettyArrayExp(xs)
     case e => prettyExp(e)

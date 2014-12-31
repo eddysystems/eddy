@@ -46,7 +46,7 @@ class TestPretty {
     val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(S))
     val cons = NormalConstructorItem(A,List(T),List(T))
-    ApplyExp(TypeApply(NewDen(None,cons),List(IntegerItem.simple,StringItem.simple)),List(StringLit("s",""""s"""")))
+    ApplyExp(TypeApply(NewDen(None,cons,Some(List(IntegerItem.simple))),List(StringItem.simple)),List(StringLit("s",""""s"""")))
   })
 
   @Test def qualifiedType() = {

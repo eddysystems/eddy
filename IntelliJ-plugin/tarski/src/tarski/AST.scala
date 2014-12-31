@@ -33,6 +33,7 @@ object AST {
   sealed abstract class KList[+A] {
     def list: List[A]
     def map[B](f: A => B): KList[B]
+    def size = list.size
   }
   case object EmptyList extends KList {
     def list = Nil

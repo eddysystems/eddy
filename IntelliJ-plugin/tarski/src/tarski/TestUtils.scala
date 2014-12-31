@@ -7,7 +7,7 @@ import tarski.Denotations._
 import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
-import tarski.Types.{ClassType, LangType, VoidType}
+import tarski.Types.{TypeArg, ClassType, LangType, VoidType}
 import ambiguity.Utility._
 
 import scala.language.implicitConversions
@@ -40,6 +40,7 @@ object TestUtils {
 
   // Type implicit conversions
   implicit def toType(c: ClassItem): ClassType = c.simple
+  implicit def toTypeArgs[A](ts: List[A])(implicit to: A => TypeArg): List[TypeArg] = ts map to
 
   // Statement implicit conversions
   implicit def toStmt(e: StmtExp): Stmt = ExpStmt(e)
