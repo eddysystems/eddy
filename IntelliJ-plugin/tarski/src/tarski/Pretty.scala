@@ -308,7 +308,6 @@ object Pretty {
       case i: RefTypeItem => relative(i)
 
       // Static members
-      case i: EnumConstantItem => relative(i)
       case i: FieldItem if i.isStatic => relative(i)
       case i: MethodItem if i.isStatic => relative(i)
 
@@ -373,8 +372,6 @@ object Pretty {
     case l: Lit => pretty(l)
     case ParameterExp(x) => pretty(x)
     case LocalVariableExp(x) => pretty(x)
-    case EnumConstantExp(None,f) => pretty(f)
-    case EnumConstantExp(Some(x),f) => prettyField(x,f)
     case ThisExp(i) => if (env.inScope(i)) (HighestFix,List(ThisTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(ThisTok))
     case SuperExp(i) => if (env.inScope(i)) (HighestFix,List(SuperTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(SuperTok))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))

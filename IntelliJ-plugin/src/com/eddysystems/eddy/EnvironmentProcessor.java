@@ -228,8 +228,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // we should never be called for local items (they're handled by the scope processor only
       assert !(it instanceof LocalVariableItem || it instanceof ParameterItem);
 
-      if (it instanceof EnumConstantItem ||
-          it instanceof FieldItem) {
+      if (it instanceof FieldItem) {
         // nobody should hold references to these types if items, so we should be fine.
       } else if (it instanceof MethodItem) {
         // we may be the parent of local classes, but those classes are only scanned in scope

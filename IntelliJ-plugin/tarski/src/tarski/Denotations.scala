@@ -320,12 +320,6 @@ object Denotations {
     def item = x.item
     def ty = x.ty
   }
-  case class EnumConstantExp(x: Option[Exp], c: EnumConstantItem) extends Exp {
-    def item = c.item
-    def ty = c.ty
-    def discards = discardsOption(x)
-    def strip = EnumConstantExp(x map (_.strip),c)
-  }
   case class StaticFieldExp(x: Option[Exp], field: FieldItem) extends Exp {
     assert(field.isStatic)
     def item = field.item
@@ -444,7 +438,7 @@ object Denotations {
 
   // Is an expression definitely side effect free?
   def noEffects(e: Exp): Boolean = e match {
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:EnumConstantExp|_:StaticFieldExp|_:LocalFieldExp
+    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:StaticFieldExp|_:LocalFieldExp
         |_:ThisExp|_:SuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp|_:DiscardExp => false
     case FieldExp(x,f) => noEffects(x)
@@ -466,7 +460,7 @@ object Denotations {
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
   def effects(e: Exp): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e))
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:EnumConstantExp|_:StaticFieldExp|_:LocalFieldExp
+    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:StaticFieldExp|_:LocalFieldExp
         |_:ThisExp|_:SuperExp => Nil
     case _:CastExp|_:IndexExp => Nil
     case FieldExp(x,_) => effects(x)

@@ -283,12 +283,6 @@ object Items {
   }
   case class ParameterItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
   case class LocalVariableItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
-  case class EnumConstantItem(name: Name, parent: ClassItem) extends Value with ClassMember {
-    assert(parent.isEnum) // TODO: make a separate maker for enums?
-    def item = parent
-    def ty = parent.raw
-    def isFinal = true
-  }
   case class LitValue(x: Lit) extends Value {
     val name = show(x)
     val qualifiedName = Some(name)

@@ -974,20 +974,13 @@ public class Converter {
 
   Value addField(PsiField f) {
     {
-      Item i = lookup(f);
+      final Item i = lookup(f);
       if (i != null)
         return (Value)i;
     }
-
-    Value v;
-    if (f instanceof PsiEnumConstant) {
-      ClassItem c = (ClassItem)addClass(f.getContainingClass(),false,false);
-      v = new EnumConstantItem(f.getName(),c);
-    } else {
-      boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
-      boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
-      v = new LazyField(this,f,isFinal,isStatic);
-    }
+    final boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
+    final boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
+    final Value v = new LazyField(this,f,isFinal,isStatic);
     locals.put(f,v);
     return v;
   }

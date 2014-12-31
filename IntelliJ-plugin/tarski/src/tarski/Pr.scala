@@ -115,9 +115,7 @@ object Pr {
 
   // denoteExp(AExp)
   val staticFieldExp = base
-  val enumFieldExp = base
-  val staticFieldExpWithObject = Prob("static field with object",.8)
-  val enumFieldExpWithObject = Prob("enum field with object",.6) // enum {BLAH} x; x.BLAH ... really?
+  val staticFieldExpWithObject = Prob("static field with object",.7)
   val fieldExp = base
   def callExp(list: AST.KList[AST.AExp], around: AST.Around) =
     if (around == AST.ParenAround && (list.list.size < 2 || list.isInstanceOf[CommaList[_]])) base

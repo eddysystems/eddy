@@ -176,7 +176,6 @@ object Semantics {
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(x) => known(x)
       case i:FieldItem if i.isStatic => penalize(StaticFieldExp(None,i))
-      case i:EnumConstantItem => penalize(EnumConstantExp(None,i))
       case i:ThisItem => penalize(ThisExp(i))
       case i:SuperItem => penalize(SuperExp(i))
 
@@ -296,8 +295,6 @@ object Semantics {
         case _ if !memberIn(f,x) => fail(s"${show(x)} does not contain $f")
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
-          case (x:Exp,    f:EnumConstantItem) => single(EnumConstantExp(Some(x),f),Pr.enumFieldExpWithObject)
-          case (t:TypeDen,f:EnumConstantItem) => single(EnumConstantExp(None,f).discard(t.discards),Pr.enumFieldExp)
           case (x:Exp,    f:FieldItem) => if (f.isStatic) single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
                                           else single(FieldExp(x,f),Pr.fieldExp)
           case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
@@ -447,7 +444,6 @@ object Semantics {
     case SuperExp(_) => false
     case ParameterExp(i) => !i.isFinal
     case LocalVariableExp(i) => !i.isFinal
-    case EnumConstantExp(_,_) => false
     case CastExp(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
     case BinaryExp(_,_,_) => false
