@@ -320,28 +320,21 @@ object Denotations {
     def item = x.item
     def ty = x.ty
   }
-  case class StaticFieldExp(x: Option[Exp], field: FieldItem) extends Exp {
-    assert(field.isStatic)
-    def item = field.item
-    def ty = field.inside
-    def discards = discardsOption(x)
-    def strip = StaticFieldExp(x map (_.strip),field)
-  }
   case class LocalFieldExp(field: FieldItem) extends Exp with NoDiscardExp {
     def item = field.item
     def ty = field.inside
   }
-  case class FieldExp(obj: Exp, field: FieldItem) extends Exp {
+  case class FieldExp(x: Option[Exp], field: FieldItem) extends Exp {
     def item = field.item
-    def ty = {
-      val t = obj.ty
+    def ty = if (field.isStatic) field.inside else {
+      val t = x.get.ty
       val fp = field.parent
       collectOne(supers(t)){
         case t:ClassType if t.item==fp => field.inside.substitute(t.env)
       }.getOrElse(throw new RuntimeException(s"Field $field not found in $t"))
     }
-    def discards = obj.discards
-    def strip = FieldExp(obj.strip,field)
+    def discards = discardsOption(x)
+    def strip = FieldExp(x map (_.strip),field)
   }
   case class ThisExp(t: ThisItem) extends Exp with NoDiscardExp {
     def item = t.item
@@ -441,9 +434,8 @@ object Denotations {
     case _:Lit|_:ParameterExp|_:LocalVariableExp|_:LocalFieldExp
         |_:ThisExp|_:SuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp|_:DiscardExp => false
-    case StaticFieldExp(None,_) => true
-    case StaticFieldExp(Some(x),_) => noEffects(x)
-    case FieldExp(x,_) => noEffects(x)
+    case FieldExp(None,_) => true
+    case FieldExp(Some(x),_) => noEffects(x)
     case NonImpExp(op,x) => pure(op) && noEffects(x)
     case BinaryExp(op,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
     case ParenExp(x) => noEffects(x)
@@ -465,9 +457,8 @@ object Denotations {
     case _:Lit|_:ParameterExp|_:LocalVariableExp|_:LocalFieldExp
         |_:ThisExp|_:SuperExp => Nil
     case _:CastExp|_:IndexExp => Nil
-    case StaticFieldExp(None,_) => Nil
-    case StaticFieldExp(Some(x),_) => effects(x)
-    case FieldExp(x,_) => effects(x)
+    case FieldExp(None,_) => Nil
+    case FieldExp(Some(x),_) => effects(x)
     case NonImpExp(_,x) => effects(x)
     case BinaryExp(_,x,y) => effects(x)++effects(y)
     case CondExp(c,x,y,_) => List(IfElseStmt(c,blocked(effects(x)),blocked(effects(y))))

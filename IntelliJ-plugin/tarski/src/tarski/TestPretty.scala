@@ -26,7 +26,7 @@ class TestPretty {
   @Test def genericMethod() = test("B.a.<Object>f()", {
     val A = NormalClassItem("A", LocalPkg)
     val B = NormalClassItem("B", LocalPkg)
-    ApplyExp(TypeApply(MethodDen(StaticFieldExp(None,NormalStaticFieldItem("a",A.simple,B,isFinal=false)),
+    ApplyExp(TypeApply(MethodDen(FieldExp(None,NormalStaticFieldItem("a",A.simple,B,isFinal=false)),
                                  NormalMethodItem("f",A,List(SimpleTypeVar("T")),IntType,Nil,isStatic=false)),
                        List(ObjectType)),
              Nil)

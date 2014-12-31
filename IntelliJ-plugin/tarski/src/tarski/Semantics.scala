@@ -152,10 +152,10 @@ object Semantics {
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
         xd match {
           case ThisExp(tt:ThisItem) if tt.self.base.item == c => fail("We'll use super instead of this")
-          case _ => single(FieldExp(CastExp(c.raw,xd),i), Pr.shadowedFieldValue(objs, xd,c,i))
+          case _ => single(FieldExp(Some(CastExp(c.raw,xd)),i), Pr.shadowedFieldValue(objs, xd,c,i))
         }
       } else
-        single(FieldExp(xd,i), Pr.fieldValue(objs, xd, i))
+        single(FieldExp(Some(xd),i), Pr.fieldValue(objs, xd, i))
     }}
   }
 
@@ -175,7 +175,7 @@ object Semantics {
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(x) => known(x)
-      case i:FieldItem if i.isStatic => penalize(StaticFieldExp(None,i))
+      case i:FieldItem if i.isStatic => penalize(FieldExp(None,i))
       case i:ThisItem => penalize(ThisExp(i))
       case i:SuperItem => penalize(SuperExp(i))
 
@@ -295,9 +295,9 @@ object Semantics {
         case _ if !memberIn(f,x) => fail(s"${show(x)} does not contain $f")
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
-          case (x:Exp,    f:FieldItem) => if (f.isStatic) single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
-                                          else single(FieldExp(x,f),Pr.fieldExp)
-          case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
+          case (x:Exp,    f:FieldItem) => single(FieldExp(Some(x),f),
+                                                 if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
+          case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(FieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
                                           else fail(s"Can't access non-static field $f without object")
         }
         case f:TypeItem =>
@@ -452,7 +452,6 @@ object Semantics {
     case ApplyExp(_,_) => false
     case FieldExp(_,f) => !f.isFinal
     case LocalFieldExp(f) => !f.isFinal
-    case StaticFieldExp(_,f) => !f.isFinal
     case IndexExp(_,_) => true // Java arrays are always mutable
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
     case ArrayExp(_,_) => false

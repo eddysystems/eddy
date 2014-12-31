@@ -458,9 +458,9 @@ class TestDen {
     // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
     def set(e: Exp): List[Stmt] = List(ExpStmt(AssignExp(None,e,true)))
     val px = probOf(fixes,set(LocalVariableExp(x)))
-    val pXx = probOf(fixes,set(StaticFieldExp(None,Xx)))
-    val pYx = probOf(fixes,set(StaticFieldExp(None,Yx)))
-    val pZx = probOf(fixes,set(StaticFieldExp(None,Zx)))
+    val pXx = probOf(fixes,set(FieldExp(None,Xx)))
+    val pYx = probOf(fixes,set(FieldExp(None,Yx)))
+    val pZx = probOf(fixes,set(FieldExp(None,Zx)))
 
     println("probabilities: ", px, pXx, pYx, pZx)
 

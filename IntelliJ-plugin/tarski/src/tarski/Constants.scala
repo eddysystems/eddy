@@ -238,7 +238,7 @@ object Constants {
     case DoubleLit(v,_) => DoubleCon(v)
     case NullLit => NotCon
     // Possibly constant environment values
-    case LocalVariableExp(_)|StaticFieldExp(_,_) => error // TODO: Handle these
+    case LocalVariableExp(_)|FieldExp(_,_) => NotCon // TODO: Handle these
     // Expressions which might be constant
     case CastExp(t,e) => t match {
       case StringType => toCon(e) match {

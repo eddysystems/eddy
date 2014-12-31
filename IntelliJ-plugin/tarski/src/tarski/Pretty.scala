@@ -381,10 +381,9 @@ object Pretty {
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,a) => (ApplyFix, tokens(f) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
-    case FieldExp(x,f) => prettyField(x,f)
     case LocalFieldExp(f) => pretty(f)
-    case StaticFieldExp(None,f) => pretty(f)
-    case StaticFieldExp(Some(x),f) => prettyField(x,f)
+    case FieldExp(None,f) => pretty(f)
+    case FieldExp(Some(x),f) => prettyField(x,f)
     case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok :: tokens(i) ::: List(RBrackTok))
     case ArrayExp(t,xs) => (ApplyFix, NewTok :: tokens(ArrayType(t)) ::: prettyArrayExp(xs)._2)
     case EmptyArrayExp(t,is) => {
