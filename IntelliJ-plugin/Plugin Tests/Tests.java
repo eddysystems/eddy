@@ -1,5 +1,5 @@
-import com.eddysystems.eddy.Eddy;
-import com.eddysystems.eddy.EddyPlugin;
+package com.eddysystems.eddy;
+
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
 import com.intellij.openapi.command.WriteCommandAction;
@@ -212,22 +212,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("implicitly defined constructor (C) not in environment", Cc);
   }
 
-  /* yak shaving.
-  public void testFileSwitching() {
-    myFixture.configureByFiles("file1.java", "file2.java");
-    EddyPlugin.getInstance(myFixture.getProject()).initEnv();
-    // make sure we see the right things in file1
-    VirtualFile[] files = FileEditorManager.getInstance(myFixture.getProject()).getOpenFiles();
-    assert files.length == 2;
-    for (VirtualFile file : files) {
-      System.out.println("open file: " + file.getCanonicalPath());
-    }
-    System.out.println("Startup, editor content: \n" + myFixture.getEditor().getDocument().getCharsSequence());
-    PsiFile psifile = PsiManager.getInstance(myFixture.getProject()).findFile(files[1]);
-    editorAction(((TextEditor)FileEditorManager.getInstance(myFixture.getProject()).getSelectedEditor(files[1])).getEditor(), IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT);
-  }
-  */
-
   public void testClosingBrace() {
     Eddy eddy = setupEddy(null,"closingBrace.java");
     checkBest(eddy,"}",.9);
@@ -248,5 +232,38 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     final String best = "fizz(\"s\", x, q);";
     Eddy eddy = setupEddy(best,"fizz.java");
     checkBest(eddy,best,.9);
+  }
+
+  public void testPsiListener() {
+    myFixture.configureByFiles("file2.java");
+    EddyPlugin plugin = EddyPlugin.getInstance(myFixture.getProject());
+    plugin.initEnv();
+    EnvironmentProcessor.JavaEnvironment env = plugin.getEnv();
+
+    // find sub and sup objects, and the Super and Sub and Interface ClassItems
+    Items.FieldItem sub = null, sup = null;
+    Items.ClassItem Sub = null, Super = null, Interface = null;
+    for (Item it : env.localItems.values()) {
+      if (it.name().equals("sub")) {
+        sub = (Items.FieldItem)it;
+      }
+      if (it.name().equals("sup")) {
+        sup = (Items.FieldItem)it;
+      }
+      if (it.name().equals("Sub")) {
+        Sub = (Items.ClassItem)it;
+      }
+      if (it.name().equals("Super")) {
+        Super = (Items.ClassItem)it;
+      }
+      if (it.name().equals("Interface")) {
+        Interface = (Items.ClassItem)it;
+      }
+    }
+    assertNotNull(sub);
+    assertNotNull(sup);
+    assertNotNull(Sub);
+    assertNotNull(Super);
+    assertNotNull(Interface);
   }
 }
