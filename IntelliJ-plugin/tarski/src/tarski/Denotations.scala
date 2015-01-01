@@ -9,10 +9,8 @@ import tarski.Scores._
 import scala.annotation.tailrec
 
 object Denotations {
-  // The equivalent of Any in the denotation world.  The only uniformity is that Den's can have side effects attached.
-  sealed abstract class Den extends HasDiscards {
-    def strip: Den
-  }
+  // The equivalent of Any in the denotation world
+  sealed abstract class Den
   sealed trait ParentDen extends Den
   sealed trait ExpOrType extends ParentDen {
     def item: TypeItem
