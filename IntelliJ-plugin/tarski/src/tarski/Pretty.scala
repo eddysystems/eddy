@@ -488,9 +488,6 @@ object Pretty {
     case ds => (HighestFix,IdentTok("Above") :: LParenTok ::
       separate(ds map (tokens(_)),List(SemiTok)) ::: SemiTok :: tokens(x) ::: List(RParenTok))
   }
-  implicit def prettyAbove[A](x: Above[A])(implicit p: Pretty[A], env: Env): (Fixity,Tokens) = x match {
-    case Above(ds,x) => above(ds,x)
-  }
   implicit def prettyDen(x: Den)(implicit env: Env): (Fixity,Tokens) = x match {
     case x:Exp => prettyExp(x)
     case PackageDen(p) => pretty(p)

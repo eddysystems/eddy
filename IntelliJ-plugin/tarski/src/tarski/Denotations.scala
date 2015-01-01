@@ -27,27 +27,18 @@ object Denotations {
   trait HasDiscard[+A] extends HasDiscards {
     def discard(ds: List[Stmt]): A
   }
-  case class Above[+A](discards: List[Denotations.Stmt], beneath: A) extends HasDiscard[Above[A]] {
-    def strip = Above(Nil,beneath)
-    def discard(ds: List[Stmt]) = Above(ds++discards,beneath)
-    def map[B](f: A => B): Above[B] = Above(discards,f(beneath))
-    def mapA[B](f: A => Scored[B]): Scored[Above[B]] =
-      f(beneath) map (Above(discards,_))
-    def mapB[B <: HasDiscard[B]](f: A => Scored[B]): Scored[B] = discards match {
-      case Nil => f(beneath)
-      case ds => f(beneath) map (_.discard(ds))
-    }
+  def discardsOption[A <: HasDiscards](x: Option[A]) = x match {
+    case None => Nil
+    case Some(x) => x.discards
   }
+
+  case class Above[+A](discards: List[Denotations.Stmt], beneath: A)
   def aboves[A](xs: List[Above[A]]): Above[List[A]] = {
     @tailrec def loop(ds: List[List[Stmt]], as: List[A], xs: List[Above[A]]): Above[List[A]] = xs match {
       case Nil => Above(ds.reverse.flatten,as.reverse)
       case Above(d,a)::xs => loop(d::ds,a::as,xs)
     }
     loop(Nil,Nil,xs)
-  }
-  def discardsOption[A <: HasDiscards](x: Option[A]) = x match {
-    case None => Nil
-    case Some(x) => x.discards
   }
 
   // Wrapped packages
