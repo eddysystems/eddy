@@ -264,8 +264,7 @@ object Semantics {
     case ParenAExp(x,_) if m==ExpMode => denoteExp(x) map ParenExp
     case ParenAExp(x,_) if m.exp => denote(x,m) flatMap {
       case x:Exp => known(ParenExp(x))
-      case x:TypeDen => single(x,Pr.weirdParens)
-      case x:PackageDen => single(x,Pr.weirdParens)
+      case x:TypeOrPackage => single(x,Pr.weirdParens)
       case x:Callable => if (m.call) single(x,Pr.weirdParens)
                          else bareCall(x) map ParenExp
     }

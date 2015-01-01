@@ -18,6 +18,7 @@ object Denotations {
     def item: TypeItem
   }
   sealed trait TypeOrCallable extends Den with HasDiscard[TypeOrCallable]
+  sealed trait TypeOrPackage extends Den
   sealed trait ExpOrCallable extends Den with HasDiscard[ExpOrCallable]
 
   trait HasDiscards {
@@ -50,13 +51,13 @@ object Denotations {
   }
 
   // Wrapped packages
-  case class PackageDen(p: PackageItem) extends ParentDen {
+  case class PackageDen(p: PackageItem) extends ParentDen with TypeOrPackage {
     def strip = this
     def discards = Nil
   }
 
   // Wrapped types
-  case class TypeDen(discards: List[Stmt], beneath: Type) extends ExpOrType with TypeOrCallable with HasDiscard[TypeDen] {
+  case class TypeDen(discards: List[Stmt], beneath: Type) extends ExpOrType with TypeOrCallable with TypeOrPackage with HasDiscard[TypeDen] {
     def item = beneath.item
     def array = TypeDen(discards,ArrayType(beneath))
 
