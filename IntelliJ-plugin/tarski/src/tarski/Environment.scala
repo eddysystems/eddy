@@ -77,10 +77,10 @@ object Environment {
     // Add variables and fields
     def newVariable(name: String, t: Type, isFinal: Boolean) = place.place match {
       case c: CallableItem =>
-        if (scope exists { case (v:LocalVariableItem,_) => v.name == name; case _ => false })
+        if (scope exists { case (v:Local,_) => v.name == name; case _ => false })
           fail(s"Invalid new local variable $name: already exists.")
         else {
-          val x = LocalVariableItem(name,t,isFinal)
+          val x = Local(name,t,isFinal)
           known((extend(Array(x),Map((x,0))),x))
         }
       case _ => fail("Cannot declare local variables outside of methods or constructors.")
@@ -137,7 +137,7 @@ object Environment {
     def byItem(t: TypeItem): Scored[Value]
 
     // Fragile or slow, only use for tests
-    def exactLocal(name: String): LocalVariableItem
+    def exactLocal(name: String): Local
     def allItems: Array[Item]
 
     // get the innermost (current) ThisItem
@@ -193,9 +193,9 @@ object Environment {
     override def allItems: Array[Item] = sTrie.values ++ (dTrie.values filter (!_.deleted)) ++ vTrie.values
 
     // Fragile or slow, only use for tests
-    override def exactLocal(name: String): LocalVariableItem = {
+    override def exactLocal(name: String): Local = {
       val query = name.toCharArray
-      def options(t: Trie[Item]) = t exact query collect { case x: LocalVariableItem => x }
+      def options(t: Trie[Item]) = t exact query collect { case x:Local => x }
       options(sTrie)++options(dTrie)++options(vTrie) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
@@ -231,9 +231,9 @@ object Environment {
       TwoEnv(trie0,trie1,byItem0,byItem1,scope,to)
 
     // Fragile, only use for tests
-    def exactLocal(name: String): LocalVariableItem = {
+    def exactLocal(name: String): Local = {
       val query = name.toCharArray
-      def options(t: Trie[Item]) = t exact query collect { case x: LocalVariableItem => x }
+      def options(t: Trie[Item]) = t exact query collect { case x: Local => x }
       options(trie0)++options(trie1) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")

@@ -167,10 +167,8 @@ object Semantics {
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = {
     @inline def penalize(e: Exp) = if (env.inScope(i)) known(e) else single(e,Pr.outOfScope)
     i match {
-      case i:ParameterItem => if (env.inScope(i)) known(ParameterExp(i))
-      else fail(s"Parameter $i is shadowed")
-      case i:LocalVariableItem => if (env.inScope(i)) known(LocalVariableExp(i))
-      else fail(s"Local variable $i is shadowed")
+      case i:Local => if (env.inScope(i)) known(LocalExp(i))
+                      else fail(s"Local $i is shadowed")
 
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
@@ -442,8 +440,7 @@ object Semantics {
     case _: Lit => false
     case ThisExp(_) => false
     case SuperExp(_) => false
-    case ParameterExp(i) => !i.isFinal
-    case LocalVariableExp(i) => !i.isFinal
+    case LocalExp(i) => !i.isFinal
     case CastExp(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
     case BinaryExp(_,_,_) => false

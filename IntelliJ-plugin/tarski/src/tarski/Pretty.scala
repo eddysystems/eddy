@@ -370,8 +370,7 @@ object Pretty {
     fix(FieldFix, left(_,x) ::: DotTok :: tokens(f.name))
   implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case l: Lit => pretty(l)
-    case ParameterExp(x) => pretty(x)
-    case LocalVariableExp(x) => pretty(x)
+    case LocalExp(x) => pretty(x)
     case ThisExp(i) => if (env.inScope(i)) (HighestFix,List(ThisTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(ThisTok))
     case SuperExp(i) => if (env.inScope(i)) (HighestFix,List(SuperTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(SuperTok))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
@@ -469,7 +468,7 @@ object Pretty {
     case _:DiscardStmt => impossible
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(v: (LocalVariableItem,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
+  implicit def prettyVar(v: (Local,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
     case (x,n,None) => prettyDims(x,n)
     case (x,n,Some(i)) => fix(AssignFix, prettyDims(x,n)._2 ::: EqTok :: right(_,i)(prettyInit))
   }

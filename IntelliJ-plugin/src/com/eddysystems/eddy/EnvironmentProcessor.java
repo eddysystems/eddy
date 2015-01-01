@@ -226,7 +226,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
 
       // we should never be called for local items (they're handled by the scope processor only
-      assert !(it instanceof LocalVariableItem || it instanceof ParameterItem);
+      assert !(it instanceof Local);
 
       if (it instanceof FieldItem) {
         // nobody should hold references to these types if items, so we should be fine.
@@ -557,11 +557,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         assert !locals.containsKey(var);
         final Type t = env.convertType(var.getType());
         final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
-        final Item i = var instanceof PsiParameter     ? new ParameterItem(var.getName(),t,isFinal)
-                     : var instanceof PsiLocalVariable ? new LocalVariableItem(var.getName(),t,isFinal)
-                     : null;
-        if (i == null)
-          throw new scala.NotImplementedError("Unknown variable: " + var);
+        final Item i = new Local(var.getName(),t,isFinal);
 
         // Actually add to locals
         locals.put(var, i);

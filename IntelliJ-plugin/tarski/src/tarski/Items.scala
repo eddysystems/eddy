@@ -256,10 +256,9 @@ object Items {
     def item: TypeItem // The item of our type
     def isFinal: Boolean
   }
-  sealed abstract class LocalValue extends Value {
+  case class Local(name: Name, ty: Type, isFinal: Boolean) extends Value {
     def qualifiedName = None
     override def toString = "local:" + name
-    def ty: Type
     def item = ty.item
   }
   case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
@@ -281,8 +280,6 @@ object Items {
     def item = inside.item
     def isStatic: Boolean
   }
-  case class ParameterItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
-  case class LocalVariableItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
   case class LitValue(x: Lit) extends Value {
     val name = show(x)
     val qualifiedName = Some(name)

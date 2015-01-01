@@ -190,7 +190,7 @@ object Denotations {
   }
 
   type Dims = Int
-  type VarDecl = (LocalVariableItem,Dims,Option[Exp]) // name,dims,init
+  type VarDecl = (Local,Dims,Option[Exp]) // name,dims,init
 
   // Statements
   sealed abstract class Stmt extends HasDiscard[Stmt] {
@@ -267,7 +267,7 @@ object Denotations {
     def discards = i flatMap (_.discards)
     def strip = ForExps(i map (_.strip))
   }
-  case class ForeachStmt(t: Type, v: LocalVariableItem, e: Exp, s: Stmt) extends Stmt {
+  case class ForeachStmt(t: Type, v: Local, e: Exp, s: Stmt) extends Stmt {
     def discards = e.discards
     def strip = ForeachStmt(t,v,e.strip,s)
   }
@@ -312,11 +312,7 @@ object Denotations {
   case object NullLit extends Lit                           { def ty = NullType;    def item = NullType.item }
 
   // Expressions
-  case class ParameterExp(x: ParameterItem) extends Exp with NoDiscardExp {
-    def item = x.item
-    def ty = x.ty
-  }
-  case class LocalVariableExp(x: LocalVariableItem) extends Exp with NoDiscardExp {
+  case class LocalExp(x: Local) extends Exp with NoDiscardExp {
     def item = x.item
     def ty = x.ty
   }
@@ -431,8 +427,7 @@ object Denotations {
 
   // Is an expression definitely side effect free?
   def noEffects(e: Exp): Boolean = e match {
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:LocalFieldExp
-        |_:ThisExp|_:SuperExp => true
+    case _:Lit|_:LocalExp|_:LocalFieldExp|_:ThisExp|_:SuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp|_:DiscardExp => false
     case FieldExp(None,_) => true
     case FieldExp(Some(x),_) => noEffects(x)
@@ -454,8 +449,7 @@ object Denotations {
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
   def effects(e: Exp): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e))
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:LocalFieldExp
-        |_:ThisExp|_:SuperExp => Nil
+    case _:Lit|_:LocalExp|_:LocalFieldExp|_:ThisExp|_:SuperExp => Nil
     case _:CastExp|_:IndexExp => Nil
     case FieldExp(None,_) => Nil
     case FieldExp(Some(x),_) => effects(x)
