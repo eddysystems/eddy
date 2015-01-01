@@ -35,9 +35,9 @@ object Denotations {
 
   case class Above[+A](discards: List[Denotations.Stmt], beneath: A)
   def aboves[A](xs: List[Above[A]]): Above[List[A]] = {
-    @tailrec def loop(ds: List[List[Stmt]], as: List[A], xs: List[Above[A]]): Above[List[A]] = xs match {
-      case Nil => Above(ds.reverse.flatten,as.reverse)
-      case Above(d,a)::xs => loop(d::ds,a::as,xs)
+    @tailrec def loop(ds: List[Stmt], as: List[A], xs: List[Above[A]]): Above[List[A]] = xs match {
+      case Nil => Above(ds.reverse,as.reverse)
+      case Above(d,a)::xs => loop(revAppend(d,ds),a::as,xs)
     }
     loop(Nil,Nil,xs)
   }
