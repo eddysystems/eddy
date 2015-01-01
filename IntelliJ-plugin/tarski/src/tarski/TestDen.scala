@@ -392,7 +392,7 @@ class TestDen {
 
     implicit val env = Env(Array(X,cons,f),Map((f,2),(X,3)),PlaceInfo(f))
     // We are not allowed to discard the possible side effects in the X constructor.
-    testDen("X().f();", List(ExpStmt(ApplyExp(StaticMethodDen(Some(ApplyExp(NewDen(None,cons),Nil)),f),Nil))))
+    testDen("X().f();", List(ExpStmt(ApplyExp(MethodDen(ApplyExp(NewDen(None,cons),Nil),f),Nil))))
   }
 
   @Test def sideEffectsCons() = {

@@ -161,7 +161,7 @@ object Semantics {
 
   def denoteMethod(i: MethodItem, depth: Int)(implicit env: Env): Scored[MethodDen] = {
     val objs = valuesOfItem(i.parent,i,depth)
-    objs flatMap (xd => single(MethodDen(xd,i), Pr.methodCallable(objs, xd, i)))
+    objs flatMap (xd => single(MethodDen(Some(xd),i), Pr.methodCallable(objs, xd, i)))
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = {
@@ -242,7 +242,7 @@ object Semantics {
           if (m.ty) knownThen(TypeDen(Nil,t.raw),s) else s
         }
       case c:PseudoCallableItem if m.callExp => fixCall(m,c match {
-        case i:MethodItem if i.isStatic => knownNotNew(m,StaticMethodDen(None,i))
+        case i:MethodItem if i.isStatic => knownNotNew(m,MethodDen(None,i))
         case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i))
         case i:MethodItem => biasedNotNew(m,denoteMethod(i,0))
         case ThisItem(c) if env.place.forwardThisPossible(c) =>
@@ -323,9 +323,9 @@ object Semantics {
           }
           types++cons
         case f:MethodItem => fixCall(mc,x match {
-          case x:Exp     if f.isStatic => single(StaticMethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
-          case x:TypeDen if f.isStatic => knownNotNew(mc,StaticMethodDen(None,f).discard(x.discards))
-          case x:Exp     => knownNotNew(mc,MethodDen(x,f))
+          case x:Exp     if f.isStatic => single(MethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
+          case x:TypeDen if f.isStatic => knownNotNew(mc,MethodDen(None,f).discard(x.discards))
+          case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f))
           case x:TypeDen => fail(s"${show(e)}: Can't call non-static $f without object")
         })
         case _ => fail(s"Invalid field ${show(x)}  .  ${show(f)}")

@@ -106,14 +106,18 @@ object Denotations {
       case ds => TypeApply(c.discard(ds),ts)
     }
   }
-  case class MethodDen(x: Exp, f: MethodItem) extends NotTypeApply {
-    private lazy val parentEnv = x.ty.asInstanceOf[ClassType].env // x must be a class for MethodDen to make sense
+  case class MethodDen(x: Option[Exp], f: MethodItem) extends NotTypeApply {
+    private lazy val parentEnv: Tenv = x match {
+      case _ if f.isStatic => Map.empty
+      case None => Map.empty
+      case Some(x) => x.ty.asInstanceOf[ClassType].env // x must be a class for MethodDen to make sense
+    }
     def tparams = f.tparams
-    def params = f.params.map(_.substitute(parentEnv))
+    lazy val params = f.params.map(_.substitute(parentEnv))
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
-    def discards = x.discards
-    def strip = MethodDen(x.strip,f)
+    def discards = discardsOption(x)
+    def strip = MethodDen(x map (_.strip),f)
   }
   case class LocalMethodDen(f: MethodItem) extends NotTypeApply {
     def tparams = f.tparams
@@ -122,14 +126,6 @@ object Denotations {
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,Map.empty)._1)
     def discards = Nil
     def strip = this
-  }
-  case class StaticMethodDen(x: Option[Exp], f: MethodItem) extends NotTypeApply {
-    def tparams = f.tparams
-    def params = f.params
-    def callItem = f.retVal.item
-    def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,Map.empty)._1)
-    def discards = discardsOption(x)
-    def strip = StaticMethodDen(x map (_.strip),f)
   }
   case class ForwardDen(parent: Option[ClassType], f: ConstructorItem) extends NotTypeApply {
     def tparams = f.tparams

@@ -417,14 +417,12 @@ object Pretty {
     }
     // TODO: If ts is inferable, don't print it
     f match {
-      case           MethodDen(x,f) => method(x,Nil,f)
-      case TypeApply(MethodDen(x,f),ts) => method(x,ts,f)
       case           LocalMethodDen(f) => pretty(f)
       case TypeApply(LocalMethodDen(f),ts) => method(ThisExp(env.getThis),ts,f)
-      case           StaticMethodDen(Some(x),f) => method(x,Nil,f)
-      case TypeApply(StaticMethodDen(Some(x),f),ts) => method(x,ts,f)
-      case           StaticMethodDen(None,f) => pretty(f)
-      case TypeApply(StaticMethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
+      case           MethodDen(Some(x),f) => method(x,Nil,f)
+      case TypeApply(MethodDen(Some(x),f),ts) => method(x,ts,f)
+      case           MethodDen(None,f) => pretty(f)
+      case TypeApply(MethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
       case           NewDen(p,c,ts0) => gnu(p,c,ts0 getOrElse Nil,Nil)
       case TypeApply(NewDen(p,c,ts0),ts1) => gnu(p,c,ts0 getOrElse Nil,ts1)
       case           ForwardDen(_,c) => forward(c,Nil)
