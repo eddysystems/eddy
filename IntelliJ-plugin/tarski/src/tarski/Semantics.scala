@@ -565,7 +565,7 @@ object Semantics {
                   if (ne >= n) single(te, Pr.forEachArrayNoType)
                   else fail(s"$hole: expected $n array dimensions, got type ${show(te)} with $ne")
               }) flatMap (t => env.pushScope.newVariable(v,t,isFinal) flatMap {case (env,v) => denoteStmt(s)(env) map {case (env,s) =>
-                (env.popScope,ForeachStmt(t,v,e,blocked(s)).discard(discardsOption(at)))
+                (env.popScope,ForeachStmt(t,v,e,blocked(s)).discard(at.discards))
               }})
           }
         })

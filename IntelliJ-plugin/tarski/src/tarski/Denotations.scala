@@ -7,6 +7,7 @@ import tarski.Operators._
 import tarski.Types._
 import tarski.Scores._
 import scala.annotation.tailrec
+import scala.language.implicitConversions
 
 object Denotations {
   // The equivalent of Any in the denotation world
@@ -25,9 +26,11 @@ object Denotations {
   trait HasDiscard[+A] extends HasDiscards {
     def discard(ds: List[Stmt]): A
   }
-  def discardsOption[A <: HasDiscards](x: Option[A]) = x match {
-    case None => Nil
-    case Some(x) => x.discards
+  implicit class DiscardsOption[A <: HasDiscards](val x: Option[A]) extends AnyVal {
+    def discards = x match {
+      case None => Nil
+      case Some(x) => x.discards
+    }
   }
 
   case class Above[+A](discards: List[Denotations.Stmt], beneath: A)
@@ -106,7 +109,7 @@ object Denotations {
     lazy val params = f.params.map(_.substitute(parentEnv))
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
-    def discards = discardsOption(x)
+    def discards = x.discards
     def strip = MethodDen(x map (_.strip),f)
   }
   case class LocalMethodDen(f: MethodItem) extends NotTypeApply {
@@ -198,7 +201,7 @@ object Denotations {
     def strip = this
   }
   case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt with ForInit {
-    def discards = vs flatMap (v => discardsOption(v._3))
+    def discards = vs flatMap (_._3.discards)
     def strip = VarStmt(t,vs map { case (v,n,e) => (v,n,e map (_.strip)) })
   }
   case class ExpStmt(e: StmtExp) extends Stmt {
@@ -315,7 +318,7 @@ object Denotations {
         case t:ClassType if t.item==fp => field.inside.substitute(t.env)
       }.getOrElse(throw new RuntimeException(s"Field $field not found in $t"))
     }
-    def discards = discardsOption(x)
+    def discards = x.discards
     def strip = FieldExp(x map (_.strip),field)
   }
   case class ThisExp(t: ThisItem) extends Exp with NoDiscardExp {
