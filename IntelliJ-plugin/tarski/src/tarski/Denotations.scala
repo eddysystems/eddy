@@ -305,13 +305,9 @@ object Denotations {
     def item = x.item
     def ty = x.ty
   }
-  case class LocalFieldExp(field: FieldItem) extends Exp with NoDiscardExp {
-    def item = field.item
-    def ty = field.inside
-  }
   case class FieldExp(x: Option[Exp], field: FieldItem) extends Exp {
     def item = field.item
-    def ty = if (field.isStatic) field.inside else {
+    def ty = if (field.isStatic || x.isEmpty) field.inside else {
       val t = x.get.ty
       val fp = field.parent
       collectOne(supers(t)){
@@ -416,7 +412,7 @@ object Denotations {
 
   // Is an expression definitely side effect free?
   def noEffects(e: Exp): Boolean = e match {
-    case _:Lit|_:LocalExp|_:LocalFieldExp|_:ThisExp|_:SuperExp => true
+    case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp|_:DiscardExp => false
     case FieldExp(None,_) => true
     case FieldExp(Some(x),_) => noEffects(x)
@@ -438,7 +434,7 @@ object Denotations {
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
   def effects(e: Exp): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e))
-    case _:Lit|_:LocalExp|_:LocalFieldExp|_:ThisExp|_:SuperExp => Nil
+    case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => Nil
     case _:CastExp|_:IndexExp => Nil
     case FieldExp(None,_) => Nil
     case FieldExp(Some(x),_) => effects(x)

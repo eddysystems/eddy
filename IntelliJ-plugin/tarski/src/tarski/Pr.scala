@@ -85,8 +85,11 @@ object Pr {
   val typeFieldOfExp = Prob("type field of exp",.6)
   val boxType = Prob("box type",.5)
 
-  // Value not in scope (requiring qualification)
+  // Unqualified values that are in or out of scope
+  val inScope = Prob("in scope",1)
   val outOfScope = Prob("out of scope",.7)
+  val outOfScopeOtherClass = Prob("out of scope, other class",.3)
+  val outOfScopeOtherPackage = Prob("out of scope, other package",.1)
 
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
   def superFieldValue(values: Scored[Exp], c: TypeItem, f: FieldItem) = Prob("super field value",.8)

@@ -165,7 +165,7 @@ object Semantics {
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = {
-    @inline def penalize(e: Exp) = if (env.inScope(i)) known(e) else single(e,Pr.outOfScope)
+    @inline def penalize(e: Exp) = single(e,if (env.inScope(i)) Pr.inScope else Pr.outOfScope)
     i match {
       case i:Local => if (env.inScope(i)) known(LocalExp(i))
                       else fail(s"Local $i is shadowed")
@@ -173,12 +173,14 @@ object Semantics {
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(x) => known(x)
-      case i:FieldItem if i.isStatic => penalize(FieldExp(None,i))
+      case i:FieldItem => if (env.inScope(i)) known(FieldExp(None,i))
+                          else if (i.isStatic) single(FieldExp(None,i),
+                            if (inClass(env.place.place,i.parent)) Pr.outOfScope
+                            else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeOtherClass
+                            else Pr.outOfScopeOtherPackage)
+                          else denoteField(i,depth)
       case i:ThisItem => penalize(ThisExp(i))
       case i:SuperItem => penalize(SuperExp(i))
-
-      case i:FieldItem if env.inScope(i) => known(LocalFieldExp(i))
-      case i:FieldItem => denoteField(i, depth)
     }
   }
 
@@ -447,7 +449,6 @@ object Semantics {
     case ParenExp(x) => isVariable(x)
     case ApplyExp(_,_) => false
     case FieldExp(_,f) => !f.isFinal
-    case LocalFieldExp(f) => !f.isFinal
     case IndexExp(_,_) => true // Java arrays are always mutable
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
     case ArrayExp(_,_) => false

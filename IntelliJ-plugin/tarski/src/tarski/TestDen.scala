@@ -56,10 +56,10 @@ class TestDen {
     case _:EmptyOrBad => ()
   }
 
-  def probOf[A](s: Scored[A], a: A): Double = {
-    def loop(s: Stream[Alt[A]]): Double =
-      if (s.isEmpty) 0
-      else if (a == s.head.x) s.head.p
+  def probOf(s: Scored[(Env,List[Stmt])], a: List[Stmt]): Double = {
+    def loop(s: Stream[Alt[(Env,List[Stmt])]]): Double =
+      if (s.isEmpty) -1
+      else if (a == s.head.x._2) s.head.p
       else loop(s.tail)
     loop(s.stream)
   }
@@ -445,28 +445,29 @@ class TestDen {
   @Test def omittedQualifier(): Unit = {
     val P = PackageItem("com.P", "com.P")
     val Z = NormalClassItem("Z", P, Nil)
-    val Zx = NormalStaticFieldItem("x", BooleanType, Z, false)
     val Y = NormalClassItem("Y", LocalPkg, Nil)
-    val Yx = NormalStaticFieldItem("x", BooleanType, Y, false)
     val X = NormalClassItem("X", LocalPkg, Nil)
-    val Xx = NormalStaticFieldItem("x", BooleanType, X, false)
-    val f = NormalMethodItem("f", X, Nil, VoidType, Nil, true)
-    val x = Local("x", BooleanType, false)
-    implicit val env = Env(Array(P,Z,Zx,Y,Yx,X,Xx,f,x),Map((Y,3),(X,3),(Xx,2),(f,2),(x,1)),PlaceInfo(f))
+    val Zx = NormalStaticFieldItem("x", BooleanType, Z, isFinal=false)
+    val Yx = NormalStaticFieldItem("x", BooleanType, Y, isFinal=false)
+    val Xx = NormalStaticFieldItem("x", BooleanType, X, isFinal=false)
+    val f = NormalMethodItem("f", X, Nil, VoidType, Nil, isStatic=true)
+    val x = Local("x", BooleanType, isFinal=false)
+    implicit val env = baseEnv.extend(Array(P,Z,Zx,Y,Yx,X,Xx,f,x),Map((Y,3),(X,3),(Xx,2),(f,2),(x,1))).move(PlaceInfo(f))
     val fixes = fix(lex("x = true"))
     // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
-    def set(e: Exp): List[Stmt] = List(ExpStmt(AssignExp(None,e,true)))
+    def set(e: Exp): List[Stmt] = AssignExp(None,e,true)
     val px = probOf(fixes,set(x))
     val pXx = probOf(fixes,set(FieldExp(None,Xx)))
     val pYx = probOf(fixes,set(FieldExp(None,Yx)))
     val pZx = probOf(fixes,set(FieldExp(None,Zx)))
 
-    println("probabilities: ", px, pXx, pYx, pZx)
+    println(s"probabilities:\n  x   : $px\n  X.x : $pXx\n  Y.x : $pYx\n  Z.x : $pZx")
+    assertTrue(s"All probabilities should be positive",px > 0 && pXx > 0 && pYx > 0 && pZx > 0)
 
-    assertTrue(s"local variable not more likely ($px) than shadowed field ($pXx)", px > pXx)
-    assertTrue(s"same class static field not more likely ($pXx) than other class field ($pYx)", pXx > pYx)
-    assertTrue(s"other class field not more likely ($pYx) than other package field ($pZx)", pYx > pZx) // this may not be what we want. only learning will really figure this out
-    notImplemented
+    assertTrue(s"Local variable not more likely (x : $px) than shadowed field (X.x : $pXx)", px > pXx)
+    assertTrue(s"Same class static field not more likely (X.x : $pXx) than other class field (Y.x : $pYx)", pXx > pYx)
+    // The next may not be what we want. only learning will really figure this out
+    assertTrue(s"Other class field not more likely (Y.x : $pYx) than other package field (Z.x : $pZx)", pYx > pZx)
   }
 
   @Test def capture() = {

@@ -7,19 +7,18 @@ import tarski.Denotations.Lit
 import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
+import scala.annotation.tailrec
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
   // inherits from Product => only case things or abstract classes can have this trait without implementing Product
-  sealed trait Item extends RefEq with Product with Tries.Named with Tries.Delable {
+  sealed trait Item extends RefEq with Tries.Named with Tries.Delable {
     def name: Name
     def qualifiedName: Option[Name] // A name that is valid anywhere
-    override def toString: String = qualifiedName getOrElse name
-    def print: String = scala.runtime.ScalaRunTime._toString(this)
   }
 
   // Something which we can be inside
-  sealed trait ParentItem extends Item {
+  sealed trait ParentItem extends Item with PackageOrMember {
     def inside: Parent
     def raw: Parent
     def simple: Parent
@@ -28,6 +27,18 @@ object Items {
     def item = this
     def inside = this
   }
+
+  // Containing package
+  sealed trait PackageOrMember extends Item
+  @tailrec def pkg(x: PackageOrMember): PackageItem = x match {
+    case x:PackageItem => x
+    case x:Member => pkg(x.parent)
+  }
+  // Are we inside a class?
+  @tailrec def inClass(x: PackageOrMember, c: ClassItem): Boolean = x==c || (x match {
+    case _:PackageItem => false
+    case x:Member => inClass(x.parent,c)
+  })
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
   case class NormalTypeVar(name: String, base: RefType, interfaces: List[ClassType]) extends TypeVar {
@@ -70,11 +81,6 @@ object Items {
     def inside = ty
     def raw = ty
     def simple = ty
-
-    // Not sure why we need these
-    def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
-    def productArity = notImplemented
-    def productElement(n: Int) = notImplemented
   }
 
   trait GenericItem {
@@ -179,11 +185,6 @@ object Items {
     def isFinal = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
-
-    // needed because Item is Product
-    def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
-    def productArity = notImplemented
-    def productElement(n: Int) = notImplemented
   }
   object NormalInterfaceItem {
     def apply(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
@@ -202,10 +203,6 @@ object Items {
     def isEnum = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
-
-    def canEqual(x: Any) = x match { case x:AnyRef => this eq x; case _ => false }
-    def productArity = notImplemented
-    def productElement(n: Int) = notImplemented
   }
   object NormalClassItem {
     def apply(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
@@ -239,7 +236,7 @@ object Items {
     def simple = error
   }
 
-  trait Member extends Item {
+  trait Member extends Item with PackageOrMember {
     def name: Name
     def parent: ParentItem // Package, class, or callable.
     def qualifiedName = parent.qualifiedName map {
