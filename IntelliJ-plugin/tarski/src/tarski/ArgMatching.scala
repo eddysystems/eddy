@@ -5,7 +5,6 @@ import tarski.Environment.Env
 import tarski.Scores._
 import tarski.Types._
 import tarski.Semantics.denoteValue
-import tarski.Denotations.{TypeApply,NotTypeApply}
 import ambiguity.Utility._
 
 import scala.annotation.tailrec
@@ -18,10 +17,8 @@ object ArgMatching {
     // Incrementally add parameters and check whether the function still resolves
     val n = f.params.size
     val na = args.size
-    @inline def finish(types: List[RefType], args: List[Exp]): ApplyExp = types match {
-      case Nil => ApplyExp(f,args)
-      case _ => ApplyExp(TypeApply(f.asInstanceOf[NotTypeApply],types),args)
-    }
+    @inline def finish(types: List[RefType], args: List[Exp]): ApplyExp =
+      ApplyExp(Denotations.uncheckedAddTypeArgs(f,types),args)
     def process(k: Int, targs: List[RefType], used: List[Exp], unused: List[Scored[Exp]]): Scored[ApplyExp] = {
       if (k == n)
         known(finish(targs,used))

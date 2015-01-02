@@ -7,17 +7,17 @@ import tarski.Operators._
 import tarski.Types._
 import tarski.Scores._
 import scala.annotation.tailrec
+import scala.language.implicitConversions
 
 object Denotations {
-  // The equivalent of Any in the denotation world.  The only uniformity is that Den's can have side effects attached.
-  sealed abstract class Den extends HasDiscards {
-    def strip: Den
-  }
+  // The equivalent of Any in the denotation world
+  sealed abstract class Den
   sealed trait ParentDen extends Den
   sealed trait ExpOrType extends ParentDen {
     def item: TypeItem
   }
   sealed trait TypeOrCallable extends Den with HasDiscard[TypeOrCallable]
+  sealed trait TypeOrPackage extends Den
   sealed trait ExpOrCallable extends Den with HasDiscard[ExpOrCallable]
 
   trait HasDiscards {
@@ -26,37 +26,30 @@ object Denotations {
   trait HasDiscard[+A] extends HasDiscards {
     def discard(ds: List[Stmt]): A
   }
-  case class Above[+A](discards: List[Denotations.Stmt], beneath: A) extends HasDiscard[Above[A]] {
-    def strip = Above(Nil,beneath)
-    def discard(ds: List[Stmt]) = Above(ds++discards,beneath)
-    def map[B](f: A => B): Above[B] = Above(discards,f(beneath))
-    def mapA[B](f: A => Scored[B]): Scored[Above[B]] =
-      f(beneath) map (Above(discards,_))
-    def mapB[B <: HasDiscard[B]](f: A => Scored[B]): Scored[B] = discards match {
-      case Nil => f(beneath)
-      case ds => f(beneath) map (_.discard(ds))
+  implicit class DiscardsOption[A <: HasDiscards](val x: Option[A]) extends AnyVal {
+    def discards = x match {
+      case None => Nil
+      case Some(x) => x.discards
     }
   }
+
+  case class Above[+A](discards: List[Denotations.Stmt], beneath: A)
   def aboves[A](xs: List[Above[A]]): Above[List[A]] = {
-    @tailrec def loop(ds: List[List[Stmt]], as: List[A], xs: List[Above[A]]): Above[List[A]] = xs match {
-      case Nil => Above(ds.reverse.flatten,as.reverse)
-      case Above(d,a)::xs => loop(d::ds,a::as,xs)
+    @tailrec def loop(ds: List[Stmt], as: List[A], xs: List[Above[A]]): Above[List[A]] = xs match {
+      case Nil => Above(ds.reverse,as.reverse)
+      case Above(d,a)::xs => loop(revAppend(d,ds),a::as,xs)
     }
     loop(Nil,Nil,xs)
   }
-  def discardsOption[A <: HasDiscards](x: Option[A]) = x match {
-    case None => Nil
-    case Some(x) => x.discards
-  }
 
   // Wrapped packages
-  case class PackageDen(p: PackageItem) extends ParentDen {
+  case class PackageDen(p: PackageItem) extends ParentDen with TypeOrPackage {
     def strip = this
     def discards = Nil
   }
 
   // Wrapped types
-  case class TypeDen(discards: List[Stmt], beneath: Type) extends ExpOrType with TypeOrCallable with HasDiscard[TypeDen] {
+  case class TypeDen(discards: List[Stmt], beneath: Type) extends ExpOrType with TypeOrCallable with TypeOrPackage with HasDiscard[TypeDen] {
     def item = beneath.item
     def array = TypeDen(discards,ArrayType(beneath))
 
@@ -73,40 +66,32 @@ object Denotations {
 
   // Callables
   sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasDiscard[Callable] {
-    def f: CallableItem
     def tparams: List[TypeVar]
     def params: List[Type]
     def callItem: TypeItem
     def callType(ts: List[TypeArg]): Type
-    def parent: Option[ClassType] // the parent type (for generic substitutions and in the case of NewDen, inference)
     def discard(ds: List[Stmt]): Callable
     def strip: Callable
   }
   sealed abstract class NotTypeApply extends Callable {
-    def tparams = f.tparams
-    def params = f.params
     def strip: NotTypeApply
     def discard(ds: List[Stmt]): NotTypeApply = ds match {
       case Nil => this
       case ds => DiscardCallableDen(ds,this)
     }
   }
-
   case class TypeApply(c: NotTypeApply, ts: List[TypeArg]) extends Callable {
-    def f = c.f
     def tparams = Nil
-    def alltparams = Nil
     lazy val params = {
       // TODO: Map.empty may be wrong here
-      val env = capture(f.tparams,ts,Map.empty)._1
-      f.params map (_.substitute(env))
+      implicit val env = capture(c.tparams,ts,Map.empty)._1
+      c.params map (_.substitute)
     }
     def callItem = c.callItem
     def callType(ts2: List[TypeArg]) = ts2 match {
       case Nil => c.callType(ts)
       case _ => throw new RuntimeException("TypeApply already has type arguments")
     }
-    def parent = c.parent
     def strip = TypeApply(c.strip,ts)
     def discards = c.discards
     def discard(ds: List[Stmt]) = ds match {
@@ -114,69 +99,87 @@ object Denotations {
       case ds => TypeApply(c.discard(ds),ts)
     }
   }
-  case class MethodDen(x: Exp, override val f: MethodItem) extends NotTypeApply {
-    def env(ts: List[TypeArg]) = capture(tparams,ts,parent.get.env)._1
+  case class MethodDen(x: Option[Exp], f: MethodItem) extends NotTypeApply {
+    private lazy val parentEnv: Tenv = x match {
+      case _ if f.isStatic => Map.empty
+      case None => Map.empty
+      case Some(x) => x.ty.asInstanceOf[ClassType].env // x must be a class for MethodDen to make sense
+    }
+    def tparams = f.tparams
+    lazy val params = f.params.map(_.substitute(parentEnv))
     def callItem = f.retVal.item
-    def callType(ts: List[TypeArg]) = f.retVal.substitute(env(ts))
-    def parent = Some(x.ty.asInstanceOf[ClassType]) // If we've constructed a MethodDen, with obj, its type must be a Class, basically
+    def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
     def discards = x.discards
-    def strip = MethodDen(x.strip,f)
-    override def params = { val tenv = parent.get.env; f.params.map( (t:Type) => t.substitute(tenv) ) }
-    // a method is called on an object, which will have a proper type at the time the call happens, so we only need to infer our own type arguments
-    def alltparams = tparams
+    def strip = MethodDen(x map (_.strip),f)
   }
-  case class LocalMethodDen(override val f: MethodItem) extends NotTypeApply {
-    def env(ts: List[TypeArg]) = capture(tparams,ts,Map.empty)._1 // We're local, and thus have no parent environment
+  case class LocalMethodDen(f: MethodItem) extends NotTypeApply {
+    def tparams = f.tparams
+    def params = f.params
     def callItem = f.retVal.item
-    def callType(ts: List[TypeArg]) = f.retVal.substitute(env(ts))
-    def parent = None
+    def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,Map.empty)._1)
     def discards = Nil
     def strip = this
-    def alltparams = tparams // this is raw, so we never have any relevant parent environment
   }
-  case class StaticMethodDen(x: Option[Exp], override val f: MethodItem) extends NotTypeApply {
-    def env(ts: List[TypeArg]) = capture(tparams,ts,Map.empty)._1 // Static methods don't use their parent environment
-    def callItem = f.retVal.item
-    def callType(ts: List[TypeArg]) = f.retVal.substitute(env(ts))
-    def parent = None
-    def discards = discardsOption(x)
-    def strip = StaticMethodDen(x map (_.strip),f)
-    def alltparams = tparams // static methods cannot use their parent's type environment
-  }
-  case class ForwardDen(parent: Option[ClassType], override val f: ConstructorItem) extends NotTypeApply {
+  case class ForwardDen(parent: Option[ClassType], f: ConstructorItem) extends NotTypeApply {
+    def tparams = f.tparams
+    def params = {
+      implicit val env: Tenv = parent match {
+        case Some(p) => p.env
+        case None => Map.empty
+      }
+      f.params map (_.substitute)
+    }
     def callItem = VoidItem
     def callType(ts: List[TypeArg]) = VoidType
     def discards = Nil
     def strip = this
-    def alltparams = tparams // either this or super -- we cannot add type parameters to those
-    override def params = f.params map (_ substitute (if (parent.isDefined) parent.get.env else Map.empty))
   }
   // parent is the parent of the class being created, i.e. in "new A<X>.B<Y>.C(x)", parent is A<X>.B<Y>
-  case class NewDen(parent: Option[ClassType], override val f: ConstructorItem) extends NotTypeApply {
+  case class NewDen(parent: Option[ClassType], f: ConstructorItem, classArgs: Option[List[TypeArg]] = None) extends NotTypeApply {
+    private lazy val env: Tenv = {
+      val parentEnv: Tenv = parent match {
+        case None => Map.empty
+        case Some(c) => c.env
+      }
+      classArgs match {
+        case None => parentEnv
+        case Some(ts) => capture(f.parent.tparams,ts,parentEnv)._1
+      }
+    }
+    def tparams = classArgs match {
+      case None => f.parent.tparams ++ f.tparams // Try to infer both class and constructor parameters
+      case Some(_) => f.tparams // We already have the class type arguments
+    }
+    def params = f.params map (_.substitute(env))
     def callItem = f.parent
-    def callType(ts: List[TypeArg]) = f.parent.generic(ts.take(f.parent.arity),parent match {
+    def callType(ts: List[TypeArg]) = f.parent.generic(classArgs getOrElse ts.take(f.parent.arity),parent match {
       case Some(p) => p
       case None => f.parent.parent.simple
     })
     def discards = Nil
     def strip = this
-    // we can infer the type parameters of the class created, and those of the constructor used -- the class parameters go first
-    // TODO: this should be recursive to allow inferring new<U> A<T>.B<S>.C<X>(S a, T b, U c, X x)
-    def alltparams = f.parent.tparams ++ tparams
   }
   // Evaluate and discard s, then be f
   case class DiscardCallableDen(s: List[Stmt], c: NotTypeApply) extends NotTypeApply {
-    val f = c.f
-    def alltparams = c.alltparams
+    def tparams = c.tparams
+    def params = c.params
     def callItem = c.callItem
     def callType(ts: List[TypeArg]) = c.callType(ts)
-    def parent = c.parent
     def discards = s ::: c.discards
     def strip = c.strip
   }
 
+  // Add type arguments to a Callable without checking for correctness
+  def uncheckedAddTypeArgs(f: Callable, ts: List[TypeArg]): Callable = f match {
+    case _ if ts.isEmpty => f
+    case _:TypeApply => impossible
+    case NewDen(p,f,None) => val (ts0,ts1) = ts splitAt f.parent.arity
+                             uncheckedAddTypeArgs(NewDen(p,f,Some(ts0)),ts1)
+    case f:NotTypeApply => TypeApply(f,ts)
+  }
+
   type Dims = Int
-  type VarDecl = (LocalVariableItem,Dims,Option[Exp]) // name,dims,init
+  type VarDecl = (Local,Dims,Option[Exp]) // name,dims,init
 
   // Statements
   sealed abstract class Stmt extends HasDiscard[Stmt] {
@@ -198,7 +201,7 @@ object Denotations {
     def strip = this
   }
   case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt with ForInit {
-    def discards = vs flatMap (v => discardsOption(v._3))
+    def discards = vs flatMap (_._3.discards)
     def strip = VarStmt(t,vs map { case (v,n,e) => (v,n,e map (_.strip)) })
   }
   case class ExpStmt(e: StmtExp) extends Stmt {
@@ -253,7 +256,7 @@ object Denotations {
     def discards = i flatMap (_.discards)
     def strip = ForExps(i map (_.strip))
   }
-  case class ForeachStmt(t: Type, v: LocalVariableItem, e: Exp, s: Stmt) extends Stmt {
+  case class ForeachStmt(t: Type, v: Local, e: Exp, s: Stmt) extends Stmt {
     def discards = e.discards
     def strip = ForeachStmt(t,v,e.strip,s)
   }
@@ -298,42 +301,25 @@ object Denotations {
   case object NullLit extends Lit                           { def ty = NullType;    def item = NullType.item }
 
   // Expressions
-  case class ParameterExp(x: ParameterItem) extends Exp with NoDiscardExp {
+  case class LocalExp(x: Local) extends Exp with NoDiscardExp {
     def item = x.item
     def ty = x.ty
-  }
-  case class LocalVariableExp(x: LocalVariableItem) extends Exp with NoDiscardExp {
-    def item = x.item
-    def ty = x.ty
-  }
-  case class EnumConstantExp(x: Option[Exp], c: EnumConstantItem) extends Exp {
-    def item = c.item
-    def ty = c.ty
-    def discards = discardsOption(x)
-    def strip = EnumConstantExp(x map (_.strip),c)
-  }
-  case class StaticFieldExp(x: Option[Exp], field: FieldItem) extends Exp {
-    assert(field.isStatic)
-    def item = field.item
-    def ty = field.inside
-    def discards = discardsOption(x)
-    def strip = StaticFieldExp(x map (_.strip),field)
   }
   case class LocalFieldExp(field: FieldItem) extends Exp with NoDiscardExp {
     def item = field.item
     def ty = field.inside
   }
-  case class FieldExp(obj: Exp, field: FieldItem) extends Exp {
+  case class FieldExp(x: Option[Exp], field: FieldItem) extends Exp {
     def item = field.item
-    def ty = {
-      val t = obj.ty
+    def ty = if (field.isStatic) field.inside else {
+      val t = x.get.ty
       val fp = field.parent
       collectOne(supers(t)){
         case t:ClassType if t.item==fp => field.inside.substitute(t.env)
       }.getOrElse(throw new RuntimeException(s"Field $field not found in $t"))
     }
-    def discards = obj.discards
-    def strip = FieldExp(obj.strip,field)
+    def discards = x.discards
+    def strip = FieldExp(x map (_.strip),field)
   }
   case class ThisExp(t: ThisItem) extends Exp with NoDiscardExp {
     def item = t.item
@@ -430,10 +416,10 @@ object Denotations {
 
   // Is an expression definitely side effect free?
   def noEffects(e: Exp): Boolean = e match {
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:EnumConstantExp|_:StaticFieldExp|_:LocalFieldExp
-        |_:ThisExp|_:SuperExp => true
+    case _:Lit|_:LocalExp|_:LocalFieldExp|_:ThisExp|_:SuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp|_:DiscardExp => false
-    case FieldExp(x,f) => noEffects(x)
+    case FieldExp(None,_) => true
+    case FieldExp(Some(x),_) => noEffects(x)
     case NonImpExp(op,x) => pure(op) && noEffects(x)
     case BinaryExp(op,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
     case ParenExp(x) => noEffects(x)
@@ -452,10 +438,10 @@ object Denotations {
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
   def effects(e: Exp): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e))
-    case _:Lit|_:ParameterExp|_:LocalVariableExp|_:EnumConstantExp|_:StaticFieldExp|_:LocalFieldExp
-        |_:ThisExp|_:SuperExp => Nil
+    case _:Lit|_:LocalExp|_:LocalFieldExp|_:ThisExp|_:SuperExp => Nil
     case _:CastExp|_:IndexExp => Nil
-    case FieldExp(x,_) => effects(x)
+    case FieldExp(None,_) => Nil
+    case FieldExp(Some(x),_) => effects(x)
     case NonImpExp(_,x) => effects(x)
     case BinaryExp(_,x,y) => effects(x)++effects(y)
     case CondExp(c,x,y,_) => List(IfElseStmt(c,blocked(effects(x)),blocked(effects(y))))

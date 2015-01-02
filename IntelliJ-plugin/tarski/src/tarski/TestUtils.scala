@@ -7,7 +7,7 @@ import tarski.Denotations._
 import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
-import tarski.Types.{ClassType, LangType, VoidType}
+import tarski.Types.{TypeArg, ClassType, LangType, VoidType}
 import ambiguity.Utility._
 
 import scala.language.implicitConversions
@@ -29,17 +29,19 @@ object TestUtils {
   implicit def toExp(i: Int): Exp = IntLit(i,i.toString)
   implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
   implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString)
-  implicit def toExp(x: LocalVariableItem): Exp = LocalVariableExp(x)
-  implicit def toExp(x: ParameterItem): Exp = ParameterExp(x)
+  implicit def toExp(x: Local): Exp = LocalExp(x)
   implicit def toExp(x: ThisItem): Exp = ThisExp(x)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
   implicit def toExps(e: Exp): List[Exp] = List(e)
+  implicit def toOExp[A](x: A)(implicit to: A => Exp): Option[Exp] = Some(to(x))
+  implicit def toOExp(e: Exp): Option[Exp] = Some(e)
 
   // Callable implicit conversions
-  implicit def toCall(x: MethodItem): NotTypeApply = if (x.isStatic) StaticMethodDen(None,x) else impossible
+  implicit def toCall(x: MethodItem): NotTypeApply = if (x.isStatic) MethodDen(None,x) else impossible
 
   // Type implicit conversions
   implicit def toType(c: ClassItem): ClassType = c.simple
+  implicit def toTypeArgs[A](ts: List[A])(implicit to: A => TypeArg): List[TypeArg] = ts map to
 
   // Statement implicit conversions
   implicit def toStmt(e: StmtExp): Stmt = ExpStmt(e)
@@ -48,7 +50,7 @@ object TestUtils {
   implicit def toStmts(s: Stmt): List[Stmt] = List(s)
 
   // Variable declarations, for statements, etc.
-  implicit def toVarDecl[A](v: (LocalVariableItem,A))(implicit to: A => Exp): VarDecl = (v._1,0,Some(to(v._2)))
+  implicit def toVarDecl[A](v: (Local,A))(implicit to: A => Exp): VarDecl = (v._1,0,Some(to(v._2)))
   implicit def toVarDecls[A](v: A)(implicit to: A => VarDecl): List[VarDecl] = List(to(v))
   implicit def toForInit(n: List[Nothing]): ForInit = ForExps(Nil)
   implicit def toForInit(e: Exp): ForInit = ForExps(List(e))

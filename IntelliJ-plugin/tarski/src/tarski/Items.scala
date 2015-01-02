@@ -256,10 +256,9 @@ object Items {
     def item: TypeItem // The item of our type
     def isFinal: Boolean
   }
-  sealed abstract class LocalValue extends Value {
+  case class Local(name: Name, ty: Type, isFinal: Boolean) extends Value {
     def qualifiedName = None
     override def toString = "local:" + name
-    def ty: Type
     def item = ty.item
   }
   case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
@@ -280,14 +279,6 @@ object Items {
     def inside: Type
     def item = inside.item
     def isStatic: Boolean
-  }
-  case class ParameterItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
-  case class LocalVariableItem(name: Name, ty: Type, isFinal: Boolean) extends LocalValue
-  case class EnumConstantItem(name: Name, parent: ClassItem) extends Value with ClassMember {
-    assert(parent.isEnum) // TODO: make a separate maker for enums?
-    def item = parent
-    def ty = parent.raw
-    def isFinal = true
   }
   case class LitValue(x: Lit) extends Value {
     val name = show(x)

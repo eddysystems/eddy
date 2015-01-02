@@ -346,6 +346,7 @@ object Types {
 
   // Capture conversion for generic types with wildcards
   def capture(tparams: List[TypeVar], args: List[TypeArg], base: Tenv): (Tenv,List[RefType]) = {
+    assert(tparams.size == args.size)
     // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
     case class FreshVar(name: Name) extends TypeVar {
       def superItems = throw new RuntimeException("Should never happen")
@@ -599,11 +600,8 @@ object Types {
   // Given a list of callables, find the most specific one along with its type parameters
   // TODO: Handle explicit type parameters, possibly by prefiltering fs outside of this function
   trait Signature {
-    def tparams: List[TypeVar]
-    def arity: Int = params.size
+    def tparams: List[TypeVar] // Inferable type parameters
     def params: List[Type]
-    def alltparams: List[TypeVar] // all inferable type parameters, both our own and our parents'
-    def isGeneric: Boolean = alltparams.nonEmpty // needs inference
   }
 
   // given argument types ts, which signatures are still usable? ts is allowed to be shorter than f.params,
@@ -612,13 +610,13 @@ object Types {
     val n = ts.size
     // TODO: Handle access restrictions (public, private, protected) and scoping
     // TODO: Handle variable arity
-    def potentiallyCompatible(f: F): Boolean = f.arity >= n && {
+    def potentiallyCompatible(f: F): Boolean = f.params.size >= n && {
       (f.params,ts).zipped forall {case (p,t) => true}} // TODO: Handle poly expression constraints
     def compatible(f: F, form: Inference.Form, context: (Type,Type) => Boolean): Option[List[RefType]] =
-      if (!f.isGeneric)
+      if (f.tparams.isEmpty)
         if ((f.params.slice(0,ts.size),ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
         else None
-      else Inference.infer(f.alltparams,f.params.slice(0,ts.size),ts)(form)
+      else Inference.infer(f.tparams,f.params.slice(0,ts.size),ts)(form)
     def strictCompatible(f: F): Option[List[RefType]] = compatible(f,Inference.strictBounds, strictInvokeContext)
     def looseCompatible (f: F): Option[List[RefType]] = compatible(f,Inference.looseBounds , looseInvokeContext)
     // narrow down candidates

@@ -51,14 +51,6 @@ object Semantics {
     case _ => impossible
   }
 
-  def collectDiscardsA[A,B](xs: List[Above[A]])(f: List[A] => Scored[B]): Scored[Above[B]] =
-    aboves(xs) mapA f
-  def collectDiscardsB[A,B<:HasDiscard[B],C](xs: List[Above[A]])(f: List[A] => Scored[(B,C)]): Scored[(B,C)] =
-    aboves(xs) match {
-      case Above(Nil,xs) => f(xs)
-      case Above(ds,xs) => f(xs) map { case (b,c) => (b.discard(ds),c) }
-    }
-
   def denoteTypeArg(e: AExp)(implicit env: Env): Scored[Above[TypeArg]] = {
     def fix(t: Type): Scored[RefType] = t match {
       case t:RefType => known(t)
@@ -84,19 +76,48 @@ object Semantics {
     }
   }
 
-  def filterTypeArgs(tparams: List[TypeVar], args: List[AExp])(implicit env: Env): Scored[Above[List[TypeArg]]] = {
-    val nv = tparams.size
-    val na = args.size
-    if (nv != na) fail(s"Type arity mismatch: expected $nv (${tparams mkString ", "}), got $na")
-    else product(args map denoteTypeArg) flatMap (above => {
-      val args = aboves(above)
-      val as = args.beneath
-      if (couldMatch(tparams,as)) known(args)
-      else failTypeArgs(tparams,as)
-    })
+  // Prepare to check n type arguments, producing a function which consumes that many type arguments.
+  def prepareTypeArgs(n: Int, f: Den)(implicit env: Env): Scored[Above[List[TypeArg]] => Scored[Den]] = {
+    def absorb(vs: List[TypeVar], f: List[TypeArg] => TypeOrCallable)(above: Above[List[TypeArg]]): Scored[TypeOrCallable] =
+      above match { case Above(ds,ts) =>
+        if (couldMatch(vs,ts)) known(f(ts).discard(ds))
+        else fail(s"Arguments ${ts map (a => showSep(a,"")) mkString ", "} don't fit type variables ${vs map details mkString ", "}")
+      }
+    f match {
+      case _ if n==0 => known((ts: Above[List[TypeArg]]) => known(f))
+      case _:Exp|_:PackageDen => fail(s"${show(f)}: expressions and packages take no type arguments")
+      case f:TypeApply => fail(s"${show(f)} expects no more type arguments, got $n")
+      case NewDen(p,f,None) =>
+        val v0 = f.parent.tparams
+        val v1 = f.tparams
+        val n0 = v0.size
+        val n1 = v1.size
+        if (n == n0) known(absorb(v0,ts => NewDen(p,f,Some(ts))))
+        else if (n == n0+n1) known(absorb(v0++v1,ts => {
+          val (ts0,ts1) = ts splitAt n0
+          TypeApply(NewDen(p,f,Some(ts0)),ts1)
+        })) else fail(s"${show(f)} expects $n0 or ${n0+n1} type arguments, got $n")
+      case f:NotTypeApply =>
+        val vs = f.tparams
+        if (n == vs.size) known(absorb(vs,TypeApply(f,_)))
+        else fail(s"${show(f)}: expects ${vs.size} type arguments, got $n")
+      case TypeDen(ds,RawType(c,p)) =>
+        val vs = c.tparams
+        if (n == vs.size) known(absorb(vs,ts => TypeDen(ds,GenericType(c,ts,p))))
+        else fail(s"${show(f)}: expects ${vs.size} type arguments, got $n")
+      case TypeDen(_,t) => fail(s"${show(t)}: can't add type arguments to a non-raw type")
+    }
   }
-  @inline def failTypeArgs(tparams: List[TypeVar], args: List[TypeArg])(implicit env: Env): Scored[Nothing] =
-    fail(s"Arguments ${args map (a => showSep(a,"")) mkString ", "} don't fit type variables ${tparams map details mkString ", "}")
+  def addTypeArgs(fs: Scored[Den], ts: KList[AExp])(implicit env: Env): Scored[Den] = ts match {
+    case EmptyList => fs // Ignore empty type parameter lists
+    case ts =>
+      val n = ts.list.size
+      product(fs flatMap (prepareTypeArgs(n,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
+  }
+  def addTypeArgs(fs: Scored[Den], ts: Option[KList[AExp]])(implicit env: Env): Scored[Den] = ts match {
+    case None => fs
+    case Some(ts) => addTypeArgs(fs,ts)
+  }
 
   // Check whether a type is accessible in the environment (can be qualified by something in scope).
   // Pretty-printing will do the actual qualifying
@@ -131,31 +152,28 @@ object Semantics {
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
         xd match {
           case ThisExp(tt:ThisItem) if tt.self.base.item == c => fail("We'll use super instead of this")
-          case _ => single(FieldExp(CastExp(c.raw,xd),i), Pr.shadowedFieldValue(objs, xd,c,i))
+          case _ => single(FieldExp(Some(CastExp(c.raw,xd)),i), Pr.shadowedFieldValue(objs, xd,c,i))
         }
       } else
-        single(FieldExp(xd,i), Pr.fieldValue(objs, xd, i))
+        single(FieldExp(Some(xd),i), Pr.fieldValue(objs, xd, i))
     }}
   }
 
   def denoteMethod(i: MethodItem, depth: Int)(implicit env: Env): Scored[MethodDen] = {
     val objs = valuesOfItem(i.parent,i,depth)
-    objs flatMap (xd => single(MethodDen(xd,i), Pr.methodCallable(objs, xd, i)))
+    objs flatMap (xd => single(MethodDen(Some(xd),i), Pr.methodCallable(objs, xd, i)))
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = {
     @inline def penalize(e: Exp) = if (env.inScope(i)) known(e) else single(e,Pr.outOfScope)
     i match {
-      case i:ParameterItem => if (env.inScope(i)) known(ParameterExp(i))
-      else fail(s"Parameter $i is shadowed")
-      case i:LocalVariableItem => if (env.inScope(i)) known(LocalVariableExp(i))
-      else fail(s"Local variable $i is shadowed")
+      case i:Local => if (env.inScope(i)) known(LocalExp(i))
+                      else fail(s"Local $i is shadowed")
 
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(x) => known(x)
-      case i:FieldItem if i.isStatic => penalize(StaticFieldExp(None,i))
-      case i:EnumConstantItem => penalize(EnumConstantExp(None,i))
+      case i:FieldItem if i.isStatic => penalize(FieldExp(None,i))
       case i:ThisItem => penalize(ThisExp(i))
       case i:SuperItem => penalize(SuperExp(i))
 
@@ -224,7 +242,7 @@ object Semantics {
           if (m.ty) knownThen(TypeDen(Nil,t.raw),s) else s
         }
       case c:PseudoCallableItem if m.callExp => fixCall(m,c match {
-        case i:MethodItem if i.isStatic => knownNotNew(m,StaticMethodDen(None,i))
+        case i:MethodItem if i.isStatic => knownNotNew(m,MethodDen(None,i))
         case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i))
         case i:MethodItem => biasedNotNew(m,denoteMethod(i,0))
         case ThisItem(c) if env.place.forwardThisPossible(c) =>
@@ -246,8 +264,7 @@ object Semantics {
     case ParenAExp(x,_) if m==ExpMode => denoteExp(x) map ParenExp
     case ParenAExp(x,_) if m.exp => denote(x,m) flatMap {
       case x:Exp => known(ParenExp(x))
-      case x:TypeDen => single(x,Pr.weirdParens)
-      case x:PackageDen => single(x,Pr.weirdParens)
+      case x:TypeOrPackage => single(x,Pr.weirdParens)
       case x:Callable => if (m.call) single(x,Pr.weirdParens)
                          else bareCall(x) map ParenExp
     }
@@ -275,11 +292,9 @@ object Semantics {
         case _ if !memberIn(f,x) => fail(s"${show(x)} does not contain $f")
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
-          case (x:Exp,    f:EnumConstantItem) => single(EnumConstantExp(Some(x),f),Pr.enumFieldExpWithObject)
-          case (t:TypeDen,f:EnumConstantItem) => single(EnumConstantExp(None,f).discard(t.discards),Pr.enumFieldExp)
-          case (x:Exp,    f:FieldItem) => if (f.isStatic) single(StaticFieldExp(Some(x),f),Pr.staticFieldExpWithObject)
-                                          else single(FieldExp(x,f),Pr.fieldExp)
-          case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(StaticFieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
+          case (x:Exp,    f:FieldItem) => single(FieldExp(Some(x),f),
+                                                 if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
+          case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(FieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
                                           else fail(s"Can't access non-static field $f without object")
         }
         case f:TypeItem =>
@@ -307,40 +322,26 @@ object Semantics {
           }
           types++cons
         case f:MethodItem => fixCall(mc,x match {
-          case x:Exp     if f.isStatic => single(StaticMethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
-          case x:TypeDen if f.isStatic => knownNotNew(mc,StaticMethodDen(None,f).discard(x.discards))
-          case x:Exp     => knownNotNew(mc,MethodDen(x,f))
+          case x:Exp     if f.isStatic => single(MethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
+          case x:TypeDen if f.isStatic => knownNotNew(mc,MethodDen(None,f).discard(x.discards))
+          case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f))
           case x:TypeDen => fail(s"${show(e)}: Can't call non-static $f without object")
         })
         case _ => fail(s"Invalid field ${show(x)}  .  ${show(f)}")
       }}
-      ts match {
-        case None => cs
-        case Some(ts) => product(cs.asInstanceOf[Scored[NotTypeApply]],product(ts.list map denoteTypeArg)) flatMap {
-          case (c,args) => aboves(args) match { case Above(ds,as) =>
-            if (couldMatch(c.tparams,as)) known(TypeApply(c.discard(ds),as))
-            else failTypeArgs(c.tparams,as)
-          }
-        }
-      }
+      addTypeArgs(cs,ts)
 
     // Type application.  TODO: add around to TypeApplyAExp
     // For callables, this is C++-style application of type arguments to a generic method
-    case TypeApplyAExp(x,ts) => denote(x,m) flatMap {
-      // TODO: Do something smarter, similar to fiddleCall, if there are bounded parameters?
-      case TypeDen(ds0,RawType(c,parent)) => filterTypeArgs(c.tparams,ts.list) map {
-        case Above(ds1,ts) => TypeDen(ds0++ds1,GenericType(c,ts,parent))
-      }
-      case c:NotTypeApply => fixCall(m,biased(Pr.typeApplyCallable,filterTypeArgs(c.tparams,ts.list) flatMap {
-        case Above(ds,ts) => if (couldMatch(c.tparams,ts)) known(TypeApply(c.discard(ds),ts))
-                             else failTypeArgs(c.tparams,ts)
-      }))
-      case x => fail(s"Cannot apply parameters $ts to $x")
+    case TypeApplyAExp(x,ts) => {
+      def n = ts.size
+      if (n==0) denote(x,m)
+      else addTypeArgs(denote(x,m.onlyTyCall),ts)
     }
 
     // Explicit new
-    case NewAExp(Some(_),_) => notImplemented
-    case NewAExp(None,x) if m.callExp => fixCall(m,biasedNotNew(m,denoteNew(x)))
+    case NewAExp(ts,x) if m.callExp =>
+      fixCall(m,biasedNotNew(m,addTypeArgs(denoteNew(x),ts).asInstanceOf[Scored[Callable]]))
 
     // Application
     case ApplyAExp(f,EmptyList,BrackAround) if m==TypeMode =>
@@ -438,9 +439,7 @@ object Semantics {
     case _: Lit => false
     case ThisExp(_) => false
     case SuperExp(_) => false
-    case ParameterExp(i) => !i.isFinal
-    case LocalVariableExp(i) => !i.isFinal
-    case EnumConstantExp(_,_) => false
+    case LocalExp(i) => !i.isFinal
     case CastExp(_,_) => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
     case BinaryExp(_,_,_) => false
@@ -449,7 +448,6 @@ object Semantics {
     case ApplyExp(_,_) => false
     case FieldExp(_,f) => !f.isFinal
     case LocalFieldExp(f) => !f.isFinal
-    case StaticFieldExp(_,f) => !f.isFinal
     case IndexExp(_,_) => true // Java arrays are always mutable
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
     case ArrayExp(_,_) => false
@@ -567,7 +565,7 @@ object Semantics {
                   if (ne >= n) single(te, Pr.forEachArrayNoType)
                   else fail(s"$hole: expected $n array dimensions, got type ${show(te)} with $ne")
               }) flatMap (t => env.pushScope.newVariable(v,t,isFinal) flatMap {case (env,v) => denoteStmt(s)(env) map {case (env,s) =>
-                (env.popScope,ForeachStmt(t,v,e,blocked(s)).discard(discardsOption(at)))
+                (env.popScope,ForeachStmt(t,v,e,blocked(s)).discard(at.discards))
               }})
           }
         })

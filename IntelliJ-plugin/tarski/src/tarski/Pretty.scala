@@ -308,7 +308,6 @@ object Pretty {
       case i: RefTypeItem => relative(i)
 
       // Static members
-      case i: EnumConstantItem => relative(i)
       case i: FieldItem if i.isStatic => relative(i)
       case i: MethodItem if i.isStatic => relative(i)
 
@@ -371,10 +370,7 @@ object Pretty {
     fix(FieldFix, left(_,x) ::: DotTok :: tokens(f.name))
   implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case l: Lit => pretty(l)
-    case ParameterExp(x) => pretty(x)
-    case LocalVariableExp(x) => pretty(x)
-    case EnumConstantExp(None,f) => pretty(f)
-    case EnumConstantExp(Some(x),f) => prettyField(x,f)
+    case LocalExp(x) => pretty(x)
     case ThisExp(i) => if (env.inScope(i)) (HighestFix,List(ThisTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(ThisTok))
     case SuperExp(i) => if (env.inScope(i)) (HighestFix,List(SuperTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(SuperTok))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
@@ -384,10 +380,9 @@ object Pretty {
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,a) => (ApplyFix, tokens(f) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
-    case FieldExp(x,f) => prettyField(x,f)
     case LocalFieldExp(f) => pretty(f)
-    case StaticFieldExp(None,f) => pretty(f)
-    case StaticFieldExp(Some(x),f) => prettyField(x,f)
+    case FieldExp(None,f) => pretty(f)
+    case FieldExp(Some(x),f) => prettyField(x,f)
     case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok :: tokens(i) ::: List(RBrackTok))
     case ArrayExp(t,xs) => (ApplyFix, NewTok :: tokens(ArrayType(t)) ::: prettyArrayExp(xs)._2)
     case EmptyArrayExp(t,is) => {
@@ -406,8 +401,7 @@ object Pretty {
   implicit def prettyCallable(f: Callable)(implicit env: Env): (Fixity,Tokens) = {
     def method(x: Exp, ts: List[TypeArg], f: Item): (Fixity,Tokens) =
       fix(FieldFix,left(_,x) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
-    def gnu(p: Option[ClassType], c: ConstructorItem, ts: List[TypeArg]) = {
-      val (ts0,ts1) = ts splitAt c.parent.tparams.size
+    def gnu(p: Option[ClassType], c: ConstructorItem, ts0: List[TypeArg], ts1: List[TypeArg]) = {
       (NewFix,NewTok :: tokensTypeArgs(ts1) ::: (p match {
         case None => Nil
         case Some(p) => tokens(p)(prettyType) ::: List(DotTok)
@@ -423,16 +417,14 @@ object Pretty {
     }
     // TODO: If ts is inferable, don't print it
     f match {
-      case           MethodDen(x,f) => method(x,Nil,f)
-      case TypeApply(MethodDen(x,f),ts) => method(x,ts,f)
       case           LocalMethodDen(f) => pretty(f)
       case TypeApply(LocalMethodDen(f),ts) => method(ThisExp(env.getThis),ts,f)
-      case           StaticMethodDen(Some(x),f) => method(x,Nil,f)
-      case TypeApply(StaticMethodDen(Some(x),f),ts) => method(x,ts,f)
-      case           StaticMethodDen(None,f) => pretty(f)
-      case TypeApply(StaticMethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
-      case           NewDen(p,c) => gnu(p,c,Nil)
-      case TypeApply(NewDen(p,c),ts) => gnu(p,c,ts)
+      case           MethodDen(Some(x),f) => method(x,Nil,f)
+      case TypeApply(MethodDen(Some(x),f),ts) => method(x,ts,f)
+      case           MethodDen(None,f) => pretty(f)
+      case TypeApply(MethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
+      case           NewDen(p,c,ts0) => gnu(p,c,ts0 getOrElse Nil,Nil)
+      case TypeApply(NewDen(p,c,ts0),ts1) => gnu(p,c,ts0 getOrElse Nil,ts1)
       case           ForwardDen(_,c) => forward(c,Nil)
       case TypeApply(ForwardDen(_,c),ts) => forward(c,ts)
       case           DiscardCallableDen(ds,f) => above(ds,f)
@@ -443,8 +435,6 @@ object Pretty {
     case Nil => Nil
     case ts => LtTok :: separate(ts.map(tokens(_)),List(CommaTok)) ::: List(GtTok)
   }
-  def tokensSig(f: Signature)(implicit env: Env): Tokens =
-    tokensTypeArgs(f.tparams) ::: LParenTok :: tokens(CommaList(f.params)) ::: List(RParenTok)
   def prettyInit(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
     case ArrayExp(_,xs) => prettyArrayExp(xs)
     case e => prettyExp(e)
@@ -476,7 +466,7 @@ object Pretty {
     case _:DiscardStmt => impossible
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(v: (LocalVariableItem,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
+  implicit def prettyVar(v: (Local,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
     case (x,n,None) => prettyDims(x,n)
     case (x,n,Some(i)) => fix(AssignFix, prettyDims(x,n)._2 ::: EqTok :: right(_,i)(prettyInit))
   }
@@ -497,9 +487,6 @@ object Pretty {
     case Nil => pretty(x)
     case ds => (HighestFix,IdentTok("Above") :: LParenTok ::
       separate(ds map (tokens(_)),List(SemiTok)) ::: SemiTok :: tokens(x) ::: List(RParenTok))
-  }
-  implicit def prettyAbove[A](x: Above[A])(implicit p: Pretty[A], env: Env): (Fixity,Tokens) = x match {
-    case Above(ds,x) => above(ds,x)
   }
   implicit def prettyDen(x: Den)(implicit env: Env): (Fixity,Tokens) = x match {
     case x:Exp => prettyExp(x)
