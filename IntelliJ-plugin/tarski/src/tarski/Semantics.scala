@@ -165,7 +165,7 @@ object Semantics {
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = {
-    @inline def penalize(e: Exp) = if (env.inScope(i)) known(e) else single(e,Pr.outOfScope)
+    @inline def penalize(e: Exp) = single(e,if (env.inScope(i)) Pr.inScope else Pr.outOfScope)
     i match {
       case i:Local => if (env.inScope(i)) known(LocalExp(i))
                       else fail(s"Local $i is shadowed")
@@ -174,7 +174,10 @@ object Semantics {
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(x) => known(x)
       case i:FieldItem => if (env.inScope(i)) known(FieldExp(None,i))
-                          else if (i.isStatic) single(FieldExp(None,i),Pr.outOfScope)
+                          else if (i.isStatic) single(FieldExp(None,i),
+                            if (inClass(env.place.place,i.parent)) Pr.outOfScope
+                            else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeOtherClass
+                            else Pr.outOfScopeOtherPackage)
                           else denoteField(i,depth)
       case i:ThisItem => penalize(ThisExp(i))
       case i:SuperItem => penalize(SuperExp(i))

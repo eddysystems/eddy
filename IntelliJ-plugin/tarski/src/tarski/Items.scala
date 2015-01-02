@@ -7,6 +7,7 @@ import tarski.Denotations.Lit
 import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
+import scala.annotation.tailrec
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
@@ -19,7 +20,7 @@ object Items {
   }
 
   // Something which we can be inside
-  sealed trait ParentItem extends Item {
+  sealed trait ParentItem extends Item with PackageOrMember {
     def inside: Parent
     def raw: Parent
     def simple: Parent
@@ -28,6 +29,18 @@ object Items {
     def item = this
     def inside = this
   }
+
+  // Containing package
+  sealed trait PackageOrMember extends Item
+  @tailrec def pkg(x: PackageOrMember): PackageItem = x match {
+    case x:PackageItem => x
+    case x:Member => pkg(x.parent)
+  }
+  // Are we inside a class?
+  @tailrec def inClass(x: PackageOrMember, c: ClassItem): Boolean = x==c || (x match {
+    case _:PackageItem => false
+    case x:Member => inClass(x.parent,c)
+  })
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
   case class NormalTypeVar(name: String, base: RefType, interfaces: List[ClassType]) extends TypeVar {
@@ -239,7 +252,7 @@ object Items {
     def simple = error
   }
 
-  trait Member extends Item {
+  trait Member extends Item with PackageOrMember {
     def name: Name
     def parent: ParentItem // Package, class, or callable.
     def qualifiedName = parent.qualifiedName map {
