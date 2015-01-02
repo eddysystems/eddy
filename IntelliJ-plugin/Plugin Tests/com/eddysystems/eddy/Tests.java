@@ -207,9 +207,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       if (((Items.ConstructorItem) i).parent().name().equals("A") || ((Items.ConstructorItem) i).parent().name().equals("B") || ((Items.ConstructorItem) i).parent().name().equals("C"))
         System.out.println("found constructor " + i.name() + " (" + i.qualifiedName() + ") for class " + ((Items.ConstructorItem) i).parent().name() + " info " + ((Items.ConstructorItem) i).params());
       if (i.name().equals("A"))
-        throw new AssertionError("found constructor" + i.print() + " which should be private and inAccessible");
+        throw new AssertionError("found constructor" + i + " which should be private and inAccessible");
       if (i.name().equals("B") && ((Items.ConstructorItem) i).params().isEmpty())
-        throw new AssertionError("found constructor" + i.print() + " which is not implicitly declared (another constructor is)");
+        throw new AssertionError("found constructor" + i + " which is not implicitly declared (another constructor is)");
       if (i.name().equals("B") && ((Items.ConstructorItem) i).params().contains(Types.IntType$.MODULE$))
         Bc = true;
       if (i.name().equals("C"))

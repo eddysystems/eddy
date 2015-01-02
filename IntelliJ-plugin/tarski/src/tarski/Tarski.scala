@@ -37,8 +37,8 @@ object Tarski {
   def localPkg(): PackageItem = Base.LocalPkg
 
   def print(is: Iterable[Alt[Item]]): Unit = {
-    is.foreach { case Alt(p,i) =>
-      println(s"  $p => " + i.print)
+    is foreach { case Alt(p,i) =>
+      println(s"  $p => " + i)
     }
   }
 

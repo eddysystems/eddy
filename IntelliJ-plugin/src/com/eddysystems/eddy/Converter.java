@@ -329,11 +329,6 @@ public class Converter {
     public void setFinal(boolean f) {
       _isFinal = f;
     }
-
-    public boolean equals(Object x) { return this == x; }
-    public boolean canEqual(Object x) { return this == x; }
-    public int productArity() { throw new NotImplementedError("Should never happen"); }
-    public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
 
@@ -410,12 +405,8 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
-    public boolean equals(Object x) { return this == x; }
-    public boolean canEqual(Object x) { return this == x; }
     public Some safe() { return new Some<RefType>(this); }
     public scala.collection.immutable.List<tarski.Denotations.Stmt> discards() { return _discards; }
-    public int productArity() { throw new NotImplementedError("Should never happen"); }
-    public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
 
     // For use above
     static scala.collection.immutable.List<tarski.Denotations.Stmt> _discards =
@@ -605,12 +596,6 @@ public class Converter {
     public PsiElement psi() {
       return cls;
     }
-
-    // Necessary only due to screwy Java/Scala interop
-    public boolean equals(Object x) { return this == x; }
-    public boolean canEqual(Object x) { return this == x; }
-    public int productArity() { throw new NotImplementedError("Should never happen"); }
-    public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
   // used to dynamically add items from Psi tree change events
@@ -773,13 +758,9 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
-    public boolean equals(Object x) { return this == x; }
-    public boolean canEqual(Object x) { return this == x; }
     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
     public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
     public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
-    public int productArity() { throw new NotImplementedError("Should never happen"); }
-    public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
   protected static class LazyMethod extends MethodItem implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableStaticItem, CachedTypeParametersItem, CachedParametersItem, CachedReturnTypeItem {
@@ -889,13 +870,9 @@ public class Converter {
     }
 
     // Necessary only due to screwy Java/Scala interop
-    public boolean equals(Object x) { return this == x; }
-    public boolean canEqual(Object x) { return this == x; }
     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
     public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
     public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
-    public int productArity() { throw new NotImplementedError("Should never happen"); }
-    public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
   CallableItem addMethod(PsiMethod method) {
@@ -969,16 +946,9 @@ public class Converter {
       return false;
     }
 
-
     public PsiElement psi() {
       return f;
     }
-
-    // Necessary only due to screwy Java/Scala interop
-    public boolean equals(Object x) { return this == x; }
-    public boolean canEqual(Object x) { return this == x; }
-    public int productArity() { throw new NotImplementedError("Should never happen"); }
-    public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
   }
 
   Value addField(PsiField f) {
