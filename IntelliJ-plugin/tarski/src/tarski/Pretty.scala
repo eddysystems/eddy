@@ -305,14 +305,14 @@ object Pretty {
     }
     i match {
       // Types
-      case i: RefTypeItem => relative(i)
+      case i:RefTypeItem => relative(i)
 
       // Static members
-      case i: FieldItem if i.isStatic => relative(i)
-      case i: MethodItem if i.isStatic => relative(i)
+      case i:FieldItem if i.isStatic => relative(i)
+      case i:MethodItem if i.isStatic => relative(i)
 
       // Non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)
-      case i: Item => pretty(i.name)
+      case i:Item => pretty(i.name)
     }
   }
 
@@ -380,7 +380,6 @@ object Pretty {
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,a) => (ApplyFix, tokens(f) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
-    case LocalFieldExp(f) => pretty(f)
     case FieldExp(None,f) => pretty(f)
     case FieldExp(Some(x),f) => prettyField(x,f)
     case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok :: tokens(i) ::: List(RBrackTok))
