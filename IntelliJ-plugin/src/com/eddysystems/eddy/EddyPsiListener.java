@@ -43,6 +43,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   class ElemInfo {
     ElemType type;
     PsiElement elem, p, gp;
+    int role;
   }
 
   ElemInfo elemInfo(PsiElement elem) {
@@ -52,6 +53,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
       ei.elem = elem;
       ei.p = elem.getParent();
       ei.gp = ei.p.getParent();
+      ei.role = ((CompositeElement)ei.p.getNode()).getChildRole(ei.elem.getNode());
     }
     return ei;
   }
@@ -218,12 +220,20 @@ public class EddyPsiListener implements PsiTreeChangeListener {
       return;
     }
 
-    // partial changes, propagate up
+    // if old and new child are the same thing (role), process only one change event.
+    ElemInfo ei = elemInfo(event.getNewChild());
+    ElemInfo old = null;
     if (unprocessed.containsKey(event.getOldChild())) {
-      changeUpward(unprocessed.get(event.getOldChild()));
+      old = unprocessed.get(event.getOldChild());
+      unprocessed.remove(event.getOldChild());
+    }
+
+    if (old == null) {
+      changeUpward(ei);
+    } else if (old.role == ei.role) {
+      changeUpward(old);
     } else {
-      // maybe the new child triggers an update?
-      ElemInfo ei = elemInfo(event.getNewChild());
+      changeUpward(old);
       changeUpward(ei);
     }
   }

@@ -704,9 +704,9 @@ class TestDen {
     testDen("new P.A()",e)
   }
 
-  @Test def noLocalPkg(): Unit = {
+  @Test def noEmptyNames(): Unit = {
     val is = localEnvWithBase().exactQuery("")
-    if (is.nonEmpty) throw new AssertionError(s"Unexpected empty strings: ${is map (_.getClass)}")
+    if (is.nonEmpty) throw new AssertionError(s"Unexpected empty names: ${is map (_.getClass)}")
   }
 
   @Test def fieldAccess() = {

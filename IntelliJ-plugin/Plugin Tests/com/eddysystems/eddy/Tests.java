@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
 import com.intellij.openapi.actionSystem.ex.AnActionListener;
+import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
@@ -18,6 +19,7 @@ import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
+import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -26,10 +28,12 @@ import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.collection.JavaConversions;
 import tarski.*;
 import tarski.Items.Item;
 import tarski.Scores.Alt;
 
+import java.util.Collection;
 import java.util.List;
 
 import static ambiguity.JavaUtils.popScope;
@@ -52,7 +56,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
         jdk.setName("JDK");
         return jdk;
       } catch (CloneNotSupportedException e) {
-        System.out.println("cloning not supported: " + e);
+        log("cloning not supported: " + e);
         return null;
       }
     }
@@ -74,18 +78,70 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
+  private static String applyIndent(String s, String indent) {
+    return indent + s.replaceAll("\n", "\n" + indent);
+  }
+
+  private static <A> String arrayString(A[] a) {
+    String s = a.getClass().getName() + " (" + a.length + " elements):\n";
+    int i = 0;
+    for (A it : a) {
+      if (i++ > 10) {
+        log("  ...\n");
+        break;
+      }
+      s += applyIndent(logString(it), "  ") + '\n';
+    }
+    return s;
+  }
+
+  private static <A> String collectionString(Collection<A> c) {
+    String s = c.getClass().getName() + " (" + c.size() + " elements):\n";
+    int i = 0;
+    for (A it : c) {
+      if (i++ > 10) {
+        s += "  ...\n";
+        break;
+      }
+      s += applyIndent(logString(it), "  ") + '\n';
+    }
+    return s;
+  }
+
+  private static String logString(Object obj) {
+    // special handling for collections and arrays
+    if (obj instanceof Collection<?>) {
+      return collectionString((Collection<Object>)obj);
+    } else if (obj.getClass().isArray()) {
+      return arrayString((Object[])obj);
+    } else
+      // ls is a regular object
+      return obj.toString();
+  }
+
+  // can't use logger in test mode. Sucks.
+  private static void log(Object msg) {
+    System.out.println(logString(msg));
+  }
+  private static void log(String msg) {
+    System.out.println(msg);
+  }
+  private static void logNNL(String msg) {
+    System.out.print(msg);
+  }
+
   private Eddy makeEddy(@Nullable String special) {
     // not sure why we have to explicitly call this
     EddyPlugin.getInstance(myFixture.getProject()).initEnv();
-    System.out.println("Document:");
-    System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
+    log("Document:");
+    log(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
     eddy.process(myFixture.getEditor(),special);
 
     /*
     for (Map.Entry<PsiElement,Item> it : EddyPlugin.getInstance(myFixture.getProject()).getEnv().items.entrySet()) {
       if (it.getKey() instanceof PsiClass && ((PsiClass)it.getKey()).getName().equals("Object"))
-        System.out.println("static: " + it.getKey() + " => " + it.getValue());
+        log("static: " + it.getKey() + " => " + it.getValue());
     }
     */
     return eddy;
@@ -105,7 +161,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private void dumpResults(final Eddy eddy, final String special) {
-    System.out.println("results:");
+    log("results:");
     final List<Alt<List<String>>> results = eddy.getResults();
     final List<String> strings = eddy.getResultStrings();
     final String sep = "  -------------------------------";
@@ -113,14 +169,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       final Alt<List<String>> r = results.get(i);
       final String s = strings.get(i);
       if (i >= 4 && (special==null || !special.equals(s))) continue;
-      if (i > 0) System.out.println(sep);
-      System.out.println("  " + s);
-      System.out.println("  " + r);
-      System.out.println(JavaScores.ppretty(r.dp()).prefixed("  "));
+      if (i > 0) log(sep);
+      log("  " + s);
+      log("  " + r);
+      log(JavaScores.ppretty(r.dp()).prefixed("  "));
     }
   }
 
-  private void checkAfterActionPerformed(String actionId, final Runnable check) {
+  private void checkAfterEditing(final Runnable edit, final Runnable check) {
     // we have to tack onto the action, otherwise everything will be destroyed before we get to it
     ActionManagerEx.getInstanceEx().addAnActionListener(new AnActionListener() {
       @Override public void beforeActionPerformed(AnAction action, DataContext dataContext, AnActionEvent event) {}
@@ -133,8 +189,16 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       }
     });
 
-    // delete sub
-    myFixture.performEditorAction(actionId);
+    edit.run();
+  }
+
+  private void checkAfterActionPerformed(final String actionId, final Runnable check) {
+    checkAfterEditing(new Runnable() {
+      @Override
+      public void run() {
+        myFixture.performEditorAction(actionId);
+      }
+    }, check);
   }
 
   private void checkResult(Eddy eddy, String expected) {
@@ -152,7 +216,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       final double p0 = rs.get(0).p(),
                    p1 = rs.get(1).p();
       final String m = "wanted margin "+margin+", got "+p1+" / "+p0+" = "+p1/p0;
-      System.out.println(m);
+      log(m);
       assertTrue(m, p1/p0 < margin);
     }
   }
@@ -171,19 +235,24 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phi + "), but shouldn't.", plo < phi);
   }
 
+
+
+
+
+
   // actual tests
-  public void testCreateEddy() throws Exception {
+  public void _testCreateEddy() throws Exception {
     Eddy eddy = setupEddy(null,"dummy.java");
     Base.checkEnv(eddy.getEnv());
   }
 
-  public void testProbLE1() {
+  public void _testProbLE1() {
     Eddy eddy = setupEddy(null,"denote_x.java");
     for (Scores.Alt<List<String>> result : eddy.getResults())
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 
-  public void testTypeVar() {
+  public void _testTypeVar() {
     Eddy eddy = setupEddy(null,"typeVar.java");
     int As = 0, Bs = 0, Cs = 0;
     for (Item i : eddy.getEnv().allItems()) {
@@ -192,20 +261,20 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       else if (n.equals("Bvar")) Bs++;
       else if (n.equals("Cvar")) Cs++;
     }
-    System.out.println("As "+As+", Bs "+Bs+", Cs "+Cs);
+    log("As "+As+", Bs "+Bs+", Cs "+Cs);
     assert As==1;
     assert Bs==1;
     assert Cs==0;
   }
 
-  public void testImplicitConstructor() {
+  public void _testImplicitConstructor() {
     Eddy eddy = setupEddy(null,"ConstructorTest.java");
     boolean Bc = false, Cc = false;
     for (Item i : eddy.getEnv().allItems()) {
       if (!(i instanceof Items.ConstructorItem))
         continue;
       if (((Items.ConstructorItem) i).parent().name().equals("A") || ((Items.ConstructorItem) i).parent().name().equals("B") || ((Items.ConstructorItem) i).parent().name().equals("C"))
-        System.out.println("found constructor " + i.name() + " (" + i.qualifiedName() + ") for class " + ((Items.ConstructorItem) i).parent().name() + " info " + ((Items.ConstructorItem) i).params());
+        log("found constructor " + i.name() + " (" + i.qualifiedName() + ") for class " + ((Items.ConstructorItem) i).parent().name() + " info " + ((Items.ConstructorItem) i).params());
       if (i.name().equals("A"))
         throw new AssertionError("found constructor" + i.print() + " which should be private and inAccessible");
       if (i.name().equals("B") && ((Items.ConstructorItem) i).params().isEmpty())
@@ -219,30 +288,30 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("implicitly defined constructor (C) not in environment", Cc);
   }
 
-  public void testClosingBrace() {
+  public void _testClosingBrace() {
     Eddy eddy = setupEddy(null,"closingBrace.java");
     checkBest(eddy,"}",.9);
   }
 
-  public void testPartialEditTypeConflict() {
+  public void _testPartialEditTypeConflict() {
     Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
     checkResult(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>();");
   }
 
-  public void testPartialEditTypeConflictPriority() {
+  public void _testPartialEditTypeConflictPriority() {
     Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
     // because our cursor is hovering at NewType, this is the one we edited, so it should be higher probability
     checkPriority(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>()", "List<OldOldOldType> = new ArrayList<OldOldOldType>()");
   }
 
-  public void testFizz() {
+  public void _testFizz() {
     final String best = "fizz(\"s\", x, q);";
     Eddy eddy = setupEddy(best,"fizz.java");
     checkBest(eddy,best,.9);
   }
 
   public void testPsiListener() {
-    PsiFile psifile = myFixture.configureByFile("file2.java");
+    PsiFile psifile = myFixture.configureByFile("psiModification.java");
     VirtualFile vf = psifile.getVirtualFile();
 
     EddyPlugin plugin = EddyPlugin.getInstance(myFixture.getProject());
@@ -263,7 +332,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     Items.ClassItem sSub = null, sSuper = null, sInterface = null;
     for (Item it : env.localItems.values()) {
 
-      System.out.println("found local item " + it);
+      log("found local item " + it);
 
       if (it.name().equals("sub")) {
         ssub = (Items.FieldItem)it;
@@ -300,8 +369,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertEquals(tenv.byItem(Interface).all().right().get().length(), 1);
 
     checkAfterActionPerformed(IdeActions.ACTION_EDITOR_DELETE_LINE, new Runnable() { @Override public void run() {
-      System.out.println("  sub supers: " + sub.item().supers() + ", items " + sub.item().superItems());
-      System.out.println("  sub deleted? " + sub.deleted());
+      log("  sub supers: " + sub.item().supers() + ", items " + sub.item().superItems());
+      log("  sub deleted? " + sub.deleted());
 
       final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi());
 
@@ -317,6 +386,65 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       assertTrue(sub.inside().item().superItems().contains(Interface));
       assertTrue(sub.inside().item().superItems().contains(Items.ObjectItem$.MODULE$));
       assertTrue(sub.inside().item().superItems().length() == 2);
+
+      // some constructor modification tests
+
+      // check that there is a single constructor to Super (with double arg)
+      // check that there are two methods in Super, one f(int)->void and one Super(boolean)->void
+
+      // go to line 5 (f(int x) {} in Super) and change the name to Super
+
+      // check that there are two constructors: Super(int) and Super(double)
+      // check that there is one method: Super(boolean)
+
+      // go to line 4 and change the return type to void
+
+      // check that there is one constructor: Super(int)
+      // check that there are two methods: Super(boolean) and Super(double)
+
+      // go to line 3 and change the return type to null
+
+      // check that there are two constructors: Super(int) and Super(boolean)
+      // check that there is one method: Super(double)
+
+      // go to line 3 and change the name to f
+
+      // check that there is one constructor: Super(int)
+      // check that there are two methods: f(boolean) and Super(double)
+
     }});
+
+  }
+  
+  public void testVisibility() {
+    Eddy eddy = setupEddy(null, "scopes1.java", "scopes2.java");
+    Environment.Env env = eddy.getEnv();
+    EnvironmentProcessor.JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
+    log("local items: ");
+    log(jenv.localItems);
+    // make sure the public items are in locals, not added
+    log("P1 query: ");
+    log(env.exactQuery("P1"));
+    log("P2 query: ");
+    log(env.exactQuery("P2"));
+    assertEquals(1, env.exactQuery("P1").length());
+    assertEquals(1, env.exactQuery("P2").length());
+    Item P1 = env.exactQuery("P1").head();
+    Item P2 = env.exactQuery("P2").head();
+    assertContainsElements(jenv.localItems.values(), P1);
+    assertContainsElements(jenv.localItems.values(), P2);
+    log("in scope: ");
+    log(env.scope());
+    // make from inside P1, we can see A1, but not A2
+    log("Local1 query: ");
+    log(env.exactQuery("Local1"));
+    assertEquals(1, env.exactQuery("Local1").length());
+    log("Local2 query: ");
+    log(env.exactQuery("Local2"));
+    assertEmpty(JavaConversions.asJavaCollection(env.exactQuery("Local2")));
+    Item L1 = env.exactQuery("Local1").head();
+    assertTrue(env.scope().contains(L1));
+
+    // TODO: add tests for static visibility, more thorough tests of package local and protected visibility
   }
 }

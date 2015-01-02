@@ -2,7 +2,11 @@ package test2;
 
 public class Test {
 
-  public static class Super {}
+  public static class Super {
+    void Super(boolean b) {}
+    Super(double x) {}
+    f(int x) {}
+  }
 
   public interface Interface {}
 

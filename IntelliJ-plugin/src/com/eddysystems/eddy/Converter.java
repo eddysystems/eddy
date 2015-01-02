@@ -25,18 +25,20 @@ import java.util.Set;
 public class Converter {
   public final Place place;
   public final EnvironmentProcessor.JavaEnvironment jenv;
-  public final Map<PsiElement, Item> locals; // We will add to this
-  public final Map<PsiClass, ConstructorItem> localImplicitConstructors; // Implicit constructors, indexed by their PsiClass
+
+  // We will add to this
+  public final Map<PsiElement, Item> locals;
+  public final Map<PsiMethod, ConstructorItem> cons;
 
   private final @NotNull Logger logger = Logger.getInstance(getClass());
 
   Converter(Place place,
             EnvironmentProcessor.JavaEnvironment jenv,
-            Map<PsiElement, Item> locals, Map<PsiClass,ConstructorItem> localImplicitConstructors) {
+            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons) {
     this.place = place;
     this.jenv = jenv;
     this.locals = locals;
-    this.localImplicitConstructors = localImplicitConstructors;
+    this.cons = cons;
   }
 
   @Nullable Item lookup(PsiElement e) {
@@ -44,9 +46,9 @@ public class Converter {
     return i != null ? i : locals.get(e);
   }
 
-  @Nullable ConstructorItem lookupImplicitConstructor(PsiClass c) {
-    ConstructorItem i = jenv.lookupImplicitConstructor(c);
-    return i != null ? i : localImplicitConstructors.get(c);
+  @Nullable ConstructorItem lookupConstructor(PsiMethod m) {
+    ConstructorItem i = jenv.lookupConstructor(m);
+    return i != null ? i : cons.get(m);
   }
 
   TypeArg convertTypeArg(PsiType t, Parent parent) {
@@ -135,9 +137,9 @@ public class Converter {
       return tarski.Tarski.localPkg();
 
     // local classes
-    if (elem instanceof PsiMethod)
+    if (elem instanceof PsiMethod) {
       return addMethod((PsiMethod) elem);
-    if (elem instanceof PsiClass)
+    } if (elem instanceof PsiClass)
       return (ParentItem)addClass((PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
       final PsiPackage pkg = (PsiPackage)elem;
@@ -526,11 +528,12 @@ public class Converter {
       if (_constructors == null) {
         final ArrayList<ConstructorItem> cons = new ArrayList<ConstructorItem>();
         for (PsiMethod m : cls.getConstructors())
-          cons.add((ConstructorItem)env.addMethod(m));
+          if (env.jenv.isConstructor(m))
+            cons.add((ConstructorItem)env.addMethod(m));
 
         // add implicit constructor if no others declared
-        if (!cons.isEmpty()) {
-          cons.add(env.addImplicitConstructor(cls, this));
+        if (cons.isEmpty()) {
+          cons.add(new DefaultConstructorItem(this));
         }
 
         _constructors = cons.toArray(new ConstructorItem[cons.size()]);
@@ -655,15 +658,6 @@ public class Converter {
     return item;
   }
 
-  ConstructorItem addImplicitConstructor(PsiClass cls, ClassItem item) {
-    ConstructorItem ci = lookupImplicitConstructor(cls);
-    if (ci == null) {
-      ci = new DefaultConstructorItem(item);
-      localImplicitConstructors.put(cls, ci);
-    }
-    return ci;
-  }
-
   void addClassMembers(PsiClass cls, ClassItem item, boolean noProtected) {
     final Set<String> set = item instanceof BaseItem ? ((BaseItem)item).fieldNames() : null;
     for (PsiField f : cls.getFields())
@@ -673,17 +667,8 @@ public class Converter {
         addField(f);
       }
     for (PsiMethod m : cls.getMethods())
-      if (!place.isInaccessible(m,noProtected) && !m.isConstructor()) // constructors are added below
-        addMethod(m);
-
-    boolean foundConstructor = false;
-    for (PsiMethod m : cls.getConstructors()) {
-      foundConstructor = true;
       if (!place.isInaccessible(m,noProtected))
         addMethod(m);
-    }
-    if (!foundConstructor)
-      addImplicitConstructor(cls, item);
 
     for (PsiClass c : cls.getInnerClasses())
       if (!place.isInaccessible(c,noProtected))
@@ -899,16 +884,22 @@ public class Converter {
   }
 
   CallableItem addMethod(PsiMethod method) {
-    {
+    if (jenv.isConstructor(method)) {
+      // constructors are not stored in locals, but in cons
+      ConstructorItem i = lookupConstructor(method);
+      if (i != null)
+        return i;
+      i = new LazyConstructor(this,method);
+      cons.put(method,i);
+      return i;
+    } else {
       Item i = lookup(method);
       if (i != null)
         return (CallableItem)i;
+      i = new LazyMethod(this,method);
+      locals.put(method,i);
+      return (CallableItem)i;
     }
-
-    CallableItem item = method.isConstructor() ? new LazyConstructor(this,method)
-                                               : new LazyMethod(this,method);
-    locals.put(method,item);
-    return item;
   }
 
   protected static class LazyField extends FieldItem implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableFinalItem, SettableStaticItem {

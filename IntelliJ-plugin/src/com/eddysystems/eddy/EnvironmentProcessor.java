@@ -48,30 +48,29 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     JavaEnvironment(@NotNull Project project) {
       this.project = project;
-      converter = new Converter(new Place(project, null), this, localItems, localImplicitConstructors);
+      converter = new Converter(new Place(project, null), this, localItems, localCons);
     }
 
     // immutable, global (library) environment
     Map<PsiElement, Item> items = new HashMap<PsiElement, Item>();
-    Map<PsiClass,ConstructorItem> implicitConstructors = new HashMap<PsiClass, ConstructorItem>();
+    Map<PsiMethod, ConstructorItem> cons = new HashMap<PsiMethod, ConstructorItem>();
 
     // mutable, local (project) environment
     Map<PsiElement, Item> localItems = new HashMap<PsiElement, Item>();
-    Map<PsiClass,ConstructorItem> localImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
+    Map<PsiMethod, ConstructorItem> localCons = new HashMap<PsiMethod, ConstructorItem>();
 
     // items added since the last time the local environment was built (to be added to the scope environment)
     Map<PsiElement, Item> addedItems = new HashMap<PsiElement, Item>();
-    Map<PsiClass,ConstructorItem> addedImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
     int nDeletions;
 
     // pre-computed data structures to enable fast creation of appropriate scala Env instances
 
     // when a local env is created, it will contain three tries: Globals, Locals, and Volatile, which contains items
     // added to locals (but not in the trie), and the locals found by the EnvironmentProcessor
-    Tries.Trie sTrie = null;
+    Tries.Trie<Item> sTrie = null;
     Map<TypeItem,Value[]> sByItem = null;
 
-    Tries.DTrie dTrie = null;
+    Tries.DTrie<Item> dTrie = null;
     Map<TypeItem,Value[]> dByItem = null;
 
     // dynamic by item needs to be rebuilt a lot more than the trie.
@@ -85,19 +84,25 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     Item lookup(PsiElement elem) {
       // everything in addedItems is also in localItems.
       Item i = items.get(elem);
-      return i == null ? localItems.get(elem) : i;
+      if (i == null)
+        i = localItems.get(elem);
+      if (i == null && elem instanceof PsiMethod) {
+        // for methods, also try to look them up in the constructors
+        return lookupConstructor((PsiMethod)elem);
+      }
+      return i;
     }
 
-    ConstructorItem lookupImplicitConstructor(PsiClass elem) {
-      // everything in addedImplicitConstructors is also in localImplicitConstructors.
-      ConstructorItem i = implicitConstructors.get(elem);
-      return i == null ? localImplicitConstructors.get(elem) : i;
+    ConstructorItem lookupConstructor(PsiMethod elem) {
+      ConstructorItem i = cons.get(elem);
+      if (i == null)
+        i = localCons.get(elem);
+      return i;
     }
 
     // initialize static environment
     void buildStaticEnv() {
       ArrayList<Item> items = new ArrayList<Item>(this.items.values());
-      items.addAll(implicitConstructors.values());
       // add extraEnv items (they're not added in addBase)
       items.addAll(Arrays.asList(Base.extraEnv().allItems()));
       sTrie = Tarski.makeTrie(items);
@@ -106,12 +111,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     void buildDynamicEnv() {
       ArrayList<Item> items = new ArrayList<Item>(this.localItems.values());
-      items.addAll(localImplicitConstructors.values());
       dTrie = Tarski.makeDTrie(items);
       dByItem = JavaUtils.valuesByItem((Item[])dTrie.values());
 
       // clear volatile stores
-      addedImplicitConstructors.clear();
       addedItems.clear();
       nDeletions = 0;
     }
@@ -139,17 +142,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     Env makeEnvironment(Collection<Item> scopeItems, Map<Item,Integer> inScope, PlaceInfo pinfo) {
       ArrayList<Item> newitems = new ArrayList<Item>(scopeItems);
       newitems.addAll(addedItems.values());
-      newitems.addAll(addedImplicitConstructors.values());
       final Item[] newArray = newitems.toArray(new Item[newitems.size()]);
-      /*
-      System.out.println("made environment: " + sTrie.values().length + " static, " + dTrie.values().length + " dynamic, " + newArray.length + " volatile.");
-      for (Item it : newitems) {
-        if (it instanceof Converter.PsiEquivalent)
-          System.out.println("  volatile item: " + it + " => " + ((Converter.PsiEquivalent)it).psi() + "@" + ((Converter.PsiEquivalent)it).psi().hashCode() + " original " + ((Converter.PsiEquivalent)it).psi().getOriginalElement().hashCode());
-        else
-          System.out.println("  volatile item: " + it);
-      }
-      */
       return Tarski.environment(sTrie, dTrie, Tarski.makeTrie(newArray), sByItem, dByItem, JavaUtils.valuesByItem(newArray), inScope, pinfo);
     }
 
@@ -166,17 +159,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (converter.place.isInaccessible((PsiModifierListOwner)elem, true))
         return;
 
-      // this adds to localItems and localImplicitConstructors
+      // this adds to localItems
       Item it = converter.addItem(elem);
 
-      // we may have to remove an implicit constructor if we just added a constructor
-      if (it instanceof ConstructorItem)
-        deleteImplicitConstructor((PsiClass)(elem.getParent()));
-
-      // save a copy in added*
-      addedItems.put(elem,it);
-      if (it instanceof ClassItem && localImplicitConstructors.containsKey((PsiClass)elem)) {
-        addedImplicitConstructors.put((PsiClass)elem, localImplicitConstructors.get(elem));
+      // save a copy in addedItems (constructors don't go there)
+      if (it instanceof ConstructorItem) {
+       ((CachedConstructorsItem)((ConstructorItem) it).parent()).invalidateConstructors();
+      } else {
+        addedItems.put(elem,it);
       }
 
       // if we added a class, check if we can fill in some of the undefined references
@@ -187,21 +177,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           if (i instanceof Converter.ReferencingItem)
             byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).fillUnresolvedReferences();
       }
-    }
-
-    // delete an implicitly defined constructor, if there is any
-    void deleteImplicitConstructor(PsiClass cls) {
-      if (!localImplicitConstructors.containsKey(cls))
-        return;
-
-      ConstructorItem it = localImplicitConstructors.get(cls);
-      it.delete();
-
-      localImplicitConstructors.remove(cls);
-
-      // make sure to remove it from added if it hasn't propagated to the Trie yet
-      if (addedImplicitConstructors.containsKey(cls))
-        addedImplicitConstructors.remove(cls);
     }
 
     void deleteItem(PsiElement elem) {
@@ -222,16 +197,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       System.out.println("deleting " + it);
       it.delete();
 
-      // this must be a local item for this to work
-      assert localItems.containsKey(elem);
-      localItems.remove(elem);
+      if (it instanceof ConstructorItem) {
+        assert elem instanceof PsiMethod;
+        localCons.remove(elem);
+      } else {
+        localItems.remove(elem);
+        if (addedItems.containsKey(elem)) {
+          addedItems.remove(elem);
+        } else {
+          nDeletions++;
+        }
+      }
 
       // change not yet reflected in the trie, don't count it as a deletion
-      if (addedItems.containsKey(elem)) {
-        addedItems.remove(elem);
-      } else {
-        nDeletions++;
-      }
 
       // we should never be called for local items (they're handled by the scope processor only
       assert !(it instanceof Local);
@@ -246,12 +224,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         // constructors array in owning class
         ((CachedConstructorsItem) ((ConstructorItem) it).parent()).invalidateConstructors();
 
-        // if this was the last constructor, make an implicit one
-        PsiClass cls = (PsiClass)elem.getParent();
-        ClassItem cit = (ClassItem)lookup(cls);
-        if (cls.getConstructors().length == 1) {
-          addedImplicitConstructors.put(cls,converter.addImplicitConstructor(cls,cit));
-        }
       } else if (it instanceof PackageItem) {
         // we may be the parent of local classes, but those classes are only scanned in scope
       } else if (it instanceof RefTypeItem) {
@@ -334,28 +306,31 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       ((CachedParametersItem)it).invalidateParameters();
     }
 
+    // return type is null *and* has same name as containing class
+    boolean isConstructor(PsiMethod elem) {
+      return elem.getReturnType() == null && elem.getName().equals(((PsiClass)elem.getParent()).getName());
+    }
+
     void changeReturnType(PsiMethod elem) {
       Item it = lookup(elem);
+
       if (it == null)
         return;
 
       System.out.println("changing the return type of " + it + " to " + elem.getReturnType());
 
       if (it instanceof ConstructorItem) {
-        // if it is a constructor and we add a return type, we're making it into a method.
+        // changing the return type of a constructor always results in it not being a constructor any more
+        assert !isConstructor(elem);
+        // add as a method
+        deleteItem(elem);
+        addItem(elem);
+      } else if (isConstructor(elem)) { // or we just made a constructor by deleting the return type of a method with the same name as its class
         deleteItem(elem);
         addItem(elem);
       } else {
-        assert it instanceof MethodItem;
-        // if we remove a return type from a method which is called the same as its containing class, we make it into a constructor
-        if (elem.getReturnType() == null && elem.getName().equals(((PsiClass)elem.getParent()).getName())) {
-          deleteItem(elem);
-          addItem(elem);
-        } else {
-          ((CachedReturnTypeItem)it).invalidateReturnType();
-        }
+        ((CachedReturnTypeItem)it).invalidateReturnType();
       }
-
       // TODO: rebuild valuesByItem (once methods are part of it by return type)
     }
 
@@ -369,27 +344,33 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       System.out.println("changing the name of " + it + " to " + elem.getName());
 
-      // delete from trie (by overwriting the corresponding stored item with a deleted dummy) and add to addedItems
-      Item dummy = new SimpleTypeVar(it.name());
-      dummy.delete();
-      dTrie.overwrite(it, dummy);
+      if (it instanceof ConstructorItem || elem instanceof PsiMethod && isConstructor((PsiMethod)elem)) {
+        // changing the name of a constructor always results in a method, and we can make constructors by changing the
+        // name of a null return type function to the name of its class
 
-      addedItems.put(elem, it);
-      if (localImplicitConstructors.containsKey(elem)) {
-        ConstructorItem itc = localImplicitConstructors.get(elem);
-        dTrie.overwrite(itc, dummy);
-        addedImplicitConstructors.put((PsiClass)elem, itc);
-      }
+        // there may be inner classes of it, but those should only be added in scope scanning
 
-      ((CachedNameItem)it).refreshName();
+        deleteItem(elem);
+        addItem(elem);
+      } else {
+        // regular name change
 
-      // name changes will make references invalid (unresolved, most likely)
-      if (it instanceof RefTypeItem) {
-        // go through all (local) items and check whether they store a reference to it
-        for (Item i : localItems.values()) {
-          if (i instanceof Converter.ReferencingItem) {
-            byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).flushReference(it);
-          }
+        // delete from trie (by overwriting the corresponding stored item with a deleted dummy) and add to addedItems
+        Item dummy = new SimpleTypeVar(it.name());
+        dummy.delete();
+        dTrie.overwrite(it, dummy);
+
+        ((CachedNameItem)it).refreshName();
+
+        // add it with the new name
+        addedItems.put(elem, it);
+
+        // name changes will make references invalid (unresolved, most likely)
+        if (it instanceof RefTypeItem) {
+          // go through all (local) items and check whether they store a reference to it
+          for (Item i : localItems.values())
+            if (i instanceof Converter.ReferencingItem)
+              byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).flushReference(it);
         }
       }
     }
@@ -481,9 +462,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     } finally { popScope(); }
   }
 
-  protected static void storeClassInfo(Place place, GlobalSearchScope scope, JavaEnvironment lookup, Map<PsiElement,Item> items, Map<PsiClass,ConstructorItem> implicitConstructors, boolean doAddBase) {
+  protected static void storeClassInfo(Place place, GlobalSearchScope scope, JavaEnvironment lookup, Map<PsiElement,Item> items, Map<PsiMethod,ConstructorItem> cons, boolean doAddBase) {
     final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
-    final Converter env = new Converter(place,lookup,items,implicitConstructors);
+    final Converter env = new Converter(place,lookup,items,cons);
 
     if (doAddBase)
       addBase(env,scope,true);
@@ -493,8 +474,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       Utility.processEvents();
 
       for (PsiClass cls : cache.getClassesByName(name, scope)) {
-        if (!doAddBase)
-          System.out.println("processing class (" + (doAddBase ? "global" : "local") + "): " + cls.getQualifiedName() + ", accessible: " + !place.isInaccessible(cls, true));
+        //if (!doAddBase)
+        //  System.out.println("processing class (" + (doAddBase ? "global" : "local") + "): " + cls.getQualifiedName() + ", accessible: " + !place.isInaccessible(cls, true));
         if (!place.isInaccessible(cls, true))
           env.addClass(cls, true, true);
       }
@@ -509,12 +490,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       final Place place = new Place(project, null);
 
       final GlobalSearchScope librariesScope = ProjectScope.getLibrariesScope(place.project);
-      storeClassInfo(place, librariesScope, jenv, jenv.items, jenv.implicitConstructors, true);
+      storeClassInfo(place, librariesScope, jenv, jenv.items, jenv.cons, true);
       logger.info("making static environment with " + jenv.items.size() + " items.");
       jenv.buildStaticEnv();
 
       final GlobalSearchScope projectScope = ProjectScope.getProjectScope(place.project);
-      storeClassInfo(place, projectScope, jenv, jenv.localItems, jenv.localImplicitConstructors, false);
+      storeClassInfo(place, projectScope, jenv, jenv.localItems, jenv.localCons, false);
       logger.info("making dynamic environment with " + jenv.localItems.size() + " items.");
       jenv.buildDynamicEnv();
 
@@ -529,9 +510,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private Env getLocalEnvironment(JavaEnvironment jenv) {
     // local variables, parameters, type parameters, as well as protected/private things in scope
     final Map<PsiElement,Item> locals = new HashMap<PsiElement, Item>();
-    final Map<PsiClass,ConstructorItem> localImplicitConstructors = new HashMap<PsiClass, ConstructorItem>();
+    final Map<PsiMethod,ConstructorItem> localCons = new HashMap<PsiMethod, ConstructorItem>();
     final Map<Item,Integer> scopeItems = new HashMap<Item, Integer>();
-    final Converter env = new Converter(place,jenv,locals,localImplicitConstructors);
+    final Converter env = new Converter(place,jenv,locals,localCons);
 
     logger.info("getting local items...");
 
@@ -580,7 +561,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     final List<Item> local_items = new ArrayList<Item>();
     local_items.addAll(locals.values());
-    local_items.addAll(localImplicitConstructors.values());
 
     // find out which element we are inside (method, class or interface, or package)
     ParentItem placeItem = null;
@@ -644,7 +624,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         } else {
           if (placeItem == null) {
             assert locals.containsKey(pkg) || jenv.knows(pkg);
-            placeItem = (ParentItem)env.addContainer(pkg);
+            placeItem = env.addContainer(pkg);
           }
         }
         break;
