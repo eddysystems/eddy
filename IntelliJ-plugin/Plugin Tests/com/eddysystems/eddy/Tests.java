@@ -1,10 +1,11 @@
 package com.eddysystems.eddy;
 
-import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.DataContext;
+import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
-import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.ex.EditorEx;
+import com.intellij.openapi.actionSystem.ex.AnActionListener;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
@@ -12,10 +13,15 @@ import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.projectRoots.impl.JavaAwareProjectJdkTableImpl;
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl;
 import com.intellij.openapi.roots.ContentEntry;
+import com.intellij.openapi.roots.FileIndexFacade;
 import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
-import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
+import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.search.ProjectScope;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
@@ -68,36 +74,20 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
-  private boolean editorAction(Editor editor, String actionId) {
-    final DataContext dataContext = ((EditorEx)editor).getDataContext();
-
-    final ActionManagerEx managerEx = ActionManagerEx.getInstanceEx();
-    final AnAction action = managerEx.getAction(actionId);
-    final AnActionEvent event = new AnActionEvent(null, dataContext, ActionPlaces.UNKNOWN, new Presentation(), managerEx, 0);
-
-    return WriteCommandAction.runWriteCommandAction(getProject(), new Computable<Boolean>() {
-      @Override
-      public Boolean compute() {
-        action.update(event);
-
-        if (!event.getPresentation().isEnabled()) {
-          return false;
-        }
-
-        managerEx.fireBeforeActionPerformed(action, dataContext, event);
-        action.actionPerformed(event);
-        managerEx.fireAfterActionPerformed(action, dataContext, event);
-        return true;
-      }
-    });
-  }
-
   private Eddy makeEddy(@Nullable String special) {
+    // not sure why we have to explicitly call this
     EddyPlugin.getInstance(myFixture.getProject()).initEnv();
     System.out.println("Document:");
     System.out.println(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
     eddy.process(myFixture.getEditor(),special);
+
+    /*
+    for (Map.Entry<PsiElement,Item> it : EddyPlugin.getInstance(myFixture.getProject()).getEnv().items.entrySet()) {
+      if (it.getKey() instanceof PsiClass && ((PsiClass)it.getKey()).getName().equals("Object"))
+        System.out.println("static: " + it.getKey() + " => " + it.getValue());
+    }
+    */
     return eddy;
   }
 
@@ -128,6 +118,23 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       System.out.println("  " + r);
       System.out.println(JavaScores.ppretty(r.dp()).prefixed("  "));
     }
+  }
+
+  private void checkAfterActionPerformed(String actionId, final Runnable check) {
+    // we have to tack onto the action, otherwise everything will be destroyed before we get to it
+    ActionManagerEx.getInstanceEx().addAnActionListener(new AnActionListener() {
+      @Override public void beforeActionPerformed(AnAction action, DataContext dataContext, AnActionEvent event) {}
+      @Override public void beforeEditorTyping(char c, DataContext dataContext) {}
+
+      @Override public void afterActionPerformed(AnAction action, DataContext dataContext, AnActionEvent event) {
+        // must be write action so it happens after the commit
+        PsiDocumentManager.getInstance(myFixture.getProject()).commitAndRunReadAction(check);
+        ActionManagerEx.getInstanceEx().removeAnActionListener(this);
+      }
+    });
+
+    // delete sub
+    myFixture.performEditorAction(actionId);
   }
 
   private void checkResult(Eddy eddy, String expected) {
@@ -165,18 +172,18 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   // actual tests
-  public void testCreateEddy() throws Exception {
+  public void _testCreateEddy() throws Exception {
     Eddy eddy = setupEddy(null,"dummy.java");
     Base.checkEnv(eddy.getEnv());
   }
 
-  public void testProbLE1() {
+  public void _testProbLE1() {
     Eddy eddy = setupEddy(null,"denote_x.java");
     for (Scores.Alt<List<String>> result : eddy.getResults())
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 
-  public void testTypeVar() {
+  public void _testTypeVar() {
     Eddy eddy = setupEddy(null,"typeVar.java");
     int As = 0, Bs = 0, Cs = 0;
     for (Item i : eddy.getEnv().allItems()) {
@@ -191,7 +198,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assert Cs==0;
   }
 
-  public void testImplicitConstructor() {
+  public void _testImplicitConstructor() {
     Eddy eddy = setupEddy(null,"ConstructorTest.java");
     boolean Bc = false, Cc = false;
     for (Item i : eddy.getEnv().allItems()) {
@@ -212,58 +219,104 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("implicitly defined constructor (C) not in environment", Cc);
   }
 
-  public void testClosingBrace() {
+  public void _testClosingBrace() {
     Eddy eddy = setupEddy(null,"closingBrace.java");
     checkBest(eddy,"}",.9);
   }
 
-  public void testPartialEditTypeConflict() {
+  public void _testPartialEditTypeConflict() {
     Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
     checkResult(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>();");
   }
 
-  public void testPartialEditTypeConflictPriority() {
+  public void _testPartialEditTypeConflictPriority() {
     Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
     // because our cursor is hovering at NewType, this is the one we edited, so it should be higher probability
     checkPriority(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>()", "List<OldOldOldType> = new ArrayList<OldOldOldType>()");
   }
 
-  public void testFizz() {
+  public void _testFizz() {
     final String best = "fizz(\"s\", x, q);";
     Eddy eddy = setupEddy(best,"fizz.java");
     checkBest(eddy,best,.9);
   }
 
   public void testPsiListener() {
-    myFixture.configureByFiles("file2.java");
+    PsiFile psifile = myFixture.configureByFile("file2.java");
+    VirtualFile vf = psifile.getVirtualFile();
+
     EddyPlugin plugin = EddyPlugin.getInstance(myFixture.getProject());
     plugin.initEnv();
-    EnvironmentProcessor.JavaEnvironment env = plugin.getEnv();
+    final EnvironmentProcessor.JavaEnvironment env = plugin.getEnv();
+
+    // make sure the project scope is correct
+    final GlobalSearchScope projectScope = ProjectScope.getProjectScope(myFixture.getProject());
+    final FileIndexFacade facade = FileIndexFacade.getInstance(myFixture.getProject());
+    assertTrue(facade.shouldBeFound(projectScope, vf));
+    assertTrue(facade.isInSourceContent(vf));
+    assertTrue(facade.isInContent(vf));
+    assertTrue(facade.isInSource(vf));
+    assertFalse(facade.isExcludedFile(vf));
 
     // find sub and sup objects, and the Super and Sub and Interface ClassItems
-    Items.FieldItem sub = null, sup = null;
-    Items.ClassItem Sub = null, Super = null, Interface = null;
+    Items.FieldItem ssub = null, ssup = null;
+    Items.ClassItem sSub = null, sSuper = null, sInterface = null;
     for (Item it : env.localItems.values()) {
+
+      System.out.println("found local item " + it);
+
       if (it.name().equals("sub")) {
-        sub = (Items.FieldItem)it;
+        ssub = (Items.FieldItem)it;
       }
       if (it.name().equals("sup")) {
-        sup = (Items.FieldItem)it;
+        ssup = (Items.FieldItem)it;
       }
       if (it.name().equals("Sub")) {
-        Sub = (Items.ClassItem)it;
+        sSub = (Items.ClassItem)it;
       }
       if (it.name().equals("Super")) {
-        Super = (Items.ClassItem)it;
+        sSuper = (Items.ClassItem)it;
       }
       if (it.name().equals("Interface")) {
-        Interface = (Items.ClassItem)it;
+        sInterface = (Items.ClassItem)it;
       }
     }
+    final Items.FieldItem sub = ssub, sup = ssup;
+    final Items.ClassItem Sub = sSub, Super = sSuper, Interface = sInterface;
+
     assertNotNull(sub);
     assertNotNull(sup);
     assertNotNull(Sub);
     assertNotNull(Super);
     assertNotNull(Interface);
+
+    final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi());
+
+    // should find sub and sup when looking for Supers
+    assertEquals(tenv.byItem(Super).all().right().get().length(), 2);
+    // should find sub when looking for Subs
+    assertEquals(tenv.byItem(Sub).all().right().get().length(), 1);
+    // should find sub when looking for Interfaces
+    assertEquals(tenv.byItem(Interface).all().right().get().length(), 1);
+
+    checkAfterActionPerformed(IdeActions.ACTION_EDITOR_DELETE_LINE, new Runnable() { @Override public void run() {
+      System.out.println("  sub supers: " + sub.item().supers() + ", items " + sub.item().superItems());
+      System.out.println("  sub deleted? " + sub.deleted());
+
+      final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi());
+
+      // should find sup only when looking for Supers
+      assertEquals(tenv.byItem(Super).all().right().get().length(), 1);
+      // should find sub when looking for Subs
+      assertEquals(tenv.byItem(Sub).all().right().get().length(), 1);
+      // should find sub when looking for Interfaces
+      assertEquals(tenv.byItem(Interface).all().right().get().length(), 1);
+      //myFixture.performEditorAction();
+
+      // check that sub's supers are only Object and Interface
+      assertTrue(sub.inside().item().superItems().contains(Interface));
+      assertTrue(sub.inside().item().superItems().contains(Items.ObjectItem$.MODULE$));
+      assertTrue(sub.inside().item().superItems().length() == 2);
+    }});
   }
 }

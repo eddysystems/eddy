@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.roots.FileIndexFacade;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
 import com.intellij.util.SmartList;
@@ -388,7 +389,7 @@ public class Converter {
       if (_hi != null && _hi.item() == it) {
         _hi = null;
       }
-      if (it instanceof RefTypeItem && _superItems.contains(it)) {
+      if (it instanceof RefTypeItem && _superItems != null && _superItems.contains(it)) {
         _superItems = null;
         return true;
       }
@@ -575,10 +576,10 @@ public class Converter {
       if (_base != null && _base.item() == it)
         _base = null;
 
-      if (it instanceof TypeVar && _tparams.contains(it))
+      if (it instanceof TypeVar && _tparams != null && _tparams.contains(it))
         _tparams = null;
 
-      if (it instanceof RefTypeItem) {
+      if (it instanceof RefTypeItem && _superItems != null) {
         for (int i = 0; i < _superItems.size(); ++i) {
           if (_superItems.apply(i) == it) {
             _supers = null;
@@ -630,9 +631,17 @@ public class Converter {
   RefTypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
     {
       Item i = lookup(cls);
-      if (i != null)
+      if (i != null) {
+        if (recurse) // if we are forced to recurse, we may still have to force fields that were previously unseen
+          addClassMembers(cls, (ClassItem)i, noProtected);
         return (RefTypeItem)i;
+      }
     }
+
+    if (FileIndexFacade.getInstance(place.project).isInSourceContent(cls.getContainingFile().getVirtualFile())) {
+      System.out.println("adding local class " + cls);
+    }
+
     if (cls instanceof PsiTypeParameter)
       return addTypeParam((PsiTypeParameter)cls);
 
@@ -740,10 +749,10 @@ public class Converter {
       if (_parent != null && _parent == it)
         throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
 
-      if (it instanceof TypeVar && _tparams.contains(it))
+      if (it instanceof TypeVar && _tparams != null && _tparams.contains(it))
         _tparams = null;
 
-      if (it instanceof TypeItem) {
+      if (it instanceof TypeItem && _params != null) {
         for (int i = 0; i < _params.size(); ++i) {
           if (_params.apply(i).item() == it) {
             _params = null;
@@ -850,10 +859,10 @@ public class Converter {
       if (_parent != null && _parent == it)
         throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
 
-      if (it instanceof TypeVar && _tparams.contains(it))
+      if (it instanceof TypeVar && _tparams != null &&  _tparams.contains(it))
         _tparams = null;
 
-      if (it instanceof TypeItem) {
+      if (it instanceof TypeItem && _params != null) {
         for (int i = 0; i < _params.size(); ++i) {
           if (_params.apply(i).item() == it) {
             _params = null;

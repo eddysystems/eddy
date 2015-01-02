@@ -141,7 +141,15 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       newitems.addAll(addedItems.values());
       newitems.addAll(addedImplicitConstructors.values());
       final Item[] newArray = newitems.toArray(new Item[newitems.size()]);
+      /*
       System.out.println("made environment: " + sTrie.values().length + " static, " + dTrie.values().length + " dynamic, " + newArray.length + " volatile.");
+      for (Item it : newitems) {
+        if (it instanceof Converter.PsiEquivalent)
+          System.out.println("  volatile item: " + it + " => " + ((Converter.PsiEquivalent)it).psi() + "@" + ((Converter.PsiEquivalent)it).psi().hashCode() + " original " + ((Converter.PsiEquivalent)it).psi().getOriginalElement().hashCode());
+        else
+          System.out.println("  volatile item: " + it);
+      }
+      */
       return Tarski.environment(sTrie, dTrie, Tarski.makeTrie(newArray), sByItem, dByItem, JavaUtils.valuesByItem(newArray), inScope, pinfo);
     }
 
@@ -297,7 +305,10 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("changing the base class of " + it + " to " + elem.getExtendsList());
+      System.out.print("changing the base class of " + it + " to ");
+      for (PsiElement el : elem.getExtendsList().getReferenceElements())
+        System.out.print(" " + el);
+      System.out.println();
 
       ((CachedBaseItem)it).invalidateBase();
       byItemNeedsRebuild = true;
@@ -444,6 +455,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           throw new NotImplementedError("Unknown base type "+item.getClass());
         if (psi == null)
           throw new RuntimeException("Couldn't find "+name);
+        //System.out.println("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
         env.locals.put(psi,item);
       }
 
@@ -481,9 +493,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // keep IDE responsive
       Utility.processEvents();
 
-      for (PsiClass cls : cache.getClassesByName(name, scope))
+      for (PsiClass cls : cache.getClassesByName(name, scope)) {
+        if (!doAddBase)
+          System.out.println("processing class (" + (doAddBase ? "global" : "local") + "): " + cls.getQualifiedName() + ", accessible: " + !place.isInaccessible(cls, true));
         if (!place.isInaccessible(cls, true))
           env.addClass(cls, true, true);
+      }
     }
   }
 
@@ -491,23 +506,19 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     final JavaEnvironment jenv = new JavaEnvironment(project);
 
     pushScope("make base environment");
-    logger.info("making base environment...");
     try {
       final Place place = new Place(project, null);
 
       final GlobalSearchScope librariesScope = ProjectScope.getLibrariesScope(place.project);
       storeClassInfo(place, librariesScope, jenv, jenv.items, jenv.implicitConstructors, true);
-
       logger.info("making static environment with " + jenv.items.size() + " items.");
       jenv.buildStaticEnv();
 
       final GlobalSearchScope projectScope = ProjectScope.getProjectScope(place.project);
       storeClassInfo(place, projectScope, jenv, jenv.localItems, jenv.localImplicitConstructors, false);
-
       logger.info("making dynamic environment with " + jenv.localItems.size() + " items.");
       jenv.buildDynamicEnv();
 
-      logger.info("base environment ready.");
     } finally { popScope(); }
 
     return jenv;

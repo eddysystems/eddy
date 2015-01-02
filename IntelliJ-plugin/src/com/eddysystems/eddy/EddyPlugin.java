@@ -36,12 +36,17 @@ public class EddyPlugin implements ProjectComponent {
   public boolean isInitialized() { return env != null; }
 
   public void initEnv() {
+
+    System.out.println("init env");
+
     if (psiListener != null) {
       PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
     }
 
     if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
       env = EnvironmentProcessor.getEnvironment(project);
+      psiListener = new EddyPsiListener(env);
+      PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
     } else {
       final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
       if (sbar != null) {
@@ -83,7 +88,16 @@ public class EddyPlugin implements ProjectComponent {
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
 
     // initialize the global environment
-    if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
+    if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      /*
+      StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
+        @Override
+        public void run() {
+          initEnv();
+        }
+      });
+      */
+    } else {
       // TODO: maybe run with a ProgressManager function to show a dialog while this is going on
       StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
         @Override

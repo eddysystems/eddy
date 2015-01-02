@@ -12,6 +12,7 @@ public class Test {
     void x() {
         int x;
         int y;
-    }
 
+        Object a[] = new Object[]{};
+    }
 }

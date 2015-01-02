@@ -40,8 +40,30 @@ public class EddyPsiListener implements PsiTreeChangeListener {
       return ElemType.UNKNOWN;
   }
 
+  class ElemInfo {
+    ElemType type;
+    PsiElement elem, p, gp;
+  }
+
+  ElemInfo elemInfo(PsiElement elem) {
+    ElemInfo ei = new ElemInfo();
+    ei.type = elemType(elem);
+    if (ei.type != ElemType.UNKNOWN) {
+      ei.elem = elem;
+      ei.p = elem.getParent();
+      ei.gp = ei.p.getParent();
+    }
+    return ei;
+  }
+
   // map to keep elem type info around between before and after events
-  final Map<PsiElement, ElemType> elemTypes = new HashMap<PsiElement, ElemType>();
+  final Map<PsiElement, ElemInfo> unprocessed = new HashMap<PsiElement, ElemInfo>();
+
+  void rememberUnprocessed(PsiElement elem) {
+    ElemInfo ei = elemInfo(elem);
+    if (ei.type != ElemType.UNKNOWN)
+      unprocessed.put(elem, ei);
+  }
 
   boolean isInsideCodeBlock(PsiElement elem) {
     return PsiTreeUtil.getParentOfType(elem, PsiCodeBlock.class, true) != null;
@@ -99,8 +121,11 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   }
 
   // elem must already be changed
-  private void changeUpward(PsiElement p, ElemType et) {
-    PsiElement gp = p.getParent();
+  private void changeUpward(ElemInfo ei) {
+    ElemType et = ei.type;
+    PsiElement gp = ei.gp;
+    PsiElement p = ei.p;
+    System.out.println("changing " + p + " type " + et);
     switch (et) {
       case BASE: env.changeBase((PsiClass)gp); break;
       case IMPLEMENTS: env.changeImplements((PsiClass)gp); break;
@@ -138,7 +163,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // TODO: if a PsiPackageStatement is added, all classes in this file suddenly switch to the named package
 
     // the rest are item modifications of a containing item up the tree
-    changeUpward(elem.getParent(), elemType(elem));
+    changeUpward(elemInfo(elem));
   }
 
   @Override
@@ -152,14 +177,17 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // TODO: if a PsiPackageStatement is deleted, all classes in this file suddenly switch to LocalPkg!
 
     // save type of element to be deleted
-    elemTypes.put(event.getChild(), elemType(event.getChild()));
+    rememberUnprocessed(event.getChild());
   }
 
   @Override
   public void childRemoved(@NotNull PsiTreeChangeEvent event) {
     // propagate changes up the tree
-    changeUpward(event.getParent(), elemTypes.get(event.getChild()));
-    elemTypes.remove(event.getChild());
+    System.out.println("child removed from " + event.getParent() + ": " + event.getChild());
+    if (unprocessed.containsKey(event.getChild())) {
+      changeUpward(unprocessed.get(event.getChild()));
+      unprocessed.remove(event.getChild());
+    }
   }
 
   @Override
@@ -174,7 +202,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     }
 
     // save type of element to be deleted
-    elemTypes.put(elem, elemType(elem));
+    rememberUnprocessed(elem);
 
     // TODO: if a PsiPackageStatement is modified, all classes in this file change to the package with the new name
   }
@@ -191,22 +219,35 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     }
 
     // partial changes, propagate up
-    ElemType et = elemTypes.get(event.getOldChild());
-    elemTypes.remove(event.getOldChild());
-    ElemType etnew = elemType(elem);
-    changeUpward(event.getParent(), et);
-    if (et != etnew)
-      changeUpward(event.getParent(), etnew);
+    if (unprocessed.containsKey(event.getOldChild())) {
+      changeUpward(unprocessed.get(event.getOldChild()));
+    } else {
+      // maybe the new child triggers an update?
+      ElemInfo ei = elemInfo(event.getNewChild());
+      changeUpward(ei);
+    }
   }
 
   @Override
   public void beforeChildrenChange(@NotNull PsiTreeChangeEvent event) {
+    System.out.println("children of " + event.getParent() + " about to be changed.");
   }
 
   @Override
   public void childrenChanged(@NotNull PsiTreeChangeEvent event) {
     System.out.println("children of " + event.getParent() + " changed");
     // called once per file if stuff inside the file changed
+    // and when there have been a bunch of changes to a node
+
+    // check if there are any unprocessed events we remembered
+    for (Map.Entry<PsiElement,ElemInfo> up : unprocessed.entrySet()) {
+      System.out.println("  unprocessed event " + up.getKey() + " type " + up.getValue().type);
+      if (up.getValue().p.equals(event.getParent())) {
+        System.out.println("  processing unprocessed event " + up.getKey() + " type " + up.getValue().type);
+        changeUpward(up.getValue());
+        unprocessed.remove(up.getKey());
+      }
+    }
   }
 
   @Override
@@ -217,9 +258,9 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     if (event.getOldParent() == event.getNewParent())
       return;
 
-    // we may be able to do better in some cases, but for now, simply translate this to delete/add pair
     // TODO: do something smarter whenever we can: for instance, if this is a field or method, we can simple change its parent
 
+    // translate to delete/add pair
     // delete here, add after the move is complete
     PsiTreeChangeEventImpl delevent = new PsiTreeChangeEventImpl(PsiManager.getInstance(env.project));
     delevent.setChild(event.getChild());

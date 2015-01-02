@@ -685,6 +685,45 @@ class TestDen {
   @Test def newObject() = testDen("new Object()",ApplyExp(NewDen(None,ObjectConsItem),Nil))
   @Test def newObjectBare() = testDen("new Object",ApplyExp(NewDen(None,ObjectConsItem),Nil))
 
+  /*
+  @Test def genericNew() = {
+    val Q = NormalClassItem("Q", LocalPkg)
+    val R = NormalClassItem("R", LocalPkg)
+    val A = NormalTypeVar("A", Q, Nil)
+    val B = NormalTypeVar("B", R, Nil)
+    var constructors: Array[ConstructorItem] = Array()
+    val X = NormalClassItem("X", LocalPkg, List(A), constructors = constructors )
+    val XcAB = NormalConstructorItem(X,List(B),List(A,B))
+    val XcB = NormalConstructorItem(X,List(B),List(B))
+    val XcA = NormalConstructorItem(X,Nil,List(A))
+    val Xc = NormalConstructorItem(X,Nil,Nil)
+    constructors = Array(XcAB, XcB, XcA, Xc)
+    val q = LocalVariableItem("q", Q, isFinal=true)
+    val r = LocalVariableItem("r", Q, isFinal=true)
+    // class Q {}
+    // class R {}
+    // class X<A extends Q> {
+    //   <B extends R> X(A a, B b) {}
+    //   <B extends R> X(B b) {}
+    //   X(A a) {}
+    //   X() {}
+    // }
+    // class XX {
+    //   void ff() {
+    //     <caret>
+    //   }
+    // }
+    implicit val env = localEnv().extendLocal(Array(Q,R,A,B,X), 3).extendLocal(Array(q,r),1)
+    // without needing inference, this should process properly
+    testDen("x = <>X<>()", ApplyExp(TypeApply(NewDen(None,Xc), List(IntType.box, DoubleType.box)), List(1,1.0)))
+
+    // these should all be inferred properly
+    testDen("x = X(q,r)", ApplyExp(TypeApply(NewDen(None,XcAB), List(IntType.box, DoubleType.box)), List(1,1.0)))
+    testDen("x = X(q)", ApplyExp(TypeApply(NewDen(None,XcAB), List(IntType.box, DoubleType.box)), List(1,1.0)))
+    testDen("x = X(r)", ApplyExp(TypeApply(NewDen(None,XcAB), List(IntType.box, DoubleType.box)), List(1,1.0)))
+  }
+  */
+
   @Test def classInPackage() = {
     val P = PackageItem("P","P")
     lazy val A: ClassItem = NormalClassItem("A",P,constructors=Array(cons))
