@@ -776,7 +776,7 @@ public class Converter {
     public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
-    public Option<Parent> safe() { return new Some<Parent>(this); }
+    public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
     public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }
@@ -892,7 +892,7 @@ public class Converter {
     public boolean equals(Object x) { return this == x; }
     public boolean canEqual(Object x) { return this == x; }
     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
-    public Option<Parent> safe() { return new Some<Parent>(this); }
+    public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
     public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
     public int productArity() { throw new NotImplementedError("Should never happen"); }
     public Object productElement(int i) { throw new NotImplementedError("Should never happen"); }

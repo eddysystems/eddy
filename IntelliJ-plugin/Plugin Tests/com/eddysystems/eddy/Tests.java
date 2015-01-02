@@ -172,18 +172,18 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   // actual tests
-  public void _testCreateEddy() throws Exception {
+  public void testCreateEddy() throws Exception {
     Eddy eddy = setupEddy(null,"dummy.java");
     Base.checkEnv(eddy.getEnv());
   }
 
-  public void _testProbLE1() {
+  public void testProbLE1() {
     Eddy eddy = setupEddy(null,"denote_x.java");
     for (Scores.Alt<List<String>> result : eddy.getResults())
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 
-  public void _testTypeVar() {
+  public void testTypeVar() {
     Eddy eddy = setupEddy(null,"typeVar.java");
     int As = 0, Bs = 0, Cs = 0;
     for (Item i : eddy.getEnv().allItems()) {
@@ -198,7 +198,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assert Cs==0;
   }
 
-  public void _testImplicitConstructor() {
+  public void testImplicitConstructor() {
     Eddy eddy = setupEddy(null,"ConstructorTest.java");
     boolean Bc = false, Cc = false;
     for (Item i : eddy.getEnv().allItems()) {
@@ -219,23 +219,23 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("implicitly defined constructor (C) not in environment", Cc);
   }
 
-  public void _testClosingBrace() {
+  public void testClosingBrace() {
     Eddy eddy = setupEddy(null,"closingBrace.java");
     checkBest(eddy,"}",.9);
   }
 
-  public void _testPartialEditTypeConflict() {
+  public void testPartialEditTypeConflict() {
     Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
     checkResult(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>();");
   }
 
-  public void _testPartialEditTypeConflictPriority() {
+  public void testPartialEditTypeConflictPriority() {
     Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
     // because our cursor is hovering at NewType, this is the one we edited, so it should be higher probability
     checkPriority(eddy, "List<NewNewNewType> = new ArrayList<NewNewNewType>()", "List<OldOldOldType> = new ArrayList<OldOldOldType>()");
   }
 
-  public void _testFizz() {
+  public void testFizz() {
     final String best = "fizz(\"s\", x, q);";
     Eddy eddy = setupEddy(best,"fizz.java");
     checkBest(eddy,best,.9);

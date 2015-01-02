@@ -442,7 +442,7 @@ class TestDen {
     testDen("f(s,b,d,x)", ApplyExp(f,List(x,d,s,b)))
   }
 
-  @Test def omittedQualifier() = {
+  @Test def omittedQualifier(): Unit = {
     val P = PackageItem("com.P", "com.P")
     val Z = NormalClassItem("Z", P, Nil)
     val Zx = NormalStaticFieldItem("x", BooleanType, Z, false)
