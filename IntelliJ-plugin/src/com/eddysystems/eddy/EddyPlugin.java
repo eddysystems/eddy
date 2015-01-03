@@ -44,6 +44,8 @@ public class EddyPlugin implements ProjectComponent {
     }
 
     if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      // free env before allocating the new one
+      env = null;
       env = EnvironmentProcessor.getEnvironment(project);
       psiListener = new EddyPsiListener(env);
       PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);

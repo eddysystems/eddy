@@ -20,6 +20,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.testFramework.LightProjectDescriptor;
@@ -130,6 +131,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   private Eddy makeEddy(@Nullable String special) {
     // not sure why we have to explicitly call this
+    PsiManager.getInstance(myFixture.getProject()).dropResolveCaches();
     EddyPlugin.getInstance(myFixture.getProject()).initEnv();
     log("Document:");
     log(myFixture.getEditor().getDocument().getCharsSequence());
@@ -269,21 +271,24 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     Eddy eddy = setupEddy(null,"ConstructorTest.java");
     boolean Bc = false, Cc = false;
     for (Item i : eddy.getEnv().allItems()) {
-      if (!(i instanceof Items.ConstructorItem))
+      if (!(i instanceof Items.ClassItem))
         continue;
-      if (((Items.ConstructorItem) i).parent().name().equals("A") || ((Items.ConstructorItem) i).parent().name().equals("B") || ((Items.ConstructorItem) i).parent().name().equals("C"))
-        log("found constructor " + i.name() + " (" + i.qualifiedName() + ") for class " + ((Items.ConstructorItem) i).parent().name() + " info " + ((Items.ConstructorItem) i).params());
+      if (i.name().equals("A") || i.name().equals("B") || i.name().equals("C"))
+        log("found class " + i.name() + " (" + i.qualifiedName() + ")");
       if (i.name().equals("A"))
-        throw new AssertionError("found constructor" + i + " which should be private and inAccessible");
-      if (i.name().equals("B") && ((Items.ConstructorItem) i).params().isEmpty())
-        throw new AssertionError("found constructor" + i + " which is not implicitly declared (another constructor is)");
-      if (i.name().equals("B") && ((Items.ConstructorItem) i).params().contains(Types.IntType$.MODULE$))
-        Bc = true;
-      if (i.name().equals("C"))
-        Cc = true;
+        assertEquals("found constructor for " + i + " which should be private and inAccessible", ((Items.ClassItem) i).constructors().length, 0);
+      if (i.name().equals("B")) {
+        Items.ConstructorItem cons[] = ((Items.ClassItem)i).constructors();
+        assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
+        assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 1);
+        assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().head(), Types.IntType$.MODULE$);
+      }
+      if (i.name().equals("C")) {
+        Items.ConstructorItem cons[] = ((Items.ClassItem)i).constructors();
+        assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
+        assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 0);
+      }
     }
-    assertTrue("constructor (B) not in environment", Bc);
-    assertTrue("implicitly defined constructor (C) not in environment", Cc);
   }
 
   public void testClosingBrace() {
@@ -385,7 +390,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       assertTrue(sub.inside().item().superItems().contains(Items.ObjectItem$.MODULE$));
       assertTrue(sub.inside().item().superItems().length() == 2);
 
-      // some constructor modification tests
+      // TODO: some constructor modification tests as below
 
       // check that there is a single constructor to Super (with double arg)
       // check that there are two methods in Super, one f(int)->void and one Super(boolean)->void

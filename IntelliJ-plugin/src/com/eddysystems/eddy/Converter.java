@@ -518,12 +518,16 @@ public class Converter {
     public ConstructorItem[] constructors() {
       if (_constructors == null) {
         final ArrayList<ConstructorItem> cons = new ArrayList<ConstructorItem>();
+        boolean found = false;
         for (PsiMethod m : cls.getConstructors())
-          if (env.jenv.isConstructor(m))
-            cons.add((ConstructorItem)env.addMethod(m));
+          if (env.jenv.isConstructor(m)) {
+            found = true;
+            if (!env.place.isInaccessible(m,false))
+              cons.add((ConstructorItem)env.addMethod(m));
+          }
 
         // add implicit constructor if no others declared
-        if (cons.isEmpty()) {
+        if (!found) {
           cons.add(new DefaultConstructorItem(this));
         }
 

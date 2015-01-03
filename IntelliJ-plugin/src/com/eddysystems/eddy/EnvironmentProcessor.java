@@ -609,11 +609,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
           if (jenv.knows(place))
-            placeItem = (ParentItem)jenv.items.get(place);
+            placeItem = (ParentItem)jenv.lookup(place);
           else if (locals.containsKey(place))
             placeItem = (ParentItem)locals.get(place);
+          else if (localCons.containsKey(place))
+            placeItem = localCons.get(place);
           else
-            assert false : "cannot find placeItem";
+            assert false : "cannot find placeItem " + place;
         }
       } else if (place instanceof PsiJavaFile) {
         final PsiPackage pkg = this.place.getPackage((PsiJavaFile) place);
