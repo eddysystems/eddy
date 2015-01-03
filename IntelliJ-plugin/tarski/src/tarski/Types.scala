@@ -40,6 +40,9 @@ object Types {
 
     // If we're generic, become raw
     def raw: Type
+
+    // Recursively capture convert, producing a type with no wildcards anywhere
+    def captureAll: Type
   }
   sealed abstract class LangType extends Type { // Primitive or void
     def supers = Nil
@@ -49,6 +52,7 @@ object Types {
     def substitute(implicit env: Tenv): this.type = this
     def safe = Some(this)
     def raw = this
+    def captureAll = this
   }
   case object VoidType extends LangType {
     def item = ubVoidItem
@@ -122,6 +126,7 @@ object Types {
     def substitute(implicit env: Tenv): RefType
     def safe: Option[RefType]
     def raw: RefType
+    def captureAll: RefType
   }
 
   // Class types are either Object, simple, raw, or generic
@@ -147,6 +152,7 @@ object Types {
     def substitute(implicit env: Tenv): this.type = this
     def safe = Some(this)
     def raw = this
+    def captureAll = this
   }
   case class SimpleType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
@@ -158,6 +164,7 @@ object Types {
     def substitute(implicit env: Tenv) = SimpleType(item,parent.substitute)
     def safe = parent.safe map (SimpleType(item,_))
     def raw = SimpleType(item,parent.raw)
+    def captureAll = this
   }
   case class RawType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
@@ -168,6 +175,7 @@ object Types {
     def substitute(implicit env: Tenv) = RawType(item,parent.substitute)
     def safe = parent.safe map (RawType(item,_))
     def raw = this
+    def captureAll = this
   }
   case class GenericType(item: ClassItem, args: List[TypeArg], parent: Parent) extends ClassType {
     def env() = capture(item.tparams,args,parent.env)._1
@@ -181,6 +189,7 @@ object Types {
     }
     def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield GenericType(item,a,p)
     def raw = RawType(item,parent.raw)
+    def captureAll = GenericType(item,capture(item.tparams,args map (_.captureAll),Map.empty)._2,parent)
   }
 
   // Type arguments are either reference types or wildcards.  4.5.1
@@ -188,6 +197,7 @@ object Types {
     def known(implicit env: Tenv): Boolean
     def substitute(implicit env: Tenv): TypeArg
     def safe: Option[TypeArg]
+    def captureAll: TypeArg // Apply capture conversion to our bounds, but not this wildcard itself
   }
   sealed trait Wildcard extends TypeArg {
     val t: RefType
@@ -196,10 +206,12 @@ object Types {
   case class WildSub(t: RefType = ObjectType) extends Wildcard {
     def substitute(implicit env: Tenv) = WildSub(t.substitute)
     def safe = t.safe map WildSub
+    def captureAll = WildSub(t.captureAll)
   }
   case class WildSuper(t: RefType) extends Wildcard {
     def substitute(implicit env: Tenv) = WildSuper(t.substitute)
     def safe = t.safe map WildSuper
+    def captureAll = WildSuper(t.captureAll)
   }
 
   // Nonclass reference types: null, type variables, intersection types, and arrays
@@ -212,11 +224,13 @@ object Types {
     def substitute(implicit env: Tenv): this.type = this
     def safe = Some(ObjectType) // nulltype becomes Object
     def raw = this
+    def captureAll = this
   }
   abstract class TypeVar extends RefType with RefTypeItem with RefEq {
     def name: Name
     def lo: RefType // Lower bound (e.g., nulltype)
     def hi: RefType // Upper bound (e.g., Object)
+    def isFresh: Boolean
 
     def supers = List(hi)
     def item = this
@@ -236,8 +250,10 @@ object Types {
     def inside = this
     def raw: TypeVar = this
     def qualifiedName: Option[String] = None
+    def captureAll = this
   }
   case class IntersectType(ts: Set[RefType]) extends RefType {
+    if (false) assert(ts forall (x => ts.forall (y => x==y || !isSubitem(x.item,y.item))),s"Bad interface type $ts")
     def item = NoTypeItem
     def supers = ts.toList flatMap (_.supers)
     def isFinal = false
@@ -246,6 +262,7 @@ object Types {
     def substitute(implicit env: Tenv) = IntersectType(ts map (_.substitute))
     def safe = allSome(ts map (_.safe)) map IntersectType
     def raw = IntersectType(ts map (_.raw))
+    def captureAll = IntersectType(ts map (_.captureAll))
   }
   case class ArrayType(t: Type) extends RefType {
     def item = ArrayItem
@@ -259,6 +276,7 @@ object Types {
     def substitute(implicit env: Tenv) = ArrayType(t.substitute)
     def safe = t.safe map ArrayType
     def raw = ArrayType(t.raw)
+    def captureAll = ArrayType(t.captureAll)
   }
 
   // Type environments
@@ -348,10 +366,12 @@ object Types {
   def capture(tparams: List[TypeVar], args: List[TypeArg], base: Tenv): (Tenv,List[RefType]) = {
     assert(tparams.size == args.size)
     // FreshVar contains public vars, but that's fine since its definition doesn't escape this function
-    case class FreshVar(name: Name) extends TypeVar {
+    case class FreshVar(original: Name) extends TypeVar {
+      def name = original+"'"
       def superItems = throw new RuntimeException("Should never happen")
       var lo: RefType = null
       var hi: RefType = null
+      def isFresh = true
     }
     var fills: List[Tenv => Unit] = Nil
     val vts = (tparams,args).zipped map { case (v,t) => (v,t match {
@@ -523,7 +543,15 @@ object Types {
   def glb[A <: RefType](xs: List[A]): RefType = xs match {
     case Nil => ObjectType
     case List(x) => x
-    case xs => IntersectType(xs.toSet)
+    case List(x,y) =>
+      if (isSubitem(x.item,y.item)) x
+      else if (isSubitem(y.item,x.item)) y
+      else IntersectType(Set(x,y))
+    case xs => xs filter (x => xs forall (y => (x eq y) || !isSubitem(y.item,x.item))) match {
+      case Nil => impossible
+      case List(x) => x
+      case xs => IntersectType(xs.toSet)
+    }
   }
 
   // Combine left and right sides of a conditional expression
@@ -606,19 +634,19 @@ object Types {
 
   // given argument types ts, which signatures are still usable? ts is allowed to be shorter than f.params,
   // all signatures still possible after matching the prefix are returned.
-  def resolveOptions[F <: Signature](fs: List[F], ts: List[Type]): List[(F,List[RefType])] = {
+  def resolveOptions[F <: Signature](fs: List[F], ts: List[Type]): List[(F,List[TypeArg])] = {
     val n = ts.size
     // TODO: Handle access restrictions (public, private, protected) and scoping
     // TODO: Handle variable arity
     def potentiallyCompatible(f: F): Boolean = f.params.size >= n && {
       (f.params,ts).zipped forall {case (p,t) => true}} // TODO: Handle poly expression constraints
-    def compatible(f: F, form: Inference.Form, context: (Type,Type) => Boolean): Option[List[RefType]] =
+    def compatible(f: F, form: Inference.Form, context: (Type,Type) => Boolean): Option[List[TypeArg]] =
       if (f.tparams.isEmpty)
         if ((f.params.slice(0,ts.size),ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
         else None
       else Inference.infer(f.tparams,f.params.slice(0,ts.size),ts)(form)
-    def strictCompatible(f: F): Option[List[RefType]] = compatible(f,Inference.strictBounds, strictInvokeContext)
-    def looseCompatible (f: F): Option[List[RefType]] = compatible(f,Inference.looseBounds , looseInvokeContext)
+    def strictCompatible(f: F): Option[List[TypeArg]] = compatible(f,Inference.strictBounds, strictInvokeContext)
+    def looseCompatible (f: F): Option[List[TypeArg]] = compatible(f,Inference.looseBounds , looseInvokeContext)
     // narrow down candidates
     val potential = fs filter potentiallyCompatible
     val applies = potential flatMap (f => strictCompatible(f).map((f,_)).toList) match {
@@ -629,8 +657,8 @@ object Types {
   }
 
   // resolve an overloaded function
-  def resolve[F <: Signature](fs: List[F], ts: List[Type]): Option[(F,List[RefType])] = {
-    def mostSpecific(fs: List[(F,List[RefType])]): Option[(F,List[RefType])] = fs match {
+  def resolve[F <: Signature](fs: List[F], ts: List[Type]): Option[(F,List[TypeArg])] = {
+    def mostSpecific(fs: List[(F,List[TypeArg])]): Option[(F,List[TypeArg])] = fs match {
       case Nil => None
       case List(f) => Some(f)
       case _ => notImplemented // TODO: more inference

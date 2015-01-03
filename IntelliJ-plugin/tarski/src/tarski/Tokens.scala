@@ -285,17 +285,30 @@ object Tokens {
     case _:PhantomTok => throw new RuntimeException(s"Shouldn't be printing phantom token $t")
   }
 
-  def showSep(ts: List[Token], sep: String): String =
-    ts map show mkString sep
-
-  def showSep[A](x: A, sep: String)(implicit p: Pretty[A]): String =
-    tokens(x) map show mkString sep
-
-  def show(ts: List[Token]): String =
-    ts map show mkString " "
-
-  def show[A](x: A)(implicit p: Pretty[A]): String =
+  // Convert to a string, adding whitespace between every token
+  def showSep[A](x: A)(implicit p: Pretty[A]): String =
     tokens(x) map show mkString " "
+
+  // Convert to a string, adding as little whitespace as possible
+  def show[A](x: A)(implicit p: Pretty[A]): String = {
+    def process(ts: List[Token]): String = ts match {
+      case Nil => ""
+      case x::Nil => show(x)
+      case x::(ys@(y::_)) =>
+        def safe(x: Token, y: Token) = (x,y) match {
+          case (LParenTok|LBrackTok,_) => true
+          case (_,RParenTok|RBrackTok) => true
+          case (_:IdentTok,LParenTok|LBrackTok) => true
+          case (_:IdentTok|QuestionTok,LtTok|GtTok)|(LtTok|GtTok,_:IdentTok|QuestionTok) => true
+          case (GtTok,GtTok) => true
+          case (_,DotTok)|(DotTok,_) => true
+          case (_,SemiTok) => true
+          case _ => false
+        }
+        show(x) + (if (safe(x,y)) "" else " ") + process(ys)
+    }
+    process(tokens(x))
+  }
 
   // Prepare a token stream for parsing.
   // 1. Turn matching identifiers into fake keywords.

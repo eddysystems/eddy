@@ -8,6 +8,7 @@ import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
 import scala.annotation.tailrec
+import scala.language.implicitConversions
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
@@ -46,17 +47,23 @@ object Items {
     val superItems = supers map (_.item)
     def lo = NullType
     val hi = glb(supers)
+    def isFresh = false
   }
   case class SimpleTypeVar(name: String) extends TypeVar {
     def superItems = List(ObjectItem)
     def lo = NullType
     def hi = ObjectType
+    def isFresh = false
   }
 
   // Packages
   case class PackageItem(name: Name, qualified: Name) extends Item with SimpleParentItem {
     def qualifiedName = Some(qualified)
     def simple = this
+
+    override def toString =
+      if (this eq LocalPkg) "LocalPkg"
+      else s"PackageItem($name${if (name==qualified) "" else s",$qualified"})"
   }
 
   // Annotations
@@ -74,7 +81,7 @@ object Items {
   }
   abstract class LangTypeItem extends TypeItem {
     def ty: LangType
-    val name = show(pretty(ty))
+    val name = show(ty)
     def qualifiedName = Some(name)
     def supers = Nil
     def superItems = Nil
@@ -185,6 +192,14 @@ object Items {
     def isFinal = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
+
+    override def toString = {
+      def f[A](s: String, x: A, d: A) = if (x == d) "" else s",$s=$x"
+      (s"NormalInterfaceItem($name"
+        + (if (parent==LocalPkg) "" else s",$parent")
+        + f("tparams",tparams,Nil)
+        + f("interfaces",interfaces,Nil))
+    }
   }
   object NormalInterfaceItem {
     def apply(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
@@ -193,7 +208,7 @@ object Items {
       new NormalInterfaceItem(name,parent,tparams,interfaces,fields,constructors)
   }
 
-  class NormalClassItem(val name: Name, val parent: ParentItem, val tparams: List[TypeVar] = Nil,
+  class NormalClassItem(val name: Name, val parent: ParentItem = LocalPkg, val tparams: List[TypeVar] = Nil,
                         val base: ClassType = ObjectType, val interfaces: List[ClassType] = Nil,
                         val isFinal: Boolean = false, val fields: Set[String] = Set(),
                         _constructors: => Array[ConstructorItem] = noConstructors) extends ClassItem {
@@ -203,9 +218,19 @@ object Items {
     def isEnum = false
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
+
+    override def toString = {
+      def f[A](s: String, x: A, d: A) = if (x == d) "" else s",$s=$x"
+      (s"NormalClassItem($name"
+        + (if (parent==LocalPkg) "" else s",$parent")
+        + f("tparams",tparams,Nil)
+        + f("base",base,ObjectType)
+        + f("interfaces",interfaces,Nil)
+        + f("isFinal",isFinal,false))
+    }
   }
   object NormalClassItem {
-    def apply(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
+    def apply(name: Name, parent: ParentItem = LocalPkg, tparams: List[TypeVar] = Nil,
               base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
               isFinal: Boolean = false, fields: Set[String] = Set(),
               constructors: => Array[ConstructorItem] = noConstructors): ClassItem =

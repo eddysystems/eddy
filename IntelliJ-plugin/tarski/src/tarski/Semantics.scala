@@ -81,7 +81,7 @@ object Semantics {
     def absorb(vs: List[TypeVar], f: List[TypeArg] => TypeOrCallable)(above: Above[List[TypeArg]]): Scored[TypeOrCallable] =
       above match { case Above(ds,ts) =>
         if (couldMatch(vs,ts)) known(f(ts).discard(ds))
-        else fail(s"Arguments ${ts map (a => showSep(a,"")) mkString ", "} don't fit type variables ${vs map details mkString ", "}")
+        else fail(s"Arguments ${ts map (a => show(a)) mkString ", "} don't fit type variables ${vs map details mkString ", "}")
       }
     f match {
       case _ if n==0 => known((ts: Above[List[TypeArg]]) => known(f))
@@ -374,13 +374,13 @@ object Semantics {
       val tx = x.ty
       val ty = y.ty
       if (binaryLegal(op,tx,ty)) single(BinaryExp(op,x,y), Pr.binaryExp)
-      else fail("${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
+      else fail(s"${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
     }}
 
     case CastAExp(t,x) if m.exp => product(denoteType(t),denoteExp(x)) flatMap {case (TypeDen(ds,t),x) => {
       val tx = x.ty
       if (castsTo(tx,t)) single(CastExp(t,x).discard(ds),Pr.castExp)
-      else fail("${show(e)}: can't cast ${show(tx)} to ${show(t)}")
+      else fail(s"${show(e)}: can't cast ${show(tx)} to ${show(t)}")
     }}
 
     case CondAExp(c,x,y) if m.exp =>

@@ -1,11 +1,13 @@
 package tarski
 
 import ambiguity.Utility._
+import tarski.Pretty._
 import tarski.Types._
+import tarski.Tokens._
+import tarski.Environment.Env
+import scala.annotation.tailrec
+import scala.language.implicitConversions
 
-/**
- * Created by martin on 11.12.14.
- */
 object Inference {
   // Bounds: 18.1.3.  Each of these refers to an ambient type variable s
   type Var = TypeVar
@@ -16,12 +18,34 @@ object Inference {
   case class Capture(vs: List[Var], t: GenericType) // TODO: captures
   // TODO: throws
 
+  // Pretty printing support
+  private implicit val emptyEnv = Env(Array(),Map.empty)
+  implicit def prettyBounds(bs: Bounds): (Fixity,Tokens) = (HighestFix, IdentTok("Bounds") :: LParenTok ::
+    separate(bs.toList map (tokens(_)),List(CommaTok)) ::: List(RParenTok))
+  implicit def prettyBound(vb: (Var,Bound)): (Fixity,Tokens) = (HighestFix, vb match {
+    case (v,Fixed(t)) => tokens(v) ::: EqTok :: tokens(t)
+    case (v,Bounded(lo,hi)) =>
+      val tlo = if (lo.isEmpty) Nil else separate(lo.toList map (tokens(_)),List(CommaTok)) ::: List(LeTok)
+      val thi = if (hi.isEmpty) Nil else LeTok :: separate(hi.toList map (tokens(_)),List(CommaTok))
+      tlo ::: tokens(v) ::: thi
+    //case (v,Capture(vs,t)) => tokens(v) ::: EqTok :: IdentTok("capture(") :: separate(vs.map(tokens) ::: List(tokens(t)),List(CommaTok))
+  })
+  def shows[A](x: List[A])(implicit p: Pretty[A]) = x map (show(_)) mkString ", "
+
+  // Thrown only when debugging is on
+  class InferError(s: String) extends RuntimeException(s)
+
   // Debugging support
+  private val debug = true
+  if (debug)
+    println("DEBUGGING WARNING: Inference debugging enabled")
   private def log(s: => String): Unit =
-    if (false) println(s)
+    if (debug && true) println(s)
   private def fail(s: => String): Option[Bounds] = {
-    if (false) println("fail: "+s)
-    if (false) throw new RuntimeException("fail: "+s)
+    if (debug) {
+      if (true) println("fail: "+s)
+      if (true) throw new InferError(s)
+    }
     None
   }
 
@@ -57,7 +81,7 @@ object Inference {
       case _ => Set()
     }
     case IntersectType(ts) => ts flatMap (vars(bs,_))
-    case v:TypeVar => Set(v)
+    case v:TypeVar => if (bs contains v) Set(v) else Set()
     case t:Wildcard => vars(bs,t.t)
     case NullType => Set()
   }
@@ -100,7 +124,7 @@ object Inference {
         throw new NotImplementedError("not sure what to do about occurs checks")
       else {
         implicit val env = Map(s -> Some(t))
-        log(s"incorporateEqual: fixing $s = $t")
+        log(s"incorporateEqual: fixing ${show(s)} = ${show(t)}")
         val bs2 = bs+((s,Fixed(t)))
         def sub(bs: Bounds, ub: (Var,Bound)): Option[Bounds] = {
           val (u,b) = ub
@@ -139,9 +163,9 @@ object Inference {
 
   // Turn a compatibility constraint s -> t into bounds: 18.2.2
   def compatForm(bs: Bounds, s: Type, t: Type): Option[Bounds] = {
-    log(s"compatForm: bs $bs, s $s, t $t, proper(s) ${isProper(bs,s)}, proper(t) ${isProper(bs,t)}")
+    log(s"compatForm: bs ${show(bs)}, s ${show(s)}, t ${show(t)}, proper(s) ${isProper(bs,s)}, proper(t) ${isProper(bs,t)}")
     if (isProper(bs,s) && isProper(bs,t))
-      if (looseInvokeContext(s,t)) Some(bs) else fail(s"compatForm: proper $s -> $t invalid")
+      if (looseInvokeContext(s,t)) Some(bs) else fail(s"compatForm: proper ${show(s)} -> ${show(t)} invalid")
     else (s,t) match {
       case (VoidType,_)|(_,VoidType) => fail("compatForm: void invalid")
       case (s:PrimType,t) => compatForm(bs,s.box,t)
@@ -153,12 +177,12 @@ object Inference {
 
   // Turn a subtyping constraint s <: t into bounds: 18.2.3
   def subForm(bs: Bounds, s: RefType, t: RefType): Option[Bounds] = {
-    log(s"subForm: bs $bs, s $s, t $t")
+    log(s"subForm: bs ${show(bs)}, s ${show(s)}, t ${show(t)}")
     if (isProper(bs,s) && isProper(bs,t))
-      if (isSubtype(s,t)) Some(bs) else fail(s"subForm: proper $s !<: proper $t")
+      if (isSubtype(s,t)) Some(bs) else fail(s"subForm: proper ${show(s)} !<: proper ${show(t)}")
     else (s,t) match {
       case (NullType,_) => Some(bs)
-      case (_,NullType) => fail(s"subForm: $s !<: nulltype")
+      case (_,NullType) => fail(s"subForm: ${show(s)} !<: nulltype")
       case (s:TypeVar,t) if bs contains s => incorporateSub(bs,s,t)
       case (s,t:TypeVar) if bs contains t => incorporateSub(bs,s,t)
       case (s,t:GenericType) => supers(s)
@@ -166,18 +190,18 @@ object Inference {
         .headOption
         .flatMap(ss => forms(bs,ss.args,t.args)(containForm))
       case (s,_:ClassType) =>
-        if (supers(s) contains t) Some(bs) else fail(s"subForm: supers($s) lacks $t")
+        if (supers(s) contains t) Some(bs) else fail(s"subForm: supers(${show(s)} lacks ${show(t)}")
       case (s,ArrayType(t)) => s match {
         case ArrayType(s) => (s,t) match {
           case (s:RefType,t:RefType) => subForm(bs,s,t) // Java arrays are covariant, even though they shouldn't be
-          case _ => if (s == t) Some(bs) else fail(s"subForm: different primitive array types $s and $t")
+          case _ => if (s == t) Some(bs) else fail(s"subForm: different primitive array types ${show(s)} and ${show(t)}")
         }
-        case _ => fail(s"subForm: $s is not an array type, ArrayType($t) is")
+        case _ => fail(s"subForm: ${show(s)} is not an array type, ArrayType(${show(t)} is")
       }
       case (s,_:TypeVar) => s match {
         case IntersectType(ss) if ss contains t => Some(bs)
         // TODO: Handle case where t has a lower bound
-        case _ => fail(s"subForm: $s does not contain $t")
+        case _ => fail(s"subForm: ${show(s)} does not contain ${show(t)}")
       }
       case (s,IntersectType(ts)) => forms(bs,ts.toList)(subForm(_,s,_))
     }
@@ -185,35 +209,36 @@ object Inference {
 
   // Turn a containment constraint s <= t into bounds: 18.2.3 (second half)
   def containForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = {
-    log(s"containForm: bs $bs, s $s, t $t")
+    log(s"containForm: bs ${show(bs)}, s ${show(s)}, t ${show(t)}")
     (s,t) match {
       case (s:RefType,   t:RefType) => equalForm(bs,s,t)
-      case (s:Wildcard,  t:RefType) => fail("types do not contain wildcards")
+      case (s:Wildcard,  t:RefType) => fail(s"Types do not contain wildcards: ${show(s)} !<= ${show(t)}")
       case (s:RefType,   WildSub(t)) => subForm(bs,s,t)
       case (WildSub(s),  WildSub(t)) => subForm(bs,s,t)
       case (WildSuper(s),WildSub(t)) => equalForm(bs,ObjectType,t)
       case (s:RefType,   WildSuper(t)) => subForm(bs,t,s)
       case (WildSuper(s),WildSuper(t)) => subForm(bs,t,s)
-      case (WildSub(s),  WildSuper(t)) => fail("incompatible wildcards")
+      case (WildSub(s),  WildSuper(t)) => fail(s"Incompatible wildcards: ${show(s)} !<= ${show(t)}")
     }
   }
 
   def equalForm(bs: Bounds, s: RefType, t: RefType): Option[Bounds] = {
-    log(s"equalForm: bs $bs, s $s, t $t")
+    log(s"equalForm: bs ${show(bs)}, s ${show(s)}, t ${show(t)}")
     if (isProper(bs,s) && isProper(bs,t))
-      if (s == t) Some(bs) else fail(s"equalForm: proper $s != $t")
+      if (s == t) Some(bs) else fail(s"equalForm: proper ${show(s)} != ${show(t)}")
     else (s,t) match {
       case (s:TypeVar,t) if bs contains s => incorporateEqual(bs,s,t)
       case (s,t:TypeVar) if bs contains t => incorporateEqual(bs,t,s)
       case (s:GenericType,t:GenericType) =>
-        if (s.parent == t.parent) forms(bs,s.args,t.args)(equalForm) else fail(s"equalForm: class ${s.parent} != ${t.parent}")
+        if (s.parent == t.parent) forms(bs,s.args,t.args)(equalForm)
+        else fail(s"equalForm: class ${show(s.parent)} != ${show(t.parent)}")
       case (ArrayType(s),ArrayType(t)) => equalForm(bs,s,t)
-      case _ => fail(s"equalForm: skipping $s, $t") // IntersectType intentionally skipped as per spec
+      case _ => fail(s"equalForm: skipping ${show(s)}, ${show(t)}") // IntersectType intentionally skipped as per spec
     }
   }
   def equalForm(bs: Bounds, s: Type, t: Type): Option[Bounds] = (s,t) match {
     case (s:RefType,t:RefType) => equalForm(bs,s,t)
-    case (s,t) => if (s == t) Some(bs) else fail(s"equalForm: nonref $s != $t")
+    case (s,t) => if (s == t) Some(bs) else fail(s"equalForm: nonref ${show(s)} != ${show(t)}")
   }
   def equalForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = (s,t) match {
     case (s:RefType,t:RefType) => equalForm(bs,s,t)
@@ -222,7 +247,7 @@ object Inference {
 
   // Resolution: 18.4
   def resolve(bs: Bounds, vs: List[Var]): Option[Bounds] = {
-    log(s"resolve: bs $bs, vs $vs")
+    log(s"resolve: bs ${show(bs)}, vs ${shows(vs)}")
     // Determine dependencies, without ensuring reflexivity or transitivity
     val depends = bs mapValues {
       case Fixed(t) => vars(bs,t)
@@ -253,23 +278,42 @@ object Inference {
 
   // Extract proper types for inference variables
   // TODO: This probably needs to change for infinite types
-  def extract(bs: Bounds, ps: List[Var]): List[RefType] = {
-    def clean(t: RefType): Boolean = t match {
-      case t:ClassType => t.args forall cleanArg
-      case v:TypeVar => !bs.contains(v)
-      case IntersectType(ts) => ts forall clean
+  def extract(bs: Bounds, ps: List[Var]): List[TypeArg] = {
+    def cleanV(t: TypeVar): TypeArg =
+      if (!t.isFresh) { assert(!bs.contains(t)); t }
+      else if (t.lo == NullType) WildSub(t.hi)
+      else if (t.hi == ObjectType) WildSuper(t.lo)
+      else WildSub()
+    def cleanR(t: RefType): TypeArg = t match {
+      case GenericType(c,ts,p) => GenericType(c,ts map cleanA,p)
+      case t:TypeVar => cleanV(t)
+      case IntersectType(ts) =>
+        @tailrec def loop(prev: List[RefType], next: List[TypeArg], wild: Boolean): TypeArg = next match {
+          case Nil =>
+            val int = IntersectType(prev.toSet)
+            if (wild) WildSub(int) else int
+          case (t:RefType)::ts => loop(t::prev,ts,wild)
+          case WildSub(t)::ts => loop(t::prev,ts,wild=true)
+          case WildSuper(t)::_ => WildSub()
+        }
+        loop(Nil,ts.toList map cleanR,wild=false)
       case ArrayType(t) => t match {
-        case t: RefType => clean(t)
-        case _ => true
+        case t:RefType => cleanR(t) match {
+          case t:RefType => ArrayType(t)
+          case WildSub(t) => WildSub(ArrayType(t))
+          case WildSuper(t) => WildSuper(ArrayType(t))
+        }
+        case t:LangType => ArrayType(t)
       }
-      case NullType => true
+      case NullType|ObjectType|_:RawType|_:SimpleType => t
     }
-    def cleanArg(t: TypeArg): Boolean = t match {
-      case t:RefType => clean(t)
-      case _:Wildcard => false
+    def cleanA(t: TypeArg): TypeArg = t match {
+      case t:TypeVar => cleanV(t)
+      case t:RefType => cleanR(t)
+      case t:Wildcard => impossible
     }
     ps.map(v => bs(v) match {
-      case Fixed(t) => assert(clean(t)); t
+      case Fixed(t) => cleanR(t)
       case Bounded(_,_) => throw new RuntimeException("can't extract unresolved inference variable")
     })
   }
@@ -299,11 +343,11 @@ object Inference {
   // TODO: Handle variable arity
   // TODO: We do not incorporate return type information as described in 18.5.2.
   type Form = (Bounds,Type,Type) => Option[Bounds]
-  def infer(ps: List[Var], ts: List[Type], as: List[Type])(form: Form): Option[List[RefType]] = {
-    log(s"infer:\n  ps $ps\n  ts $ts\n  as $as")
+  def infer(ps: List[Var], ts: List[Type], as: List[Type])(form: Form): Option[List[TypeArg]] = {
+    log(s"infer:\n  ps ${shows(ps)}\n  ts ${shows(ts)}\n  as ${shows(as)}")
     // TODO: Freshen variables ps to handle recursion correctly
-    log("start: "+startBounds(ps))
-    forms(startBounds(ps),as,ts)(form)
+    log(s"start: ${show(startBounds(ps))}")
+    forms(startBounds(ps),as map (_.captureAll),ts)(form)
       .flatMap(resolve(_,ps))
       .map(extract(_,ps))
   }

@@ -17,9 +17,9 @@ object ArgMatching {
     // Incrementally add parameters and check whether the function still resolves
     val n = f.params.size
     val na = args.size
-    @inline def finish(types: List[RefType], args: List[Exp]): ApplyExp =
+    @inline def finish(types: List[TypeArg], args: List[Exp]): ApplyExp =
       ApplyExp(Denotations.uncheckedAddTypeArgs(f,types),args)
-    def process(k: Int, targs: List[RefType], used: List[Exp], unused: List[Scored[Exp]]): Scored[ApplyExp] = {
+    def process(k: Int, targs: List[TypeArg], used: List[Exp], unused: List[Scored[Exp]]): Scored[ApplyExp] = {
       if (k == n)
         known(finish(targs,used))
       else {

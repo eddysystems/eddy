@@ -18,7 +18,7 @@ class TestPretty {
   implicit val env = testEnv
 
   def test[A](s: String, x: A)(implicit p: Pretty[A]) =
-    assertEquals(s"$s -> ${show(tokens(x))}", lex(s).filterNot(isSpace), tokens(x))
+    assertEquals(s"$s -> ${show(x)}", lex(s).filterNot(isSpace), tokens(x))
 
   @Test def obj() = test("Object", ObjectType)
   @Test def objMethod() = test("Object.f",NormalMethodItem("f",ObjectItem,Nil,VoidType,Nil,true))
@@ -59,4 +59,8 @@ class TestPretty {
     test("A.B", B.simple)
     test("D", D.simple)
   }
+
+  @Test def wild() = test("?",WildSub())
+  @Test def wildSub() = test("? extends Number",WildSub(NumberItem.simple))
+  @Test def wildSuper() = test("? super Number",WildSuper(NumberItem.simple))
 }

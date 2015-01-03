@@ -44,16 +44,16 @@ class TestParse {
 
   @Test
   def pretty(): Unit = {
-    def check(s: String, e: AExp) = assertEquals(s,show(tokens(e)))
+    def check(s: String, e: AExp) = assertEquals(s,show(e))
     def add(x: AExp, y: AExp) = BinaryAExp(AddOp,x,y)
     def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,x,y)
 
     check("1 + 2 + 3",     add(add(1,2),3))
-    check("1 + ( 2 + 3 )", add(1,add(2,3)))
+    check("1 + (2 + 3)", add(1,add(2,3)))
     check("1 + 2 * 3",     add(1,mul(2,3)))
     check("1 * 2 + 3",     add(mul(1,2),3))
-    check("1 * ( 2 + 3 )", mul(1,add(2,3)))
-    check("( 1 + 2 ) * 3", mul(add(1,2),3))
+    check("1 * (2 + 3)", mul(1,add(2,3)))
+    check("(1 + 2) * 3", mul(add(1,2),3))
   }
 
   def testAST(s: String, ss: List[AStmt]*): Unit = {

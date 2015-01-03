@@ -315,6 +315,8 @@ object Pretty {
       case i:Item => pretty(i.name)
     }
   }
+  implicit def prettyParentItem(i: Item with Parent)(implicit env: Env): (Fixity,Tokens) =
+    prettyItem(i)
 
   implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = t match {
     case t:LangType => prettyLangType(t)
@@ -332,27 +334,29 @@ object Pretty {
     case DoubleType  => DoubleTok
     case CharType    => CharTok
   }))
-  implicit def prettyRefType(t: RefType)(implicit env: Env): (Fixity,Tokens) = {
-    def cls(t: ClassType): (Fixity,Tokens) =
-      if (t.args.isEmpty) pretty(t.item)
-      else (ApplyFix, tokens(t.item) ::: LtTok :: tokens(CommaList(t.args)) ::: List(GtTok))
-
-    t match {
-      case NullType => pretty("nulltype")
-      case t:ClassType => cls(t)
-      case x:TypeVar => prettyTypeVar(x)
-      case IntersectType(ts) => pretty(AndList(ts.toList))
-      case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok,RBrackTok))
-      case _ => impossible // Otherwise, Scala warns about nonexhaustive match for _: this.<local child>
-    }
+  implicit def prettyRefType(t: RefType)(implicit env: Env): (Fixity,Tokens) = t match {
+    case NullType => pretty("nulltype")
+    case t:ClassType => prettyClassType(t)
+    case x:TypeVar => prettyTypeVar(x)
+    case IntersectType(ts) => pretty(AndList(ts.toList))
+    case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok,RBrackTok))
+    case _ => impossible // Otherwise, Scala warns about nonexhaustive match for _: this.<local child>
   }
+  implicit def prettyClassType(t: ClassType)(implicit env: Env): (Fixity,Tokens) =
+    if (t.args.isEmpty) pretty(t.item)
+    else (ApplyFix, tokens(t.item) ::: LtTok :: tokens(CommaList(t.args)) ::: List(GtTok))
   implicit def prettyTypeArg(t: TypeArg)(implicit env: Env): (Fixity,Tokens) = {
     def wild(t: RefType, d: Token) = fix(WildFix, QuestionTok :: d :: right(_,t))
     t match {
       case t:RefType => pretty(t)
+      case WildSub(t) if t == ObjectType => (HighestFix,List(QuestionTok))
       case WildSub(t) => wild(t,ExtendsTok)
       case WildSuper(t) => wild(t,SuperTok)
     }
+  }
+  implicit def prettyParent(p: Parent)(implicit env: Env): (Fixity,Tokens) = p match {
+    case t:ClassType => prettyClassType(t)
+    case t:SimpleParent => prettyItem(t.item)
   }
   implicit def prettyLit(x: Lit) = (HighestFix, List(x match {
     case ByteLit(v,s) => IntLitTok(s)
@@ -477,8 +481,8 @@ object Pretty {
   // Print a type variable with bound details
   def details(v: TypeVar)(implicit env: Env): String = {
     val mid = v.name
-    val pre = if (v.lo == NullType) mid else s"${showSep(v.lo,"")} extends $mid"
-    if (v.hi == ObjectType) pre else s"$pre extends ${showSep(v.hi,"")}"
+    val pre = if (v.lo == NullType) mid else s"${show(v.lo)} extends $mid"
+    if (v.hi == ObjectType) pre else s"$pre extends ${show(v.hi)}"
   }
 
   // For debugging use only.  The user should never see.

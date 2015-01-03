@@ -76,17 +76,6 @@ object Tarski {
     }).asJava
   }
 
-  def prettyJava(ss: java.util.List[Stmt], e: Env): String = {
-    implicit val env = e
-    show(tokens(ss.asScala.toList))
-  }
-
-  def pretty(s: Stmt)(implicit env: Env): String =
-    show(tokens(s))
-
-  def pretty(ss: java.util.List[Stmt])(implicit env: Env): String =
-    show(tokens(ss.asScala.toList))
-
   def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     val asts = Mismatch.repair(prepare(tokens)) flatMap (ts => {
       val asts = ParseEddy.parse(ts)

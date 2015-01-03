@@ -365,6 +365,10 @@ public class Converter {
       return _hi;
     }
 
+    public boolean isFresh() {
+      return false;
+    }
+
     public scala.collection.immutable.List<RefTypeItem> superItems() {
       if (_superItems == null) {
         List<RefTypeItem> supers = new SmartList<RefTypeItem>();
