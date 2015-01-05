@@ -47,4 +47,7 @@ class TestInfer {
     }
     testInfer(T -> WildSub(NumberItem))(A.generic(List(T)))(A.generic(List(WildSub(NumberItem))))
   }
+
+  // Warn if debugging is left on
+  @Test def noDebugInfer() = assertEquals(false,Inference.debug)
 }

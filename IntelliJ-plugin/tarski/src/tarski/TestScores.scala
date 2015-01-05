@@ -116,6 +116,7 @@ class TestScores {
     test(af,x.collect(f,"fail"))
   }
 
-  // Warn if trackErrors is true
+  // Warn if debugging is left on
   @Test def noTrackErrors() = assertEquals(false,trackErrors)
+  @Test def noTrackProbabilities() = assertEquals(false,trackProbabilities)
 }
