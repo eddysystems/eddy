@@ -36,7 +36,7 @@ object Inference {
   class InferError(s: String) extends RuntimeException(s)
 
   // Debugging support
-  private val debug = true
+  private val debug = false
   if (debug)
     println("DEBUGGING WARNING: Inference debugging enabled")
   private def log(s: => String): Unit =
