@@ -1,7 +1,6 @@
 package com.eddysystems.eddy;
 
 import ambiguity.JavaUtils;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.scope.BaseScopeProcessor;
@@ -11,7 +10,9 @@ import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.PsiShortNamesCache;
+import com.intellij.util.Processor;
 import com.intellij.util.SmartList;
+import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
 import scala.NotImplementedError;
 import scala.collection.JavaConversions;
@@ -28,6 +29,7 @@ import java.util.*;
 
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
+import static com.eddysystems.eddy.Utility.log;
 
 /**
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
@@ -194,7 +196,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("deleting " + it);
+      log("deleting " + it);
       it.delete();
 
       if (it instanceof ConstructorItem) {
@@ -247,18 +249,18 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("changing the modifiers on " + it + " to " + elem.getModifierList());
+      log("changing the modifiers on " + it + " to " + elem.getModifierList());
 
       // the psi allows things that are not legal -- we don't
       if (it instanceof SettableFinalItem)
         ((SettableFinalItem)(it)).setFinal(elem.hasModifierProperty(PsiModifier.FINAL));
       else
-        System.out.println("  can't set final modifier on " + it);
+        log("  can't set final modifier on " + it);
 
       if (it instanceof SettableStaticItem)
         ((SettableStaticItem)(it)).setStatic(elem.hasModifierProperty(PsiModifier.STATIC));
       else
-        System.out.println("  can't set static modifier on " + it);
+        log("  can't set static modifier on " + it);
     }
 
     void changeTypeParameters(PsiTypeParameterListOwner elem) {
@@ -266,7 +268,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("changing the type parameters of " + it + " to " + elem.getTypeParameterList());
+      log("changing the type parameters of " + it + " to " + elem.getTypeParameterList());
 
       ((CachedTypeParametersItem)it).invalidateTypeParameters();
     }
@@ -276,10 +278,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.print("changing the base class of " + it + " to ");
-      for (PsiElement el : elem.getExtendsList().getReferenceElements())
-        System.out.print(" " + el);
-      System.out.println();
+      log("changing the base class of " + it + " to ");
+      log(elem.getExtendsList().getReferenceElements());
 
       ((CachedBaseItem)it).invalidateBase();
       byItemNeedsRebuild = true;
@@ -290,7 +290,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("changing the implements list of " + it + " to " + elem.getImplementsList());
+      log("changing the implements list of " + it + " to " + elem.getImplementsList());
 
       ((CachedSupersItem)it).invalidateSupers();
       byItemNeedsRebuild = true;
@@ -301,7 +301,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("changing the implements list of " + it + " to " + elem.getParameterList());
+      log("changing the implements list of " + it + " to " + elem.getParameterList());
 
       ((CachedParametersItem)it).invalidateParameters();
     }
@@ -317,7 +317,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("changing the return type of " + it + " to " + elem.getReturnType());
+      log("changing the return type of " + it + " to " + elem.getReturnType());
 
       if (it instanceof ConstructorItem) {
         // changing the return type of a constructor always results in it not being a constructor any more
@@ -342,7 +342,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (it == null)
         return;
 
-      System.out.println("changing the name of " + it + " to " + elem.getName());
+      log("changing the name of " + it + " to " + elem.getName());
 
       if (it instanceof ConstructorItem || elem instanceof PsiMethod && isConstructor((PsiMethod)elem)) {
         // changing the name of a constructor always results in a method, and we can make constructors by changing the
@@ -375,8 +375,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
   }
-
-  private static final @NotNull Logger logger = Logger.getInstance("EnvironmentProcessor");
 
   private final @NotNull Place place;
   public class ShadowElement<E> {
@@ -435,7 +433,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
           throw new NotImplementedError("Unknown base type "+item.getClass());
         if (psi == null)
           throw new RuntimeException("Couldn't find "+name);
-        //System.out.println("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
+        //log("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
         env.locals.put(psi,item);
       }
 
@@ -448,7 +446,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         assert cls != null;
         final PsiMethod[] cons = cls.getConstructors();
         if (cons.length != 1)
-          logger.warn("found constructors for Object: #" + cons.length);
+          log("found " + cons.length + " constructors for Object " + cls);
         env.locals.put(cons[0],item);
       }
 
@@ -462,24 +460,26 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     } finally { popScope(); }
   }
 
-  protected static void storeClassInfo(Place place, GlobalSearchScope scope, JavaEnvironment lookup, Map<PsiElement,Item> items, Map<PsiMethod,ConstructorItem> cons, boolean doAddBase) {
+  protected static void storeClassInfo(final Place place, final GlobalSearchScope scope, JavaEnvironment lookup, Map<PsiElement,Item> items, Map<PsiMethod,ConstructorItem> cons, boolean doAddBase) {
     final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
     final Converter env = new Converter(place,lookup,items,cons);
 
     if (doAddBase)
       addBase(env,scope,true);
 
-    for (String name : cache.getAllClassNames()) {
-      // keep IDE responsive
-      Utility.processEvents();
+    cache.processAllClassNames(new Processor<String>() {
+      @Override
+      public boolean process(String name) {
+        //log("processing classname: " + name + ", free memory: " + Runtime.getRuntime().freeMemory());
 
-      for (PsiClass cls : cache.getClassesByName(name, scope)) {
-        //if (!doAddBase)
-        //  System.out.println("processing class (" + (doAddBase ? "global" : "local") + "): " + cls.getQualifiedName() + ", accessible: " + !place.isInaccessible(cls, true));
-        if (!place.isInaccessible(cls, true))
-          env.addClass(cls, true, true);
+        for (PsiClass cls : cache.getClassesByName(name, scope)) {
+          //if (!doAddBase)
+          if (!place.isInaccessible(cls, true))
+            env.addClass(cls, true, true);
+        }
+        return true;
       }
-    }
+    }, scope, IdFilter.getProjectIdFilter(place.project, true));
   }
 
   protected static JavaEnvironment getEnvironment(Project project) {
@@ -491,12 +491,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
       final GlobalSearchScope librariesScope = ProjectScope.getLibrariesScope(place.project);
       storeClassInfo(place, librariesScope, jenv, jenv.items, jenv.cons, true);
-      logger.info("making static environment with " + jenv.items.size() + " items.");
+      log("making static environment with " + jenv.items.size() + " items.");
       jenv.buildStaticEnv();
 
       final GlobalSearchScope projectScope = ProjectScope.getProjectScope(place.project);
       storeClassInfo(place, projectScope, jenv, jenv.localItems, jenv.localCons, false);
-      logger.info("making dynamic environment with " + jenv.localItems.size() + " items.");
+      log("making dynamic environment with " + jenv.localItems.size() + " items.");
       jenv.buildDynamicEnv();
 
     } finally { popScope(); }
@@ -514,7 +514,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     final Map<Item,Integer> scopeItems = new HashMap<Item, Integer>();
     final Converter env = new Converter(place,jenv,locals,localCons);
 
-    logger.info("getting local items...");
+    log("getting local items...");
 
     // register locally visible items
     for (ShadowElement<PsiPackage> spkg : packages) {
@@ -557,7 +557,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       }
     }
 
-    logger.info("added " + locals.size() + " locals");
+    log("added " + locals.size() + " locals");
 
     final List<Item> local_items = new ArrayList<Item>();
     local_items.addAll(locals.values());
@@ -574,16 +574,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (placeItem != null) {
         if (place instanceof PsiLabeledStatement) {
           // found a label
-          logger.info("found a labeled statement: " + place + ", label: " + ((PsiLabeledStatement) place).getLabelIdentifier());
+          log("found a labeled statement: " + place + ", label: " + ((PsiLabeledStatement) place).getLabelIdentifier());
           labels.add(((PsiLabeledStatement) place).getLabelIdentifier().getText());
         }
 
         if (place instanceof PsiSwitchStatement) {
-          logger.info("inside switch statement: " + place);
+          log("inside switch statement: " + place);
           inside_breakable = true;
         }
         if (place instanceof PsiLoopStatement) {
-          logger.info("inside loop statement: " + place);
+          log("inside loop statement: " + place);
           inside_breakable = true;
           inside_continuable = true;
         }
@@ -635,7 +635,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     assert placeItem != null;
 
-    logger.info("environment (" + local_items.size() + " local items) taken inside " + placeItem + ", making env");
+    log("environment (" + local_items.size() + " local items) taken inside " + placeItem + ", making env");
 
     return jenv.makeEnvironment(local_items, scopeItems, new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
   }
@@ -662,11 +662,11 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
 
     if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element, false)) {
-      logger.debug("rejecting " + element + " because it is inaccessible");
+      //log("rejecting " + element + " because it is inaccessible");
       return true;
     }
 
-    logger.debug("found element " + element + " at level " + currentLevel);
+    //log("found element " + element + " at level " + currentLevel);
 
     if (element instanceof PsiClass) {
       classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
@@ -683,14 +683,14 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   @Override
   public final void handleEvent(@NotNull Event event, Object associated){
     if (event == JavaScopeProcessorEvent.START_STATIC) {
-      logger.debug("starting static scope");
+      log("starting static scope");
       inStaticScope = true;
     } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
       currentFileContext = (PsiElement)associated;
-      logger.debug("switching file context: " + currentFileContext);
+      log("switching file context: " + currentFileContext);
     } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
       currentLevel++;
-      logger.debug("change level to " + currentLevel);
+      log("change level to " + currentLevel);
     }
   }
 }

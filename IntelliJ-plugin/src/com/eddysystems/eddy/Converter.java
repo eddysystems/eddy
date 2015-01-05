@@ -1,6 +1,5 @@
 package com.eddysystems.eddy;
 
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.roots.FileIndexFacade;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
@@ -22,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.eddysystems.eddy.Utility.log;
+
 public class Converter {
   public final Place place;
   public final EnvironmentProcessor.JavaEnvironment jenv;
@@ -29,8 +30,6 @@ public class Converter {
   // We will add to this
   public final Map<PsiElement, Item> locals;
   public final Map<PsiMethod, ConstructorItem> cons;
-
-  private final @NotNull Logger logger = Logger.getInstance(getClass());
 
   Converter(Place place,
             EnvironmentProcessor.JavaEnvironment jenv,
@@ -94,11 +93,7 @@ public class Converter {
           jparams.add(convertTypeArg(tp,parent));
         scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
-        //logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
-
         ClassItem item = (ClassItem)addClass(tcls,false,false);
-
-        //logger.debug("  item: " + item + ": params " + item.tparams().mkString("[",",","]"));
 
         assert params.size() == ((PsiClassType)t).getParameterCount();
 
@@ -631,7 +626,7 @@ public class Converter {
     }
 
     if (FileIndexFacade.getInstance(place.project).isInSourceContent(cls.getContainingFile().getVirtualFile())) {
-      System.out.println("adding local class " + cls);
+      log("adding local class " + cls);
     }
 
     if (cls instanceof PsiTypeParameter)

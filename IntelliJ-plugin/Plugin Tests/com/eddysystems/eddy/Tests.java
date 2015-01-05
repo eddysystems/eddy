@@ -32,11 +32,11 @@ import tarski.*;
 import tarski.Items.Item;
 import tarski.Scores.Alt;
 
-import java.util.Collection;
 import java.util.List;
 
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
+import static com.eddysystems.eddy.Utility.log;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
@@ -77,61 +77,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
-  private static String applyIndent(String s, String indent) {
-    return indent + s.replaceAll("\n", "\n" + indent);
-  }
-
-  private static <A> String arrayString(A[] a) {
-    String s = a.getClass().getName() + " (" + a.length + " elements):\n";
-    int i = 0;
-    for (A it : a) {
-      if (i++ > 10) {
-        log("  ...\n");
-        break;
-      }
-      s += applyIndent(logString(it), "  ") + '\n';
-    }
-    return s;
-  }
-
-  private static <A> String collectionString(Collection<A> c) {
-    String s = c.getClass().getName() + " (" + c.size() + " elements):\n";
-    int i = 0;
-    for (A it : c) {
-      if (i++ > 10) {
-        s += "  ...\n";
-        break;
-      }
-      s += applyIndent(logString(it), "  ") + '\n';
-    }
-    return s;
-  }
-
-  private static String logString(Object obj) {
-    // special handling for collections and arrays
-    if (obj instanceof Collection<?>) {
-      return collectionString((Collection<Object>)obj);
-    } else if (obj.getClass().isArray()) {
-      return arrayString((Object[])obj);
-    } else
-      // ls is a regular object
-      return obj.toString();
-  }
-
-  // can't use logger in test mode. Sucks.
-  private static void log(Object msg) {
-    System.out.println(logString(msg));
-  }
-  private static void log(String msg) {
-    System.out.println(msg);
-  }
-  private static void logNNL(String msg) {
-    System.out.print(msg);
-  }
-
   private Eddy makeEddy(@Nullable String special) {
     // not sure why we have to explicitly call this
     PsiManager.getInstance(myFixture.getProject()).dropResolveCaches();
+    EddyPlugin.getInstance(myFixture.getProject()).dropEnv();
     EddyPlugin.getInstance(myFixture.getProject()).initEnv();
     log("Document:");
     log(myFixture.getEditor().getDocument().getCharsSequence());
@@ -386,9 +335,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       //myFixture.performEditorAction();
 
       // check that sub's supers are only Object and Interface
-      assertTrue(sub.inside().item().superItems().contains(Interface));
-      assertTrue(sub.inside().item().superItems().contains(Items.ObjectItem$.MODULE$));
-      assertTrue(sub.inside().item().superItems().length() == 2);
+      log("  sub superItems: " + sub.item().superItems());
+      assertTrue(sub.item().superItems().contains(Interface));
+      assertTrue(sub.item().superItems().contains(Items.ObjectItem$.MODULE$));
+      assertTrue(sub.item().superItems().length() == 2);
 
       // TODO: some constructor modification tests as below
 

@@ -2,7 +2,6 @@ package com.eddysystems.eddy;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ProjectComponent;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
@@ -11,17 +10,16 @@ import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiTreeChangeListener;
-import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.eddysystems.eddy.EnvironmentProcessor.JavaEnvironment;
+import static com.eddysystems.eddy.Utility.log;
 
 public class EddyPlugin implements ProjectComponent {
   private Project project;
-  private Logger logger = Logger.getInstance(getClass());
   private EddyInjector injector;
   private EddyWidget widget = new EddyWidget(this);
 
@@ -35,9 +33,14 @@ public class EddyPlugin implements ProjectComponent {
   public JavaEnvironment getEnv() { return env; }
   public boolean isInitialized() { return env != null; }
 
+  public void dropEnv() {
+    env = null;
+    Runtime.getRuntime().gc();
+  }
+
   public void initEnv() {
 
-    System.out.println("init env");
+    log("start init environment");
 
     if (psiListener != null) {
       PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
@@ -71,8 +74,7 @@ public class EddyPlugin implements ProjectComponent {
 
     projectMap.put(project, this);
 
-    logger.setLevel(Level.DEBUG);
-    logger.info("available memory: total " + Runtime.getRuntime().totalMemory() + ", max " + Runtime.getRuntime().maxMemory() + ", free " + Runtime.getRuntime().freeMemory());
+    log("available memory: total " + Runtime.getRuntime().totalMemory() + ", max " + Runtime.getRuntime().maxMemory() + ", free " + Runtime.getRuntime().freeMemory());
 
     this.project = project;
     injector = new EddyInjector(project);
@@ -132,7 +134,7 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void disposeComponent() {
-    System.out.println("disposing plugin.");
+    log("disposing plugin.");
 
     assert ApplicationManager.getApplication().isDispatchThread();
 

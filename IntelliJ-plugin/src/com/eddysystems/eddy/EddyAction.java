@@ -10,6 +10,8 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 
+import static com.eddysystems.eddy.Utility.log;
+
 public class EddyAction implements QuestionAction {
 
   private Eddy eddy;
@@ -24,7 +26,7 @@ public class EddyAction implements QuestionAction {
 
   @Override
   public boolean execute() {
-    System.out.println("executing EddyAction");
+    log("executing EddyAction");
 
     if (eddy.single()) {
       eddy.applyBest();
@@ -44,13 +46,11 @@ public class EddyAction implements QuestionAction {
 
           @Override
           public PopupStep onChosen(String selectedValue, boolean finalChoice) {
-            System.out.println("selected: " + selectedValue);
             if (selectedValue == null) {
               return FINAL_CHOICE;
             }
 
             if (finalChoice) {
-              System.out.println("applying: " + selectedValue);
               Eddy.apply(selectedValue, editor, replace_range);
               return FINAL_CHOICE;
             }

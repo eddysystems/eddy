@@ -6,6 +6,8 @@ import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static com.eddysystems.eddy.Utility.log;
+
 public class Place {
   public final @NotNull Project project;
   public final @Nullable PsiElement place;
@@ -31,6 +33,12 @@ public class Place {
     return JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile)(elem.getContainingFile())).getPackageName());
   }
 
+  class UnexpectedContainerError extends RuntimeException {
+    UnexpectedContainerError(PsiElement elem) {
+      super("unexpected container of " + elem + ": " + elem.getParent() + " in file " + elem.getContainingFile());
+    }
+  }
+
   PsiElement containing(PsiElement elem) {
     PsiElement parent = elem.getParent();
     if (parent instanceof PsiPackage) {
@@ -49,7 +57,7 @@ public class Place {
       assert elem instanceof PsiTypeParameter;
       return ((PsiTypeParameter)elem).getOwner();
     }
-    throw new RuntimeException("unexpected container of " + elem + ": " + parent);
+    throw new UnexpectedContainerError(elem);
   }
 
   boolean samePackage(PsiElement element) {
@@ -68,19 +76,25 @@ public class Place {
     // TODO: this does not fully take into account the crazier access rules for protected members (6.6.1/6.6.2)
     // TODO: this deserves some unit tests, must be multi-package
 
-    PsiElement container = containing(element);
+    PsiElement container = null;
+    try {
+      container = containing(element);
+    } catch (UnexpectedContainerError e) {
+      log(e.getMessage());
+      return true;
+    }
 
     if (container instanceof PsiPackage) {
       if (element.hasModifierProperty(PsiModifier.PUBLIC)) {
         return false;
       } else {
         if (noProtected) {
-          //System.out.println(element + " is not public inside package " + container);
+          //log(element + " is not public inside package " + container);
           return true;
         }
 
         if (file != null && container != pkg) {
-          //System.out.println(element + " is inaccessible because it is package-local in package " + container);
+          //log(element + " is inaccessible because it is package-local in package " + container);
           return true;
         }
 
@@ -90,7 +104,7 @@ public class Place {
 
     if (element.hasModifierProperty(PsiModifier.PRIVATE)) {
       if (noProtected) {
-        //System.out.println(element + " is private inside " + container);
+        //log(element + " is private inside " + container);
         return true;
       }
 
@@ -104,13 +118,13 @@ public class Place {
           containingPlaceClass = PsiTreeUtil.getParentOfType(containingPlaceClass, PsiClass.class, true);
         }
         if (containingPlaceClass == null) {
-          //System.out.println(element + " is inaccessible because it is private inside " + container);
+          //lof(element + " is inaccessible because it is private inside " + container);
           return true;
         }
       }
     } else if (element.hasModifierProperty(PsiModifier.PROTECTED)) {
       if (noProtected) {
-        //System.out.println(element + " is protected inside " + container);
+        //log(element + " is protected inside " + container);
         return true;
       }
 
@@ -124,7 +138,7 @@ public class Place {
         }
         if (containingPlaceClass == null) {
           if (!samePackage(container)) {
-            //System.out.println(element + " is inaccessible because it is protected inside " + container);
+            //log(element + " is inaccessible because it is protected inside " + container);
             return true;
           } else
             return false;
@@ -133,12 +147,12 @@ public class Place {
     } else if (!element.hasModifierProperty(PsiModifier.PUBLIC)) {
       // package access, only allowed if we're in the same package
       if (noProtected) {
-        //System.out.println(element + " is not public inside " + container);
+        //log(element + " is not public inside " + container);
         return true;
       }
 
       if (!samePackage(container)) {
-        //System.out.println(element + " is inaccessible because it is package-local inside " + getPackage(file));
+        //log(element + " is inaccessible because it is package-local inside " + getPackage(file));
         return true;
       } else
         return false;
@@ -146,7 +160,7 @@ public class Place {
 
     if (container instanceof PsiModifierListOwner) {
       boolean ii = isInaccessible((PsiModifierListOwner)container, noProtected);
-      //if (ii) System.out.println("  " + element + " is inaccessible because its container " + container + " is inaccessible");
+      //if (ii) log("  " + element + " is inaccessible because its container " + container + " is inaccessible");
       return ii;
     } else
       // null
