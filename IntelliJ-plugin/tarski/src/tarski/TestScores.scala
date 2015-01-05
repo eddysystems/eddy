@@ -115,4 +115,7 @@ class TestScores {
     assertEquals(15,af.size)
     test(af,x.collect(f,"fail"))
   }
+
+  // Warn if trackErrors is true
+  @Test def noTrackErrors() = assertEquals(false,trackErrors)
 }
