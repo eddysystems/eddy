@@ -198,7 +198,8 @@ object Items {
       (s"NormalInterfaceItem($name"
         + (if (parent==LocalPkg) "" else s",$parent")
         + f("tparams",tparams,Nil)
-        + f("interfaces",interfaces,Nil))
+        + f("interfaces",interfaces,Nil)
+        + ')')
     }
   }
   object NormalInterfaceItem {
@@ -226,7 +227,8 @@ object Items {
         + f("tparams",tparams,Nil)
         + f("base",base,ObjectType)
         + f("interfaces",interfaces,Nil)
-        + f("isFinal",isFinal,false))
+        + f("isFinal",isFinal,false)
+        + ')')
     }
   }
   object NormalClassItem {
