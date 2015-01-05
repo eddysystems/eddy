@@ -445,6 +445,8 @@ public class Converter {
       this._isFinal = cls.hasModifierProperty(PsiModifier.FINAL);
     }
 
+    public String toString() { return "LazyClass:" + _name; }
+
     public String name() {
       return _name;
     }
@@ -687,6 +689,8 @@ public class Converter {
       this.method = method;
     }
 
+    public String toString() { return "LazyConstructor:" + name(); }
+
     // Core interface
     public ClassItem parent() {
       if (_parent == null)
@@ -765,6 +769,8 @@ public class Converter {
       this._name = method.getName();
       this._isStatic = method.hasModifierProperty(PsiModifier.STATIC);
     }
+
+    public String toString() { return "LazyMethod:" + _name; }
 
     // Core interface
     public String name() {
@@ -895,6 +901,8 @@ public class Converter {
       this._isFinal = isFinal;
       this._isStatic = isStatic;
     }
+
+    public String toString() { return "LazyField:" + _name; }
 
     public String name() {
       return _name;

@@ -81,7 +81,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     // not sure why we have to explicitly call this
     PsiManager.getInstance(myFixture.getProject()).dropResolveCaches();
     EddyPlugin.getInstance(myFixture.getProject()).dropEnv();
-    EddyPlugin.getInstance(myFixture.getProject()).initEnv();
+    EddyPlugin.getInstance(myFixture.getProject()).initEnv(null);
     log("Document:");
     log(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
@@ -192,7 +192,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   // actual tests
   public void testCreateEddy() throws Exception {
     Eddy eddy = setupEddy(null,"dummy.java");
-    Base.checkEnv(eddy.getEnv());
   }
 
   public void testProbLE1() {
@@ -204,7 +203,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testTypeVar() {
     Eddy eddy = setupEddy(null,"typeVar.java");
     int As = 0, Bs = 0, Cs = 0;
-    for (Item i : eddy.getEnv().allItems()) {
+    for (Item i : eddy.getEnv().allLocalItems()) {
       final String n = i.name();
       if      (n.equals("Avar")) As++;
       else if (n.equals("Bvar")) Bs++;
@@ -219,7 +218,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testImplicitConstructor() {
     Eddy eddy = setupEddy(null,"ConstructorTest.java");
     boolean Bc = false, Cc = false;
-    for (Item i : eddy.getEnv().allItems()) {
+    for (Item i : eddy.getEnv().allLocalItems()) {
       if (!(i instanceof Items.ClassItem))
         continue;
       if (i.name().equals("A") || i.name().equals("B") || i.name().equals("C"))
@@ -267,7 +266,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     VirtualFile vf = psifile.getVirtualFile();
 
     EddyPlugin plugin = EddyPlugin.getInstance(myFixture.getProject());
-    plugin.initEnv();
+    plugin.initEnv(null);
     final EnvironmentProcessor.JavaEnvironment env = plugin.getEnv();
 
     // make sure the project scope is correct

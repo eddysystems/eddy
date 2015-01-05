@@ -2,7 +2,7 @@ package tarski
 
 import tarski.AST._
 import tarski.Denotations.{BooleanLit, NullLit}
-import tarski.Environment.Env
+import tarski.Environment.{TwoEnv, Env}
 import tarski.Items._
 import tarski.Types._
 import ambiguity.Utility._
@@ -191,16 +191,4 @@ object Base {
   val extraEnv = silenced(Env(Array(
     trueLit,falseLit,nullLit,
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem)))
-
-  // Check that an environment has a unique copy of everything in baseEnv
-  def checkEnv(env: Env): Unit = {
-    val names = baseEnv.allItems.map(t => t.qualifiedName.get -> t).toMap
-    val seen = mutable.Set[String]()
-    env.allItems.foreach(t => t.qualifiedName foreach (n => names get n foreach (b => {
-      assert(!seen.contains(n),s"Two copies of $n, type ${t.getClass}, t = ${t.hashCode}")
-      assert(t eq b,s"Versions of $n in baseEnv (${b.getClass}) and env (${t.getClass}) differ")
-      seen += n
-    })))
-    names foreach {case (n,i) => assert(seen contains n, s"env does not contain '$n': $i")}
-  }
 }

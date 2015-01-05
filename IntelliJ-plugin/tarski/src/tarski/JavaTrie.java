@@ -2,11 +2,97 @@ package tarski;
 
 import ambiguity.JavaUtils;
 import com.intellij.util.SmartList;
-import tarski.JavaScores.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class JavaTrie {
+
+  public static int[] makeLazyTrieStructure(String[] values) {
+    // lazy trie has no indices into values -- the values are generated lazily from the string value alone
+    // Count nodes and determine maximum depth
+    // each node is referenced by its parent with an index and a char (except the first), and it stores the number of its children
+    // therefore, each node occupies three integers, except the first one, which has no parent and needs only one.
+    int nodes = 1;
+    int maxSize = 0;
+    String prev = "";
+    for (int i = 0; i < values.length; ++i) {
+      String k = values[i];
+      int kl = k.length();
+      maxSize = Math.max(maxSize, kl);
+      nodes += kl - JavaUtils.common(prev, k);
+      prev = k;
+    }
+    int depth = maxSize + 1;
+    int structureSize = 3*nodes-2;
+
+    int[] info = new int[nodes];
+    int[] stack = new int[depth];
+
+    prev = "";
+    int n = 1;
+    for (int i = 0; i < values.length; ++i) {
+      String k = values[i];
+      int c = JavaUtils.common(prev,k); // Implicit truncate stack to size c+1
+      if (c < k.length()) {
+        info[stack[c]] += 1;
+        for (int j = c+1; j < k.length(); ++j) {
+          info[n] += 1;
+          stack[j] = n;
+          n += 1;
+        }
+        stack[k.length()] = n;
+        n += 1;
+      }
+      prev = k;
+    }
+    assert n == nodes;
+
+    // Accumulate children into position (and store start index in info)
+    int total = 0;
+    for (n = 0; n < nodes; ++n) {
+      int next = total+1+2*info[n];
+      info[n] = total;
+      total = next;
+    }
+    assert(total+1 == structureSize);
+
+    // Allocate structure
+    int[] structure = new int[structureSize];
+
+    // Generate tree
+    // Fill in children
+    // stack is already the right size and I don't need to reinitialize
+    prev = "";
+    n = 1;
+    for (int i = 0; i < values.length; ++i) {
+      String k = values[i];
+      int kl = k.length();
+      int c = JavaUtils.common(prev,k); // Implicit truncate stack to size c+1
+      if (c < kl) {
+        int pn = info[stack[c]];
+        int cn = structure[pn+1];
+        structure[pn] = cn+1;
+        structure[pn+1+2*cn] = k.charAt(c);
+        structure[pn+1+2*cn+1] = info[n];
+        n++;
+
+        for (int j = c+1; j < kl; ++j) {
+          stack[j] = n-1;
+          pn = info[n-1];
+          cn = structure[pn];
+          structure[pn] = cn+1;
+          structure[pn+1+2*cn] = k.charAt(j);
+          structure[pn+1+2*cn+1] = info[n];
+          n++;
+        }
+        stack[kl] = n-1;
+      }
+      prev = k;
+    }
+    assert n == nodes;
+    return structure;
+  }
 
   // Should be parameterized over V extends Named.  That causes weird build issues, so we hard code V = Named.
   public static int[] makeTrieStructure(Tries.Named[] values) {
@@ -41,8 +127,8 @@ public class JavaTrie {
       if (c < k.length()) {
         info[2*stack[c]] += 1;
         for (int j = c+1; j < k.length(); ++j) {
-          info[2*n] += 1;
-          info[2*n+1] = i;
+          info[2*n] += 1; // nchildren
+          info[2*n+1] = i; // start index in values
           stack[j] = n;
           n += 1;
         }
@@ -58,7 +144,7 @@ public class JavaTrie {
     int total = 0;
     for (n = 0; n < nodes; ++n) {
       int next = total+2+2*info[2*n];
-      info[2*n] = total;
+      info[2*n] = total; // index in structure
       total = next;
     }
     assert(total+1 == structureSize);

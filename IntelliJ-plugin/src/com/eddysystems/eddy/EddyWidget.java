@@ -12,6 +12,8 @@ import javax.swing.*;
 import java.awt.event.MouseEvent;
 import java.io.File;
 
+import static com.eddysystems.eddy.Utility.log;
+
 public class EddyWidget implements StatusBarWidget {
 
   static private boolean icons_initialized = false;
@@ -67,8 +69,11 @@ public class EddyWidget implements StatusBarWidget {
     this.plugin = plugin;
 
     if (!icons_initialized) {
-      eddyIcon = new ImageIcon(new File(PathUtil.getJarPathForClass(this.getClass()), "eddy-icon-16.png").getPath());
-      eddyIconGray = new ImageIcon(new File(PathUtil.getJarPathForClass(this.getClass()), "eddy-icon-16-gray.png").getPath());
+      String path = PathUtil.getJarPathForClass(this.getClass());
+      log("looking for resources in: " + path);
+
+      eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
+      eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
       icons_initialized = true;
     }
   }
@@ -77,11 +82,12 @@ public class EddyWidget implements StatusBarWidget {
     if (!ApplicationManager.getApplication().isDispatchThread()) {
       ApplicationManager.getApplication().invokeLater(new Runnable() {
         @Override public void run() {
-          statusBar.updateWidget(ID());
+          if (statusBar != null) // we may not yet be installed
+            statusBar.updateWidget(ID());
         }
       });
-    } else
-      statusBar.updateWidget(ID());
+    } else if (statusBar != null) // we may not yet be installed
+        statusBar.updateWidget(ID());
   }
 
   public void moreBusy() {

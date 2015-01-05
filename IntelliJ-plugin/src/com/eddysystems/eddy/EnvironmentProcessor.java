@@ -36,6 +36,12 @@ import static com.eddysystems.eddy.Utility.log;
  */
 public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
 
+  static class NoJDKError extends RuntimeException {
+    NoJDKError(String s) {
+      super("No JDK found: " + s);
+    }
+  }
+
   // a class storing information about the environment.
   static class JavaEnvironment {
 
@@ -114,7 +120,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     void buildDynamicEnv() {
       ArrayList<Item> items = new ArrayList<Item>(this.localItems.values());
       dTrie = Tarski.makeDTrie(items);
-      dByItem = JavaUtils.valuesByItem((Item[])dTrie.values());
+      dByItem = JavaUtils.valuesByItem(dTrie.values());
 
       // clear volatile stores
       addedItems.clear();
@@ -134,7 +140,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       if (localEnvNeedsRebuild()) {
         buildDynamicEnv();
       } else if (byItemNeedsRebuild) {
-        dByItem = JavaUtils.valuesByItem((Item[])dTrie.values());
+        dByItem = JavaUtils.valuesByItem(dTrie.values());
       }
 
       return new EnvironmentProcessor(project, place, true).getLocalEnvironment(this);
@@ -216,30 +222,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
       // we should never be called for local items (they're handled by the scope processor only
       assert !(it instanceof Local);
 
-      if (it instanceof FieldItem) {
-        // nobody should hold references to these types if items, so we should be fine.
-      } else if (it instanceof MethodItem) {
-        // we may be the parent of local classes, but those classes are only scanned in scope
-      } else if (it instanceof ConstructorItem) {
-        // we may be the parent of local classes, but those classes are only scanned in scope
-
-        // constructors array in owning class
+      if (it instanceof ConstructorItem) {
+        // flush constructors array in owning class
         ((CachedConstructorsItem) ((ConstructorItem) it).parent()).invalidateConstructors();
-
-      } else if (it instanceof PackageItem) {
-        // we may be the parent of local classes, but those classes are only scanned in scope
       } else if (it instanceof RefTypeItem) {
-        // we may be the parent of local classes (if we're a class), but those classes are only scanned in scope
-
         // go through all (local) items and check whether they store a reference to it (rebuild values by item if needed)
         for (Item i : localItems.values()) {
           if (i instanceof Converter.ReferencingItem) {
             byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).flushReference(it);
           }
         }
-
-      } else {
-        throw new RuntimeException("don't know what to update for deleted " + elem + ": " + it);
       }
     }
 
@@ -279,6 +271,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         return;
 
       log("changing the base class of " + it + " to ");
+      assert elem.getExtendsList() != null;
       log(elem.getExtendsList().getReferenceElements());
 
       ((CachedBaseItem)it).invalidateBase();
@@ -414,9 +407,8 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     pushScope("add base");
     try {
       // Extra things don't correspond to PsiElements
-      final Set<Item> extra = new HashSet<Item>();
-      for (Item i : tarski.Base.extraEnv().allItems())
-        extra.add(i);
+      final Set<Item> extra =  new HashSet<Item>();
+      Collections.addAll(extra, Base.extraEnv().allItems());
 
       // Add classes and packages
       final JavaPsiFacade facade = JavaPsiFacade.getInstance(env.place.project);
@@ -432,7 +424,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         else
           throw new NotImplementedError("Unknown base type "+item.getClass());
         if (psi == null)
-          throw new RuntimeException("Couldn't find "+name);
+          throw new NoJDKError("Couldn't find " + name);
         //log("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
         env.locals.put(psi,item);
       }
@@ -460,26 +452,45 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     } finally { popScope(); }
   }
 
+  static int counter;
   protected static void storeClassInfo(final Place place, final GlobalSearchScope scope, JavaEnvironment lookup, Map<PsiElement,Item> items, Map<PsiMethod,ConstructorItem> cons, boolean doAddBase) {
+    counter = 0;
     final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
     final Converter env = new Converter(place,lookup,items,cons);
 
     if (doAddBase)
       addBase(env,scope,true);
 
+    final IdFilter filter = IdFilter.getProjectIdFilter(place.project, true);
+    final Processor<PsiClass> proc = new Processor<PsiClass>() {
+      @Override
+      public boolean process(PsiClass cls) {
+        if (!place.isInaccessible(cls, true))
+          env.addClass(cls, true, true);
+        // keep IDE alive
+        Utility.processEvents();
+        return true;
+      }
+    };
+
     cache.processAllClassNames(new Processor<String>() {
       @Override
       public boolean process(String name) {
-        //log("processing classname: " + name + ", free memory: " + Runtime.getRuntime().freeMemory());
-
-        for (PsiClass cls : cache.getClassesByName(name, scope)) {
-          //if (!doAddBase)
-          if (!place.isInaccessible(cls, true))
-            env.addClass(cls, true, true);
+        if (counter++ % 100 == 0) {
+          log("processing classname: " + name + ", free memory: " + Runtime.getRuntime().freeMemory());
         }
+
+        // if we're low on memory, squeeze the most out of it
+        long mem = Runtime.getRuntime().freeMemory();
+        if (mem < 50000) {
+          PsiManager.getInstance(place.project).dropResolveCaches();
+          log("low memory: " + mem + ", dropping resolve caches.");
+        }
+
+        cache.processClassesWithName(name, proc, scope, filter);
         return true;
       }
-    }, scope, IdFilter.getProjectIdFilter(place.project, true));
+    }, scope, filter);
   }
 
   protected static JavaEnvironment getEnvironment(Project project) {
@@ -612,7 +623,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
             placeItem = (ParentItem)jenv.lookup(place);
           else if (locals.containsKey(place))
             placeItem = (ParentItem)locals.get(place);
-          else if (localCons.containsKey(place))
+          else if (place instanceof PsiMethod && localCons.containsKey(place))
             placeItem = localCons.get(place);
           else
             assert false : "cannot find placeItem " + place;

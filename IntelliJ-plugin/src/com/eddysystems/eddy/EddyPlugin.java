@@ -1,8 +1,13 @@
 package com.eddysystems.eddy;
 
+import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
+import com.intellij.openapi.progress.PerformInBackgroundOption;
+import com.intellij.openapi.progress.ProgressIndicator;
+import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupManager;
@@ -11,6 +16,7 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiTreeChangeListener;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +25,7 @@ import static com.eddysystems.eddy.EnvironmentProcessor.JavaEnvironment;
 import static com.eddysystems.eddy.Utility.log;
 
 public class EddyPlugin implements ProjectComponent {
+  @NotNull final private Application app;
   private Project project;
   private EddyInjector injector;
   private EddyWidget widget = new EddyWidget(this);
@@ -38,17 +45,20 @@ public class EddyPlugin implements ProjectComponent {
     Runtime.getRuntime().gc();
   }
 
-  public void initEnv() {
+  public void initEnv(@Nullable ProgressIndicator indicator) {
+
+    if (indicator != null)
+      indicator.setIndeterminate(true);
 
     log("start init environment");
 
     if (psiListener != null) {
       PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
     }
+    env = null;
 
     if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
       // free env before allocating the new one
-      env = null;
       env = EnvironmentProcessor.getEnvironment(project);
       psiListener = new EddyPsiListener(env);
       PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
@@ -59,24 +69,36 @@ public class EddyPlugin implements ProjectComponent {
         widget.moreBusy();
       }
 
-      env = EnvironmentProcessor.getEnvironment(project);
-      psiListener = new EddyPsiListener(env);
-      PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
+      String err = "";
+      try {
+        env = EnvironmentProcessor.getEnvironment(project);
+        psiListener = new EddyPsiListener(env);
+        PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
+      } catch (EnvironmentProcessor.NoJDKError e) {
+        env = null;
+        err = e.getMessage();
+        log(e.getMessage());
+      }
 
       if (sbar != null) {
-        sbar.setInfo("eddy scan done.");
+        if (err.isEmpty())
+          sbar.setInfo("eddy scan done.");
+        else
+          sbar.setInfo("eddy scan aborted, " + err);
         widget.lessBusy();
       }
     }
   }
 
   public EddyPlugin(Project project) {
+    assert !projectMap.containsKey(project);
 
-    projectMap.put(project, this);
+    app = ApplicationManager.getApplication();
+    this.project = project;
 
     log("available memory: total " + Runtime.getRuntime().totalMemory() + ", max " + Runtime.getRuntime().maxMemory() + ", free " + Runtime.getRuntime().freeMemory());
 
-    this.project = project;
+    projectMap.put(project, this);
     injector = new EddyInjector(project);
 
     // TODO: talk to server to send usage info
@@ -86,48 +108,62 @@ public class EddyPlugin implements ProjectComponent {
     return widget;
   }
 
+  private void init_internal(final ProgressIndicator indicator) {
+    DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() {
+      @Override
+      public void run() {
+        app.runReadAction(new Runnable() {
+          @Override
+          public void run() {
+            app.invokeLater(new Runnable() {
+              @Override
+              public void run() {
+                final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+                if (sbar != null) sbar.addWidget(widget);
+              }
+            });
+            initEnv(indicator);
+          }
+        });
+      }
+    });
+  }
+
   public void initComponent() {
 
     // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
 
     // initialize the global environment
-    if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
-      /*
-      StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
-        @Override
-        public void run() {
-          initEnv();
-        }
-      });
-      */
-    } else {
+    if (!app.isHeadlessEnvironment()) {
       // TODO: maybe run with a ProgressManager function to show a dialog while this is going on
       StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
         @Override
         public void run() {
-          ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
+          ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
             @Override
-            public void run() {
-              DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() {
-                @Override
-                public void run() {
-                  ApplicationManager.getApplication().runReadAction(new Runnable() {
-                    @Override
-                    public void run() {
-                      ApplicationManager.getApplication().invokeLater(new Runnable() {
-                        @Override public void run() {
-                          final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-                          if (sbar != null) sbar.addWidget(widget);
-                        }
-                      });
-                      initEnv();
-                    }
-                  });
-                }
-              });
+            public boolean shouldStartInBackground() {
+              return true;
+            }
+
+            @Override
+            public void processSentToBackground() {
+            }
+          }) {
+            @Override
+            public void run(@NotNull ProgressIndicator indicator) {
+              init_internal(indicator);
             }
           });
+
+          /*
+          app.executeOnPooledThread(new Runnable() {
+            @Override
+            public void run() {
+              init_internal();
+            }
+          });
+          */
         }
       });
     }

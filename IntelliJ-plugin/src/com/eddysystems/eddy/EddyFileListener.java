@@ -55,6 +55,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   public void dispose() {
+    log("disposing editor listener for " + editor);
     editor.getCaretModel().removeCaretListener(this);
     editor.getDocument().removeDocumentListener(this);
   }
@@ -204,6 +205,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   @Override
   public void documentChanged(DocumentEvent event) {
     inChange = false;
+    if (!enabled())
+      return;
     process();
   }
 }

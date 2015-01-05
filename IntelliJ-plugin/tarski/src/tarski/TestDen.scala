@@ -559,15 +559,15 @@ class TestDen {
 
   @Test def genericClass(): Unit = {
     implicit val env = setupGenericClass()
-    val X = env.allItems.find(_.name == "X").get.asInstanceOf[NormalClassItem]
-    val B = env.allItems.find(_.name == "B").get.asInstanceOf[NormalClassItem]
+    val X = env.allLocalItems.find(_.name == "X").get.asInstanceOf[NormalClassItem]
+    val B = env.allLocalItems.find(_.name == "B").get.asInstanceOf[NormalClassItem]
     testDen("X<String,B<String>> x = null", "x", x => VarStmt(X.generic(List(StringType,B.generic(List(StringType)))), List((x, 0, Some(NullLit)))))
   }
 
   @Test def genericMethod(): Unit = {
     implicit val env = setupGenericClass()
-    val f = env.allItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
-    val This = env.allItems.find(_.isInstanceOf[ThisItem]).get.asInstanceOf[ThisItem]
+    val f = env.allLocalItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
+    val This = env.allLocalItems.find(_.isInstanceOf[ThisItem]).get.asInstanceOf[ThisItem]
     testDen("""this.<Integer>f(7)""",ApplyExp(TypeApply(MethodDen(This,f),List(IntType.box)),List(7)))
     testDen("""<Integer>f(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
     testDen("""f<Integer>(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))

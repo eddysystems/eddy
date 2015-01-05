@@ -25,17 +25,18 @@ object Tries {
     // structure contains tuples: (start_values,n_children,(character,start_idx)*)
 
     // A node in structure is
-    //   lo,hi: Int = start and end index of values for this node
+    //   lo: Int = start index of values for this node (end index is in next node, or sentinel if last)
     //   count: number of children
     //   sorted list of (char, child node index) pairs, one for each child node
     // This representation is O(n) insert, iterating over values is easy though (to merge Tries)
-    // There is a sentinel node on the end, with only a start_values.
+    // There is a sentinel node on the end, with only a start index in values array.
 
     // Trie   a -> x, ab -> y, ac -> z
     // structure = [0,1,'a',5,
-    //              0,2,'b',12,'c',14
+    //              0,2,'b',11,'c',13
     //              1,0,
-    //              2] // sentinel
+    //              2,0,
+    //              3] // sentinel (always size of values)
     // values = [x,y,z]
 
     def nodeValues(node: Int) =
@@ -72,6 +73,10 @@ object Tries {
 
     def empty[V <: Named](implicit tt: ClassTag[V]): Trie[V] =
       makeHelper(Array.empty)
+  }
+
+  class LazyTrie[V](val structure: Array[Int], lookup: (String) => Iterable[V]) {
+
   }
 
   // a trie from which you can delete items

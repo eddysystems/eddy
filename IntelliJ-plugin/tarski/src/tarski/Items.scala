@@ -11,7 +11,6 @@ import scala.annotation.tailrec
 
 object Items {
   // A language item, given to us by someone who knows about the surrounding code
-  // inherits from Product => only case things or abstract classes can have this trait without implementing Product
   sealed trait Item extends RefEq with Tries.Named with Tries.Delable {
     def name: Name
     def qualifiedName: Option[Name] // A name that is valid anywhere

@@ -70,6 +70,9 @@ object Environment {
     }
     @inline final def inScope(i: Item): Boolean = _inScope.contains(i)
 
+    // for tests
+    def allLocalItems: Array[Item]
+
     // Enter and leave block scopes
     def pushScope: Env
     def popScope: Env
@@ -138,15 +141,14 @@ object Environment {
 
     // Fragile or slow, only use for tests
     def exactLocal(name: String): Local
-    def allItems: Array[Item]
 
     // get the innermost (current) ThisItem
     def getThis: ThisItem = scope.collect({ case (i:ThisItem,n) => (i,n) }).minBy(_._2)._1
   }
 
-  // Constructors for Env
+  // Constructors for Env 
   object Env {
-    def apply(items: Array[Item], scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace): Env =
+    def apply(items: Array[Item], scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace): TwoEnv =
         TwoEnv(Trie(items),Trie.empty,
                valuesByItem(items),new java.util.HashMap[TypeItem,Array[Value]](),
                scope,place)
@@ -190,7 +192,7 @@ object Environment {
       ThreeEnv(sTrie,dTrie,vTrie ++ things, sByItem,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place)
 
     // Slow, use only for tests
-    override def allItems: Array[Item] = sTrie.values ++ (dTrie.values filter (!_.deleted)) ++ vTrie.values
+    def allLocalItems: Array[Item] = (dTrie.values filter (!_.deleted)) ++ vTrie.values
 
     // Fragile or slow, only use for tests
     override def exactLocal(name: String): Local = {
@@ -218,8 +220,10 @@ object Environment {
                     private val byItem1: java.util.Map[TypeItem,Array[Value]],
                     scope: Map[Item,Int],
                     place: PlaceInfo) extends Env {
+
     // Slow, use only for tests
     def allItems: Array[Item] = trie0.values++trie1.values
+    def allLocalItems: Array[Item] = trie1.values
 
     // Add some new things to an existing environment
     def extend(things: Array[Item], scope: Map[Item,Int]) =
