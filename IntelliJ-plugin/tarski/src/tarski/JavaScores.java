@@ -251,6 +251,34 @@ public class JavaScores {
     }
   }
 
+  // Fast version of x0 ++ x1 ++ ...  The list is assumed nonempty.
+  static public <A> Scored<A> multiple(List<Scored<A>> ss) {
+    Scored<A> s0 = null, s1 = null;
+    PriorityQueue<Scored<A>> heap = null;
+    while (ss.nonEmpty()) {
+      final Scored<A> s = ss.head();
+      ss = (List)ss.tail();
+      if (!(s instanceof Empty$)) {
+        if (s0 == null)
+          s0 = s;
+        else if (s1 == null)
+          s1 = s;
+        else {
+          if (heap == null) {
+            heap = new PriorityQueue<Scored<A>>();
+            heap.add(s0);
+            heap.add(s1);
+          }
+          heap.add(s);
+        }
+      }
+    }
+    return s0 == null ? (Scored<A>)Empty$.MODULE$
+         : s1 == null ? s0
+         : heap == null ? s0.$plus$plus(s1)
+         : new Extractor<A>(new MultipleState<A>(heap));
+  }
+
   static public final class MultipleState<A> extends State<A> {
     private final PriorityQueue<Scored<A>> heap;
 
@@ -258,15 +286,9 @@ public class JavaScores {
     private List<Bad> bads;
 
     // The Alt's probability is an upper bound on the Scored returned by the functions
-    public MultipleState(List<Scored<A>> options) {
-      assert options.nonEmpty();
-      heap = new PriorityQueue<Scored<A>>();
-      while (options.nonEmpty()) {
-        heap.add(options.head());
-        options = (List)options.tail();
-      }
-      if (trackErrors)
-        bads = (List)Nil$.MODULE$;
+    protected MultipleState(PriorityQueue<Scored<A>> heap) {
+      this.heap = heap;
+      this.bads = trackErrors ? (List)Nil$.MODULE$ : null;
     }
 
     // Current probability bound

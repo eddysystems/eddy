@@ -3,6 +3,7 @@ package tarski
 import tarski.Denotations.{ApplyExp,Callable,Exp}
 import tarski.Environment.Env
 import tarski.Scores._
+import tarski.JavaScores._
 import tarski.Types._
 import tarski.Semantics.denoteValue
 import ambiguity.Utility._

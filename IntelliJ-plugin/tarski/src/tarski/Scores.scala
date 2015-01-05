@@ -231,10 +231,6 @@ object Scores {
   @inline def listGood[A](xs: List[Alt[A]]): Scored[A] =
     listThen(xs,Empty)
 
-  // Fast version of x0 ++ x1 ++ ...  The list is assumed nonempty.
-  @inline def multiple[A](ls: List[Scored[A]]): Scored[A] =
-    new Extractor[A](new MultipleState[A](ls))
-
   // Structured errors
   sealed abstract class Error {
     def prefixed(p: String): String
