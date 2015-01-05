@@ -104,4 +104,15 @@ class TestScores {
     assertEquals(15,af.size)
     test(af,x.filter(f,"fail"))
   }
+
+  @Test def collect() = {
+    case class B(s: String)
+    val ax = alts("x",30,seed=8931)
+    val x = listGood(ax)
+    def good(s: String): Boolean = (s.hashCode&1)==0
+    def f: PartialFunction[String,B] = { case x if good(x) => B(x) }
+    val af = ax collect {case Alt(p,x) if good(x) => Alt(p,B(x))}
+    assertEquals(15,af.size)
+    test(af,x.collect(f,"fail"))
+  }
 }

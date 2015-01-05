@@ -86,6 +86,11 @@ object Scores {
     // Filter, turning Empty into given error
     final def filter(f: A => Boolean, error: => String): Scored[A] = _filter(f, if (trackErrors) () => error else null)
     def _filter(f: A => Boolean, error: () => String): Scored[A] = new LazyFilter(this,f,error)
+
+    // Collect, turning Empty into given error
+    final def collect[B](f: PartialFunction[A,B], error: => String): Scored[B] =
+      _collect(f,if (trackErrors) () => error else null)
+    def _collect[B](f: PartialFunction[A,B], error: () => String): Scored[B] = new LazyCollect(this,f,error)
   }
 
   // Scored with at least one option evaluated (if any exists)
@@ -115,6 +120,7 @@ object Scores {
     override def _bias(p: Prob) = this
     override def productWith[B,C](s: Scored[B])(f: (Nothing,B) => C) = this
     override def _filter(f: Nothing => Boolean, error: () => String) = this
+    override def _collect[B](f: PartialFunction[Nothing,B], error: () => String) = this
   }
   // Failure
   final class Bad(_error: => Error) extends EmptyOrBad {
@@ -155,6 +161,29 @@ object Scores {
           case x:LazyScored[A] => if (first || x.p > p) loop(x force p,first=false)
                                   else new LazyFilter(x,f,error)
           case Best(p,x,r) => if (f(x)) Best(p,x,r._filter(f,null))
+                              else loop(r,first=false)
+          case x:Bad if trackErrors => x
+          case _:EmptyOrBad => if (!trackErrors || error == null) Empty
+                               else { val e = error; new Bad(OneError(e())) } // Be careful to not reference error in a closure
+        }
+        s = loop(x,first=true)
+        x = null; f = null; error = null
+      }
+      s
+    }
+  }
+
+  // Lazy version of collect.  Very similar to LazyFilter.
+  private final class LazyCollect[A,B](private[this] var x: Scored[A], private[this] var f: PartialFunction[A,B],
+                                       private[this] var error: () => String) extends LazyScored[B] {
+    val p = x.p
+    private[this] var s: Scored[B] = null
+    def force(p: Double) = {
+      if (s eq null) {
+        @tailrec def loop(x: Scored[A], first: Boolean): Scored[B] = x match {
+          case x:LazyScored[A] => if (first || x.p > p) loop(x force p,first=false)
+                                  else new LazyCollect(x,f,error)
+          case Best(p,x,r) => if (f.isDefinedAt(x)) Best(p,f(x),r._collect(f,null))
                               else loop(r,first=false)
           case x:Bad if trackErrors => x
           case _:EmptyOrBad => if (!trackErrors || error == null) Empty

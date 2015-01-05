@@ -28,7 +28,7 @@ class TestDen {
     val fixes = fix(lex(input))
     //println(fixes)
     fixes.best match {
-      case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
+      case Left(e) => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.prefixed("error: "))
       case Right((env,s)) =>
         val b = convert(best(env))
         def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env))
@@ -683,7 +683,8 @@ class TestDen {
     val f = NormalFieldItem("f", A, A, isFinal=false)
     val a = Local("a", A, isFinal=true)
     implicit val env = baseEnv.extend(Array(A,f,a), Map(A->2,f->2,a->1))
-    test("a[f] = a", AssignExp(None,FieldExp(a,f),a))
+    for (s <- List("a[f] = a","""a["f"] = a"""))
+      test(s,AssignExp(None,FieldExp(a,f),a))
   }
 
   @Test def newObject() = test("new Object()",ApplyExp(NewDen(None,ObjectConsItem),Nil))

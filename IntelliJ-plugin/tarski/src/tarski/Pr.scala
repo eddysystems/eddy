@@ -133,6 +133,7 @@ object Pr {
   val condExp = base // should be a function of inside types
   val assignExp = base // should be a function of operator and types
   val arrayExp = Prob("array",.8) // {1,2,3}, should be a function of around, types, number of things inside
+  val javascriptMember = Prob("javascript member",.1) // x[f] instead of x.f
 
   // denoteBool(AExp)
   def insertComparison(t: Type): Prob = Prob(s"insert comparison $t",.6) // how likely is it that someone forgot a comparison to obtain a bool (depending on type).
