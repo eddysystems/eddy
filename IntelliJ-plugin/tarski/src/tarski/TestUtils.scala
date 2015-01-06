@@ -27,6 +27,7 @@ object TestUtils {
   // Denotation implicit conversions
   implicit def toExp(b: Boolean): Exp = BooleanLit(b)
   implicit def toExp(i: Int): Exp = IntLit(i,i.toString)
+  implicit def toExp(i: Long): Exp = LongLit(i,s"${i}L")
   implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
   implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString)
   implicit def toExp(x: Local): Exp = LocalExp(x)

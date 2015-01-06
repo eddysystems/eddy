@@ -62,8 +62,15 @@ object ArgMatching {
         multiple(options1)
       }
     }
+    def processNullary: Scored[A] = // Special case nullary functions to make sure we do at least one inference round
+      if (f.tparams.size == 0) cont(ApplyExp(f,Nil),args)
+      else resolveOptions(List(f),Nil) match {
+        case Nil => fail(s"Can't apply $f to no arguments")
+        case List((f0,ts)) if f eq f0 => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts),Nil),args)
+        case _ => impossible
+      }
     if (!useEnv && n > na) fail(s"Too few arguments for function $f: $na < $n")
-    else orError(biased(Pr.dropArgs(math.max(0,na-n)),process(0,Nil,Nil,args)),
+    else orError(biased(Pr.dropArgs(math.max(0,na-n)),if (n>0) process(0,null,Nil,args) else processNullary),
                  s"Can't match arguments for function $f.")
   }
 }

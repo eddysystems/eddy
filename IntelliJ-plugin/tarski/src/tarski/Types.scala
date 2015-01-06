@@ -666,4 +666,13 @@ object Types {
     // Pick function
     mostSpecific(resolveOptions(fs, ts))
   }
+
+  // Find a base type of t as similar to goal as possible.  For now, similar means _.item == goal.item.
+  def similarBase(t: Type, goal: Type): Type = goal.item match {
+    case goal:ClassItem => subItemType(t,goal) match {
+      case None => t
+      case Some(s) => s
+    }
+    case _ => t
+  }
 }

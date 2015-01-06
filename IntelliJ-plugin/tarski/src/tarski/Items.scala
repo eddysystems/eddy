@@ -138,9 +138,9 @@ object Items {
     // Convert to a type valid anywhere
     def generic(args: List[TypeArg], par: Parent): ClassType = {
       if (par.item != parent)
-        throw new RuntimeException(s"parent mismatch: expected $parent, got $par}")
+        throw new RuntimeException(s"Parent mismatch: expected $parent, got $par}")
       if (arity != args.size)
-        throw new RuntimeException(s"arity mismatch: $name takes $arity arguments, not ${args.size} ($args)")
+        throw new RuntimeException(s"Arity mismatch: $name takes $arity argument${if (arity==1) "" else "s"}, not ${args.size} ($args)")
       if (arity == 0) SimpleType(this,par)
       else GenericType(this,args,par)
     }

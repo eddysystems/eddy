@@ -143,10 +143,7 @@ object Pr {
   // denoteStmt(AStmt)
   val emptyStmt = Prob("empty stmt",.2) // empty statements are rarely written down
   val holeStmt = base // incomplete statements are common though
-  val varInitNone = base
-  val varInit = base
-  var varDecl = base
-  val varStmt = base // should depend on matchiness of declaration and initializer types
+  val changeVarType = Prob("change var type",.1)
   val expStmt = base // could also be 1, nothing happens here
   val expStmtsSplit = Prob("exp stmts split",.3) // tried to write a non-expression statement as a statement, had to be split
   val assignmentAsVarStmt = Prob("assign as var stmt",.4) // should depend on types: e.g. explicit constructor calls are more likely

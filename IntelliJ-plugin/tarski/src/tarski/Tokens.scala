@@ -300,7 +300,7 @@ object Tokens {
           case (_,RParenTok|RBrackTok) => true
           case (_:IdentTok,LParenTok|LBrackTok) => true
           case (_:IdentTok|QuestionTok,LtTok|GtTok)|(LtTok|GtTok,_:IdentTok|QuestionTok) => true
-          case (GtTok,GtTok) => true
+          case (GtTok,GtTok|LParenTok) => true
           case (_,DotTok)|(DotTok,_) => true
           case (_,SemiTok) => true
           case _ => false

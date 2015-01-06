@@ -75,7 +75,7 @@ object Environment {
     def popScope: Env
 
     // Add variables and fields
-    def newVariable(name: String, t: Type, isFinal: Boolean) = place.place match {
+    def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,Local)] = place.place match {
       case c: CallableItem =>
         if (scope exists { case (v:Local,_) => v.name == name; case _ => false })
           fail(s"Invalid new local variable $name: already exists.")

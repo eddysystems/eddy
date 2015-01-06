@@ -752,6 +752,27 @@ class TestDen {
     val x = NormalFieldItem("x", IntType, T, isFinal=false)
     val t = Local("t", T.simple, isFinal=true)
     implicit val env = localEnv().extendLocal(Array(T,x), 3).extendLocal(Array(t), 1)
-    test("t.x = 1", AssignExp(None, FieldExp(t, x), 1))
+    test("t.x = 1",AssignExp(None, FieldExp(t, x), 1))
+  }
+
+  @Test def fixType() = test("int x = 1L","x",x => VarStmt(LongType,(x,1L)))
+
+  @Test def fixTypeGeneric() = {
+    val S = SimpleTypeVar("S")
+    val T = SimpleTypeVar("T")
+    lazy val A: ClassItem = NormalClassItem("A",tparams=List(S))
+    lazy val B: ClassItem = NormalClassItem("B",tparams=List(T),base=A.generic(List(T)),constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(B)
+    implicit val env = localEnvWithBase().extendLocal(Array(A,B))
+    test("A<Integer> x = new B<Long>","x",x =>
+      VarStmt(A.generic(List(LongType.box)),(x,ApplyExp(NewDen(None,cons,Some(List(LongType.box))),Nil))))
+  }
+
+  @Test def nullaryGenericFunction() = {
+    val A = NormalClassItem("A")
+    val T = SimpleTypeVar("T")
+    val f = NormalMethodItem("f",A,List(T),VoidType,Nil,isStatic=true)
+    implicit val env = localEnv().extendLocal(Array(f))
+    test("f()",ApplyExp(TypeApply(MethodDen(None,f),List(ObjectType)),Nil))
   }
 }

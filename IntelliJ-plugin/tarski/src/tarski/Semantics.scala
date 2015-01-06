@@ -517,9 +517,9 @@ object Semantics {
         above(denoteType(t)(env) flatMap (at => {
           val t = at.beneath
           def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
-            case None => single(None, Pr.varInitNone)
+            case None => known(None)
             case Some(e) => denoteExp(e)(env) flatMap {e =>
-              if (assignsTo(e,t)) single(Some(e), Pr.varInit)
+              if (assignsTo(e,t)) known(Some(e))
               else fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
             }
           }
@@ -528,11 +528,21 @@ object Semantics {
             case (v,k,i)::ds =>
               val tk = arrays(t,k)
               product(env.newVariable(v,tk,isFinal),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
-                define(env,ds) flatMap {case (env,ds) => single((env,(v,k,i)::ds), Pr.varDecl)}}
+                define(env,ds) map {case (env,ds) => (env,(v,k,i)::ds)}}
           }
-          t.safe match {
-            case Some(st) => define(env,ds.list) flatMap {case (env,ds) => single((env,VarStmt(st,ds).discard(at.discards)),Pr.varStmt) }
-            case None => fail(s"cannot make variables of type $t.")
+          (t.safe,ds.list) match {
+            case (None,_) => fail(s"Cannot make variables of type $t")
+            case (Some(t),List((v,0,Some(e)))) if at.discards.isEmpty =>
+              // Handle common T v = i specially for extra flexibility.  Specifically, we allow T to change.
+              denoteExp(e)(env) flatMap {e => {
+                def declare(t: Type) = env.newVariable(v,t,isFinal) map {case (env,v) => (env,VarStmt(t,List((v,0,Some(e)))))}
+                if (assignsTo(e,t)) declare(t)
+                else biased(Pr.changeVarType,similarBase(e.ty,t).safe match {
+                  case None => fail(s"Cannot make variables of type ${e.ty}")
+                  case Some(t) => declare(t)
+                })
+              }}
+            case (Some(t),ds) => define(env,ds) map {case (env,ds) => (env,VarStmt(t,ds).discard(at.discards)) }
           }
         }))
       case ExpAStmt(e) => {
