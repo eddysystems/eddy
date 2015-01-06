@@ -196,7 +196,7 @@ object Scores {
     }
   }
 
-  // Lazy version of good
+  // Lazy version of good.  Used only if trackErrors is on.
   private final class LazyGood[A](private[this] var x: LazyScored[A]) extends LazyScored[A] {
     val p = x.p
     private[this] var s: Scored[A] = null
