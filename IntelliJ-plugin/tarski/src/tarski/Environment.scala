@@ -21,7 +21,7 @@ object Environment {
   private def typoQuery(trie: Trie[Item], typed: Array[Char]): List[Alt[Item]] = {
     val expected = typed.length * Pr.typingErrorRate
     val maxErrors = Pr.poissonQuantile(expected,minimumProbability) // Never discards anything because it has too few errors
-    JavaTrie.levenshteinLookup(trie,typed,maxErrors,expected,minimumProbability)
+    JavaTrie.levenshteinLookup(trie.structure, trie.values,typed,maxErrors,expected, minimumProbability)
   }
 
   // Information about where we are
@@ -152,6 +152,44 @@ object Environment {
         TwoEnv(Trie(items),Trie.empty,
                valuesByItem(items),new java.util.HashMap[TypeItem,Array[Value]](),
                scope,place)
+  }
+
+  case class LazyEnv() extends Env {
+
+    //
+
+    // name resolution is queried on demand, it doesn't store Items. Whenever it completes a query, the
+    // result is stored
+    // All classes inside the project are added to dTrie, all classes outside are
+
+    // Where we are
+    override def scope: Map[Item, Int] = ???
+
+    override def move(to: PlaceInfo): Env = ???
+
+    override def popScope: Env = ???
+
+    // Lookup by type.item (locals only
+    override def byItem(t: TypeItem): Scored[Value] = ???
+
+    override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = ???
+
+    // Add more objects
+    override def extend(things: Array[Item], scope: Map[Item, Int]): Env = ???
+
+    // Fragile or slow, only use for tests
+    override def exactLocal(name: String): Local = ???
+
+    // for tests
+    override def allLocalItems: Array[Item] = ???
+
+    // Get exact and typo probabilities for string queries
+    override def _exactQuery(typed: Array[Char]): List[Item] = ???
+
+    override def place: PlaceInfo = ???
+
+    // Enter and leave block scopes
+    override def pushScope: Env = ???
   }
 
   case class ThreeEnv(private val sTrie: Trie[Item], // never rebuilt (large)

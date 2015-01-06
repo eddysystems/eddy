@@ -15,9 +15,9 @@ import static com.eddysystems.eddy.Utility.log;
 
 public class EddyPsiListener implements PsiTreeChangeListener {
 
-  @NotNull final EnvironmentProcessor.JavaEnvironment env;
+  @NotNull final JavaEnvironment env;
 
-  EddyPsiListener(@NotNull final EnvironmentProcessor.JavaEnvironment env) {
+  EddyPsiListener(@NotNull final JavaEnvironment env) {
     this.env = env;
   }
 
@@ -160,7 +160,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
       return;
 
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
-      env.addItem(elem);
+      env.addLocalItem(elem);
       return;
     }
 
@@ -218,7 +218,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // whole items, translate to delete/add pair
     PsiElement elem = event.getNewChild();
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
-      env.addItem(elem);
+      env.addLocalItem(elem);
       return;
     }
 

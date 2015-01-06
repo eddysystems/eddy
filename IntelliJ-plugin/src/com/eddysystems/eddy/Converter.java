@@ -3,6 +3,8 @@ package com.eddysystems.eddy;
 import com.intellij.openapi.roots.FileIndexFacade;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
+import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.search.ProjectScope;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,16 +27,19 @@ import static com.eddysystems.eddy.Utility.log;
 
 public class Converter {
   public final Place place;
-  public final EnvironmentProcessor.JavaEnvironment jenv;
+  final GlobalSearchScope projectScope;
+  public final JavaEnvironment jenv;
 
   // We will add to this
   public final Map<PsiElement, Item> locals;
   public final Map<PsiMethod, ConstructorItem> cons;
 
   Converter(Place place,
-            EnvironmentProcessor.JavaEnvironment jenv,
+            JavaEnvironment jenv,
+            Map<PsiElement, Item> globals, Map<PsiMethod, ConstructorItem> globalCons,
             Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons) {
     this.place = place;
+    this.projectScope = ProjectScope.getProjectScope(place.project);
     this.jenv = jenv;
     this.locals = locals;
     this.cons = cons;
@@ -48,6 +53,23 @@ public class Converter {
   @Nullable ConstructorItem lookupConstructor(PsiMethod m) {
     ConstructorItem i = jenv.lookupConstructor(m);
     return i != null ? i : cons.get(m);
+  }
+
+  void put(PsiElement e, Item it) {
+    locals.put(e,it);
+  }
+
+  void putCons(PsiMethod e, ConstructorItem it) {
+    cons.put(e,it);
+  }
+
+  boolean isInProject(PsiElement elem) {
+    return projectScope.contains(elem.getContainingFile().getVirtualFile());
+  }
+
+  // return type is null *and* has same name as containing class
+  static boolean isConstructor(PsiMethod elem) {
+    return elem.getReturnType() == null && elem.getName().equals(((PsiClass)elem.getParent()).getName());
   }
 
   TypeArg convertTypeArg(PsiType t, Parent parent) {
@@ -141,7 +163,7 @@ public class Converter {
       if (pkg.getName() == null)
         return tarski.Tarski.localPkg();
       final PackageItem item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
-      locals.put(pkg,item);
+      put(pkg, item);
       return item;
     }
     throw new RuntimeException("weird container "+elem);
@@ -419,7 +441,7 @@ public class Converter {
     }
     // Use a maker to break recursion
     TypeVar ti = new LazyTypeVar(this,p);
-    locals.put(p, ti);
+    put(p, ti);
     return ti;
   }
 
@@ -517,7 +539,7 @@ public class Converter {
         final ArrayList<ConstructorItem> cons = new ArrayList<ConstructorItem>();
         boolean found = false;
         for (PsiMethod m : cls.getConstructors())
-          if (env.jenv.isConstructor(m)) {
+          if (Converter.isConstructor(m)) {
             found = true;
             if (!env.place.isInaccessible(m,false))
               cons.add((ConstructorItem)env.addMethod(m));
@@ -637,7 +659,7 @@ public class Converter {
     // Make and add the class
     final ParentItem parent = addContainer(place.containing(cls));
     ClassItem item = new LazyClass(this,cls,parent);
-    locals.put(cls,item);
+    put(cls, item);
 
     if (recurse)
       addClassMembers(cls,item,noProtected);
@@ -866,7 +888,7 @@ public class Converter {
   }
 
   CallableItem addMethod(PsiMethod method) {
-    if (jenv.isConstructor(method)) {
+    if (Converter.isConstructor(method)) {
       // constructors are not stored in locals, but in cons
       ConstructorItem i = lookupConstructor(method);
       if (i != null)
@@ -879,7 +901,7 @@ public class Converter {
       if (i != null)
         return (CallableItem)i;
       i = new LazyMethod(this,method);
-      locals.put(method,i);
+      put(method, i);
       return (CallableItem)i;
     }
   }
@@ -958,7 +980,7 @@ public class Converter {
     final boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
     final boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
     final Value v = new LazyField(this,f,isFinal,isStatic);
-    locals.put(f,v);
+    put(f, v);
     return v;
   }
 }

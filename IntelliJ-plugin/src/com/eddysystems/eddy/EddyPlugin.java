@@ -21,7 +21,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.eddysystems.eddy.EnvironmentProcessor.JavaEnvironment;
 import static com.eddysystems.eddy.Utility.log;
 
 public class EddyPlugin implements ProjectComponent {

@@ -267,7 +267,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
     EddyPlugin plugin = EddyPlugin.getInstance(myFixture.getProject());
     plugin.initEnv(null);
-    final EnvironmentProcessor.JavaEnvironment env = plugin.getEnv();
+    final JavaEnvironment env = plugin.getEnv();
 
     // make sure the project scope is correct
     final GlobalSearchScope projectScope = ProjectScope.getProjectScope(myFixture.getProject());
@@ -371,7 +371,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testVisibility() {
     Eddy eddy = setupEddy(null, "scopes1.java", "scopes2.java");
     Environment.Env env = eddy.getEnv();
-    EnvironmentProcessor.JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
+    JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
     log("local items: ");
     log(jenv.localItems);
     // make sure the public items are in locals, not added

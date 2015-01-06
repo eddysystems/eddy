@@ -55,7 +55,7 @@ object Tries {
 
     // Find an exact match
     @inline def exact(s: Array[Char]): List[V] = {
-      val n = JavaTrie.exactNode(this,s)
+      val n = JavaTrie.exactNode(this.structure,s)
       if (n < 0) Nil
       else nodeValues(n).toList
     }
@@ -76,7 +76,9 @@ object Tries {
   }
 
   class LazyTrie[V](val structure: Array[Int], lookup: (String) => Iterable[V]) {
+    def exact(s: Array[Char]): List[V] = {
 
+    }
   }
 
   // a trie from which you can delete items
@@ -95,7 +97,7 @@ object Tries {
     // replace a value with another value (which must have the same name)
     def overwrite(value: V, replacement: V): Unit = {
       assert(value.name == replacement.name)
-      val view = nodeValues(JavaTrie.exactNode(this,value.name.toCharArray))
+      val view = nodeValues(JavaTrie.exactNode(this.structure,value.name.toCharArray))
       (0 until view.length).collectFirst( { case i if view(i) == value => view(i) = replacement } )
     }
   }
