@@ -6,25 +6,30 @@ import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Types._
 import tarski.Semantics.denoteValue
+import tarski.Tokens._
 import ambiguity.Utility._
-
 import scala.annotation.tailrec
 
 object ArgMatching {
+  type Exps = List[Scored[Exp]]
+
+  def useAll(e: ApplyExp, unused: Exps)(implicit env: Env): Scored[Exp] = unused match {
+    case Nil => known(e)
+    case _ => fail(s"${show(e)}: ${unused.size} unused arguments")
+  }
+
   // TODO: specialize for given type arguments
-  def fiddleCall(f: Callable, args: List[Scored[Exp]])(implicit env: Env): Scored[ApplyExp] = {
+  def fiddleCall[A](f: Callable, args: Exps, cont: (ApplyExp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
     // Should we find missing arguments in the environment?
     val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
     val n = f.params.size
     val na = args.size
-    @inline def finish(types: List[TypeArg], args: List[Exp]): ApplyExp =
-      ApplyExp(Denotations.uncheckedAddTypeArgs(f,types),args)
-    def process(k: Int, targs: List[TypeArg], used: List[Exp], unused: List[Scored[Exp]]): Scored[ApplyExp] = {
+    def process(k: Int, targs: List[TypeArg], used: List[Exp], unused: Exps): Scored[A] = {
       if (k == n)
-        known(finish(targs,used))
+        cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,targs),used),unused)
       else {
-        def add(x: Exp, xs: List[Scored[Exp]]): Scored[ApplyExp] = {
+        def add(x: Exp, xs: List[Scored[Exp]]): Scored[A] = {
           val args = used :+ x
           val tys = args map (_.ty)
           resolveOptions(List(f),tys) match {
@@ -33,7 +38,7 @@ object ArgMatching {
             case _ => impossible
           }
         }
-        type Opts = List[Scored[ApplyExp]]
+        type Opts = List[Scored[A]]
         val options0: Opts = unused match {
           case Nil => if (useEnv) Nil else impossible
           case x::xs => {
@@ -41,7 +46,7 @@ object ArgMatching {
             val first = x flatMap (add(_,xs))
             // Use a different argument
             @tailrec
-            def shuffle(prev: List[Scored[Exp]], next: List[Scored[Exp]], opts: Opts): Opts = next match {
+            def shuffle(prev: Exps, next: Exps, opts: Opts): Opts = next match {
               case Nil => opts
               case x::next => {
                 val xs = revAppend(prev,next)

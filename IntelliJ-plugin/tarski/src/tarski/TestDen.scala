@@ -671,20 +671,23 @@ class TestDen {
   }
 
   @Test def memberToInfix() = {
-    val A = NormalClassItem("A", LocalPkg)
-    val f = NormalMethodItem("f", A, Nil, VoidType, List(A), isStatic=true)
-    val a = Local("a", A, true)
-    implicit val env = baseEnv.extend(Array(A,f,a),Map(A->2,f->2,a->1)).move(PlaceInfo(f))
-    test("a f a", ApplyExp(MethodDen(a,f),List(a)))
+    val A = NormalClassItem("A")
+    val f = NormalMethodItem("f",A,Nil,A,List(A),isStatic=true)
+    val a = Local("a",A,isFinal=true)
+    implicit val env = baseEnv.extend(Array(f,a),Map(f->2,a->1)).move(PlaceInfo(f))
+    def fa(x: Exp) = ApplyExp(MethodDen(x,f),List(a))
+    test("a f a",fa(a))
+    test("a f a f a",fa(fa(a)))
   }
 
   @Test def javascriptStyleMember() = {
-    val A = NormalClassItem("A", LocalPkg)
-    val f = NormalFieldItem("f", A, A, isFinal=false)
-    val a = Local("a", A, isFinal=true)
+    val A = NormalClassItem("A")
+    val f = NormalFieldItem("f",A,A,isFinal=false)
+    val a = Local("a",A,isFinal=true)
     implicit val env = baseEnv.extend(Array(A,f,a), Map(A->2,f->2,a->1))
-    for (s <- List("a[f] = a","""a["f"] = a"""))
+    for (s <- List("a[f] = a","a f = a","""a["f"] = a"""))
       test(s,AssignExp(None,FieldExp(a,f),a))
+    test("a f f f = a",AssignExp(None,FieldExp(FieldExp(FieldExp(a,f),f),f),a))
   }
 
   @Test def newObject() = test("new Object()",ApplyExp(NewDen(None,ObjectConsItem),Nil))

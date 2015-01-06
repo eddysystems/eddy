@@ -211,13 +211,20 @@ public class JavaScores {
   // Requires p >= then.p()
   static public <A> Scored<A> uniformThen(double/*Prob*/ p, A[] xs, Scored<A> then) {
     assert p >= then.p();
-    if (xs != null)
+    if (xs != null && xs.length>0) {
+      if (trackErrors)
+        then = Scores.good(then);
       for (int i=xs.length-1;i>=0;i--)
         then = new Best<A>(p,xs[i],then);
+    }
     return then;
   }
   static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<A> xs, Scored<A> then) {
     assert p >= then.p();
+    if (xs.isEmpty())
+      return then;
+    if (trackErrors)
+      then = Scores.good(then);
     while (xs.nonEmpty()) {
       then = new Best<A>(p,xs.head(),then);
       xs = (List)xs.tail();
@@ -232,10 +239,14 @@ public class JavaScores {
       case 0:
         return then;
       case 1:
+        if (trackErrors)
+          then = Scores.good(then);
         final Alt<A> x = xs.head();
         assert x.p() >= then.p();
         return new Best<A>(x.dp(),x.x(),then);
       default:
+        if (trackErrors)
+          then = Scores.good(then);
         final Object[] sx = new Object[xs.size()];
         for (int i=0;i<n;i++) {
           sx[i] = xs.head();

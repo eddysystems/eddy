@@ -196,18 +196,39 @@ object Scores {
     }
   }
 
+  // Lazy version of good
+  private final class LazyGood[A](private[this] var x: LazyScored[A]) extends LazyScored[A] {
+    val p = x.p
+    private[this] var s: Scored[A] = null
+    def force(p: Double) = {
+      if (s eq null) {
+        s = x force p match {
+          case x:Best[A] => x
+          case x:LazyGood[A] => x
+          case _:EmptyOrBad => Empty
+          case x:LazyScored[A] => new LazyGood(x)
+        }
+        x = null
+      }
+      s
+    }
+  }
+
+  // Drop errors.  For internal use only.
+  @inline def good[A](s: Scored[A]): Scored[A] = if (!trackErrors) s else s match {
+    case _:Best[A]|_:LazyGood[A] => s
+    case _:EmptyOrBad => Empty
+    case s:LazyScored[A] => new LazyGood(s)
+  }
+
   // Score constructors
   @inline def fail[A](error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error))
     else Empty
   private val knownProb = Prob("known",1)
   @inline def known[A](x: A): Scored[A] = Best(knownProb,x,Empty)
-  @inline def knownThen[A](x: A, s: Scored[A]) =
-    if (trackErrors) known(x)++s
-    else Best(knownProb,x,s)
-  @inline def bestThen[A](p: Prob, x: A, s: Scored[A]) =
-    if (trackErrors) single(x,p)++s
-    else Best(p,x,s)
+  @inline def knownThen[A](x: A, s: Scored[A]) = Best(knownProb,x,good(s))
+  @inline def bestThen[A](p: Prob, x: A, s: Scored[A]) = Best(p,x,good(s))
   @inline def single[A](x: A, p: Prob): Scored[A] = Best(p,x,Empty)
   @inline def orError[A](x: Scored[A], error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error)) ++ x

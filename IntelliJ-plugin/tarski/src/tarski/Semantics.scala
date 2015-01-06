@@ -13,7 +13,7 @@ import tarski.Scores._
 import tarski.JavaScores.pmul
 import tarski.Tokens._
 import tarski.Types._
-
+import java.util.IdentityHashMap
 import scala.annotation.tailrec
 
 object Semantics {
@@ -222,10 +222,10 @@ object Semantics {
   // Turn f into f(), etc.
   // TODO: Make Pr.missingArgList much higher for explicit new
   def bareCall(f: Callable)(implicit env: Env): Scored[Exp] =
-    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil))
+    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,ArgMatching.useAll))
   def fixCall(m: Mode, f: => Scored[Callable])(implicit env: Env): Scored[ExpOrCallable] =
     if (m.call) f
-    else biased(Pr.missingArgList,f flatMap (ArgMatching.fiddleCall(_,Nil))) // Turn f into f(), etc.
+    else biased(Pr.missingArgList,f flatMap (ArgMatching.fiddleCall(_,Nil,ArgMatching.useAll)))
 
   def denote(e: AExp, m: Mode)(implicit env: Env): Scored[Den] = e match {
     case x:ALit if m.exp => denoteLit(x)
@@ -270,7 +270,7 @@ object Semantics {
       // Either array index or call
       val call = biased(Pr.callExp(xsn,around), fs flatMap {
         case f:TypeDen => known(f.array) // t[]
-        case f:Callable => ArgMatching.fiddleCall(f,args)
+        case f:Callable => ArgMatching.fiddleCall(f,args,ArgMatching.useAll)
         case _:Exp|_:PackageDen => fail("Expressions and packages are not callable")
       })
       if (n == 0) call // No arguments is never array access
@@ -278,10 +278,39 @@ object Semantics {
         val ci = call ++ biased(Pr.indexCallExp(xsn,around),
           productWith(fs.collect({case f:Exp if hasDims(f.ty,n) => f},show(e)+s": expected >= $n dimensions"),
             product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp)))
-        def javascript(n: Name) = ci ++ biased(Pr.javascriptMember,denoteField(fs,n,m,e))
-        xsn.list match {
-          case List(NameAExp(n)) => javascript(n)
-          case List(StringALit(v)) => javascript(denoteStringLit(v))
+        // Handle Javascript-style field access, Scala-style infix method calls, etc.
+        def special(a: Scored[Den], x: Name, ys: List[Scored[Exp]], names: IdentityHashMap[Scored[Exp],Name]): Scored[Den] = {
+          val ax = denoteField(a,x,m|CallMode,e)
+          def apply: Scored[Den] = ax flatMap {
+            case ax:Callable => ArgMatching.fiddleCall(ax,ys,(axy,zs) => zs match {
+              case Nil => known(axy)
+              case z::zs => names.get(z) match {
+                case null => fail("Not a field name")
+                case z => special(known(axy),z,zs,names)
+              }
+            })
+            case _ => fail("Not applicable")
+          }
+          ys match {
+            case Nil => ax
+            case y::ys => names.get(y) match {
+              case null => fail("Not a field name")
+              case y => special(ax,y,ys,names) ++ apply
+            }
+            case _ => apply
+          }
+        }
+        def start(x: Name): Scored[Den] = ci ++ biased(Pr.specialCall,{
+          val names = new IdentityHashMap[Scored[Exp],Name]
+          (xsn.list.tail,args.tail).zipped foreach {
+            case (NameAExp(x),s) => names.put(s,x)
+            case _ => ()
+          }
+          special(fs,x,args.tail,names)
+        })
+        xsn.list.head match {
+          case NameAExp(x) if n==1 || around==NoAround => start(x)
+          case StringALit(v) if n==1 => start(denoteStringLit(v))
           case _ => ci
         }
       }
@@ -367,14 +396,18 @@ object Semantics {
       case _ => false
     }
     def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
-    val fs = env.collect(f,s"$f doesn't look like a field",{
-      case f:Value      with Member if mc.exp     && maybeMemberIn(f) => f
-      case f:TypeItem   with Member                                   => f
-      case f:MethodItem with Member if mc.callExp && maybeMemberIn(f) => f
+    val fs = env.collect(f,s"$f doesn't look like a field (mode $mc)",{
+      case f:Value with Member if mc.exp && maybeMemberIn(f) => f
+      case f:TypeItem with Member => f
+      case f:MethodItem if mc.callExp && maybeMemberIn(f) => f
+      case f:MethodItem => throw new RuntimeException(s"f $f, mc $mc, maybe ${maybeMemberIn(f)}")
     })
     product(xs,fs) flatMap {case (x,f) => x match {
-      case _:Callable => fail(s"${show(x)}: Callables do not have fields")
-      case x:ParentDen if !memberIn(f,x) => fail(s"${show(x)} does not contain $f")
+      case _:Callable => fail(s"${show(x)}: Callables do not have fields (such as $f)")
+      case x:ParentDen if !memberIn(f,x) => fail(x match {
+        case x:ExpOrType => s"${show(x)}: Item ${show(x.item)} does not contain $f"
+        case PackageDen(x) => s"${show(x)}: Package does not contain $f"
+      })
       case x:ParentDen => f match {
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")

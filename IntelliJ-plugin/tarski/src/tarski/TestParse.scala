@@ -158,4 +158,8 @@ class TestParse {
   @Test def urshift() = testAST("x >>> y",BinaryAExp(UnsignedRShiftOp,"x","y"))
   @Test def rshiftSep() = testAST("x > > y")
   @Test def urshiftSep() = testAST("x >> > y")
+
+  @Test def juxt() = testAST("a b c",
+    ApplyAExp("a",JuxtList(List("b","c")),NoAround),
+    VarAStmt(Nil,"a",JuxtList(List(("b",0,None),("c",0,None)))))
 }
