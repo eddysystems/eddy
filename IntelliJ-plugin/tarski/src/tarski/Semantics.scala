@@ -223,9 +223,12 @@ object Semantics {
   // TODO: Make Pr.missingArgList much higher for explicit new
   def bareCall(f: Callable)(implicit env: Env): Scored[Exp] =
     biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,ArgMatching.useAll))
-  def fixCall(m: Mode, f: => Scored[Callable])(implicit env: Env): Scored[ExpOrCallable] =
+  def fixCall(m: Mode, f: => Scored[Den])(implicit env: Env): Scored[Den] =
     if (m.call) f
-    else biased(Pr.missingArgList,f flatMap (ArgMatching.fiddleCall(_,Nil,ArgMatching.useAll)))
+    else biased(Pr.missingArgList,f flatMap {
+      case f:Callable => ArgMatching.fiddleCall(f,Nil,ArgMatching.useAll)
+      case f => known(f)
+    })
 
   def denote(e: AExp, m: Mode)(implicit env: Env): Scored[Den] = e match {
     case x:ALit if m.exp => denoteLit(x)
@@ -292,7 +295,7 @@ object Semantics {
             case _ => fail("Not applicable")
           }
           ys match {
-            case Nil => ax
+            case Nil => fixCall(m,ax)
             case y::ys => names.get(y) match {
               case null => fail("Not a field name")
               case y => special(ax,y,ys,names) ++ apply

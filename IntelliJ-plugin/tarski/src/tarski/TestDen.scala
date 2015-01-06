@@ -672,12 +672,39 @@ class TestDen {
 
   @Test def memberToInfix() = {
     val A = NormalClassItem("A")
-    val f = NormalMethodItem("f",A,Nil,A,List(A),isStatic=true)
+    val f = NormalMethodItem("f",A,Nil,A,List(A),isStatic=false)
     val a = Local("a",A,isFinal=true)
     implicit val env = baseEnv.extend(Array(f,a),Map(f->2,a->1)).move(PlaceInfo(f))
     def fa(x: Exp) = ApplyExp(MethodDen(x,f),List(a))
     test("a f a",fa(a))
     test("a f a f a",fa(fa(a)))
+  }
+
+  @Test def postfix() = {
+    val A = NormalClassItem("A")
+    val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
+    def M(c: ClassItem): Local = Local(c.name.toLowerCase,c,isFinal=true)
+    val a = Local("a",A,isFinal=true)
+    implicit val env = baseEnv.extendLocal(Array(a,f)).move(PlaceInfo(f))
+    test("a f",ApplyExp(MethodDen(a,f),Nil))
+  }
+
+  @Test def largeJuxt() = {
+    val A = NormalClassItem("A")
+    val X = NormalClassItem("X")
+    val Y = NormalClassItem("Y")
+    val B = NormalClassItem("B")
+    val C = NormalClassItem("C")
+    val D = NormalClassItem("D")
+    val f = NormalMethodItem("f",A,Nil,B,List(X,Y),isStatic=false)
+    val g = NormalFieldItem("g",C,B,isFinal=true)
+    val h = NormalMethodItem("h",C,Nil,D,Nil,isStatic=false)
+    def M(c: ClassItem): Local = Local(c.name.toLowerCase,c,isFinal=true)
+    val a = M(A)
+    val x = M(X)
+    val y = M(Y)
+    implicit val env = baseEnv.extendLocal(Array(a,x,y,f,g,h)).move(PlaceInfo(f))
+    test("a f y x g h",ApplyExp(MethodDen(FieldExp(ApplyExp(MethodDen(a,f),List(x,y)),g),h),Nil))
   }
 
   @Test def javascriptStyleMember() = {
