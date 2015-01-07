@@ -139,10 +139,13 @@ object Pr {
   // denoteIndex
   val insertedCastIndexExp = Prob("inserted cast index exp",.1) // it's unlikely.
 
+  // Completely drop types or type parameters
+  val ignoreVarType = Prob("ignore var type",.001)
+  val ignoreTypeArgs = Prob("ignore type args",.001)
+
   // denoteStmt(AStmt)
   val emptyStmt = Prob("empty stmt",.2) // empty statements are rarely written down
   val holeStmt = base // incomplete statements are common though
-  val ignoreVarType = Prob("change var type",.1)
   val expStmtsSplit = Prob("exp stmts split",.3) // tried to write a non-expression statement as a statement, had to be split
   val assignmentAsVarStmt = Prob("assign as var stmt",.4) // should depend on types: e.g. explicit constructor calls are more likely
   val blockStmt = base

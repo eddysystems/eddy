@@ -113,7 +113,8 @@ object Semantics {
     case EmptyList => fs // Ignore empty type parameter lists
     case ts =>
       val n = ts.list.size
-      product(fs flatMap (prepareTypeArgs(n,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
+      val use = product(fs flatMap (prepareTypeArgs(n,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
+      use ++ biased(Pr.ignoreTypeArgs,fs)
   }
   def addTypeArgs(fs: Scored[Den], ts: Option[KList[AExp]])(implicit env: Env): Scored[Den] = ts match {
     case None => fs

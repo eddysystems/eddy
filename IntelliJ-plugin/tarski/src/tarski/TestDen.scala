@@ -578,9 +578,10 @@ class TestDen {
     test("""<Integer>f(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
     test("""f<Integer>(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
     // These three fail because f's type argument extends Number
-    testFail("""this.<String>f("test")""")
-    testFail("""<String>f("test")""")
-    testFail("""f<String>("test")""")
+    def bad(s: String) = testFail(s,bound=1e-4)
+    bad("""this.<String>f("test")""")
+    bad("""<String>f("test")""")
+    bad("""f<String>("test")""")
   }
 
   @Test def typeApply(): Unit = {
