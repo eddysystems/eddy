@@ -114,7 +114,7 @@ class TestEnvironment {
       if (item.name == typed) None // Exact matches are not typos
       else {
         val p = Pr.typoProbability(item.name, typed)
-        if (pp(p) >= Environment.minimumProbability) Some(Alt(p,item)) else None
+        if (pp(p) >= Pr.minimumProbability) Some(Alt(p,item)) else None
       }
     })).toSet
 

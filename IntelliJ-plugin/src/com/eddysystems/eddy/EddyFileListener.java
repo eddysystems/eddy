@@ -5,7 +5,6 @@ import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.CaretEvent;
@@ -19,16 +18,14 @@ import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiFile;
-import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
+
+import static com.eddysystems.eddy.Utility.log;
 
 public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Project project;
   private final @NotNull Editor editor;
   private final @NotNull Document document;
-  private final @NotNull PsiFile psifile;
-  private final @NotNull Logger logger;
 
   private static final @NotNull Object active_lock = new Object();
   private static EddyFileListener active_instance = null;
@@ -39,20 +36,16 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   private boolean inChange = false;
 
-  public EddyFileListener(@NotNull Project project, TextEditor editor, @NotNull PsiFile psifile) {
-    logger = Logger.getInstance("EddyFileListener@" + editor);
-    logger.setLevel(Level.INFO);
-
+  public EddyFileListener(@NotNull Project project, TextEditor editor) {
     this.project = project;
     this.editor = editor.getEditor();
     this.document = this.editor.getDocument();
-    this.psifile = psifile;
 
     VirtualFile file = FileDocumentManager.getInstance().getFile(this.document);
     if (file != null)
-      logger.debug("making eddy for editor for file " + file.getPresentableName());
+      log("making eddy for editor for file " + file.getPresentableName());
     else
-      logger.debug("making eddy for editor for file 'null'");
+      log("making eddy for editor for file 'null'");
 
     // moving the caret around
     this.editor.getCaretModel().addCaretListener(this);
@@ -62,6 +55,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   public void dispose() {
+    log("disposing editor listener for " + editor);
     editor.getCaretModel().removeCaretListener(this);
     editor.getDocument().removeDocumentListener(this);
   }
@@ -96,7 +90,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     }
 
     public void interrupt() {
-      System.out.println("interrupting " + this.getName());
+      log("interrupting " + this.getName());
       eddy.cancel();
       super.interrupt();
     }
@@ -192,8 +186,6 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       return;
     if (!enabled())
       return;
-    System.out.println("caret position changed: " + e.getOldPosition() + " -> " + e.getNewPosition());
-    //logger.debug("caret position changed");
     process();
   }
 
@@ -207,14 +199,14 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   @Override
   public void beforeDocumentChange(DocumentEvent event) {
-    logger.debug("before document change");
     inChange = true;
   }
 
   @Override
   public void documentChanged(DocumentEvent event) {
-    logger.debug("document changed");
     inChange = false;
+    if (!enabled())
+      return;
     process();
   }
 }

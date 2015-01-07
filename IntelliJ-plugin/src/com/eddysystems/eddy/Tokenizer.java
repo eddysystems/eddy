@@ -1,19 +1,16 @@
 package com.eddysystems.eddy;
 
 import com.intellij.lang.java.lexer.JavaLexer;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.JavaTokenType;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.tree.IElementType;
-import org.jetbrains.annotations.NotNull;
 import tarski.Tokens.*;
 
 import java.util.ArrayList;
 
 public class Tokenizer {
-  private final static @NotNull Logger logger = Logger.getInstance("Tokenizer");
 
   public static Token psiToTok(TreeElement elem) {
     return token(elem.getElementType(),elem.getText());

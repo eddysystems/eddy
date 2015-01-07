@@ -1,9 +1,11 @@
 package com.eddysystems.eddy;
 
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.roots.FileIndexFacade;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
+import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.search.ProjectScope;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -22,33 +24,128 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.eddysystems.eddy.Utility.log;
+
 public class Converter {
   public final Place place;
-  public final EnvironmentProcessor.JavaEnvironment jenv;
+  final GlobalSearchScope projectScope;
 
-  // We will add to this
-  public final Map<PsiElement, Item> locals;
-  public final Map<PsiMethod, ConstructorItem> cons;
+  final JavaEnvironment jenv;
 
-  private final @NotNull Logger logger = Logger.getInstance(getClass());
+  // non-project items go here
+  protected final Map<PsiElement, Item> globals;
+  protected final Map<PsiMethod, ConstructorItem> globalCons;
+
+  // project items go here
+  protected final Map<PsiElement, Item> locals;
+  protected final Map<PsiMethod, ConstructorItem> cons;
+
+  // anything added to project items also goes in here
+  protected final Map<PsiElement, Item> added;
+
+  // true if we have to check our locals ourselves, false if they're part of the environment
+  private final boolean checkLocals;
+  // true if we should sort items into globals and locals, false if we put everything in locals
+  private final boolean splitScope;
 
   Converter(Place place,
-            EnvironmentProcessor.JavaEnvironment jenv,
-            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons) {
+            JavaEnvironment jenv,
+            Map<PsiElement, Item> globals, Map<PsiMethod, ConstructorItem> globalCons,
+            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons,
+            Map<PsiElement, Item> added) {
     this.place = place;
+    this.projectScope = ProjectScope.getProjectScope(place.project);
     this.jenv = jenv;
+    this.globals = globals;
+    this.globalCons = globalCons;
     this.locals = locals;
     this.cons = cons;
+    this.added = added;
+    this.checkLocals = false;
+    this.splitScope = true;
   }
 
-  @Nullable Item lookup(PsiElement e) {
-    Item i = jenv.lookup(e);
-    return i != null ? i : locals.get(e);
+  // constructed like this, put and lookup behave differently
+  Converter(Place place,
+            JavaEnvironment jenv,
+            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons) {
+    this.place = place;
+    this.projectScope = ProjectScope.getProjectScope(place.project);
+    this.jenv = jenv;
+    this.globals = null;
+    this.globalCons = null;
+    this.locals = locals;
+    this.cons = cons;
+    this.added = null;
+    this.checkLocals = true;
+    this.splitScope = false;
   }
 
-  @Nullable ConstructorItem lookupConstructor(PsiMethod m) {
-    ConstructorItem i = jenv.lookupConstructor(m);
-    return i != null ? i : cons.get(m);
+  Item lookup(PsiElement e) {
+    if (checkLocals) {
+      if (locals.containsKey(e))
+        return locals.get(e);
+      if (e instanceof PsiMethod && cons.containsKey(e))
+        return cons.get(e);
+    }
+
+    return jenv.lookup(e);
+  }
+
+  ConstructorItem lookupConstructor(PsiMethod m) {
+    if (checkLocals) {
+      if (cons.containsKey(m))
+        return cons.get(m);
+    }
+
+    return jenv.lookupConstructor(m);
+  }
+
+  void put(PsiElement e, Item it) {
+    if (splitScope) {
+      if (isInProject(e)) {
+        locals.put(e,it);
+        if (!(it instanceof ConstructorItem) && added != null)
+          added.put(e,it);
+      } else {
+        globals.put(e,it);
+      }
+    } else {
+      locals.put(e,it);
+      if (!(it instanceof ConstructorItem) && added != null)
+        added.put(e,it);
+    }
+  }
+
+  void putCons(PsiMethod e, ConstructorItem it) {
+    if (splitScope) {
+      if (isInProject(e)) {
+        cons.put(e,it);
+      } else {
+        globalCons.put(e,it);
+      }
+    } else {
+      cons.put(e,it);
+    }
+  }
+
+  boolean isInProject(PsiElement elem) {
+    if (elem instanceof PsiPackage) {
+      VirtualFile[] files = ((PsiPackage) elem).occursInPackagePrefixes();
+      for (VirtualFile file : files) {
+        if (projectScope.contains(file))
+          return true;
+      }
+      return false;
+    } else {
+      PsiFile file = elem.getContainingFile();
+      return projectScope.contains(file.getVirtualFile());
+    }
+  }
+
+  // return type is null *and* has same name as containing class
+  static boolean isConstructor(PsiMethod elem) {
+    return elem.getReturnType() == null && elem.getName().equals(((PsiClass)elem.getParent()).getName());
   }
 
   TypeArg convertTypeArg(PsiType t, Parent parent) {
@@ -94,11 +191,7 @@ public class Converter {
           jparams.add(convertTypeArg(tp,parent));
         scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
-        //logger.debug("converting class " + t + " with type parameters " + params.mkString("[",",","]"));
-
         ClassItem item = (ClassItem)addClass(tcls,false,false);
-
-        //logger.debug("  item: " + item + ": params " + item.tparams().mkString("[",",","]"));
 
         assert params.size() == ((PsiClassType)t).getParameterCount();
 
@@ -146,7 +239,7 @@ public class Converter {
       if (pkg.getName() == null)
         return tarski.Tarski.localPkg();
       final PackageItem item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
-      locals.put(pkg,item);
+      put(pkg, item);
       return item;
     }
     throw new RuntimeException("weird container "+elem);
@@ -428,7 +521,7 @@ public class Converter {
     }
     // Use a maker to break recursion
     TypeVar ti = new LazyTypeVar(this,p);
-    locals.put(p, ti);
+    put(p, ti);
     return ti;
   }
 
@@ -453,6 +546,8 @@ public class Converter {
       this._parent = parent;
       this._isFinal = cls.hasModifierProperty(PsiModifier.FINAL);
     }
+
+    public String toString() { return "LazyClass:" + _name; }
 
     public String name() {
       return _name;
@@ -524,7 +619,7 @@ public class Converter {
         final ArrayList<ConstructorItem> cons = new ArrayList<ConstructorItem>();
         boolean found = false;
         for (PsiMethod m : cls.getConstructors())
-          if (env.jenv.isConstructor(m)) {
+          if (isConstructor(m)) {
             found = true;
             if (!env.place.isInaccessible(m,false))
               cons.add((ConstructorItem)env.addMethod(m));
@@ -635,7 +730,7 @@ public class Converter {
     }
 
     if (FileIndexFacade.getInstance(place.project).isInSourceContent(cls.getContainingFile().getVirtualFile())) {
-      System.out.println("adding local class " + cls);
+      log("adding local class " + cls + "@" + cls.hashCode());
     }
 
     if (cls instanceof PsiTypeParameter)
@@ -644,7 +739,7 @@ public class Converter {
     // Make and add the class
     final ParentItem parent = addContainer(place.containing(cls));
     ClassItem item = new LazyClass(this,cls,parent);
-    locals.put(cls,item);
+    put(cls, item);
 
     if (recurse)
       addClassMembers(cls,item,noProtected);
@@ -695,6 +790,8 @@ public class Converter {
       this.env = env;
       this.method = method;
     }
+
+    public String toString() { return "LazyConstructor:" + name(); }
 
     // Core interface
     public ClassItem parent() {
@@ -774,6 +871,8 @@ public class Converter {
       this._name = method.getName();
       this._isStatic = method.hasModifierProperty(PsiModifier.STATIC);
     }
+
+    public String toString() { return "LazyMethod:" + _name; }
 
     // Core interface
     public String name() {
@@ -869,20 +968,20 @@ public class Converter {
   }
 
   CallableItem addMethod(PsiMethod method) {
-    if (jenv.isConstructor(method)) {
+    if (isConstructor(method)) {
       // constructors are not stored in locals, but in cons
       ConstructorItem i = lookupConstructor(method);
       if (i != null)
         return i;
       i = new LazyConstructor(this,method);
-      cons.put(method,i);
+      putCons(method, i);
       return i;
     } else {
       Item i = lookup(method);
       if (i != null)
         return (CallableItem)i;
       i = new LazyMethod(this,method);
-      locals.put(method,i);
+      put(method, i);
       return (CallableItem)i;
     }
   }
@@ -904,6 +1003,8 @@ public class Converter {
       this._isFinal = isFinal;
       this._isStatic = isStatic;
     }
+
+    public String toString() { return "LazyField:" + _name; }
 
     public String name() {
       return _name;
@@ -959,7 +1060,7 @@ public class Converter {
     final boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
     final boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
     final Value v = new LazyField(this,f,isFinal,isStatic);
-    locals.put(f,v);
+    put(f, v);
     return v;
   }
 }

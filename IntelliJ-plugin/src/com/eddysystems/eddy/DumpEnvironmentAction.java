@@ -6,9 +6,6 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
 
-/**
- * Created by martin on 05.11.14.
- */
 public class DumpEnvironmentAction extends AnAction {
   public void actionPerformed(AnActionEvent e) {
     Project project = e.getProject();

@@ -4,7 +4,6 @@ import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
@@ -25,8 +24,9 @@ import tarski.Tokens;
 
 import java.util.List;
 
+import static com.eddysystems.eddy.Utility.log;
+
 public class Eddy {
-  private final @NotNull Logger logger = Logger.getInstance(getClass());
   final private Project project;
 
   private boolean canceled;
@@ -35,9 +35,6 @@ public class Eddy {
   // the range to be replaced
   private TextRange tokens_range;
 
-  // information of where we were
-  private PsiFile psifile = null;
-  private Document document = null;
   private Editor editor = null;
   private PsiElement place = null;
 
@@ -53,10 +50,6 @@ public class Eddy {
 
   public Eddy(@NotNull final Project project) {
     this.project = project;
-  }
-
-  public boolean ready() {
-    return EddyPlugin.getInstance(project).isInitialized();
   }
 
   // applies a result in the editor
@@ -118,7 +111,7 @@ public class Eddy {
   }
 
   public void process(@NotNull Editor editor, final @Nullable String special) {
-    logger.info("processing eddy@" + hashCode() + "...");
+    log("processing eddy@" + hashCode() + "...");
     assert project == editor.getProject();
 
     Document document = editor.getDocument();
@@ -133,7 +126,7 @@ public class Eddy {
     resultOffset = 0;
     selectedExplicitly = false;
 
-    psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
+    PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
 
     if (psifile == null)
       return;
@@ -145,20 +138,20 @@ public class Eddy {
     final TextRange lrange = TextRange.create(document.getLineStartOffset(lnum), document.getLineEndOffset(lnum));
     String line = document.getText(lrange);
 
-    logger.info("processing at " + lnum + "/" + column);
-    logger.debug("  current line: " + line);
+    //log("processing at " + lnum + "/" + column);
+    log("  current line: " + line);
 
     // whitespace is counted toward the next token/statement, so start at the beginning of the line
 
-    PsiElement prevLineEnd = psifile.findElementAt(lnum==0 ? 0 : document.getLineEndOffset(lnum-1));
+    PsiElement prevLineEnd = psifile.findElementAt(lnum == 0 ? 0 : document.getLineEndOffset(lnum - 1));
     PsiElement elem = psifile.findElementAt(document.getLineStartOffset(lnum));
 
     // if we hit whitespace, advance until we find something substantial, or leave the line
     if (elem instanceof PsiWhiteSpace) {
       elem = elem.getNextSibling();
-      logger.debug("  found whitespace, next token " + elem);
+      //log("  found whitespace, next token " + elem);
       if (!lrange.intersects(elem.getTextRange())) {
-        logger.debug("out of line range");
+        //log("out of line range");
         elem = null;
       }
     }
@@ -178,14 +171,14 @@ public class Eddy {
 
       // walk up the tree until the line is fully contained
       while (node != null && lrange.contains(node.getTextRange())) {
-        logger.debug("  PSI node: " + node.getPsi() + ", contained in this line: " + lrange.contains(node.getTextRange()));
+        //log("  PSI node: " + node.getPsi() + ", contained in this line: " + lrange.contains(node.getTextRange()));
         node = node.getTreeParent();
       }
 
       // then walk the node subtree and output all tokens contained in any statement overlapping with the line
       // now, node is the AST node we want to interpret.
       if (node == null) {
-        logger.warn("cannot find a node to look at.");
+        log("cannot find a node to look at.");
         return;
       }
 
@@ -204,7 +197,7 @@ public class Eddy {
           }
 
           if (element instanceof LeafElement) {
-            logger.debug("    node: " + element + " " + element.getTextRange() + " -> " + Tokenizer.psiToTok(element));
+            //log("    node: " + element + " " + element.getTextRange() + " -> " + Tokenizer.psiToTok(element));
             vtokens_ranges.add(element.getTextRange());
             vtokens.add(Tokenizer.psiToTok(element));
           }
@@ -268,7 +261,7 @@ public class Eddy {
     for (Scores.Alt<List<String>> interpretation : results) {
       final String s = reformat(interpretation.x());
       resultStrings.add(s);
-      logger.info("eddy result: '" + s + "' existing '" + before_text + "'");
+      log("eddy result: '" + s + "' existing '" + before_text + "'");
       if (s.equals(before_text))
         found_existing = true;
     }

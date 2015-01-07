@@ -350,7 +350,7 @@ class TestDen {
   val f = NonImpExp(NotOp,t)
   val e = EmptyStmt
   val h = HoleStmt
-  def testDenX(input: String, best: (Stmt,Stmt) => Stmt) = {
+  def testX(input: String, best: (Stmt,Stmt) => Stmt) = {
     val x = Local("x",IntType,false)
     implicit val env = extraEnv.extendLocal(Array(x))
     test(input,best(AssignExp(None,x,1),AssignExp(None,x,2)))
@@ -362,9 +362,9 @@ class TestDen {
   @Test def ifThen()       = test ("if true then;", IfStmt(t,e))
   @Test def ifThenHole()   = test ("if true then", IfStmt(t,h))
   @Test def ifThenParens() = test ("if (true) then", IfStmt(t,h))
-  @Test def ifElse()       = testDenX("if (true) x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
+  @Test def ifElse()       = testX("if (true) x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
   @Test def ifElseHole()   = test ("if (true) else", IfElseStmt(t,h,h))
-  @Test def ifThenElse()   = testDenX("if true then x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
+  @Test def ifThenElse()   = testX("if true then x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
 
   // While and do
   @Test def whileStmt()       = test("while (true);", WhileStmt(t,e))
@@ -565,15 +565,13 @@ class TestDen {
 
   @Test def genericClass(): Unit = {
     implicit val env = setupGenericClass()
-    val X = env.allItems.find(_.name == "X").get.asInstanceOf[NormalClassItem]
-    val B = env.allItems.find(_.name == "B").get.asInstanceOf[NormalClassItem]
     test("X<String,B<String>> x = null", "x", x => VarStmt(X.generic(List(StringType,B.generic(List(StringType)))), List((x, 0, Some(NullLit)))))
   }
 
   @Test def genericMethod(): Unit = {
     implicit val env = setupGenericClass()
-    val f = env.allItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
-    val This = env.allItems.find(_.isInstanceOf[ThisItem]).get.asInstanceOf[ThisItem]
+    val f = env.allLocalItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
+    val This = env.allLocalItems.find(_.isInstanceOf[ThisItem]).get.asInstanceOf[ThisItem]
     test("""this.<Integer>f(7)""",ApplyExp(TypeApply(MethodDen(This,f),List(IntType.box)),List(7)))
     test("""<Integer>f(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
     test("""f<Integer>(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))

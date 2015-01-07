@@ -11,11 +11,13 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.eddysystems.eddy.Utility.log;
+
 public class EddyPsiListener implements PsiTreeChangeListener {
 
-  @NotNull final EnvironmentProcessor.JavaEnvironment env;
+  @NotNull final JavaEnvironment env;
 
-  EddyPsiListener(@NotNull final EnvironmentProcessor.JavaEnvironment env) {
+  EddyPsiListener(@NotNull final JavaEnvironment env) {
     this.env = env;
   }
 
@@ -127,7 +129,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     ElemType et = ei.type;
     PsiElement gp = ei.gp;
     PsiElement p = ei.p;
-    System.out.println("changing " + p + " type " + et);
+    log("changing " + p + " type " + et);
     switch (et) {
       case BASE: env.changeBase((PsiClass)gp); break;
       case IMPLEMENTS: env.changeImplements((PsiClass)gp); break;
@@ -150,7 +152,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childAdded(@NotNull PsiTreeChangeEvent event) {
-    System.out.println("child added to " + event.getParent() + ": " + event.getChild());
+    log("child added to " + event.getParent() + ": " + event.getChild());
     PsiElement elem = event.getChild();
 
     // we're invisible to the outside if we're inside a code block, or if we're inside a local class (inside a code block)
@@ -158,7 +160,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
       return;
 
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
-      env.addItem(elem);
+      env.addLocalItem(elem);
       return;
     }
 
@@ -170,7 +172,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildRemoval(@NotNull PsiTreeChangeEvent event) {
-    System.out.println("child being removed from " + event.getParent() + ": " + event.getChild());
+    log("child being removed from " + event.getParent() + ": " + event.getChild());
     if (deleteRecursive(event.getChild())) {
       // if the removed child itself was an item we can delete, we're done here.
       return;
@@ -185,7 +187,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void childRemoved(@NotNull PsiTreeChangeEvent event) {
     // propagate changes up the tree
-    System.out.println("child removed from " + event.getParent() + ": " + event.getChild());
+    log("child removed from " + event.getParent() + ": " + event.getChild());
     if (unprocessed.containsKey(event.getChild())) {
       changeUpward(unprocessed.get(event.getChild()));
       unprocessed.remove(event.getChild());
@@ -194,7 +196,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildReplacement(@NotNull PsiTreeChangeEvent event) {
-    System.out.println("child of " + event.getParent() + ": " + event.getOldChild() + " being replaced with something new");
+    log("child of " + event.getParent() + ": " + event.getOldChild() + " being replaced with something new");
 
     // if complete items are replaced, translate to delete/add pair
     PsiElement elem = event.getOldChild();
@@ -211,12 +213,12 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childReplaced(@NotNull PsiTreeChangeEvent event) {
-    System.out.println("child of " + event.getParent() + ": " + event.getOldChild() + " replaced with " + event.getNewChild());
+    log("child of " + event.getParent() + ": " + event.getOldChild() + " replaced with " + event.getNewChild());
 
     // whole items, translate to delete/add pair
     PsiElement elem = event.getNewChild();
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
-      env.addItem(elem);
+      env.addLocalItem(elem);
       return;
     }
 
@@ -240,20 +242,20 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildrenChange(@NotNull PsiTreeChangeEvent event) {
-    System.out.println("children of " + event.getParent() + " about to be changed.");
+    log("children of " + event.getParent() + " about to be changed.");
   }
 
   @Override
   public void childrenChanged(@NotNull PsiTreeChangeEvent event) {
-    System.out.println("children of " + event.getParent() + " changed");
+    log("children of " + event.getParent() + " changed");
     // called once per file if stuff inside the file changed
     // and when there have been a bunch of changes to a node
 
     // check if there are any unprocessed events we remembered
     for (Map.Entry<PsiElement,ElemInfo> up : unprocessed.entrySet()) {
-      System.out.println("  unprocessed event " + up.getKey() + " type " + up.getValue().type);
+      log("  unprocessed event " + up.getKey() + " type " + up.getValue().type);
       if (up.getValue().p.equals(event.getParent())) {
-        System.out.println("  processing unprocessed event " + up.getKey() + " type " + up.getValue().type);
+        log("  processing unprocessed event " + up.getKey() + " type " + up.getValue().type);
         changeUpward(up.getValue());
         unprocessed.remove(up.getKey());
       }
@@ -262,7 +264,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildMovement(@NotNull PsiTreeChangeEvent event) {
-    System.out.println("child of " + event.getOldParent() + " moving to " + event.getNewParent() + ": " + event.getChild());
+    log("child of " + event.getOldParent() + " moving to " + event.getNewParent() + ": " + event.getChild());
 
     // just changing order doesn't affect us
     if (event.getOldParent() == event.getNewParent())
@@ -281,7 +283,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void childMoved(@NotNull PsiTreeChangeEvent event) {
     // I've never seen this callback actually happen, may be an optimization over remove/add in special cases
-    System.out.println("child of " + event.getOldParent() + " moved to " + event.getNewParent() + ": " + event.getChild());
+    log("child of " + event.getOldParent() + " moved to " + event.getNewParent() + ": " + event.getChild());
 
     // just changing order doesn't affect us
     if (event.getOldParent() == event.getNewParent())
@@ -303,6 +305,6 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void propertyChanged(@NotNull PsiTreeChangeEvent event) {
     // these are not particularly interesting properties for us
-    System.out.println("property " + event.getPropertyName() + " of " + event.getElement() + " changed from " + event.getOldValue() + " to " + event.getNewValue());
+    log("property " + event.getPropertyName() + " of " + event.getElement() + " changed from " + event.getOldValue() + " to " + event.getNewValue());
   }
 }

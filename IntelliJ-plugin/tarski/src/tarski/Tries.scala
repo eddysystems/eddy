@@ -2,6 +2,7 @@ package tarski
 
 import java.util
 
+import tarski.Items.Item
 import tarski.Scores._
 
 import scala.annotation.tailrec
@@ -21,27 +22,33 @@ object Tries {
     }
   }
 
-  class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) {
+  trait Queriable[V] {
+    def exact(s: Array[Char]): List[V]
+    def typoQuery(typed: Array[Char]): List[Alt[V]]
+  }
+
+  class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) extends Queriable[V] {
     // structure contains tuples: (start_values,n_children,(character,start_idx)*)
 
     // A node in structure is
-    //   lo,hi: Int = start and end index of values for this node
+    //   lo: Int = start index of values for this node (end index is in next node, or sentinel if last)
     //   count: number of children
     //   sorted list of (char, child node index) pairs, one for each child node
     // This representation is O(n) insert, iterating over values is easy though (to merge Tries)
-    // There is a sentinel node on the end, with only a start_values.
+    // There is a sentinel node on the end, with only a start index in values array.
 
     // Trie   a -> x, ab -> y, ac -> z
     // structure = [0,1,'a',5,
-    //              0,2,'b',12,'c',14
+    //              0,2,'b',11,'c',13
     //              1,0,
-    //              2] // sentinel
+    //              2,0,
+    //              3] // sentinel (always size of values)
     // values = [x,y,z]
 
-    def nodeValues(node: Int) =
+    protected def nodeValues(node: Int) =
       values.view(structure(node),structure(node+2+2*structure(node+1)))
 
-    def children(node: Int): IndexedSeq[(Char,Int)] = {
+    protected def children(node: Int): IndexedSeq[(Char,Int)] = {
       class ChildList extends IndexedSeq[(Char,Int)] {
         def length: Int = structure(node+1)
         def apply(i: Int): (Char,Int) = {
@@ -54,9 +61,16 @@ object Tries {
 
     // Find an exact match
     @inline def exact(s: Array[Char]): List[V] = {
-      val n = JavaTrie.exactNode(this,s)
+      val n = JavaTrie.exactNode(this.structure,s)
       if (n < 0) Nil
       else nodeValues(n).toList
+    }
+
+    // Lookup a string approximately only (ignoring exact matches)
+    @inline def typoQuery(typed: Array[Char]): List[Alt[V]] = {
+      val expected = typed.length * Pr.typingErrorRate
+      val maxErrors = Pr.poissonQuantile(expected,Pr.minimumProbability) // Never discards anything because it has too few errors
+      JavaTrie.levenshteinLookup(structure, values, typed, maxErrors, expected, Pr.minimumProbability)
     }
 
     // The two keys are assumed equal
@@ -72,6 +86,28 @@ object Tries {
 
     def empty[V <: Named](implicit tt: ClassTag[V]): Trie[V] =
       makeHelper(Array.empty)
+  }
+
+  trait Generator[V] {
+    def lookup(s: String): Array[V]
+  }
+
+  class LazyTrie[V](val structure: Array[Int], lookup: Generator[V]) extends Queriable[V] {
+    override def exact(s: Array[Char]): List[V] = {
+      lookup.lookup(new String(s)).toList
+    }
+
+    override def typoQuery(typed: Array[Char]): List[Alt[V]] = {
+      val expected = typed.length * Pr.typingErrorRate
+      val maxErrors = Pr.poissonQuantile(expected,Pr.minimumProbability) // Never discards anything because it has too few errors
+      JavaTrie.levenshteinLookupGenerated(structure, lookup, typed, maxErrors, expected, Pr.minimumProbability)
+    }
+  }
+
+  object LazyTrie {
+    def apply[V](input: Iterable[String], lookup: Generator[V]) = {
+      new LazyTrie[V](JavaTrie.makeTrieStructure(toSorted(input)), lookup)
+    }
   }
 
   // a trie from which you can delete items
@@ -90,7 +126,7 @@ object Tries {
     // replace a value with another value (which must have the same name)
     def overwrite(value: V, replacement: V): Unit = {
       assert(value.name == replacement.name)
-      val view = nodeValues(JavaTrie.exactNode(this,value.name.toCharArray))
+      val view = nodeValues(JavaTrie.exactNode(this.structure,value.name.toCharArray))
       (0 until view.length).collectFirst( { case i if view(i) == value => view(i) = replacement } )
     }
   }
@@ -105,6 +141,12 @@ object Tries {
 
   // Sort input into an array
   private def toSorted[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Array[V] = {
+    val values = input.toArray
+    util.Arrays.sort(values.asInstanceOf[Array[Object]])
+    values
+  }
+
+  private def toSorted(input: Iterable[String]): Array[String] = {
     val values = input.toArray
     util.Arrays.sort(values.asInstanceOf[Array[Object]])
     values
