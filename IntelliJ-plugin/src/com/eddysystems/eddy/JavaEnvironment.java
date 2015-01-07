@@ -276,7 +276,7 @@ public class JavaEnvironment {
   void buildDynamicEnv() {
     ArrayList<Items.Item> items = new ArrayList<Items.Item>(this.localItems.values());
     dTrie = Tarski.makeDTrie(items);
-    dByItem = JavaUtils.valuesByItem(dTrie.values());
+    dByItem = JavaItems.valuesByItem(dTrie.values());
 
     // clear volatile stores
     addedItems.clear();
@@ -296,7 +296,7 @@ public class JavaEnvironment {
     if (localEnvNeedsRebuild()) {
       buildDynamicEnv();
     } else if (byItemNeedsRebuild) {
-      dByItem = JavaUtils.valuesByItem(dTrie.values());
+      dByItem = JavaItems.valuesByItem(dTrie.values());
     }
 
     EnvironmentProcessor ep = new EnvironmentProcessor(project, this, place, true);
@@ -304,7 +304,7 @@ public class JavaEnvironment {
     ArrayList<Items.Item> newitems = new ArrayList<Items.Item>(ep.localItems);
     newitems.addAll(addedItems.values());
     final Items.Item[] newArray = newitems.toArray(new Items.Item[newitems.size()]);
-    return Tarski.environment(sTrie, dTrie, Tarski.makeTrie(newArray), dByItem, JavaUtils.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
+    return Tarski.environment(sTrie, dTrie, Tarski.makeTrie(newArray), dByItem, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
   }
 
 

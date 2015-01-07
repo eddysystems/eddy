@@ -2,7 +2,6 @@ package tarski;
 
 import ambiguity.JavaUtils;
 import com.intellij.util.SmartList;
-
 import java.util.ArrayList;
 import java.util.List;
 

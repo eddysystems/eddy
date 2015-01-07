@@ -1,10 +1,8 @@
 package tarski
 
 import tarski.Pretty._
+import ambiguity.Locations._
 
-/**
- * Created by martin on 11.12.14.
- */
 object Tokens {
 
   sealed abstract class Token
@@ -316,7 +314,7 @@ object Tokens {
   // 2. Turn some keywords into identifiers.
   // 3. Split >> and >>> into >'s and separators.
   // 4. Strip whitespace.
-  def prepare(ts: List[Token]): List[Token] = ts flatMap {
+  def prepare(ts: List[Located[Token]]): List[Located[Token]] = ts flatMap { case Located(t,r) => (t match {
     case _:SpaceTok => Nil
     case t@IdentTok(s) => List(s match {
       case "then" => ThenTok
@@ -328,5 +326,5 @@ object Tokens {
     case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
     case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
     case t => List(t)
-  }
+  }) map (Located(_,r))}
 }

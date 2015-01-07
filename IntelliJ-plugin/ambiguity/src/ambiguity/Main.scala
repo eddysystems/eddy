@@ -4,7 +4,7 @@ import ambiguity._
 import ambiguity.Grammar._
 import scala.io.Source
 
-object main extends App {
+object Main {
   def grammar(path: String): Grammar = {
     val file = Source.fromFile(path).mkString
     val Gr = read(file)
@@ -22,7 +22,7 @@ object main extends App {
   def actions(G: Grammar) =
     print(Parse.actionGen(G).mkString("\n")+"\n")
 
-  args match {
+  def main(args: Array[String]): Unit = args match {
     case Array(path) => parse(grammar(path))
     case Array("-n",path) => parse(grammar(path),nop=true)
     case Array("-a",path) => actions(grammar(path))

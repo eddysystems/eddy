@@ -1,5 +1,6 @@
 package com.eddysystems.eddy;
 
+import ambiguity.Locations.Located;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
@@ -185,7 +186,7 @@ public class Eddy {
       // get token stream for this node
       assert node instanceof TreeElement;
 
-      final List<Tokens.Token> vtokens = new SmartList<Tokens.Token>();
+      final List<Located<Tokens.Token>> vtokens = new SmartList<Located<Tokens.Token>>();
       final List<TextRange> vtokens_ranges = new SmartList<TextRange>();
 
       ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
@@ -206,15 +207,15 @@ public class Eddy {
         }
       });
 
-      List<Tokens.Token> tokens = vtokens;
+      List<Located<Tokens.Token>> tokens = vtokens;
       List<TextRange> tokens_ranges = vtokens_ranges;
 
       // Remove leading and trailing whitespace
-      while (!tokens.isEmpty() && tokens.get(0) instanceof Tokens.WhitespaceTok) {
+      while (!tokens.isEmpty() && tokens.get(0).x() instanceof Tokens.WhitespaceTok) {
         tokens = tokens.subList(1,tokens.size());
         tokens_ranges = tokens_ranges.subList(1,tokens_ranges.size());
       }
-      while (!tokens.isEmpty() && tokens.get(tokens.size()-1) instanceof Tokens.WhitespaceTok) {
+      while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof Tokens.WhitespaceTok) {
         tokens = tokens.subList(0,tokens.size()-1);
         tokens_ranges = tokens_ranges.subList(0,tokens_ranges.size()-1);
       }

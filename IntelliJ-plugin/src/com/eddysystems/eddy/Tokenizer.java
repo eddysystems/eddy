@@ -1,19 +1,26 @@
 package com.eddysystems.eddy;
 
+import ambiguity.Locations$;
 import com.intellij.lang.java.lexer.JavaLexer;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.JavaTokenType;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.tree.IElementType;
+import org.jetbrains.annotations.NotNull;
+import ambiguity.Locations.Located;
+import ambiguity.Locations;
 import tarski.Tokens.*;
 
 import java.util.ArrayList;
 
 public class Tokenizer {
 
-  public static Token psiToTok(TreeElement elem) {
-    return token(elem.getElementType(),elem.getText());
+  public static Located<Token> psiToTok(TreeElement elem) {
+    final int lo = elem.getTextOffset(),
+              hi = lo+elem.getTextLength()-1;
+    return Locations.locatedHelper(token(elem.getElementType(),elem.getText()),
+                                   Locations.buildHelper(lo,hi));
   }
 
   public static Token[] tokenize(final String input) {

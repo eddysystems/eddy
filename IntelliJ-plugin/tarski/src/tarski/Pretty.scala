@@ -208,24 +208,24 @@ object Pretty {
 
   // AST expressions
   implicit def prettyAExp(e: AExp): (Fixity,Tokens) = e match {
-    case NameAExp(n) => pretty(n)
-    case x: ALit => prettyALit(x)
-    case ParenAExp(e,a) => around(e,a)
-    case FieldAExp(e,t,f) => fix(FieldFix, left(_,e) ::: DotTok :: tokens(t) ::: tokens(f))
-    case MethodRefAExp(e,t,f) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: tokens(f))
-    case NewRefAExp(e,t) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: List(NewTok))
-    case TypeApplyAExp(e,t) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
-    case NewAExp(t,e) => fix(NewFix, tokens(t) ::: List(NewTok) ::: right(_,e))
-    case WildAExp(None) => (HighestFix, List(QuestionTok))
-    case WildAExp(Some((b,t))) => fix(WildFix, QuestionTok :: token(b) :: right(_,t))
-    case UnaryAExp(op,e) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,e))
-    case UnaryAExp(op,e)               => fix(PostfixFix, left(_,e) ::: List(token(op)))
-    case BinaryAExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
-    case CastAExp(t,e) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
-    case CondAExp(c,t,f) => fix(CondFix, s => left(s,c) ::: QuestionTok :: tokens(t) ::: ColonTok :: right(s,f))
-    case AssignAExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: space :: token(op) :: space :: right(s,y))
-    case ArrayAExp(xs,a) => around(xs,a)
-    case ApplyAExp(e,xs,a) => {
+    case NameAExp(n,_) => pretty(n)
+    case x:ALit => prettyALit(x)
+    case ParenAExp(e,a,_) => around(e,a)
+    case FieldAExp(e,t,f,_) => fix(FieldFix, left(_,e) ::: DotTok :: tokens(t) ::: tokens(f))
+    case MethodRefAExp(e,t,f,_) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: tokens(f))
+    case NewRefAExp(e,t,_) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: List(NewTok))
+    case TypeApplyAExp(e,t,_) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
+    case NewAExp(t,e,_) => fix(NewFix, tokens(t) ::: List(NewTok) ::: right(_,e))
+    case WildAExp(None,_) => (HighestFix, List(QuestionTok))
+    case WildAExp(Some((b,t)),_) => fix(WildFix, QuestionTok :: token(b) :: right(_,t))
+    case UnaryAExp(op,e,_) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,e))
+    case UnaryAExp(op,e,_)                 => fix(PostfixFix, left(_,e) ::: List(token(op)))
+    case BinaryAExp(op,x,y,_) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
+    case CastAExp(t,e,_) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
+    case CondAExp(c,t,f,_) => fix(CondFix, s => left(s,c) ::: QuestionTok :: tokens(t) ::: ColonTok :: right(s,f))
+    case AssignAExp(op,x,y,_) => fix(AssignFix, s => left(s,x) ::: space :: token(op) :: space :: right(s,y))
+    case ArrayAExp(xs,a,_) => around(xs,a)
+    case ApplyAExp(e,xs,a,_) => {
       val s = a match { case NoAround => JuxtFix; case _ => ApplyFix }
       fix(s, left(_,e) ::: around(xs,a)._2)
     }
@@ -240,21 +240,21 @@ object Pretty {
     s match {
       case EmptyAStmt => (SemiFix,List(SemiTok))
       case HoleAStmt => (HighestFix,List(HoleTok))
-      case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(v))
-      case BlockAStmt(b) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
+      case VarAStmt(m,t,v,_) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(v))
+      case BlockAStmt(b,_) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
       case ExpAStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok))
-      case AssertAStmt(c,None) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
-      case AssertAStmt(c,Some(m)) => (SemiFix, AssertTok :: tokens(c) ::: ColonTok :: tokens(m) ::: List(SemiTok))
-      case BreakAStmt(l) => key(BreakTok,l)
-      case ContinueAStmt(l) => key(ContinueTok,l)
-      case ReturnAStmt(e) => key(ReturnTok,e)
-      case ThrowAStmt(e) => key(ThrowTok,Some(e))
-      case SyncAStmt(e,b,a) => (SemiFix, SynchronizedTok :: around(e,a)._2 ::: tokens(b))
-      case IfAStmt(c,x,a) => (SemiFix, IfTok :: around(c,a)._2 ::: tokens(x))
-      case IfElseAStmt(c,x,y,a) => (SemiFix, IfTok :: around(c,a)._2 ::: tokens(x) ::: ElseTok :: tokens(y))
-      case WhileAStmt(c,s,flip,a) => (SemiFix, whileUntil(flip) :: around(c,a)._2 ::: tokens(s))
-      case DoAStmt(s,c,flip,a) => (SemiFix, DoTok :: tokens(s) ::: whileUntil(flip) :: around(c,a)._2 ::: List(SemiTok))
-      case ForAStmt(i,s,a) => (SemiFix, ForTok :: around(i,a)._2 ::: tokens(s))
+      case AssertAStmt(c,None,_) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
+      case AssertAStmt(c,Some(m),_) => (SemiFix, AssertTok :: tokens(c) ::: ColonTok :: tokens(m) ::: List(SemiTok))
+      case BreakAStmt(l,_) => key(BreakTok,l)
+      case ContinueAStmt(l,_) => key(ContinueTok,l)
+      case ReturnAStmt(e,_) => key(ReturnTok,e)
+      case ThrowAStmt(e,_) => key(ThrowTok,Some(e))
+      case SyncAStmt(e,b,a,_) => (SemiFix, SynchronizedTok :: around(e,a)._2 ::: tokens(b))
+      case IfAStmt(c,x,a,_) => (SemiFix, IfTok :: around(c,a)._2 ::: tokens(x))
+      case IfElseAStmt(c,x,y,a,_) => (SemiFix, IfTok :: around(c,a)._2 ::: tokens(x) ::: ElseTok :: tokens(y))
+      case WhileAStmt(c,s,flip,a,_) => (SemiFix, whileUntil(flip) :: around(c,a)._2 ::: tokens(s))
+      case DoAStmt(s,c,flip,a,_) => (SemiFix, DoTok :: tokens(s) ::: whileUntil(flip) :: around(c,a)._2 ::: List(SemiTok))
+      case ForAStmt(i,s,a,_) => (SemiFix, ForTok :: around(i,a)._2 ::: tokens(s))
     }
   }
   def whileUntil(flip: Boolean): Token = if (flip) UntilTok else WhileTok
@@ -264,18 +264,18 @@ object Pretty {
     case (x,n,Some(e)) => fix(AssignFix, prettyDims(x,n)._2 ::: space :: EqTok :: space :: right(_,e))
   }
   implicit def prettyFor(i: ForInfo): (Fixity,Tokens) = (LowestExpFix,i match {
-    case For(i,c,u) => tokens(i) ::: tokens(c) ::: SemiTok :: tokens(CommaList(u))
-    case Foreach(m,t,v,n,e) => m.map(tokens).flatten ::: tokens(t) ::: prettyDims(v,n)._2 ::: ColonTok :: tokens(e)
+    case For(i,c,u,_) => tokens(i) ::: tokens(c) ::: SemiTok :: tokens(CommaList(u))
+    case Foreach(m,t,v,n,e,_) => m.map(tokens).flatten ::: tokens(t) ::: prettyDims(v,n)._2 ::: ColonTok :: tokens(e)
   })
 
   // Literals
   implicit def prettyALit(x: ALit) = (HighestFix, List(x match {
-    case IntALit(v) => IntLitTok(v)
-    case LongALit(v) => LongLitTok(v)
-    case FloatALit(v) => FloatLitTok(v)
-    case DoubleALit(v) => DoubleLitTok(v)
-    case CharALit(v) => CharLitTok(v)
-    case StringALit(v) => StringLitTok(v)
+    case IntALit(v,_) => IntLitTok(v)
+    case LongALit(v,_) => LongLitTok(v)
+    case FloatALit(v,_) => FloatLitTok(v)
+    case DoubleALit(v,_) => DoubleLitTok(v)
+    case CharALit(v,_) => CharLitTok(v)
+    case StringALit(v,_) => StringLitTok(v)
   }))
 
   // Keywords

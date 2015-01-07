@@ -1,6 +1,7 @@
 package tarski
 
 import ambiguity.Utility._
+import ambiguity.Locations._
 import org.testng.AssertJUnit._
 import org.testng.annotations.Test
 import tarski.AST._
@@ -16,7 +17,6 @@ import tarski.TestUtils._
 import tarski.Types._
 import tarski.Tokens._
 import tarski.Pretty._
-
 import scala.annotation.tailrec
 import scala.language.implicitConversions
 

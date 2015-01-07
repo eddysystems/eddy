@@ -1,8 +1,7 @@
-DIR = tarski/src/ambiguity
-GRAM = tarski/src/ambiguity/eddy.gram
+GRAM = tarski/src/tarski/eddy.gram
 PARSE = tarski/src/tarski/ParseEddy.java
 ACTIONS = tarski/src/tarski/ParseEddyActions.scala
-AMBIGUITY = out/artifacts/tarski_jar/tarski.jar
+AMBIGUITY = out/artifacts/ambiguity_jar/ambiguity.jar
 
 all: $(PARSE) $(ACTIONS)
 

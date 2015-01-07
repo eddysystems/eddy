@@ -1,9 +1,9 @@
 package tarski
 
 import ambiguity.Utility._
+import ambiguity.Locations._
 import tarski.Scores._
 import tarski.Tokens._
-
 import scala.annotation.tailrec
 import scala.math._
 
@@ -15,20 +15,21 @@ object Mismatch {
   case class Right(t: Token) extends Group
   case class Other(t: Token) extends Part
 
-  def part(t: Token): Part = t match {
-    case LParenTok|LBrackTok|LCurlyTok => Left(t)
-    case RParenTok|RBrackTok|RCurlyTok => Right(t)
-    case _ => Other(t)
+  def part(t: Located[Token]): Located[Part] = t map {
+    case t@(LParenTok|LBrackTok|LCurlyTok) => Left(t)
+    case t@(RParenTok|RBrackTok|RCurlyTok) => Right(t)
+    case t => Other(t)
   }
-  type Runs = List[(Part,Int)]
+  type Segments = List[(Located[Part],List[Located[Part]])]
 
-  def matched(ks: Runs): Boolean = {
+  def matched(ks: Segments): Boolean = {
     @tailrec
-    def loop(ks: Runs, d: Int): Boolean = ks match {
+    def loop(ks: Segments, d: Int): Boolean = ks match {
       case Nil => d == 0
-      case (Other(_),_)::r => loop(r,d)
-      case (Left (_),k)::r => loop(r,d+k)
-      case (Right(_),k)::r => d >= k && loop(r,d-k)
+      case (Located(_:Other,_),_)::r => loop(r,d)
+      case (Located(_:Left ,_),k)::r => loop(r,d+k.size)
+      case (Located(_:Right,_),k)::r => val kn = k.size
+                                        d >= kn && loop(r,d-kn)
     }
     loop(ks,0)
   }
@@ -41,38 +42,54 @@ object Mismatch {
   )
 
   // Ensure that ps starts and ends with all kinds of parentheses
-  def ensure(ps: Runs): Runs = {
-    def add(t: Part, ps: Runs) = {
-      def startsWith(ps: Runs): Boolean = ps match {
-        case (p,_)::r => t==p || startsWith(r)
+  def ensure(ps: Segments): Segments = {
+    def add(t: Located[Part], ps: Segments): Segments = {
+      def startsWith(ps: Segments): Boolean = ps match {
+        case (p,_)::r => t.x==p.x || startsWith(r)
         case _ => false
       }
-      if (startsWith(ps)) ps else (t,0)::ps
+      if (startsWith(ps)) ps else (t,Nil)::ps
     }
-    def L(t: Token, r: Runs) = add(Left(t),r)
-    def R(t: Token, r: Runs) = add(Right(t),r)
+    val rL = ps.head._1.r
+    val rR = ps.last._1.r
+    def L(t: Token, r: Segments) = add(Located(Left(t) ,rL),r)
+    def R(t: Token, r: Segments) = add(Located(Right(t),rR),r)
     L(LCurlyTok,L(LParenTok,L(LBrackTok,
     R(RCurlyTok,R(RParenTok,R(RBrackTok,ps.reverse))).reverse)))
   }
 
+  // Coerce a segment of one length into another, keeping track of as much location information as possible
+  def tweak(p: Located[Part], ps: List[Located[Part]], n: Int): List[Located[Part]] = ps match {
+    case Nil => List.fill(n)(p)
+    case _ =>
+      val m = ps.size
+      if (n < m) ps.take(n/2) ::: ps.drop(m-(n+1)/2)
+      else ps splitAt (m/2) match {
+        case (s0,s1@(Located(_,r)::_)) =>
+          val q = Located(p.x,r)
+          s0 ::: List.fill(n-m)(q) ::: s1
+        case (_,Nil) => impossible
+      }
+  }
+
   // Make at most n mutations to a kind stream
-  def mutate(rs: List[(Part,Int)], n: Int): Scored[List[(Part,Int)]] =
+  def mutate(rs: Segments, n: Int): Scored[Segments] =
     if (n == 0) known(rs)
     else rs match {
       case Nil => known(Nil)
-      case (o@(Other(_),_))::rs => mutate(rs,n) map (o::_)
-      case (k,i)::rs => {
+      case (o@(Located(_:Other,_),_))::rs => mutate(rs,n) map (o::_)
+      case (k,is)::rs =>
+        val i = is.size
         val j = listGood(for (j <- (max(0,i-n) to (i+n)).toList) yield Alt(pr(i,j),j))
-        j flatMap (j => mutate(rs,n-abs(i-j)) map ((k,j)::_))
-      }
+        j flatMap (j => mutate(rs,n-abs(i-j)) map ((k,tweak(k,is,j))::_))
     }
 
-  def repair(ts: List[Token]): Scored[List[Token]] = {
-    val rs = ensure(runs(ts map part))
+  def repair(ts: List[Located[Token]]): Scored[List[Located[Token]]] = {
+    val rs = ensure(segmentBy(ts map part)(_.x==_.x) map { case ps => (ps.head,ps) })
     if (matched(rs)) known(ts)
     else {
       // Mutate at most 2 times
-      mutate(rs,2).filter(matched,"Mismatched parentheses") map (unruns(_) map (_.t))
+      mutate(rs,2).filter(matched,"Mismatched parentheses") map (s => s.map(_._2).flatten map (_ map (_.t)))
     }
   }
 }

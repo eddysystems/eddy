@@ -66,7 +66,7 @@ object Utility {
 
   // Run-length encode a list
   def runs[A](xs: List[A]): List[(A,Int)] = {
-    def loop(next: List[A], prev: List[(A,Int)]): List[(A,Int)] = next match {
+    @tailrec def loop(next: List[A], prev: List[(A,Int)]): List[(A,Int)] = next match {
       case Nil => prev.reverse
       case n::ns => loop(ns,prev match {
         case (p,i)::ps if p==n => (p,i+1)::ps
@@ -76,6 +76,18 @@ object Utility {
     loop(xs,Nil)
   }
   def unruns[A](xs: List[(A,Int)]): List[A] = xs flatMap {case (a,n) => List.fill(n)(a)}
+
+  // Chop a list up into segments equal according to a predicate
+  def segmentBy[A](xs: List[A])(f: (A,A) => Boolean): List[List[A]] = xs match {
+    case Nil => Nil
+    case x::xs =>
+      @tailrec def loop(done: List[List[A]], cur: List[A], x: A, rest: List[A]): List[List[A]] = rest match {
+        case Nil => (cur.reverse :: done).reverse
+        case y::ys if f(x,y) => loop(done,y::cur,y,ys)
+        case y::ys => loop(cur::done,List(y),y,ys)
+      }
+      loop(Nil,List(x),x,xs)
+  }
 
   def escape(raw: String): String = {
     import scala.reflect.runtime.universe._

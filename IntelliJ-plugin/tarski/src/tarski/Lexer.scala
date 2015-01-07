@@ -1,16 +1,12 @@
 package tarski
 
 import java.util.regex.Pattern
-
+import ambiguity.Locations._
 import ambiguity.Utility._
 import tarski.Tokens._
-
 import scala.util.matching.Regex
 import scala.util.matching.Regex.Match
 
-/**
- * Created by martin on 11.12.14.
- */
 object Lexer {
   private val (pattern,factories): (Regex,List[(Int,String => Token)]) = {
     // Fixed tokens
@@ -71,11 +67,11 @@ object Lexer {
     (pattern,factories)
   }
 
-  def lex(input: String): List[Token] = {
+  def lex(input: String): List[Located[Token]] = {
     // TODO: Handle comments
     if ("""/\*""".r.findFirstIn(input).isDefined)
       throw new RuntimeException("Not implemented: multiline comments, input "+escape(input))
-    def loop(s: String, ts: List[Token]): List[Token] = if (s.isEmpty) ts else {
+    def loop(lo: Int, s: String, ts: List[Located[Token]]): List[Located[Token]] = if (s.isEmpty) ts else {
       def longest(n: Int, best: Option[Match]): Option[Match] = {
         if (n > s.length) best
         else longest(n+1,pattern.findPrefixMatchOf(s.substring(0,n)) orElse best)
@@ -83,12 +79,12 @@ object Lexer {
       longest(1,None) match {
         case None => throw new RuntimeException(
           "Scan failed, column "+(input.length-s.length+1)+": "+escape(input)+", "+escape(s)+", "+ts.reverse)
-        case Some(m) => (for ((i,f) <- factories; g = m.group(i); if g != null) yield (s.substring(g.length),f(g))) match {
-          case List((r,t)) => loop(r,t::ts)
+        case Some(m) => (for ((i,f) <- factories; g = m.group(i); if g != null) yield (g.length,f(g))) match {
+          case List((n,t)) => loop(lo+n,s.substring(n),Located(t,SRange.build(lo,lo+n-1))::ts)
           case ts => throw new RuntimeException("string "+escape(s)+" matches as ambiguous token list "+ts)
         }
       }
     }
-    loop(input,Nil).reverse
+    loop(0,input,Nil).reverse
   }
 }

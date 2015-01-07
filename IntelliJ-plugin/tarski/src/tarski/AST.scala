@@ -1,16 +1,9 @@
 package tarski
 
-import tarski.Environment.Env
 import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
-import tarski.Tokens.Token
+import ambiguity.Locations._
 
-/**
- * Created by martin on 11.12.14.
- */
 object AST {
-
-  def parse(tokens: java.util.List[Token], env: Env) = println("scala: " + tokens)
-
   type Name = String
 
   sealed abstract class Mod
@@ -69,50 +62,51 @@ object AST {
   type AVarDecl = (Name,ADims,Option[AExp])
 
   sealed abstract class AStmt
+  sealed abstract class AStmtLoc extends AStmt with HasRange
   case object EmptyAStmt extends AStmt
   case object HoleAStmt extends AStmt
-  case class VarAStmt(m: List[Mod], t: AExp, v: KList[AVarDecl]) extends AStmt
-  case class BlockAStmt(b: Block) extends AStmt
-  case class ExpAStmt(e: AExp) extends AStmt
-  case class AssertAStmt(cond: AExp, msg: Option[AExp]) extends AStmt
-  case class BreakAStmt(label: Option[Name]) extends AStmt
-  case class ContinueAStmt(label: Option[Name]) extends AStmt
-  case class ReturnAStmt(e: Option[AExp]) extends AStmt
-  case class ThrowAStmt(e: AExp) extends AStmt
-  case class SyncAStmt(e: AExp, s: AStmt, a: Around) extends AStmt
-  case class IfAStmt(cond: AExp, t: AStmt, a: Around) extends AStmt
-  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around) extends AStmt
-  case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean, a: Around) extends AStmt
-  case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean, a: Around) extends AStmt
-  case class ForAStmt(i: ForInfo, s: AStmt, a: Around) extends AStmt
+  case class VarAStmt(m: List[Mod], t: AExp, v: KList[AVarDecl], r: SRange) extends AStmtLoc
+  case class BlockAStmt(b: Block, r: SRange) extends AStmtLoc
+  case class ExpAStmt(e: AExp) extends AStmtLoc { def r = e.r }
+  case class AssertAStmt(cond: AExp, msg: Option[AExp], r: SRange) extends AStmtLoc
+  case class BreakAStmt(label: Option[Name], r: SRange) extends AStmtLoc
+  case class ContinueAStmt(label: Option[Name], r: SRange) extends AStmtLoc
+  case class ReturnAStmt(e: Option[AExp], r: SRange) extends AStmtLoc
+  case class ThrowAStmt(e: AExp, r: SRange) extends AStmtLoc
+  case class SyncAStmt(e: AExp, s: AStmt, a: Around, r: SRange) extends AStmtLoc
+  case class IfAStmt(cond: AExp, t: AStmt, a: Around, r: SRange) extends AStmtLoc
+  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around, r: SRange) extends AStmtLoc
+  case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
+  case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
+  case class ForAStmt(i: ForInfo, s: AStmt, a: Around, r: SRange) extends AStmtLoc
 
-  sealed abstract class ForInfo
-  case class For(i: List[AStmt], cond: Option[AExp], u: List[AExp]) extends ForInfo
-  case class Foreach(m: List[Mod], t: Option[AExp], v: Name, n: ADims, e: AExp) extends ForInfo
+  sealed abstract class ForInfo extends HasRange
+  case class For(i: List[AStmt], cond: Option[AExp], u: List[AExp], r: SRange) extends ForInfo
+  case class Foreach(m: List[Mod], t: Option[AExp], v: Name, n: ADims, e: AExp, r: SRange) extends ForInfo
 
-  sealed abstract class AExp
-  case class NameAExp(name: Name) extends AExp
-  case class ParenAExp(e: AExp, a: Grouped) extends AExp
-  case class FieldAExp(e: AExp, t: Option[KList[AExp]], f: Name) extends AExp
-  case class MethodRefAExp(e: AExp, t: Option[KList[AExp]], f: Name) extends AExp
-  case class NewRefAExp(e: AExp, t: Option[KList[AExp]]) extends AExp
-  case class TypeApplyAExp(e: AExp, t: KList[AExp]) extends AExp
-  case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around = ParenAround) extends AExp
-  case class NewAExp(t: Option[KList[AExp]], e: AExp) extends AExp
-  case class WildAExp(b: Option[(Bound,AExp)]) extends AExp
-  case class UnaryAExp(op: UnaryOp, e: AExp) extends AExp
-  case class BinaryAExp(op: BinaryOp, e0: AExp, e1: AExp) extends AExp
-  case class CastAExp(t: AExp, e: AExp) extends AExp
-  case class CondAExp(cond: AExp, t: AExp, f: AExp) extends AExp
-  case class AssignAExp(op: Option[AssignOp], left: AExp, right: AExp) extends AExp
-  case class ArrayAExp(e: KList[AExp], a: Around) extends AExp
-  case class InstanceofAExp(e: AExp, t: AExp) extends AExp
+  sealed abstract class AExp extends HasRange
+  case class NameAExp(name: Name, r: SRange) extends AExp
+  case class ParenAExp(e: AExp, a: Grouped, r: SRange) extends AExp
+  case class FieldAExp(e: AExp, t: Option[KList[AExp]], f: Name, r: SRange) extends AExp
+  case class MethodRefAExp(e: AExp, t: Option[KList[AExp]], f: Name, r: SRange) extends AExp
+  case class NewRefAExp(e: AExp, t: Option[KList[AExp]], r: SRange) extends AExp
+  case class TypeApplyAExp(e: AExp, t: KList[AExp], r: SRange) extends AExp
+  case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around, r: SRange) extends AExp
+  case class NewAExp(t: Option[KList[AExp]], e: AExp, r: SRange) extends AExp
+  case class WildAExp(b: Option[(Bound,AExp)], r: SRange) extends AExp
+  case class UnaryAExp(op: UnaryOp, e: AExp, r: SRange) extends AExp
+  case class BinaryAExp(op: BinaryOp, e0: AExp, e1: AExp, r: SRange) extends AExp
+  case class CastAExp(t: AExp, e: AExp, r: SRange) extends AExp
+  case class CondAExp(cond: AExp, t: AExp, f: AExp, r: SRange) extends AExp
+  case class AssignAExp(op: Option[AssignOp], left: AExp, right: AExp, r: SRange) extends AExp
+  case class ArrayAExp(e: KList[AExp], a: Around, r: SRange) extends AExp
+  case class InstanceofAExp(e: AExp, t: AExp, r: SRange) extends AExp
 
   sealed abstract class ALit extends AExp
-  case class IntALit(v: String) extends ALit
-  case class LongALit(v: String) extends ALit
-  case class FloatALit(v: String) extends ALit
-  case class DoubleALit(v: String) extends ALit
-  case class CharALit(v: String) extends ALit
-  case class StringALit(v: String) extends ALit
+  case class IntALit(v: String, r: SRange) extends ALit
+  case class LongALit(v: String, r: SRange) extends ALit
+  case class FloatALit(v: String, r: SRange) extends ALit
+  case class DoubleALit(v: String, r: SRange) extends ALit
+  case class CharALit(v: String, r: SRange) extends ALit
+  case class StringALit(v: String, r: SRange) extends ALit
 }

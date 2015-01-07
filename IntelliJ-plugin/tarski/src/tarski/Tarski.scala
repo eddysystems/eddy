@@ -3,13 +3,12 @@ package tarski
 import tarski.Denotations.Stmt
 import tarski.Environment.{ThreeEnv, PlaceInfo, Env}
 import tarski.Items.{Value, TypeItem, Item, PackageItem}
-import tarski.Pretty._
 import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
 import tarski.Tries.{LazyTrie, DTrie, Trie}
-
+import ambiguity.Locations._
 import scala.collection.JavaConverters._
 
 object Tarski {
@@ -47,7 +46,7 @@ object Tarski {
     def enough(m: Map[Result,Prob]): Boolean
   }
 
-  def fixJava(tokens: java.util.List[Token], env: Env, enough: Enough): java.util.List[Alt[Result]] = {
+  def fixJava(tokens: java.util.List[Located[Token]], env: Env, enough: Enough): java.util.List[Alt[Result]] = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
 
@@ -76,7 +75,7 @@ object Tarski {
     }).asJava
   }
 
-  def fix(tokens: List[Token])(implicit env: Env): Scored[(Env,List[Stmt])] = {
+  def fix(tokens: List[Located[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     val asts = Mismatch.repair(prepare(tokens)) flatMap (ts => {
       val asts = ParseEddy.parse(ts)
       for (a <- asts; n = asts.count(a==_); if n > 1)

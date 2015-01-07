@@ -7,21 +7,23 @@ import tarski.Denotations._
 import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
-import tarski.Types.{TypeArg, ClassType, LangType, VoidType}
+import tarski.Types._
+import ambiguity.Locations._
 import ambiguity.Utility._
 
 import scala.language.implicitConversions
 
 object TestUtils {
   // AST implicit conversions
-  implicit def toAExp(i: Int): AExp = IntALit(i.toString)
-  implicit def toAExp(s: String): AExp = NameAExp(s)
-  implicit def toAExp(b: Boolean): AExp = NameAExp(if (b) "true" else "false")
+  private val r = SRange.unknown
+  implicit def toAExp(i: Int): AExp = IntALit(i.toString,r)
+  implicit def toAExp(s: String): AExp = NameAExp(s,r)
+  implicit def toAExp(b: Boolean): AExp = NameAExp(if (b) "true" else "false",r)
   implicit def toAExps(e: AExp): List[AExp] = List(e)
   implicit def toAStmt(e: AExp): AStmt = ExpAStmt(e)
   implicit def toAStmts(e: AExp): List[AStmt] = List(ExpAStmt(e))
   implicit def toAStmts(s: AStmt): List[AStmt] = List(s)
-  implicit def toAExp(t: LangType): AExp = NameAExp(show(t))
+  implicit def toAExp(t: LangType): AExp = NameAExp(show(t),r)
   implicit def toAExps[A](xs: KList[A])(implicit to: A => AExp): KList[AExp] = xs map to
 
   // Denotation implicit conversions

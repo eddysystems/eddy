@@ -22,15 +22,15 @@ object Semantics {
     def under(v: String): String = v.replaceAllLiterally("_","")
     def f[A,B](v: String, c: String => A)(t: (A,String) => B) = t(c(under(v)),v)
     x match {
-      case IntALit(v) =>
+      case IntALit(v,_) =>
         val n = under(v).toLong
         val i = n.toInt
         if (i == n) single(IntLit(i,v),Pr.intLit) else single(LongLit(n,v+'L'),Pr.longIntLit)
-      case LongALit(v) =>   single(f(v,_.dropRight(1).toLong)(LongLit), Pr.longLit)
-      case FloatALit(v) =>  single(f(v,_.toFloat)(FloatLit), Pr.floatLit)
-      case DoubleALit(v) => single(f(v,_.toDouble)(DoubleLit), Pr.doubleLit)
-      case CharALit(v) =>   single(CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v), Pr.charLit)
-      case StringALit(v) => single(StringLit(denoteStringLit(v),v), Pr.stringLit)
+      case LongALit(v,_) =>   single(f(v,_.dropRight(1).toLong)(LongLit), Pr.longLit)
+      case FloatALit(v,_) =>  single(f(v,_.toFloat)(FloatLit), Pr.floatLit)
+      case DoubleALit(v,_) => single(f(v,_.toDouble)(DoubleLit), Pr.doubleLit)
+      case CharALit(v,_) =>   single(CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v), Pr.charLit)
+      case StringALit(v,_) => single(StringLit(denoteStringLit(v),v), Pr.stringLit)
     }
   }
   def denoteStringLit(v: String): String = unescapeJava(v.slice(1,v.size-1))
@@ -67,12 +67,12 @@ object Semantics {
       //   [abstract] class A extends Integer {};
       //   Collection<A> ...
       // this does not work for ? super Integer.
-      case WildAExp(b) => b match {
+      case WildAExp(b,_) => b match {
         case None => known(Above(Nil,WildSub(ObjectType)))
         case Some((AST.Extends,t)) => denoteType(t) flatMap (_ flatMap (fix(_) map WildSub))
         case Some((AST.Super,  t)) => denoteType(t) flatMap (_ flatMap (fix(_) map WildSuper))
       }
-      case ParenAExp(e,_) => denoteTypeArg(e)
+      case ParenAExp(e,_,_) => denoteTypeArg(e)
       case _ => denoteType(e) flatMap (_ flatMap fix)
     }
   }
@@ -234,40 +234,40 @@ object Semantics {
 
   def denote(e: AExp, m: Mode, expects: Option[Type] = None)(implicit env: Env): Scored[Den] = e match {
     case x:ALit if m.exp => denoteLit(x)
-    case NameAExp(n) => denoteName(n,m,expects)
+    case NameAExp(n,_) => denoteName(n,m,expects)
 
     // Fields
-    case FieldAExp(x,None|Some(EmptyList),f) => denoteField(denoteParent(x),f,m,expects,e)
-    case FieldAExp(x,Some(ts),f) =>
+    case FieldAExp(x,None|Some(EmptyList),f,_) => denoteField(denoteParent(x),f,m,expects,e)
+    case FieldAExp(x,Some(ts),f,_) =>
       if (!m.callExp) fail(s"${show(e)}: Unexpected type arguments in mode $m")
       else fixCall(m,expects,addTypeArgs(denoteField(denoteParent(x),f,m.onlyCall,None,e),ts))
 
     // Parentheses.  Java doesn't allow parentheses around types or callables, but we do.
-    case ParenAExp(x,_) if m==ExpMode => denoteExp(x,expects) map ParenExp
-    case ParenAExp(x,_) if m.exp => denote(x,m,expects) flatMap {
+    case ParenAExp(x,_,_) if m==ExpMode => denoteExp(x,expects) map ParenExp
+    case ParenAExp(x,_,_) if m.exp => denote(x,m,expects) flatMap {
       case x:Exp => known(ParenExp(x))
       case x:TypeOrPackage => single(x,Pr.weirdParens)
       case x:Callable => if (m.call) single(x,Pr.weirdParens)
                          else bareCall(x,expects) map ParenExp
     }
-    case ParenAExp(x,_) => biased(Pr.weirdParens,denote(x,m))
+    case ParenAExp(x,_,_) => biased(Pr.weirdParens,denote(x,m))
 
     // Type application.  TODO: add around to TypeApplyAExp
     // For callables, this is C++-style application of type arguments to a generic method
-    case TypeApplyAExp(x,ts) => {
+    case TypeApplyAExp(x,ts,_) => {
       def n = ts.size
       if (n==0) denote(x,m,expects)
       else addTypeArgs(denote(x,m.onlyTyCall),ts)
     }
 
     // Explicit new
-    case NewAExp(ts,x) if m.callExp =>
+    case NewAExp(ts,x,_) if m.callExp =>
       fixCall(m,expects,biasedNotNew(m,addTypeArgs(denoteNew(x),ts).asInstanceOf[Scored[Callable]]))
 
     // Application
-    case ApplyAExp(f,EmptyList,BrackAround) if m==TypeMode =>
+    case ApplyAExp(f,EmptyList,BrackAround,_) if m==TypeMode =>
       denoteType(f) map (_.array) // This case also shows up below
-    case ApplyAExp(f,xsn,around) if m.exp =>
+    case ApplyAExp(f,xsn,around,_) if m.exp =>
       val n = xsn.list.size
       val args = xsn.list map (denoteExp(_))
       val fs = denote(f,CallMode | (if (m.ty && around==BrackAround) TypeMode else NoMode)
@@ -308,19 +308,19 @@ object Semantics {
         def start(x: Name): Scored[Den] = ci ++ biased(Pr.specialCall,{
           val names = new IdentityHashMap[Scored[Exp],Name]
           (xsn.list.tail,args.tail).zipped foreach {
-            case (NameAExp(x),s) => names.put(s,x)
+            case (NameAExp(x,_),s) => names.put(s,x)
             case _ => ()
           }
           special(fs,x,args.tail,names)
         })
         xsn.list.head match {
-          case NameAExp(x) if n==1 || around==NoAround => start(x)
-          case StringALit(v) if n==1 => start(denoteStringLit(v))
+          case NameAExp(x,_) if n==1 || around==NoAround => start(x)
+          case StringALit(v,_) if n==1 => start(denoteStringLit(v))
           case _ => ci
         }
       }
 
-    case UnaryAExp(op,x) if m.exp => denoteExp(x) flatMap {
+    case UnaryAExp(op,x,_) if m.exp => denoteExp(x) flatMap {
       case x if unaryLegal(op,x.ty) => single(op match {
         case op:ImpOp => ImpExp(op,x)
         case op:NonImpOp => NonImpExp(op,x)
@@ -328,26 +328,26 @@ object Semantics {
       case x => fail(s"${show(e)}: invalid unary ${show(token(op))} on type ${show(x.ty)}")
     }
 
-    case BinaryAExp(op,x,y) if m.exp => product(denoteExp(x),denoteExp(y)) flatMap {case (x,y) => {
+    case BinaryAExp(op,x,y,_) if m.exp => product(denoteExp(x),denoteExp(y)) flatMap {case (x,y) => {
       val tx = x.ty
       val ty = y.ty
       if (binaryLegal(op,tx,ty)) single(BinaryExp(op,x,y), Pr.binaryExp)
       else fail(s"${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
     }}
 
-    case CastAExp(t,x) if m.exp => product(denoteType(t),denoteExp(x)) flatMap {case (TypeDen(ds,t),x) => {
+    case CastAExp(t,x,_) if m.exp => product(denoteType(t),denoteExp(x)) flatMap {case (TypeDen(ds,t),x) => {
       val tx = x.ty
       if (castsTo(tx,t)) single(CastExp(t,x).discard(ds),Pr.castExp)
       else fail(s"${show(e)}: can't cast ${show(tx)} to ${show(t)}")
     }}
 
-    case CondAExp(c,x,y) if m.exp =>
+    case CondAExp(c,x,y,_) if m.exp =>
       biased(Pr.condExp,product(denoteBool(c),denoteExp(x,expects),denoteExp(y,expects)) map {case (c,x,y) =>
         CondExp(c,x,y,condType(x.ty,y.ty))})
 
-    case AssignAExp(None,x,y) if m.exp =>
+    case AssignAExp(None,x,y,_) if m.exp =>
       denoteVariable(x) flatMap (x => denoteAssignsTo(y,x.ty) map (AssignExp(None,x,_)))
-    case AssignAExp(Some(op),x,y) if m.exp => {
+    case AssignAExp(Some(op),x,y,_) if m.exp => {
       product(denoteVariable(x),denoteExp(y)) flatMap {case (x,y) => {
         assignOpType(op,x.ty,y.ty) match {
           case None => fail(s"${show(e)}: invalid assignop ${show(x.ty)} ${show(op)} ${show(y.ty)}")
@@ -356,7 +356,7 @@ object Semantics {
       }}
     }
 
-    case ArrayAExp(xs,a) if m.exp =>
+    case ArrayAExp(xs,a,_) if m.exp =>
       biased(Pr.arrayExp,product(xs.list map (denoteExp(_))) map (is => ArrayExp(condTypes(is map (_.ty)),is)))
 
     case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
@@ -528,11 +528,11 @@ object Semantics {
 
   // Guess the item name referred to by e.  Used only for approximate purposes.
   @tailrec def guessItem(e: AExp): Option[Name] = e match {
-    case NameAExp(n) => Some(n)
-    case ParenAExp(e,_) => guessItem(e)
-    case FieldAExp(_,_,f) => Some(f)
-    case TypeApplyAExp(e,_) => guessItem(e)
-    case ApplyAExp(e,_,_) => guessItem(e)
+    case NameAExp(n,_) => Some(n)
+    case ParenAExp(e,_,_) => guessItem(e)
+    case FieldAExp(_,_,f,_) => Some(f)
+    case TypeApplyAExp(e,_,_) => guessItem(e)
+    case ApplyAExp(e,_,_,_) => guessItem(e)
     case _ => None
   }
 
@@ -565,7 +565,7 @@ object Semantics {
     s match {
       case EmptyAStmt => single((env,List(EmptyStmt)), Pr.emptyStmt)
       case HoleAStmt => single((env,List(HoleStmt)), Pr.holeStmt)
-      case VarAStmt(m,t,ds) =>
+      case VarAStmt(m,t,ds,_) =>
         val isFinal = modifiers(m,Final)
         def process(d: AVarDecl)(env: Env, x: Local): Scored[VarDecl] = d match {
           case (_,k,None) => known(x,k,None)
@@ -598,7 +598,7 @@ object Semantics {
           }
         }
         above(e match {
-          case AssignAExp(None,NameAExp(x),y) => exps ++ biased(Pr.assignmentAsVarStmt,
+          case AssignAExp(None,NameAExp(x,_),y,_) => exps ++ biased(Pr.assignmentAsVarStmt,
             product(env.newVariable(x,isFinal=false),denoteExp(y)) flatMap {case (f,y) => safe(y.ty)(t => {
               val (env,x) = f(t)
               known(env,VarStmt(t,List((x,0,Some(y)))))
@@ -606,39 +606,39 @@ object Semantics {
           case _ => exps
         })
       }
-      case BlockAStmt(b) => denoteStmts(b)(env) flatMap {case (e,ss) => single((e,List(BlockStmt(ss))), Pr.blockStmt)}
-      case AssertAStmt(c,m) => biased(Pr.assertStmt,above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
+      case BlockAStmt(b,_) => denoteStmts(b)(env) flatMap {case (e,ss) => single((e,List(BlockStmt(ss))), Pr.blockStmt)}
+      case AssertAStmt(c,m,_) => biased(Pr.assertStmt,above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
         (env,AssertStmt(c,m))}))
 
-      case BreakAStmt(lab) =>
+      case BreakAStmt(lab,_) =>
         if (env.place.breakable) biased(Pr.breakStmt,denoteLabel(lab,(env,List(BreakStmt))))
         else fail("cannot break outside of a loop or switch statement.")
-      case ContinueAStmt(lab) =>
+      case ContinueAStmt(lab,_) =>
         if (env.place.continuable) biased(Pr.continueStmt,denoteLabel(lab,(env,List(ContinueStmt))))
         else fail("cannot break outside of a loop")
-      case ReturnAStmt(None) => returnType flatMap (r =>
+      case ReturnAStmt(None,_) => returnType flatMap (r =>
         if (r==VoidType) known(env,List(ReturnStmt(None)))
         else valuesOfItem(r.item,0,"return") flatMap (x =>
           if (assignsTo(x,r)) known(env,List(ReturnStmt(Some(x))))
           else fail(s"${show(s)}: type ${show(x.ty)} incompatible with return type ${show(r)}")
         )
       )
-      case ReturnAStmt(Some(e)) => above(returnType flatMap (r => denoteAssignsTo(e,r) map (e => (env,ReturnStmt(Some(e))))))
-      case ThrowAStmt(e) => above(denoteExp(e) flatMap {e =>
+      case ReturnAStmt(Some(e),_) => above(returnType flatMap (r => denoteAssignsTo(e,r) map (e => (env,ReturnStmt(Some(e))))))
+      case ThrowAStmt(e,_) => above(denoteExp(e) flatMap {e =>
         if (isThrowable(e.item)) single((env,ThrowStmt(e)), Pr.throwStmt)
         else fail(s"${show(s)}: type ${e.ty} is not throwable")
       })
-      case SyncAStmt(e,b,_) => above(product(denoteRef(e),denoteScoped(b)(env)) flatMap {
+      case SyncAStmt(e,b,_,_) => above(product(denoteRef(e),denoteScoped(b)(env)) flatMap {
         case (e,(env,b)) => single((env,SyncStmt(e,b)), Pr.syncStmt) })
-      case IfAStmt(c,x,_) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {
+      case IfAStmt(c,x,_,_) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {
         case (c,(env,x)) => single((env,IfStmt(c,x)), Pr.ifStmt) })
-      case IfElseAStmt(c,x,y,_) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>
+      case IfElseAStmt(c,x,y,_,_) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>
         denoteScoped(y)(env) flatMap {case (env,y) => single((env,IfElseStmt(c,x,y)), Pr.ifElseStmt) }})
-      case WhileAStmt(c,s,flip,_) => above(product(denoteBool(c),denoteScoped(s)(env)) flatMap {case (c,(env,s)) =>
+      case WhileAStmt(c,s,flip,_,_) => above(product(denoteBool(c),denoteScoped(s)(env)) flatMap {case (c,(env,s)) =>
         single((env,WhileStmt(xor(flip,c),s)), Pr.whileStmt) })
-      case DoAStmt(s,c,flip,_) => above(product(denoteScoped(s)(env),denoteBool(c)) flatMap {case ((env,s),c) =>
+      case DoAStmt(s,c,flip,_,_) => above(product(denoteScoped(s)(env),denoteBool(c)) flatMap {case ((env,s),c) =>
         single((env,DoStmt(s,xor(flip,c))), Pr.doStmt) })
-      case ForAStmt(For(i,c,u),s,_) => {
+      case ForAStmt(For(i,c,u,_),s,_,_) => {
         // Sanitize an initializer into valid Java
         def init(i: List[Stmt]): Scored[(Option[Exp],List[Exp],Stmt) => Stmt] = i match {
           case List(i:VarStmt) => single((c,u,s) => ForStmt(i,c,u,s), Pr.forStmt)
@@ -654,9 +654,9 @@ object Semantics {
             .map {case (c,u,(env,s)) => (env,List(i(c,u,s)))}
         })})
       }
-      case ForAStmt(info@Foreach(m,t,v,n,e),s,a) => {
+      case ForAStmt(info@Foreach(m,t,v,n,e,_),s,a,r) => {
         val isFinal = modifiers(m,Final) || t.isEmpty
-        def hole = show(ForAStmt(info,HoleAStmt,a))
+        def hole = show(ForAStmt(info,HoleAStmt,a,r))
         above(product(env.newVariable(v,isFinal),thread(t)(denoteType),denoteExp(e)) flatMap {case (f,at,e) =>
           val t = at map (_.beneath)
           val tc = e.ty

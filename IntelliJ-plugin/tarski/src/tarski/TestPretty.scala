@@ -18,7 +18,7 @@ class TestPretty {
   implicit val env = testEnv
 
   def test[A](s: String, x: A)(implicit p: Pretty[A]) =
-    assertEquals(s"$s -> ${show(x)}", lex(s).filterNot(isSpace), tokens(x))
+    assertEquals(s"$s -> ${show(x)}", lex(s) map (_.x) filterNot isSpace, tokens(x))
 
   @Test def obj() = test("Object", ObjectType)
   @Test def objMethod() = test("Object.f",NormalMethodItem("f",ObjectItem,Nil,VoidType,Nil,true))

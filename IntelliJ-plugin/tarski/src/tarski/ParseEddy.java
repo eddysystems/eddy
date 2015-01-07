@@ -12,29 +12,34 @@ import java.util.ArrayList;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.Option;
+import static ambiguity.Locations.*;
 import static tarski.ParseEddyActions.*;
 
 class ParseEddy {
   // Parse a token stream
-  public static List<List<AStmt>> parse(List<Token> input) {
+  public static List<List<AStmt>> parse(List<Located<Token>> input) {
     return new Parser(input).toplevel();
   }
   
   private static final class Parser {
     private final Token[] input;
+    private final long[] ranges;
     private final byte[] type;
     private final ArrayList<Object> values = new ArrayList<Object>();
     private final TIntLongHashMap slices = new TIntLongHashMap(); // (non,lo,hi) => (start,size)
     private final static long vMask = (1L<<32)-1;
     
     // Convert input and allocate working memory
-    Parser(List<Token> _input) {
+    Parser(List<Located<Token>> _input) {
       final int n = _input.size();
       assert n+1<(1<<12);
       input = new Token[n];
+      ranges = new long[n];
       for (int i=0;i<n;i++) {
-        input[i] = _input.head();
-        _input = (List<Token>)_input.tail();
+        final Located<Token> tr = _input.head();
+        input[i] = tr.x();
+        ranges[i] = tr.raw();
+        _input = (List<Located<Token>>)_input.tail();
       }
       type = new byte[n];
     }
@@ -435,156 +440,157 @@ class ParseEddy {
     private void nonnulls() {
       final int n = input.length;
       for (int lo=n;lo>=0;lo--) for (int hi=lo+1;hi<=n;hi++) {
-        Commas2_ExpAssignNC(lo,hi);
-        IfTok__ExpAssignNP(lo,hi);
-        MaybeThen__MaybeStmt__ElseTok(lo,hi);
-        Right__ExpUnary_ExpJuxt(lo,hi);
-        GtSep(lo,hi);
-        ExpCond_ExpWild__Right(lo,hi);
-        ExpHigh__Left(lo,hi);
-        Type__List1_VarDecl(lo,hi);
-        IdentDims__ForeachSep__ExpAssign(lo,hi);
-        Juxts2_ExpWild(lo,hi);
-        Juxts2_ExpAssignNC(lo,hi);
-        DotTok__Option_TypeArgs__Ident(lo,hi);
-        AssignOp(lo,hi);
-        ForInfo__Right(lo,hi);
-        ForeachSep__ExpAssign(lo,hi);
-        MaybeStmt__ElseTok__Stmt(lo,hi);
-        ForTok__Left__ForInfo(lo,hi);
-        WildcardBounds(lo,hi);
-        PreOp(lo,hi);
-        Commas2_ExpCond_ExpJuxt__Right(lo,hi);
-        ThenTok__MaybeStmt__ElseTok__Stmt(lo,hi);
-        ParenExp(lo,hi);
-        IfTok__ParenExp(lo,hi);
-        PostOp(lo,hi);
-        Commas2_Type(lo,hi);
-        Juxts2_ExpWildNA(lo,hi);
-        ExpParens(lo,hi);
-        TypeArgs(lo,hi);
-        Option_TypeArgs(lo,hi);
-        Juxts2_VarDecl(lo,hi);
-        MaybeThen(lo,hi);
-        LeftNP(lo,hi);
-        QuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt(lo,hi);
-        ForTok__Left(lo,hi);
-        ExpAssign__Right(lo,hi);
-        Left(lo,hi);
-        WhileUntil(lo,hi);
-        Juxts2_ExpWild__Right(lo,hi);
-        Mod(lo,hi);
-        Juxts1_Mod(lo,hi);
-        Juxts0_Mod(lo,hi);
-        ExpAssignNP__DoTok__Stmt(lo,hi);
-        DoTok__MaybeStmt(lo,hi);
-        Right__Stmt(lo,hi);
-        Commas2_ExpCond_ExpJuxt(lo,hi);
-        Juxts2_Type(lo,hi);
-        LParenTok__Type(lo,hi);
-        AssignOp__ExpAssign(lo,hi);
-        IfTok__ParenExp__MaybeThen(lo,hi);
-        Lit(lo,hi);
-        MaybeDo(lo,hi);
-        WhileUntil__ParenExp(lo,hi);
-        Block(lo,hi);
-        Right(lo,hi);
-        List_ExpAssignNC__Right(lo,hi);
-        Ident(lo,hi);
-        Option_Ident(lo,hi);
-        ExpPrimary(lo,hi);
-        ExpNew(lo,hi);
-        ExpHighNA(lo,hi);
-        ExpHighNP(lo,hi);
-        ExpHigh(lo,hi);
-        ExpWild(lo,hi);
-        Juxts1_ExpWild(lo,hi);
-        ExpJuxt(lo,hi);
-        ExpUnary_ExpJuxt(lo,hi);
-        ExpMul_ExpJuxt(lo,hi);
-        ExpAdd_ExpJuxt(lo,hi);
-        ExpShift_ExpJuxt(lo,hi);
-        ExpRel_ExpJuxt(lo,hi);
-        ExpEq_ExpJuxt(lo,hi);
-        ExpAnd_ExpJuxt(lo,hi);
-        ExpXor_ExpJuxt(lo,hi);
-        ExpOr_ExpJuxt(lo,hi);
-        ExpAndAnd_ExpJuxt(lo,hi);
-        ExpOrOr_ExpJuxt(lo,hi);
-        ExpCond_ExpJuxt(lo,hi);
-        ExpAssignNC(lo,hi);
-        List1_ExpAssignNC(lo,hi);
-        List_ExpAssignNC(lo,hi);
-        Commas1_ExpAssignNC(lo,hi);
-        Commas0_ExpAssignNC(lo,hi);
-        Juxts1_ExpAssignNC(lo,hi);
-        ExpCommas(lo,hi);
-        ExpAssign(lo,hi);
-        StmtHelperBS(lo,hi);
-        Commas1_StmtHelperBS(lo,hi);
-        Commas0_StmtHelperBS(lo,hi);
-        StmtHelper(lo,hi);
-        Stmt(lo,hi);
-        MaybeDo__Stmt(lo,hi);
-        MaybeThen__Stmt(lo,hi);
-        MaybeStmt(lo,hi);
-        Stmts(lo,hi);
-        Option_ExpAssign(lo,hi);
-        Commas1_ExpCond_ExpJuxt(lo,hi);
-        Option_ExpJuxt(lo,hi);
-        ExpUnary_ExpWild(lo,hi);
-        ExpMul_ExpWild(lo,hi);
-        ExpAdd_ExpWild(lo,hi);
-        ExpShift_ExpWild(lo,hi);
-        ExpRel_ExpWild(lo,hi);
-        ExpEq_ExpWild(lo,hi);
-        ExpAnd_ExpWild(lo,hi);
-        ExpXor_ExpWild(lo,hi);
-        ExpOr_ExpWild(lo,hi);
-        ExpAndAnd_ExpWild(lo,hi);
-        ExpOrOr_ExpWild(lo,hi);
-        ExpCond_ExpWild(lo,hi);
-        Type(lo,hi);
-        Commas1_Type(lo,hi);
-        Option_Type(lo,hi);
-        Juxts0_Mod__Option_Type(lo,hi);
-        List1_Type(lo,hi);
-        List_Type(lo,hi);
-        Juxts1_Type(lo,hi);
-        ExpWildNP(lo,hi);
-        ExpJuxtNP(lo,hi);
-        ExpUnary_ExpJuxtNP(lo,hi);
-        ExpMul_ExpJuxtNP(lo,hi);
-        ExpAdd_ExpJuxtNP(lo,hi);
-        ExpShift_ExpJuxtNP(lo,hi);
-        ExpRel_ExpJuxtNP(lo,hi);
-        ExpEq_ExpJuxtNP(lo,hi);
-        ExpAnd_ExpJuxtNP(lo,hi);
-        ExpXor_ExpJuxtNP(lo,hi);
-        ExpOr_ExpJuxtNP(lo,hi);
-        ExpAndAnd_ExpJuxtNP(lo,hi);
-        ExpOrOr_ExpJuxtNP(lo,hi);
-        ExpCond_ExpJuxtNP(lo,hi);
-        ExpAssignNP(lo,hi);
-        MaybeParenExp(lo,hi);
-        MaybeParenExp__MaybeDo(lo,hi);
-        ExpWildNA(lo,hi);
-        SingleJuxt1_ExpWildNA(lo,hi);
-        Juxts1_ExpWildNA(lo,hi);
-        IdentDims(lo,hi);
-        VarDecl(lo,hi);
-        Juxts1_VarDecl(lo,hi);
-        Commas1_VarDecl(lo,hi);
-        ForeachSep(lo,hi);
-        SemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC(lo,hi);
-        ForInfo(lo,hi);
-        Commas2_VarDecl(lo,hi);
-        List1_VarDecl(lo,hi);
-        WhileUntil__MaybeParenExp(lo,hi);
+        final long range = betweenHelper(ranges[lo],ranges[hi-1]);
+        Commas2_ExpAssignNC(lo,hi,range);
+        IfTok__ExpAssignNP(lo,hi,range);
+        MaybeThen__MaybeStmt__ElseTok(lo,hi,range);
+        Right__ExpUnary_ExpJuxt(lo,hi,range);
+        GtSep(lo,hi,range);
+        ExpCond_ExpWild__Right(lo,hi,range);
+        ExpHigh__Left(lo,hi,range);
+        Type__List1_VarDecl(lo,hi,range);
+        IdentDims__ForeachSep__ExpAssign(lo,hi,range);
+        Juxts2_ExpWild(lo,hi,range);
+        Juxts2_ExpAssignNC(lo,hi,range);
+        DotTok__Option_TypeArgs__Ident(lo,hi,range);
+        AssignOp(lo,hi,range);
+        ForInfo__Right(lo,hi,range);
+        ForeachSep__ExpAssign(lo,hi,range);
+        MaybeStmt__ElseTok__Stmt(lo,hi,range);
+        ForTok__Left__ForInfo(lo,hi,range);
+        WildcardBounds(lo,hi,range);
+        PreOp(lo,hi,range);
+        Commas2_ExpCond_ExpJuxt__Right(lo,hi,range);
+        ThenTok__MaybeStmt__ElseTok__Stmt(lo,hi,range);
+        ParenExp(lo,hi,range);
+        IfTok__ParenExp(lo,hi,range);
+        PostOp(lo,hi,range);
+        Commas2_Type(lo,hi,range);
+        Juxts2_ExpWildNA(lo,hi,range);
+        ExpParens(lo,hi,range);
+        TypeArgs(lo,hi,range);
+        Option_TypeArgs(lo,hi,range);
+        Juxts2_VarDecl(lo,hi,range);
+        MaybeThen(lo,hi,range);
+        LeftNP(lo,hi,range);
+        QuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt(lo,hi,range);
+        ForTok__Left(lo,hi,range);
+        ExpAssign__Right(lo,hi,range);
+        Left(lo,hi,range);
+        WhileUntil(lo,hi,range);
+        Juxts2_ExpWild__Right(lo,hi,range);
+        Mod(lo,hi,range);
+        Juxts1_Mod(lo,hi,range);
+        Juxts0_Mod(lo,hi,range);
+        ExpAssignNP__DoTok__Stmt(lo,hi,range);
+        DoTok__MaybeStmt(lo,hi,range);
+        Right__Stmt(lo,hi,range);
+        Commas2_ExpCond_ExpJuxt(lo,hi,range);
+        Juxts2_Type(lo,hi,range);
+        LParenTok__Type(lo,hi,range);
+        AssignOp__ExpAssign(lo,hi,range);
+        IfTok__ParenExp__MaybeThen(lo,hi,range);
+        Lit(lo,hi,range);
+        MaybeDo(lo,hi,range);
+        WhileUntil__ParenExp(lo,hi,range);
+        Block(lo,hi,range);
+        Right(lo,hi,range);
+        List_ExpAssignNC__Right(lo,hi,range);
+        Ident(lo,hi,range);
+        Option_Ident(lo,hi,range);
+        ExpPrimary(lo,hi,range);
+        ExpNew(lo,hi,range);
+        ExpHighNA(lo,hi,range);
+        ExpHighNP(lo,hi,range);
+        ExpHigh(lo,hi,range);
+        ExpWild(lo,hi,range);
+        Juxts1_ExpWild(lo,hi,range);
+        ExpJuxt(lo,hi,range);
+        ExpUnary_ExpJuxt(lo,hi,range);
+        ExpMul_ExpJuxt(lo,hi,range);
+        ExpAdd_ExpJuxt(lo,hi,range);
+        ExpShift_ExpJuxt(lo,hi,range);
+        ExpRel_ExpJuxt(lo,hi,range);
+        ExpEq_ExpJuxt(lo,hi,range);
+        ExpAnd_ExpJuxt(lo,hi,range);
+        ExpXor_ExpJuxt(lo,hi,range);
+        ExpOr_ExpJuxt(lo,hi,range);
+        ExpAndAnd_ExpJuxt(lo,hi,range);
+        ExpOrOr_ExpJuxt(lo,hi,range);
+        ExpCond_ExpJuxt(lo,hi,range);
+        ExpAssignNC(lo,hi,range);
+        List1_ExpAssignNC(lo,hi,range);
+        List_ExpAssignNC(lo,hi,range);
+        Commas1_ExpAssignNC(lo,hi,range);
+        Commas0_ExpAssignNC(lo,hi,range);
+        Juxts1_ExpAssignNC(lo,hi,range);
+        ExpCommas(lo,hi,range);
+        ExpAssign(lo,hi,range);
+        StmtHelperBS(lo,hi,range);
+        Commas1_StmtHelperBS(lo,hi,range);
+        Commas0_StmtHelperBS(lo,hi,range);
+        StmtHelper(lo,hi,range);
+        Stmt(lo,hi,range);
+        MaybeDo__Stmt(lo,hi,range);
+        MaybeThen__Stmt(lo,hi,range);
+        MaybeStmt(lo,hi,range);
+        Stmts(lo,hi,range);
+        Option_ExpAssign(lo,hi,range);
+        Commas1_ExpCond_ExpJuxt(lo,hi,range);
+        Option_ExpJuxt(lo,hi,range);
+        ExpUnary_ExpWild(lo,hi,range);
+        ExpMul_ExpWild(lo,hi,range);
+        ExpAdd_ExpWild(lo,hi,range);
+        ExpShift_ExpWild(lo,hi,range);
+        ExpRel_ExpWild(lo,hi,range);
+        ExpEq_ExpWild(lo,hi,range);
+        ExpAnd_ExpWild(lo,hi,range);
+        ExpXor_ExpWild(lo,hi,range);
+        ExpOr_ExpWild(lo,hi,range);
+        ExpAndAnd_ExpWild(lo,hi,range);
+        ExpOrOr_ExpWild(lo,hi,range);
+        ExpCond_ExpWild(lo,hi,range);
+        Type(lo,hi,range);
+        Commas1_Type(lo,hi,range);
+        Option_Type(lo,hi,range);
+        Juxts0_Mod__Option_Type(lo,hi,range);
+        List1_Type(lo,hi,range);
+        List_Type(lo,hi,range);
+        Juxts1_Type(lo,hi,range);
+        ExpWildNP(lo,hi,range);
+        ExpJuxtNP(lo,hi,range);
+        ExpUnary_ExpJuxtNP(lo,hi,range);
+        ExpMul_ExpJuxtNP(lo,hi,range);
+        ExpAdd_ExpJuxtNP(lo,hi,range);
+        ExpShift_ExpJuxtNP(lo,hi,range);
+        ExpRel_ExpJuxtNP(lo,hi,range);
+        ExpEq_ExpJuxtNP(lo,hi,range);
+        ExpAnd_ExpJuxtNP(lo,hi,range);
+        ExpXor_ExpJuxtNP(lo,hi,range);
+        ExpOr_ExpJuxtNP(lo,hi,range);
+        ExpAndAnd_ExpJuxtNP(lo,hi,range);
+        ExpOrOr_ExpJuxtNP(lo,hi,range);
+        ExpCond_ExpJuxtNP(lo,hi,range);
+        ExpAssignNP(lo,hi,range);
+        MaybeParenExp(lo,hi,range);
+        MaybeParenExp__MaybeDo(lo,hi,range);
+        ExpWildNA(lo,hi,range);
+        SingleJuxt1_ExpWildNA(lo,hi,range);
+        Juxts1_ExpWildNA(lo,hi,range);
+        IdentDims(lo,hi,range);
+        VarDecl(lo,hi,range);
+        Juxts1_VarDecl(lo,hi,range);
+        Commas1_VarDecl(lo,hi,range);
+        ForeachSep(lo,hi,range);
+        SemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC(lo,hi,range);
+        ForInfo(lo,hi,range);
+        Commas2_VarDecl(lo,hi,range);
+        List1_VarDecl(lo,hi,range);
+        WhileUntil__MaybeParenExp(lo,hi,range);
       }
     }
     
-    private void Commas2_ExpAssignNC(final int lo, final int hi) {
+    private void Commas2_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -602,7 +608,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas2_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void IfTok__ExpAssignNP(final int lo, final int hi) {
+    private void IfTok__ExpAssignNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iIfTok) {
         final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|hi);
@@ -615,7 +621,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iIfTok__ExpAssignNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeThen__MaybeStmt__ElseTok(final int lo, final int hi) {
+    private void MaybeThen__MaybeStmt__ElseTok(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1 && type[hi-1]==iElseTok) {
         for (int j=lo;j<=hi-1;j++) {
@@ -631,7 +637,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iMaybeThen__MaybeStmt__ElseTok<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Right__ExpUnary_ExpJuxt(final int lo, final int hi) {
+    private void Right__ExpUnary_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -649,7 +655,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iRight__ExpUnary_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void GtSep(final int lo, final int hi) {
+    private void GtSep(final int lo, final int hi, final long range) {
       boolean found = false;
       if (hi-lo==1 && type[lo]==iUnsignedRShiftSepTok)
         found = true;
@@ -658,7 +664,7 @@ class ParseEddy {
       if (found) { slices.put(iGtSep<<24|lo<<12|hi,1); }
     }
     
-    private void ExpCond_ExpWild__Right(final int lo, final int hi) {
+    private void ExpCond_ExpWild__Right(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -676,7 +682,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpCond_ExpWild__Right<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpHigh__Left(final int lo, final int hi) {
+    private void ExpHigh__Left(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -694,7 +700,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpHigh__Left<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Type__List1_VarDecl(final int lo, final int hi) {
+    private void Type__List1_VarDecl(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -712,7 +718,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iType__List1_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void IdentDims__ForeachSep__ExpAssign(final int lo, final int hi) {
+    private void IdentDims__ForeachSep__ExpAssign(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -730,7 +736,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iIdentDims__ForeachSep__ExpAssign<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts2_ExpWild(final int lo, final int hi) {
+    private void Juxts2_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -748,7 +754,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts2_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts2_ExpAssignNC(final int lo, final int hi) {
+    private void Juxts2_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -766,7 +772,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts2_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void DotTok__Option_TypeArgs__Ident(final int lo, final int hi) {
+    private void DotTok__Option_TypeArgs__Ident(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iDotTok) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -784,7 +790,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iDotTok__Option_TypeArgs__Ident<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void AssignOp(final int lo, final int hi) {
+    private void AssignOp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iDivEqTok)
         values.add(AssignOp0());
@@ -814,7 +820,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iAssignOp<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ForInfo__Right(final int lo, final int hi) {
+    private void ForInfo__Right(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+2;j<=hi-1;j++) {
@@ -832,7 +838,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iForInfo__Right<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ForeachSep__ExpAssign(final int lo, final int hi) {
+    private void ForeachSep__ExpAssign(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -848,7 +854,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iForeachSep__ExpAssign<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeStmt__ElseTok__Stmt(final int lo, final int hi) {
+    private void MaybeStmt__ElseTok__Stmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo;j<=hi-2;j++) {
@@ -866,7 +872,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iMaybeStmt__ElseTok__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ForTok__Left__ForInfo(final int lo, final int hi) {
+    private void ForTok__Left__ForInfo(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4 && type[lo]==iForTok) {
         for (int j=lo+2;j<=hi-2;j++) {
@@ -884,7 +890,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iForTok__Left__ForInfo<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void WildcardBounds(final int lo, final int hi) {
+    private void WildcardBounds(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iSuperTok) {
         final long s1 = slices.get(iType<<24|lo+1<<12|hi);
@@ -911,7 +917,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iWildcardBounds<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void PreOp(final int lo, final int hi) {
+    private void PreOp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iPlusPlusTok)
         values.add(PreOp0());
@@ -929,7 +935,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iPreOp<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas2_ExpCond_ExpJuxt__Right(final int lo, final int hi) {
+    private void Commas2_ExpCond_ExpJuxt__Right(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4) {
         for (int j=lo+3;j<=hi-1;j++) {
@@ -947,7 +953,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas2_ExpCond_ExpJuxt__Right<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ThenTok__MaybeStmt__ElseTok__Stmt(final int lo, final int hi) {
+    private void ThenTok__MaybeStmt__ElseTok__Stmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3 && type[lo]==iThenTok) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -965,7 +971,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iThenTok__MaybeStmt__ElseTok__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ParenExp(final int lo, final int hi) {
+    private void ParenExp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -983,7 +989,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iParenExp<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void IfTok__ParenExp(final int lo, final int hi) {
+    private void IfTok__ParenExp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4 && type[lo]==iIfTok) {
         final long s1 = slices.get(iParenExp<<24|lo+1<<12|hi);
@@ -996,7 +1002,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iIfTok__ParenExp<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void PostOp(final int lo, final int hi) {
+    private void PostOp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iMinusMinusTok)
         values.add(PostOp0());
@@ -1006,7 +1012,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iPostOp<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas2_Type(final int lo, final int hi) {
+    private void Commas2_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -1024,7 +1030,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas2_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts2_ExpWildNA(final int lo, final int hi) {
+    private void Juxts2_ExpWildNA(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1042,7 +1048,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts2_ExpWildNA<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpParens(final int lo, final int hi) {
+    private void ExpParens(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4 && type[lo]==iLParenTok) {
         for (int j=lo+3;j<=hi-1;j++) {
@@ -1051,7 +1057,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpParens0((List)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3)));
+                values.add(ExpParens0((List)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1063,7 +1069,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpParens1((List)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3)));
+                values.add(ExpParens1((List)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1072,7 +1078,7 @@ class ParseEddy {
         final long s1 = slices.get(iRight<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpParens2((Group)values.get((int)(s1>>32)+k)));
+            values.add(ExpParens2((Group)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=3 && type[lo]==iLParenTok) {
@@ -1082,7 +1088,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpParens3((AExp)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3)));
+                values.add(ExpParens3((AExp)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1091,7 +1097,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpParens<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void TypeArgs(final int lo, final int hi) {
+    private void TypeArgs(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iLtTok && type[hi-1]==iGtTok) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1107,7 +1113,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iTypeArgs<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Option_TypeArgs(final int lo, final int hi) {
+    private void Option_TypeArgs(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         final long s1 = slices.get(iTypeArgs<<24|lo<<12|hi);
@@ -1120,7 +1126,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iOption_TypeArgs<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts2_VarDecl(final int lo, final int hi) {
+    private void Juxts2_VarDecl(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1138,14 +1144,14 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts2_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeThen(final int lo, final int hi) {
+    private void MaybeThen(final int lo, final int hi, final long range) {
       boolean found = false;
       if (hi-lo==1 && type[lo]==iThenTok)
         found = true;
       if (found) { slices.put(iMaybeThen<<24|lo<<12|hi,1); }
     }
     
-    private void LeftNP(final int lo, final int hi) {
+    private void LeftNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iLCurlyTok)
         values.add(LeftNP0());
@@ -1155,7 +1161,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iLeftNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void QuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt(final int lo, final int hi) {
+    private void QuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4 && type[lo]==iQuestionTok) {
         for (int j=lo+2;j<=hi-2;j++) {
@@ -1173,7 +1179,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iQuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ForTok__Left(final int lo, final int hi) {
+    private void ForTok__Left(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==2 && type[lo]==iForTok) {
         final long s1 = slices.get(iLeft<<24|lo+1<<12|hi);
@@ -1186,7 +1192,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iForTok__Left<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAssign__Right(final int lo, final int hi) {
+    private void ExpAssign__Right(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1204,7 +1210,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAssign__Right<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Left(final int lo, final int hi) {
+    private void Left(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iLCurlyTok)
         values.add(Left0());
@@ -1216,7 +1222,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iLeft<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void WhileUntil(final int lo, final int hi) {
+    private void WhileUntil(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iUntilTok)
         values.add(WhileUntil0());
@@ -1226,7 +1232,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iWhileUntil<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts2_ExpWild__Right(final int lo, final int hi) {
+    private void Juxts2_ExpWild__Right(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+2;j<=hi-1;j++) {
@@ -1244,7 +1250,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts2_ExpWild__Right<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Mod(final int lo, final int hi) {
+    private void Mod(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==2 && type[lo]==iAtTok) {
         final long s1 = slices.get(iIdent<<24|lo+1<<12|hi);
@@ -1277,7 +1283,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iMod<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts1_Mod(final int lo, final int hi) {
+    private void Juxts1_Mod(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1302,7 +1308,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts1_Mod<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts0_Mod(final int lo, final int hi) {
+    private void Juxts0_Mod(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iJuxts1_Mod<<24|lo<<12|hi);
@@ -1315,7 +1321,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts0_Mod<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAssignNP__DoTok__Stmt(final int lo, final int hi) {
+    private void ExpAssignNP__DoTok__Stmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -1333,7 +1339,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAssignNP__DoTok__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void DoTok__MaybeStmt(final int lo, final int hi) {
+    private void DoTok__MaybeStmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1 && type[lo]==iDoTok) {
         final long s1 = slices.get(iMaybeStmt<<24|lo+1<<12|hi);
@@ -1346,7 +1352,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iDoTok__MaybeStmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Right__Stmt(final int lo, final int hi) {
+    private void Right__Stmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1364,7 +1370,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iRight__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas2_ExpCond_ExpJuxt(final int lo, final int hi) {
+    private void Commas2_ExpCond_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -1382,7 +1388,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas2_ExpCond_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts2_Type(final int lo, final int hi) {
+    private void Juxts2_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1400,7 +1406,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts2_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void LParenTok__Type(final int lo, final int hi) {
+    private void LParenTok__Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iLParenTok) {
         final long s1 = slices.get(iType<<24|lo+1<<12|hi);
@@ -1413,7 +1419,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iLParenTok__Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void AssignOp__ExpAssign(final int lo, final int hi) {
+    private void AssignOp__ExpAssign(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1431,7 +1437,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iAssignOp__ExpAssign<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void IfTok__ParenExp__MaybeThen(final int lo, final int hi) {
+    private void IfTok__ParenExp__MaybeThen(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4 && type[lo]==iIfTok) {
         for (int j=lo+4;j<=hi;j++) {
@@ -1447,32 +1453,32 @@ class ParseEddy {
       if (count != 0) { slices.put(iIfTok__ParenExp__MaybeThen<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Lit(final int lo, final int hi) {
+    private void Lit(final int lo, final int hi, final long range) {
       final int prev = values.size();
-      if (hi-lo==1 && type[lo]==iFloatLitTok)
-        values.add(Lit0((FloatLitTok)input[lo]));
       if (hi-lo==1 && type[lo]==iDoubleLitTok)
-        values.add(Lit1((DoubleLitTok)input[lo]));
-      if (hi-lo==1 && type[lo]==iStringLitTok)
-        values.add(Lit2((StringLitTok)input[lo]));
-      if (hi-lo==1 && type[lo]==iIntLitTok)
-        values.add(Lit3((IntLitTok)input[lo]));
+        values.add(Lit0((DoubleLitTok)input[lo],range));
+      if (hi-lo==1 && type[lo]==iFloatLitTok)
+        values.add(Lit1((FloatLitTok)input[lo],range));
       if (hi-lo==1 && type[lo]==iLongLitTok)
-        values.add(Lit4((LongLitTok)input[lo]));
+        values.add(Lit2((LongLitTok)input[lo],range));
+      if (hi-lo==1 && type[lo]==iStringLitTok)
+        values.add(Lit3((StringLitTok)input[lo],range));
       if (hi-lo==1 && type[lo]==iCharLitTok)
-        values.add(Lit5((CharLitTok)input[lo]));
+        values.add(Lit4((CharLitTok)input[lo],range));
+      if (hi-lo==1 && type[lo]==iIntLitTok)
+        values.add(Lit5((IntLitTok)input[lo],range));
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iLit<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeDo(final int lo, final int hi) {
+    private void MaybeDo(final int lo, final int hi, final long range) {
       boolean found = false;
       if (hi-lo==1 && type[lo]==iDoTok)
         found = true;
       if (found) { slices.put(iMaybeDo<<24|lo<<12|hi,1); }
     }
     
-    private void WhileUntil__ParenExp(final int lo, final int hi) {
+    private void WhileUntil__ParenExp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4) {
         for (int j=lo+1;j<=hi-3;j++) {
@@ -1490,7 +1496,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iWhileUntil__ParenExp<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Block(final int lo, final int hi) {
+    private void Block(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iLCurlyTok) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1499,7 +1505,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(Block0((List)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3)));
+                values.add(Block0((List)values.get((int)(s1>>32)+k1)));
             }
           }
         }
@@ -1508,7 +1514,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iBlock<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Right(final int lo, final int hi) {
+    private void Right(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iRCurlyTok)
         values.add(Right0());
@@ -1520,7 +1526,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iRight<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void List_ExpAssignNC__Right(final int lo, final int hi) {
+    private void List_ExpAssignNC__Right(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         for (int j=lo;j<=hi-1;j++) {
@@ -1538,7 +1544,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iList_ExpAssignNC__Right<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Ident(final int lo, final int hi) {
+    private void Ident(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iUntilTok)
         values.add(Ident0());
@@ -1556,7 +1562,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iIdent<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Option_Ident(final int lo, final int hi) {
+    private void Option_Ident(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1) {
         final long s1 = slices.get(iIdent<<24|lo<<12|hi);
@@ -1569,16 +1575,16 @@ class ParseEddy {
       if (count != 0) { slices.put(iOption_Ident<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpPrimary(final int lo, final int hi) {
+    private void ExpPrimary(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
-        for (int j=lo+2;j<=hi-1;j++) {
+        for (int j=lo+1;j<=hi-2;j++) {
           {
-            final long s1 = slices.get(iTypeArgs<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iExpHigh<<24|j<<12|hi); if (s3 == 0) continue;
+            final long s1 = slices.get(iExpHigh<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iTypeArgs<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary0((KList)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpPrimary0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1590,7 +1596,26 @@ class ParseEddy {
             final long s3 = slices.get(iDotTok__Option_TypeArgs__Ident<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary1((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpPrimary1((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
+      if (hi-lo==1) {
+        final long s1 = slices.get(iLit<<24|lo<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(ExpPrimary2((ALit)values.get((int)(s1>>32)+k)));
+        }
+      }
+      if (hi-lo>=3) {
+        for (int j=lo+2;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iTypeArgs<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iExpHigh<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(ExpPrimary3((KList)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1599,33 +1624,14 @@ class ParseEddy {
         final long s1 = slices.get(iIdent<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpPrimary2((String)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (hi-lo==1) {
-        final long s1 = slices.get(iLit<<24|lo<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpPrimary3((ALit)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (hi-lo>=3) {
-        for (int j=lo+1;j<=hi-2;j++) {
-          {
-            final long s1 = slices.get(iExpHigh<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iTypeArgs<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary4((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3)));
-            }
-          }
+            values.add(ExpPrimary4((String)values.get((int)(s1>>32)+k),range));
         }
       }
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iExpPrimary<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpNew(final int lo, final int hi) {
+    private void ExpNew(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iNewTok) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1634,7 +1640,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpPrimary<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpNew0((Option)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpNew0((Option)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1650,7 +1656,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpNew<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpHighNA(final int lo, final int hi) {
+    private void ExpHighNA(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+2;j<=hi-1;j++) {
@@ -1659,7 +1665,7 @@ class ParseEddy {
             final long s3 = slices.get(iList_ExpAssignNC__Right<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpHighNA0((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpHighNA0((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1675,16 +1681,16 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpHighNA<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpHighNP(final int lo, final int hi) {
+    private void ExpHighNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
-      if (hi-lo>=3) {
-        for (int j=lo+1;j<=hi-2;j++) {
+      if (hi-lo>=5) {
+        for (int j=lo+1;j<=hi-4;j++) {
           {
             final long s1 = slices.get(iLeftNP<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iExpCond_ExpWild__Right<<24|j<<12|hi); if (s3 == 0) continue;
+            final long s3 = slices.get(iCommas2_ExpCond_ExpJuxt__Right<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpHighNP0((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpHighNP0((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1696,7 +1702,19 @@ class ParseEddy {
             final long s3 = slices.get(iJuxts2_ExpWild__Right<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpHighNP1((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpHighNP1((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
+      if (hi-lo>=3) {
+        for (int j=lo+1;j<=hi-2;j++) {
+          {
+            final long s1 = slices.get(iLeftNP<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iExpCond_ExpWild__Right<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(ExpHighNP2((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1708,19 +1726,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpHighNP2((Group)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3)));
-            }
-          }
-        }
-      }
-      if (hi-lo>=5) {
-        for (int j=lo+1;j<=hi-4;j++) {
-          {
-            final long s1 = slices.get(iLeftNP<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iCommas2_ExpCond_ExpJuxt__Right<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpHighNP3((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpHighNP3((Group)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1736,7 +1742,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpHighNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpHigh(final int lo, final int hi) {
+    private void ExpHigh(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpHighNP<<24|lo<<12|hi);
@@ -1756,13 +1762,13 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpHigh<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpWild(final int lo, final int hi) {
+    private void ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1 && type[lo]==iQuestionTok) {
         final long s1 = slices.get(iWildcardBounds<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpWild0((Option)values.get((int)(s1>>32)+k)));
+            values.add(ExpWild0((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=1) {
@@ -1776,7 +1782,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts1_ExpWild(final int lo, final int hi) {
+    private void Juxts1_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1801,7 +1807,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts1_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpJuxt(final int lo, final int hi) {
+    private void ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -1810,7 +1816,7 @@ class ParseEddy {
             final long s3 = slices.get(iSingleJuxt1_ExpWildNA<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3)));
+                values.add(ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1826,7 +1832,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpUnary_ExpJuxt(final int lo, final int hi) {
+    private void ExpUnary_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4) {
         for (int j=lo+2;j<=hi-2;j++) {
@@ -1835,7 +1841,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight__ExpUnary_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1847,7 +1853,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpJuxt1((UnaryOp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpJuxt1((UnaryOp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1859,7 +1865,7 @@ class ParseEddy {
             final long s3 = slices.get(iPostOp<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(UnaryOp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(UnaryOp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1875,7 +1881,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpUnary_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpMul_ExpJuxt(final int lo, final int hi) {
+    private void ExpMul_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -1884,7 +1890,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1896,7 +1902,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1908,7 +1914,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1924,7 +1930,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpMul_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAdd_ExpJuxt(final int lo, final int hi) {
+    private void ExpAdd_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -1933,7 +1939,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpMul_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAdd_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAdd_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1945,7 +1951,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpMul_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAdd_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAdd_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1961,7 +1967,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAdd_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpShift_ExpJuxt(final int lo, final int hi) {
+    private void ExpShift_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=7) {
         for (int j=lo+1;j<=hi-6;j++) {
@@ -1970,7 +1976,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+5<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1982,7 +1988,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+3<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1994,7 +2000,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2010,7 +2016,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpShift_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpRel_ExpJuxt(final int lo, final int hi) {
+    private void ExpRel_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2019,7 +2025,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2031,7 +2037,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2043,7 +2049,7 @@ class ParseEddy {
             final long s3 = slices.get(iType<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxt2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2055,7 +2061,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxt3((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxt3((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2067,7 +2073,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxt4((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxt4((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2083,7 +2089,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpRel_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpEq_ExpJuxt(final int lo, final int hi) {
+    private void ExpEq_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2092,7 +2098,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpRel_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpEq_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpEq_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2104,7 +2110,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpRel_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpEq_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpEq_ExpJuxt1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2120,7 +2126,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpEq_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAnd_ExpJuxt(final int lo, final int hi) {
+    private void ExpAnd_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2129,7 +2135,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpEq_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAnd_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAnd_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2145,7 +2151,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAnd_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpXor_ExpJuxt(final int lo, final int hi) {
+    private void ExpXor_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2154,7 +2160,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAnd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpXor_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpXor_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2170,7 +2176,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpXor_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpOr_ExpJuxt(final int lo, final int hi) {
+    private void ExpOr_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2179,7 +2185,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpXor_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpOr_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpOr_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2195,7 +2201,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpOr_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAndAnd_ExpJuxt(final int lo, final int hi) {
+    private void ExpAndAnd_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2204,7 +2210,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpOr_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAndAnd_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAndAnd_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2220,7 +2226,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAndAnd_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpOrOr_ExpJuxt(final int lo, final int hi) {
+    private void ExpOrOr_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2229,7 +2235,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAndAnd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpOrOr_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpOrOr_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2245,7 +2251,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpOrOr_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpCond_ExpJuxt(final int lo, final int hi) {
+    private void ExpCond_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=5) {
         for (int j=lo+1;j<=hi-4;j++) {
@@ -2254,7 +2260,7 @@ class ParseEddy {
             final long s3 = slices.get(iQuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpCond_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpCond_ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2270,7 +2276,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpCond_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAssignNC(final int lo, final int hi) {
+    private void ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2279,7 +2285,7 @@ class ParseEddy {
             final long s3 = slices.get(iAssignOp__ExpAssign<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAssignNC0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAssignNC0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2295,7 +2301,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void List1_ExpAssignNC(final int lo, final int hi) {
+    private void List1_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         final long s1 = slices.get(iJuxts2_ExpAssignNC<<24|lo<<12|hi);
@@ -2322,7 +2328,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iList1_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void List_ExpAssignNC(final int lo, final int hi) {
+    private void List_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iList1_ExpAssignNC<<24|lo<<12|hi);
@@ -2335,7 +2341,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iList_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas1_ExpAssignNC(final int lo, final int hi) {
+    private void Commas1_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2360,7 +2366,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas1_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas0_ExpAssignNC(final int lo, final int hi) {
+    private void Commas0_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iCommas1_ExpAssignNC<<24|lo<<12|hi);
@@ -2373,7 +2379,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas0_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts1_ExpAssignNC(final int lo, final int hi) {
+    private void Juxts1_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -2398,13 +2404,13 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts1_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpCommas(final int lo, final int hi) {
+    private void ExpCommas(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         final long s1 = slices.get(iCommas2_ExpCond_ExpJuxt<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpCommas0((List)values.get((int)(s1>>32)+k)));
+            values.add(ExpCommas0((List)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=1) {
@@ -2418,7 +2424,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpCommas<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAssign(final int lo, final int hi) {
+    private void ExpAssign(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2427,7 +2433,7 @@ class ParseEddy {
             final long s3 = slices.get(iAssignOp__ExpAssign<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAssign0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAssign0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2443,37 +2449,25 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAssign<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void StmtHelperBS(final int lo, final int hi) {
+    private void StmtHelperBS(final int lo, final int hi, final long range) {
       final int prev = values.size();
-      if (hi-lo>=1 && type[lo]==iReturnTok) {
-        final long s1 = slices.get(iOption_ExpJuxt<<24|lo+1<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS0((Option)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (hi-lo>=5 && type[lo]==iForTok) {
-        for (int j=lo+3;j<=hi-2;j++) {
-          if (type[j]==iDoTok) {
-            final long s1 = slices.get(iForInfo<<24|lo+1<<12|j); if (s1 == 0) continue;
+      if (hi-lo>=4 && type[lo]==iIfTok) {
+        for (int j=lo+2;j<=hi-2;j++) {
+          if (type[j]==iThenTok) {
+            final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|j); if (s1 == 0) continue;
             final long s3 = slices.get(iStmt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS1((ForInfo)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS0((AExp)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
       }
-      if (hi-lo>=2) {
-        for (int j=lo;j<=hi-2;j++) {
-          {
-            final long s1 = slices.get(iJuxts0_Mod<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iType__List1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS2((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
-            }
-          }
+      if (hi-lo>=2 && type[lo]==iThrowTok) {
+        final long s1 = slices.get(iExpJuxt<<24|lo+1<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(StmtHelperBS1((AExp)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=2) {
@@ -2483,9 +2477,23 @@ class ParseEddy {
             final long s3 = slices.get(iExpAssignNP<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS3((java.lang.Boolean)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS2((java.lang.Boolean)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
+        }
+      }
+      if (hi-lo>=2 && type[lo]==iIfTok) {
+        final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(StmtHelperBS3((AExp)values.get((int)(s1>>32)+k),range));
+        }
+      }
+      if (hi-lo>=1 && type[lo]==iReturnTok) {
+        final long s1 = slices.get(iOption_ExpJuxt<<24|lo+1<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(StmtHelperBS4((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=4 && type[lo]==iAssertTok) {
@@ -2495,16 +2503,9 @@ class ParseEddy {
             final long s3 = slices.get(iExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS4((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS5((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
-        }
-      }
-      if (hi-lo>=2 && type[lo]==iIfTok) {
-        final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS5((AExp)values.get((int)(s1>>32)+k)));
         }
       }
       if (hi-lo>=6) {
@@ -2514,52 +2515,16 @@ class ParseEddy {
             final long s3 = slices.get(iMaybeStmt__ElseTok__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS6((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS6((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
       }
-      if (hi-lo>=4 && type[lo]==iIfTok) {
-        for (int j=lo+2;j<=hi-2;j++) {
-          if (type[j]==iThenTok) {
-            final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iStmt<<24|j+1<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS7((AExp)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
-            }
-          }
-        }
-      }
-      if (hi-lo>=3) {
-        for (int j=lo+1;j<=hi-2;j++) {
-          {
-            final long s1 = slices.get(iDoTok__MaybeStmt<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iWhileUntil__MaybeParenExp<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS8((AStmt)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
-            }
-          }
-        }
-      }
-      if (hi-lo>=2 && type[lo]==iAssertTok) {
-        final long s1 = slices.get(iExpJuxt<<24|lo+1<<12|hi);
+      if (hi-lo>=2 && type[lo]==iIfTok) {
+        final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS9((AExp)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (hi-lo>=5) {
-        for (int j=lo+4;j<=hi-1;j++) {
-          {
-            final long s1 = slices.get(iWhileUntil__ParenExp<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iMaybeDo__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS10((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
-            }
-          }
+            values.add(StmtHelperBS7((AExp)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=4) {
@@ -2569,16 +2534,28 @@ class ParseEddy {
             final long s3 = slices.get(iExpAssignNP__DoTok__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS11((java.lang.Boolean)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS8((java.lang.Boolean)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
       }
-      if (hi-lo>=1) {
-        final long s1 = slices.get(iExpAssign<<24|lo<<12|hi);
+      if (hi-lo>=6) {
+        for (int j=lo+4;j<=hi-2;j++) {
+          {
+            final long s1 = slices.get(iForTok__Left__ForInfo<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iRight__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(StmtHelperBS9((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
+      if (1<=hi-lo && hi-lo<=2 && type[lo]==iContinueTok) {
+        final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS12((AExp)values.get((int)(s1>>32)+k)));
+            values.add(StmtHelperBS10((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=4 && type[lo]==iSynchronizedTok) {
@@ -2588,7 +2565,26 @@ class ParseEddy {
             final long s3 = slices.get(iBlock<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS13((Tuple2)values.get((int)(s1>>32)+k1),(List)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS11((Tuple2)values.get((int)(s1>>32)+k1),(List)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
+      if (1<=hi-lo && hi-lo<=2 && type[lo]==iBreakTok) {
+        final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(StmtHelperBS12((Option)values.get((int)(s1>>32)+k),range));
+        }
+      }
+      if (hi-lo>=2) {
+        for (int j=lo;j<=hi-2;j++) {
+          {
+            final long s1 = slices.get(iJuxts0_Mod<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iType__List1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(StmtHelperBS13((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2600,7 +2596,50 @@ class ParseEddy {
             final long s3 = slices.get(iThenTok__MaybeStmt__ElseTok__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS14((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS14((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
+      if (hi-lo>=3) {
+        for (int j=lo+1;j<=hi-2;j++) {
+          {
+            final long s1 = slices.get(iDoTok__MaybeStmt<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iWhileUntil__MaybeParenExp<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(StmtHelperBS15((AStmt)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
+      if (hi-lo>=1) {
+        final long s1 = slices.get(iExpAssign<<24|lo<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(StmtHelperBS16((AExp)values.get((int)(s1>>32)+k)));
+        }
+      }
+      if (hi-lo>=5) {
+        for (int j=lo+4;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iWhileUntil__ParenExp<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iMaybeDo__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(StmtHelperBS17((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
+      if (hi-lo>=5 && type[lo]==iForTok) {
+        for (int j=lo+3;j<=hi-2;j++) {
+          if (type[j]==iDoTok) {
+            final long s1 = slices.get(iForInfo<<24|lo+1<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iStmt<<24|j+1<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(StmtHelperBS18((ForInfo)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2609,7 +2648,14 @@ class ParseEddy {
         final long s1 = slices.get(iBlock<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS15((List)values.get((int)(s1>>32)+k)));
+            values.add(StmtHelperBS19((List)values.get((int)(s1>>32)+k),range));
+        }
+      }
+      if (hi-lo>=2 && type[lo]==iAssertTok) {
+        final long s1 = slices.get(iExpJuxt<<24|lo+1<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(StmtHelperBS20((AExp)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=5) {
@@ -2619,47 +2665,7 @@ class ParseEddy {
             final long s3 = slices.get(iMaybeThen__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS16((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
-            }
-          }
-        }
-      }
-      if (hi-lo>=2 && type[lo]==iIfTok) {
-        final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS17((AExp)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (hi-lo>=2 && type[lo]==iThrowTok) {
-        final long s1 = slices.get(iExpJuxt<<24|lo+1<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS18((AExp)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (1<=hi-lo && hi-lo<=2 && type[lo]==iBreakTok) {
-        final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS19((Option)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (1<=hi-lo && hi-lo<=2 && type[lo]==iContinueTok) {
-        final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS20((Option)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (hi-lo>=6) {
-        for (int j=lo+4;j<=hi-2;j++) {
-          {
-            final long s1 = slices.get(iForTok__Left__ForInfo<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iRight__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS21((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS21((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2668,7 +2674,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iStmtHelperBS<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas1_StmtHelperBS(final int lo, final int hi) {
+    private void Commas1_StmtHelperBS(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2693,7 +2699,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas1_StmtHelperBS<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas0_StmtHelperBS(final int lo, final int hi) {
+    private void Commas0_StmtHelperBS(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iCommas1_StmtHelperBS<<24|lo<<12|hi);
@@ -2706,16 +2712,16 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas0_StmtHelperBS<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void StmtHelper(final int lo, final int hi) {
+    private void StmtHelper(final int lo, final int hi, final long range) {
       final int prev = values.size();
-      if (hi-lo>=4 && type[lo]==iIfTok && type[hi-1]==iElseTok) {
-        for (int j=lo+2;j<=hi-2;j++) {
-          if (type[j]==iThenTok) {
-            final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iMaybeStmt<<24|j+1<<12|hi-1); if (s3 == 0) continue;
+      if (hi-lo>=5) {
+        for (int j=lo+2;j<=hi-3;j++) {
+          {
+            final long s1 = slices.get(iForTok__Left<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iForInfo__Right<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelper0((AExp)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelper0((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2727,14 +2733,14 @@ class ParseEddy {
             values.add(StmtHelper1((AStmt)values.get((int)(s1>>32)+k)));
         }
       }
-      if (hi-lo>=2) {
-        for (int j=lo+1;j<=hi-1;j++) {
-          {
-            final long s1 = slices.get(iWhileUntil<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iMaybeParenExp__MaybeDo<<24|j<<12|hi); if (s3 == 0) continue;
+      if (hi-lo>=4 && type[lo]==iIfTok && type[hi-1]==iElseTok) {
+        for (int j=lo+2;j<=hi-2;j++) {
+          if (type[j]==iThenTok) {
+            final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iMaybeStmt<<24|j+1<<12|hi-1); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelper2((java.lang.Boolean)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelper2((AExp)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2743,7 +2749,7 @@ class ParseEddy {
         final long s1 = slices.get(iMaybeParenExp<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelper3((Tuple2)values.get((int)(s1>>32)+k)));
+            values.add(StmtHelper3((Tuple2)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=2 && type[lo]==iIfTok) {
@@ -2752,8 +2758,15 @@ class ParseEddy {
             final long s1 = slices.get(iMaybeParenExp<<24|lo+1<<12|j); if (s1 == 0) continue;
             final long s3 = slices.get(iMaybeThen<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++)
-              values.add(StmtHelper4((Tuple2)values.get((int)(s1>>32)+k1)));
+              values.add(StmtHelper4((Tuple2)values.get((int)(s1>>32)+k1),range));
           }
+        }
+      }
+      if (hi-lo>=3 && type[lo]==iForTok) {
+        final long s1 = slices.get(iForInfo<<24|lo+1<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(StmtHelper5((ForInfo)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=5) {
@@ -2763,35 +2776,28 @@ class ParseEddy {
             final long s3 = slices.get(iMaybeThen__MaybeStmt__ElseTok<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelper5((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelper6((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
       }
-      if (hi-lo>=5) {
-        for (int j=lo+2;j<=hi-3;j++) {
+      if (hi-lo>=2) {
+        for (int j=lo+1;j<=hi-1;j++) {
           {
-            final long s1 = slices.get(iForTok__Left<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iForInfo__Right<<24|j<<12|hi); if (s3 == 0) continue;
+            final long s1 = slices.get(iWhileUntil<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iMaybeParenExp__MaybeDo<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelper6((Group)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelper7((java.lang.Boolean)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
-        }
-      }
-      if (hi-lo>=3 && type[lo]==iForTok) {
-        final long s1 = slices.get(iForInfo<<24|lo+1<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelper7((ForInfo)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iStmtHelper<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Stmt(final int lo, final int hi) {
+    private void Stmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[hi-1]==iSemiTok) {
         final long s1 = slices.get(iStmtHelperBS<<24|lo<<12|hi-1);
@@ -2813,7 +2819,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iStmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeDo__Stmt(final int lo, final int hi) {
+    private void MaybeDo__Stmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         for (int j=lo;j<=hi-1;j++) {
@@ -2829,7 +2835,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iMaybeDo__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeThen__Stmt(final int lo, final int hi) {
+    private void MaybeThen__Stmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         for (int j=lo;j<=hi-1;j++) {
@@ -2845,7 +2851,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iMaybeThen__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeStmt(final int lo, final int hi) {
+    private void MaybeStmt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iStmt<<24|lo<<12|hi);
@@ -2858,7 +2864,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iMaybeStmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Stmts(final int lo, final int hi) {
+    private void Stmts(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -2890,7 +2896,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iStmts<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Option_ExpAssign(final int lo, final int hi) {
+    private void Option_ExpAssign(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpAssign<<24|lo<<12|hi);
@@ -2903,7 +2909,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iOption_ExpAssign<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas1_ExpCond_ExpJuxt(final int lo, final int hi) {
+    private void Commas1_ExpCond_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2928,7 +2934,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas1_ExpCond_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Option_ExpJuxt(final int lo, final int hi) {
+    private void Option_ExpJuxt(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpJuxt<<24|lo<<12|hi);
@@ -2941,7 +2947,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iOption_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpUnary_ExpWild(final int lo, final int hi) {
+    private void ExpUnary_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4) {
         for (int j=lo+2;j<=hi-2;j++) {
@@ -2950,7 +2956,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight__ExpUnary_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2962,7 +2968,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpWild1((UnaryOp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpWild1((UnaryOp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2974,7 +2980,7 @@ class ParseEddy {
             final long s3 = slices.get(iPostOp<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(UnaryOp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(UnaryOp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2990,7 +2996,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpUnary_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpMul_ExpWild(final int lo, final int hi) {
+    private void ExpMul_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -2999,7 +3005,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpWild<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3011,7 +3017,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpWild<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3023,7 +3029,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpWild<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3039,7 +3045,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpMul_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAdd_ExpWild(final int lo, final int hi) {
+    private void ExpAdd_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3048,7 +3054,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpMul_ExpWild<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAdd_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAdd_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3060,7 +3066,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpMul_ExpWild<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAdd_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAdd_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3076,7 +3082,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAdd_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpShift_ExpWild(final int lo, final int hi) {
+    private void ExpShift_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=7) {
         for (int j=lo+1;j<=hi-6;j++) {
@@ -3085,7 +3091,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+5<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3097,7 +3103,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+3<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3109,7 +3115,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3125,7 +3131,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpShift_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpRel_ExpWild(final int lo, final int hi) {
+    private void ExpRel_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3134,7 +3140,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3146,7 +3152,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3158,7 +3164,7 @@ class ParseEddy {
             final long s3 = slices.get(iType<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpWild2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3170,7 +3176,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpWild3((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpWild3((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3182,7 +3188,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpWild4((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpWild4((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3198,7 +3204,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpRel_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpEq_ExpWild(final int lo, final int hi) {
+    private void ExpEq_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3207,7 +3213,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpRel_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpEq_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpEq_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3219,7 +3225,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpRel_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpEq_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpEq_ExpWild1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3235,7 +3241,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpEq_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAnd_ExpWild(final int lo, final int hi) {
+    private void ExpAnd_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3244,7 +3250,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpEq_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAnd_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAnd_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3260,7 +3266,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAnd_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpXor_ExpWild(final int lo, final int hi) {
+    private void ExpXor_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3269,7 +3275,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAnd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpXor_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpXor_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3285,7 +3291,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpXor_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpOr_ExpWild(final int lo, final int hi) {
+    private void ExpOr_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3294,7 +3300,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpXor_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpOr_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpOr_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3310,7 +3316,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpOr_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAndAnd_ExpWild(final int lo, final int hi) {
+    private void ExpAndAnd_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3319,7 +3325,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpOr_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAndAnd_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAndAnd_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3335,7 +3341,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAndAnd_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpOrOr_ExpWild(final int lo, final int hi) {
+    private void ExpOrOr_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3344,7 +3350,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAndAnd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpOrOr_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpOrOr_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3360,7 +3366,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpOrOr_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpCond_ExpWild(final int lo, final int hi) {
+    private void ExpCond_ExpWild(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=5) {
         for (int j=lo+1;j<=hi-4;j++) {
@@ -3369,7 +3375,7 @@ class ParseEddy {
             final long s3 = slices.get(iQuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpCond_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpCond_ExpWild0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3385,13 +3391,13 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpCond_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Type(final int lo, final int hi) {
+    private void Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1 && type[lo]==iQuestionTok) {
         final long s1 = slices.get(iWildcardBounds<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Type0((Option)values.get((int)(s1>>32)+k)));
+            values.add(Type0((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=1) {
@@ -3405,7 +3411,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iType<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas1_Type(final int lo, final int hi) {
+    private void Commas1_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3430,7 +3436,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas1_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Option_Type(final int lo, final int hi) {
+    private void Option_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iType<<24|lo<<12|hi);
@@ -3443,7 +3449,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iOption_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts0_Mod__Option_Type(final int lo, final int hi) {
+    private void Juxts0_Mod__Option_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=0) {
         for (int j=lo;j<=hi;j++) {
@@ -3461,7 +3467,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts0_Mod__Option_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void List1_Type(final int lo, final int hi) {
+    private void List1_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         final long s1 = slices.get(iJuxts2_Type<<24|lo<<12|hi);
@@ -3488,7 +3494,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iList1_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void List_Type(final int lo, final int hi) {
+    private void List_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         final long s1 = slices.get(iList1_Type<<24|lo<<12|hi);
@@ -3501,7 +3507,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iList_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts1_Type(final int lo, final int hi) {
+    private void Juxts1_Type(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -3526,13 +3532,13 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts1_Type<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpWildNP(final int lo, final int hi) {
+    private void ExpWildNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1 && type[lo]==iQuestionTok) {
         final long s1 = slices.get(iWildcardBounds<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpWildNP0((Option)values.get((int)(s1>>32)+k)));
+            values.add(ExpWildNP0((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=1) {
@@ -3546,7 +3552,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpWildNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpJuxtNP(final int lo, final int hi) {
+    private void ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -3555,7 +3561,7 @@ class ParseEddy {
             final long s3 = slices.get(iSingleJuxt1_ExpWildNA<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3)));
+                values.add(ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3571,7 +3577,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpUnary_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpUnary_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=4) {
         for (int j=lo+2;j<=hi-2;j++) {
@@ -3580,7 +3586,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight__ExpUnary_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3592,7 +3598,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpJuxtNP1((UnaryOp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpJuxtNP1((UnaryOp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3604,7 +3610,7 @@ class ParseEddy {
             final long s3 = slices.get(iPostOp<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpUnary_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(UnaryOp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpUnary_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(UnaryOp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3620,7 +3626,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpUnary_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpMul_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpMul_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3629,7 +3635,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxtNP<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3641,7 +3647,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxtNP<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3653,7 +3659,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpUnary_ExpJuxtNP<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpMul_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpMul_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3669,7 +3675,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpMul_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAdd_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpAdd_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3678,7 +3684,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpMul_ExpJuxtNP<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAdd_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAdd_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3690,7 +3696,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpMul_ExpJuxtNP<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAdd_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAdd_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3706,7 +3712,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAdd_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpShift_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpShift_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=7) {
         for (int j=lo+1;j<=hi-6;j++) {
@@ -3715,7 +3721,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+5<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3727,7 +3733,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+3<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3739,7 +3745,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAdd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpShift_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpShift_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3755,7 +3761,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpShift_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpRel_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpRel_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3764,7 +3770,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3776,7 +3782,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3788,7 +3794,7 @@ class ParseEddy {
             final long s3 = slices.get(iType<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3800,7 +3806,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxtNP3((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxtNP3((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3812,7 +3818,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpShift_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpRel_ExpJuxtNP4((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpRel_ExpJuxtNP4((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3828,7 +3834,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpRel_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpEq_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpEq_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3837,7 +3843,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpRel_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpEq_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpEq_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3849,7 +3855,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpRel_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpEq_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpEq_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3865,7 +3871,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpEq_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAnd_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpAnd_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3874,7 +3880,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpEq_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAnd_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAnd_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3890,7 +3896,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAnd_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpXor_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpXor_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3899,7 +3905,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAnd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpXor_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpXor_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3915,7 +3921,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpXor_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpOr_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpOr_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3924,7 +3930,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpXor_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpOr_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpOr_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3940,7 +3946,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpOr_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAndAnd_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpAndAnd_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3949,7 +3955,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpOr_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAndAnd_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAndAnd_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3965,7 +3971,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAndAnd_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpOrOr_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpOrOr_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -3974,7 +3980,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAndAnd_ExpJuxt<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpOrOr_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
+                values.add(ExpOrOr_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -3990,7 +3996,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpOrOr_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpCond_ExpJuxtNP(final int lo, final int hi) {
+    private void ExpCond_ExpJuxtNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=5) {
         for (int j=lo+1;j<=hi-4;j++) {
@@ -3999,7 +4005,7 @@ class ParseEddy {
             final long s3 = slices.get(iQuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpCond_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpCond_ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -4015,7 +4021,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpCond_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpAssignNP(final int lo, final int hi) {
+    private void ExpAssignNP(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -4024,7 +4030,7 @@ class ParseEddy {
             final long s3 = slices.get(iAssignOp__ExpAssign<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpAssignNP0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpAssignNP0((AExp)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -4040,7 +4046,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpAssignNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeParenExp(final int lo, final int hi) {
+    private void MaybeParenExp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         final long s1 = slices.get(iParenExp<<24|lo<<12|hi);
@@ -4060,7 +4066,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iMaybeParenExp<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void MaybeParenExp__MaybeDo(final int lo, final int hi) {
+    private void MaybeParenExp__MaybeDo(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1) {
         for (int j=lo+1;j<=hi;j++) {
@@ -4076,13 +4082,13 @@ class ParseEddy {
       if (count != 0) { slices.put(iMaybeParenExp__MaybeDo<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ExpWildNA(final int lo, final int hi) {
+    private void ExpWildNA(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=1 && type[lo]==iQuestionTok) {
         final long s1 = slices.get(iWildcardBounds<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpWildNA0((Option)values.get((int)(s1>>32)+k)));
+            values.add(ExpWildNA0((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=1) {
@@ -4096,7 +4102,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iExpWildNA<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void SingleJuxt1_ExpWildNA(final int lo, final int hi) {
+    private void SingleJuxt1_ExpWildNA(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         final long s1 = slices.get(iJuxts2_ExpWildNA<<24|lo<<12|hi);
@@ -4116,7 +4122,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iSingleJuxt1_ExpWildNA<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts1_ExpWildNA(final int lo, final int hi) {
+    private void Juxts1_ExpWildNA(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -4141,7 +4147,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts1_ExpWildNA<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void IdentDims(final int lo, final int hi) {
+    private void IdentDims(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -4150,7 +4156,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(IdentDims0((Tuple2)values.get((int)(s1>>32)+k1),(Group)values.get((int)(s3>>32)+k3)));
+                values.add(IdentDims0((Tuple2)values.get((int)(s1>>32)+k1)));
             }
           }
         }
@@ -4166,7 +4172,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iIdentDims<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void VarDecl(final int lo, final int hi) {
+    private void VarDecl(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -4191,7 +4197,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iVarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Juxts1_VarDecl(final int lo, final int hi) {
+    private void Juxts1_VarDecl(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -4216,7 +4222,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iJuxts1_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas1_VarDecl(final int lo, final int hi) {
+    private void Commas1_VarDecl(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -4241,7 +4247,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas1_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ForeachSep(final int lo, final int hi) {
+    private void ForeachSep(final int lo, final int hi, final long range) {
       boolean found = false;
       if (hi-lo==1 && type[lo]==iInTok)
         found = true;
@@ -4250,7 +4256,7 @@ class ParseEddy {
       if (found) { slices.put(iForeachSep<<24|lo<<12|hi,1); }
     }
     
-    private void SemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC(final int lo, final int hi) {
+    private void SemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2 && type[lo]==iSemiTok) {
         for (int j=lo+1;j<=hi-1;j++) {
@@ -4268,7 +4274,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iSemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void ForInfo(final int lo, final int hi) {
+    private void ForInfo(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo;j<=hi-3;j++) {
@@ -4277,7 +4283,7 @@ class ParseEddy {
             final long s3 = slices.get(iIdentDims__ForeachSep__ExpAssign<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ForInfo0((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ForInfo0((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -4289,7 +4295,7 @@ class ParseEddy {
             final long s3 = slices.get(iSemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ForInfo1((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ForInfo1((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -4298,7 +4304,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iForInfo<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void Commas2_VarDecl(final int lo, final int hi) {
+    private void Commas2_VarDecl(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
@@ -4316,7 +4322,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iCommas2_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void List1_VarDecl(final int lo, final int hi) {
+    private void List1_VarDecl(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         final long s1 = slices.get(iJuxts2_VarDecl<<24|lo<<12|hi);
@@ -4343,7 +4349,7 @@ class ParseEddy {
       if (count != 0) { slices.put(iList1_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
-    private void WhileUntil__MaybeParenExp(final int lo, final int hi) {
+    private void WhileUntil__MaybeParenExp(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo>=2) {
         for (int j=lo+1;j<=hi-1;j++) {

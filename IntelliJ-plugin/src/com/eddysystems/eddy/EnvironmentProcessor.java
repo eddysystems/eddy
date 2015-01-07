@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import scala.collection.JavaConversions;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
+import tarski.JavaItems;
 import tarski.Tarski;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
@@ -26,7 +27,6 @@ import static com.eddysystems.eddy.Utility.log;
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
  */
 public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
-
   private final @NotNull Place place;
 
   public class ShadowElement<E> {
