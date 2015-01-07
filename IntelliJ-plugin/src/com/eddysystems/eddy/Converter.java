@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.intellij.openapi.roots.FileIndexFacade;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -42,6 +43,11 @@ public class Converter {
   // anything added to project items also goes in here
   protected final Map<PsiElement, Item> added;
 
+  // true if we have to check our locals ourselves, false if they're part of the environment
+  private final boolean checkLocals;
+  // true if we should sort items into globals and locals, false if we put everything in locals
+  private final boolean splitScope;
+
   Converter(Place place,
             JavaEnvironment jenv,
             Map<PsiElement, Item> globals, Map<PsiMethod, ConstructorItem> globalCons,
@@ -55,29 +61,86 @@ public class Converter {
     this.locals = locals;
     this.cons = cons;
     this.added = added;
+    this.checkLocals = false;
+    this.splitScope = true;
   }
 
+  // constructed like this, put and lookup behave differently
+  Converter(Place place,
+            JavaEnvironment jenv,
+            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons) {
+    this.place = place;
+    this.projectScope = ProjectScope.getProjectScope(place.project);
+    this.jenv = jenv;
+    this.globals = null;
+    this.globalCons = null;
+    this.locals = locals;
+    this.cons = cons;
+    this.added = null;
+    this.checkLocals = true;
+    this.splitScope = false;
+  }
+
+  Item lookup(PsiElement e) {
+    if (checkLocals) {
+      if (locals.containsKey(e))
+        return locals.get(e);
+      if (e instanceof PsiMethod && cons.containsKey(e))
+        return cons.get(e);
+    }
+
+    return jenv.lookup(e);
+  }
+
+  ConstructorItem lookupConstructor(PsiMethod m) {
+    if (checkLocals) {
+      if (cons.containsKey(m))
+        return cons.get(m);
+    }
+
+    return jenv.lookupConstructor(m);
+  }
 
   void put(PsiElement e, Item it) {
-    if (isInProject(e)) {
+    if (splitScope) {
+      if (isInProject(e)) {
+        locals.put(e,it);
+        if (!(it instanceof ConstructorItem) && added != null)
+          added.put(e,it);
+      } else {
+        globals.put(e,it);
+      }
+    } else {
       locals.put(e,it);
       if (!(it instanceof ConstructorItem) && added != null)
         added.put(e,it);
-    } else {
-      globals.put(e,it);
     }
   }
 
   void putCons(PsiMethod e, ConstructorItem it) {
-    if (isInProject(e)) {
-      cons.put(e,it);
+    if (splitScope) {
+      if (isInProject(e)) {
+        cons.put(e,it);
+      } else {
+        globalCons.put(e,it);
+      }
     } else {
-      globalCons.put(e,it);
+      cons.put(e,it);
     }
   }
 
   boolean isInProject(PsiElement elem) {
-    return projectScope.contains(elem.getContainingFile().getVirtualFile());
+    if (elem instanceof PsiPackage) {
+      VirtualFile[] files = ((PsiPackage) elem).occursInPackagePrefixes();
+      for (VirtualFile file : files) {
+        if (projectScope.contains(file))
+          return true;
+      }
+      return false;
+    } else {
+      PsiFile file = elem.getContainingFile();
+      return projectScope.contains(file.getVirtualFile());
+    }
   }
 
   // return type is null *and* has same name as containing class
@@ -159,7 +222,7 @@ public class Converter {
 
   ParentItem addContainer(PsiElement elem) {
     {
-      Item i = jenv.lookup(elem);
+      Item i = lookup(elem);
       if (i != null)
         return (ParentItem)i;
     }
@@ -339,7 +402,7 @@ public class Converter {
     public ClassItem resolve() {
       if (_resolved == null) {
         // try to resolve reference, will remain null if it fails
-        _resolved = (ClassItem)env.jenv.lookup(cls.resolve());
+        _resolved = (ClassItem)env.lookup(cls.resolve());
       }
       return _resolved;
     }
@@ -448,7 +511,7 @@ public class Converter {
 
   private TypeVar addTypeParam(PsiTypeParameter p) {
     {
-      Item i = jenv.lookup(p);
+      Item i = lookup(p);
       if (i != null)
         return (TypeVar)i;
     }
@@ -654,7 +717,7 @@ public class Converter {
 
   RefTypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
     {
-      Item i = jenv.lookup(cls);
+      Item i = lookup(cls);
       if (i != null) {
         if (recurse) // if we are forced to recurse, we may still have to force fields that were previously unseen
           addClassMembers(cls, (ClassItem)i, noProtected);
@@ -663,7 +726,7 @@ public class Converter {
     }
 
     if (FileIndexFacade.getInstance(place.project).isInSourceContent(cls.getContainingFile().getVirtualFile())) {
-      log("adding local class " + cls);
+      log("adding local class " + cls + "@" + cls.hashCode());
     }
 
     if (cls instanceof PsiTypeParameter)
@@ -903,14 +966,14 @@ public class Converter {
   CallableItem addMethod(PsiMethod method) {
     if (isConstructor(method)) {
       // constructors are not stored in locals, but in cons
-      ConstructorItem i = jenv.lookupConstructor(method);
+      ConstructorItem i = lookupConstructor(method);
       if (i != null)
         return i;
       i = new LazyConstructor(this,method);
       putCons(method, i);
       return i;
     } else {
-      Item i = jenv.lookup(method);
+      Item i = lookup(method);
       if (i != null)
         return (CallableItem)i;
       i = new LazyMethod(this,method);
@@ -986,7 +1049,7 @@ public class Converter {
 
   Value addField(PsiField f) {
     {
-      final Item i = jenv.lookup(f);
+      final Item i = lookup(f);
       if (i != null)
         return (Value)i;
     }

@@ -93,7 +93,9 @@ object Tries {
   }
 
   class LazyTrie[V](val structure: Array[Int], lookup: Generator[V]) extends Queriable[V] {
-    override def exact(s: Array[Char]): List[V] = lookup.lookup(s.toString).toList
+    override def exact(s: Array[Char]): List[V] = {
+      lookup.lookup(new String(s)).toList
+    }
 
     override def typoQuery(typed: Array[Char]): List[Alt[V]] = {
       val expected = typed.length * Pr.typingErrorRate

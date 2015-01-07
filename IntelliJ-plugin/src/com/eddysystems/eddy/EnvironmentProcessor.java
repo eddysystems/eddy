@@ -76,7 +76,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     // local variables, parameters, type parameters, as well as protected/private things in scope
     final Map<PsiElement,Item> locals = new HashMap<PsiElement, Item>();
     final Map<PsiMethod,ConstructorItem> localCons = new HashMap<PsiMethod, ConstructorItem>();
-    final Converter env = new Converter(place,jenv,locals,localCons,locals,localCons,null);
+    final Converter env = new Converter(place,jenv,locals,localCons);
 
     log("getting local items...");
 

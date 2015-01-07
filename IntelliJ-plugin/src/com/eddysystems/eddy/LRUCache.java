@@ -6,7 +6,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
 
-class LRUCache<K,V> {
+public class LRUCache<K,V> {
 
   private class Entry {
     long timestamp;
@@ -60,6 +60,7 @@ class LRUCache<K,V> {
     q.timestamp = timestamp;
     lru.add(q);
     e.timestamp = timestamp;
+    timestamp++;
     return e.result;
   }
 
@@ -67,6 +68,7 @@ class LRUCache<K,V> {
     cache.put(s, new Entry(timestamp, v));
     lru.add(new Query(timestamp,s));
     clean();
+    timestamp++;
   }
 
 }

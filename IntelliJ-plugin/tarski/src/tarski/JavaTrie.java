@@ -372,13 +372,17 @@ public class JavaTrie {
         // Add this node's values
         if (current.distance <= maxDistance && current.node_idx != exact) {
           final int node = current.node_idx;
-          String name = new String(prefix).substring(0,level);
-          final double d = levenshteinDistance(prefix, level, typed, typed_length);
-          final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
-          if (p > minProb) {
-            V[] vs = (V[])lookup.lookup(name);
-            for (V v : vs) {
-              result.add(new tarski.Scores.Alt<V>(p, v));
+          final int lo = structure[node],
+                    hi = structure[node+2+2*structure[node+1]];
+          if (lo < hi) {
+            String name = new String(prefix).substring(0,level);
+            final double d = levenshteinDistance(prefix, level, typed, typed_length);
+            final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
+            if (p > minProb) {
+              V[] vs = (V[])lookup.lookup(name);
+              for (V v : vs) {
+                result.add(new tarski.Scores.Alt<V>(p, v));
+              }
             }
           }
         }

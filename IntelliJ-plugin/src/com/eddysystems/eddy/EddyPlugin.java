@@ -41,7 +41,6 @@ public class EddyPlugin implements ProjectComponent {
 
   public void dropEnv() {
     env = null;
-    Runtime.getRuntime().gc();
   }
 
   public void initEnv(@Nullable ProgressIndicator indicator) {

@@ -20,7 +20,7 @@ import static ambiguity.JavaUtils.pushScope;
 import static com.eddysystems.eddy.Utility.log;
 
 // a class storing information about the environment.
-class JavaEnvironment {
+public class JavaEnvironment {
 
   static class NoJDKError extends RuntimeException {
     NoJDKError(String s) {
@@ -36,7 +36,12 @@ class JavaEnvironment {
     final Project project;
     final GlobalSearchScope scope;
     final PsiShortNamesCache psicache;
-    final IdFilter filter;
+    final IdFilter filter = new IdFilter() {
+      @Override
+      public boolean containsFileId(int id) {
+        return true;
+      }
+    };
     final Place place;
     final Converter converter;
     final List<Items.Item> results = new ArrayList<Items.Item>();
@@ -53,7 +58,7 @@ class JavaEnvironment {
     final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
       @Override
       public boolean process(PsiMethod method) {
-        if (!place.isInaccessible(method, true))
+        if (!place.isInaccessible(method, true) && !Converter.isConstructor(method))
           results.add(converter.addMethod(method));
         return true;
       }
@@ -72,7 +77,6 @@ class JavaEnvironment {
       this.project = project;
       this.scope = scope;
       psicache = PsiShortNamesCache.getInstance(project);
-      filter = IdFilter.getProjectIdFilter(project, true);
       place = new Place(project, null);
       converter = conv;
     }
@@ -85,7 +89,7 @@ class JavaEnvironment {
       return results.toArray(new Items.Item[results.size()]);
     }
 
-    @Override
+    @Override @NotNull
     public Items.Item[] lookup(String s) {
       Items.Item[] result = cache.get(s);
 
@@ -142,8 +146,8 @@ class JavaEnvironment {
       addBase();
 
       // store all project items and their dependencies
-      final GlobalSearchScope projectScope = ProjectScope.getProjectScope(project);
-      storeClassInfo(projectScope);
+      storeProjectClassInfo();
+      buildDynamicEnv();
 
       // make global item generator
       sTrie = makeLazyTrie();
@@ -244,12 +248,11 @@ class JavaEnvironment {
   }
 
   // store all classes and their member in the given scope
-  private static int counter;
-  private void storeClassInfo(final GlobalSearchScope scope) {
-    counter = 0;
+  private void storeProjectClassInfo() {
+    final GlobalSearchScope scope = ProjectScope.getContentScope(project);
     final Place place = new Place(project, null);
     final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
-    final IdFilter filter = IdFilter.getProjectIdFilter(project, true);
+    final IdFilter filter = IdFilter.getProjectIdFilter(project, false);
     final Processor<PsiClass> proc = new Processor<PsiClass>() {
       @Override
       public boolean process(PsiClass cls) {
@@ -264,17 +267,6 @@ class JavaEnvironment {
     cache.processAllClassNames(new Processor<String>() {
       @Override
       public boolean process(String name) {
-        if (counter++ % 100 == 0) {
-          log("processing classname: " + name + ", free memory: " + Runtime.getRuntime().freeMemory());
-        }
-
-        // if we're low on memory, squeeze the most out of it
-        long mem = Runtime.getRuntime().freeMemory();
-        if (mem < 50000) {
-          PsiManager.getInstance(place.project).dropResolveCaches();
-          log("low memory: " + mem + ", dropping resolve caches.");
-        }
-
         cache.processClassesWithName(name, proc, scope, filter);
         return true;
       }
