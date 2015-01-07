@@ -87,9 +87,10 @@ object Denotations {
       implicit val env = capture(c.tparams,ts,Map.empty)._1
       c.params map (_.substitute)
     }
+    lazy val result = c.callType(ts)
     def callItem = c.callItem
     def callType(ts2: List[TypeArg]) = ts2 match {
-      case Nil => c.callType(ts)
+      case Nil => result
       case _ => throw new RuntimeException("TypeApply already has type arguments")
     }
     def strip = TypeApply(c.strip,ts)
@@ -107,6 +108,7 @@ object Denotations {
     }
     def tparams = f.tparams
     lazy val params = f.params.map(_.substitute(parentEnv))
+    lazy val result = f.retVal.substitute(parentEnv)
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
     def discards = x.discards
@@ -115,6 +117,7 @@ object Denotations {
   case class LocalMethodDen(f: MethodItem) extends NotTypeApply {
     def tparams = f.tparams
     def params = f.params
+    def result = f.retVal
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,Map.empty)._1)
     def discards = Nil
@@ -129,6 +132,7 @@ object Denotations {
       }
       f.params map (_.substitute)
     }
+    def result = VoidType
     def callItem = VoidItem
     def callType(ts: List[TypeArg]) = VoidType
     def discards = Nil
@@ -146,11 +150,12 @@ object Denotations {
         case Some(ts) => capture(f.parent.tparams,ts,parentEnv)._1
       }
     }
-    def tparams = classArgs match {
+    lazy val tparams = classArgs match {
       case None => f.parent.tparams ++ f.tparams // Try to infer both class and constructor parameters
       case Some(_) => f.tparams // We already have the class type arguments
     }
-    def params = f.params map (_.substitute(env))
+    lazy val params = f.params map (_.substitute(env))
+    lazy val result = f.parent.inside.substitute(env)
     def callItem = f.parent
     def callType(ts: List[TypeArg]) = f.parent.generic(classArgs getOrElse ts.take(f.parent.arity),parent match {
       case Some(p) => p
@@ -163,6 +168,7 @@ object Denotations {
   case class DiscardCallableDen(s: List[Stmt], c: NotTypeApply) extends NotTypeApply {
     def tparams = c.tparams
     def params = c.params
+    def result = c.result
     def callItem = c.callItem
     def callType(ts: List[TypeArg]) = c.callType(ts)
     def discards = s ::: c.discards

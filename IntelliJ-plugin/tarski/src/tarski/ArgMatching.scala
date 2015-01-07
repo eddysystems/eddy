@@ -18,8 +18,8 @@ object ArgMatching {
     case _ => fail(s"${show(e)}: ${unused.size} unused arguments")
   }
 
-  // TODO: specialize for given type arguments
-  def fiddleCall[A](f: Callable, args: Exps, cont: (ApplyExp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
+  // If specified, expects constraints the return type, but only if there are no unused arguments.
+  def fiddleCall[A](f: Callable, args: Exps, expects: Option[Type], cont: (ApplyExp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
     // Should we find missing arguments in the environment?
     val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
@@ -32,7 +32,7 @@ object ArgMatching {
         def add(x: Exp, xs: List[Scored[Exp]]): Scored[A] = {
           val args = used :+ x
           val tys = args map (_.ty)
-          resolveOptions(List(f),tys) match {
+          resolveOptions(List(f),tys,if (xs.isEmpty) expects else None) match {
             case Nil => fail(s"Can't apply $f to prefix ${tys mkString ", "}")
             case List((f0,ts)) if f eq f0 => process(k+1,ts,args,xs)
             case _ => impossible
@@ -64,7 +64,7 @@ object ArgMatching {
     }
     def processNullary: Scored[A] = // Special case nullary functions to make sure we do at least one inference round
       if (f.tparams.size == 0) cont(ApplyExp(f,Nil),args)
-      else resolveOptions(List(f),Nil) match {
+      else resolveOptions(List(f),Nil,if (args.isEmpty) expects else None) match {
         case Nil => fail(s"Can't apply $f to no arguments")
         case List((f0,ts)) if f eq f0 => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts),Nil),args)
         case _ => impossible

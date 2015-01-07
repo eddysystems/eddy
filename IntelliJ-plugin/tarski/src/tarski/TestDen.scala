@@ -756,6 +756,7 @@ class TestDen {
   }
 
   @Test def fixType() = test("int x = 1L","x",x => VarStmt(LongType,(x,1L)))
+  @Test def fixGarbageType() = test("garbageGarbageGarbage x = 1L","x",x => VarStmt(LongType,(x,1L)))
 
   @Test def fixTypeGeneric() = {
     val S = SimpleTypeVar("S")
@@ -768,11 +769,60 @@ class TestDen {
       VarStmt(A.generic(List(LongType.box)),(x,ApplyExp(NewDen(None,cons,Some(List(LongType.box))),Nil))))
   }
 
+  @Test def fixTypeGenericLeftToRight() = {
+    val S = SimpleTypeVar("S")
+    val T = SimpleTypeVar("T")
+    lazy val A: ClassItem = NormalClassItem("A",tparams=List(S))
+    lazy val B: ClassItem = NormalClassItem("B",tparams=List(T),base=A.generic(List(T)),constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(B)
+    implicit val env = localEnvWithBase().extendLocal(Array(A,B))
+    test("A<Integer> x = new B<Long>","x",x =>
+      VarStmt(A.generic(List(IntType.box)),(x,ApplyExp(NewDen(None,cons,Some(List(IntType.box))),Nil))))
+  }
+
+  @Test def fillTypeGeneric() = {
+    val S = SimpleTypeVar("S")
+    val T = SimpleTypeVar("T")
+    lazy val A: ClassItem = NormalClassItem("A",tparams=List(S))
+    lazy val B: ClassItem = NormalClassItem("B",tparams=List(T),base=A.generic(List(T)),constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(B)
+    implicit val env = localEnvWithBase().extendLocal(Array(A,B))
+    test("A<Integer> x = new B","x",x =>
+      VarStmt(A.generic(List(IntType.box)),(x,ApplyExp(NewDen(None,cons,Some(List(IntType.box))),Nil))))
+  }
+
+  @Test def fillTypeTernary() = {
+    val S = SimpleTypeVar("S")
+    val T = SimpleTypeVar("T")
+    val U = SimpleTypeVar("U")
+    lazy val A: ClassItem = NormalClassItem("A",tparams=List(S))
+    lazy val B: ClassItem = NormalClassItem("B",tparams=List(T),base=A.generic(List(T)),constructors=Array(consB))
+    lazy val C: ClassItem = NormalClassItem("C",tparams=List(U),base=A.generic(List(U)),constructors=Array(consC))
+    lazy val consB = DefaultConstructorItem(B)
+    lazy val consC = DefaultConstructorItem(C)
+    val f = Local("f",BooleanType,isFinal=true)
+    implicit val env = localEnvWithBase().extendLocal(Array(f,A,B,C))
+    test("A<Integer> x = f ? new B : (new C)","x",x => {
+      val is = List(IntType.box)
+      val t = A.generic(is)
+      VarStmt(t,(x,CondExp(f,ApplyExp(NewDen(None,consB,Some(is)),Nil),
+                             ParenExp(ApplyExp(NewDen(None,consC,Some(is)),Nil)),t)))
+    })
+  }
+
   @Test def nullaryGenericFunction() = {
     val A = NormalClassItem("A")
     val T = SimpleTypeVar("T")
     val f = NormalMethodItem("f",A,List(T),VoidType,Nil,isStatic=true)
     implicit val env = localEnv().extendLocal(Array(f))
     test("f()",ApplyExp(TypeApply(MethodDen(None,f),List(ObjectType)),Nil))
+  }
+
+  @Test def autoReturn() = {
+    val A = NormalClassItem("A")
+    val x = Local("x",A,isFinal=true)
+    val f = NormalMethodItem("f",NormalClassItem("F"),Nil,A,Nil,isStatic=true)
+    implicit val env = Env(Array(A,x),Map(A->2,x->1),PlaceInfo(f))
+    test("return",ReturnStmt(x))
   }
 }

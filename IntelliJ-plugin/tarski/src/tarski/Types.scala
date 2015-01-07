@@ -588,8 +588,10 @@ object Types {
   }
 
   // Is t0 op= t1 valid?
+  def assignOpType(op: AssignOp, t0: Type, t1: Type): Option[Type] =
+    binaryType(op,t0,t1) filter (castsTo(_,t0))
   def assignOpType(op: Option[AssignOp], t0: Type, t1: Type): Option[Type] = op match {
-    case Some(op) => binaryType(op,t0,t1) filter (castsTo(_,t0))
+    case Some(op) => assignOpType(op,t0,t1)
     case None => if (assignsTo(t1,t0)) Some(t0) else None
   }
 
@@ -630,11 +632,13 @@ object Types {
   trait Signature {
     def tparams: List[TypeVar] // Inferable type parameters
     def params: List[Type]
+    def result: Type
   }
 
-  // given argument types ts, which signatures are still usable? ts is allowed to be shorter than f.params,
-  // all signatures still possible after matching the prefix are returned.
-  def resolveOptions[F <: Signature](fs: List[F], ts: List[Type]): List[(F,List[TypeArg])] = {
+  // Given argument types ts, which signatures are still usable? ts is allowed to be shorter than f.params,
+  // all signatures still possible after matching the prefix are returned.  If specified, ret constraints the
+  // return type of the function.
+  def resolveOptions[F <: Signature](fs: List[F], ts: List[Type], expects: Option[Type]): List[(F,List[TypeArg])] = {
     val n = ts.size
     // TODO: Handle access restrictions (public, private, protected) and scoping
     // TODO: Handle variable arity
@@ -644,7 +648,13 @@ object Types {
       if (f.tparams.isEmpty)
         if ((f.params.slice(0,ts.size),ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
         else None
-      else Inference.infer(f.tparams,f.params.slice(0,ts.size),ts)(form)
+      else {
+        val ps = f.params.slice(0,ts.size)
+        expects match {
+          case None => Inference.infer(f.tparams,ps,ts)(form)
+          case Some(t) => Inference.infer(f.tparams,t::ps,f.result::ts)(form)
+        }
+      }
     def strictCompatible(f: F): Option[List[TypeArg]] = compatible(f,Inference.strictBounds, strictInvokeContext)
     def looseCompatible (f: F): Option[List[TypeArg]] = compatible(f,Inference.looseBounds , looseInvokeContext)
     // narrow down candidates
@@ -657,22 +667,13 @@ object Types {
   }
 
   // resolve an overloaded function
-  def resolve[F <: Signature](fs: List[F], ts: List[Type]): Option[(F,List[TypeArg])] = {
+  def resolve[F <: Signature](fs: List[F], ts: List[Type], expects: Option[Type]): Option[(F,List[TypeArg])] = {
     def mostSpecific(fs: List[(F,List[TypeArg])]): Option[(F,List[TypeArg])] = fs match {
       case Nil => None
       case List(f) => Some(f)
       case _ => notImplemented // TODO: more inference
     }
     // Pick function
-    mostSpecific(resolveOptions(fs, ts))
-  }
-
-  // Find a base type of t as similar to goal as possible.  For now, similar means _.item == goal.item.
-  def similarBase(t: Type, goal: Type): Type = goal.item match {
-    case goal:ClassItem => subItemType(t,goal) match {
-      case None => t
-      case Some(s) => s
-    }
-    case _ => t
+    mostSpecific(resolveOptions(fs,ts,expects))
   }
 }

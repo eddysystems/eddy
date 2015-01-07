@@ -139,16 +139,16 @@ object Semantics {
     case _ => false
   }
 
-  def valuesOfItem(c: TypeItem, i: Item, depth: Int)(implicit env: Env): Scored[Exp] =
+  def valuesOfItem(c: TypeItem, depth: Int, error: => String)(implicit env: Env): Scored[Exp] =
     if (depth >= 3) fail("Automatic field depth exceeded")
     else objectsOfItem(c) flatMap { x =>
-      if (containedIn(x,c)) fail(s"Field ${show(i)}: all objects of item ${show(c)} contained in ${show(c)}")
+      if (containedIn(x,c)) fail(s"$error: all objects of item ${show(c)} contained in ${show(c)}")
       else denoteValue(x,depth+1) // Increase depth to avoid infinite loops
     }
 
   def denoteFieldItem(i: FieldItem, depth: Int)(implicit env: Env): Scored[FieldExp] = {
     val c = i.parent
-    val objs = valuesOfItem(c,i,depth)
+    val objs = valuesOfItem(c,depth,s"Field ${show(i)}")
     objs flatMap { xd => {
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
         xd match {
@@ -161,8 +161,8 @@ object Semantics {
   }
 
   def denoteMethod(i: MethodItem, depth: Int)(implicit env: Env): Scored[MethodDen] = {
-    val objs = valuesOfItem(i.parent,i,depth)
-    objs flatMap (xd => single(MethodDen(Some(xd),i), Pr.methodCallable(objs, xd, i)))
+    val objs = valuesOfItem(i.parent,depth,s"Method ${show(i)}")
+    objs flatMap (xd => single(MethodDen(Some(xd),i), Pr.methodCallable(objs,xd,i)))
   }
 
   def denoteValue(i: Value, depth: Int)(implicit env: Env): Scored[Exp] = {
@@ -193,6 +193,7 @@ object Semantics {
     def pack:    Boolean = (m&16)!=0
 
     def callExp: Boolean = (m&(1|4))!=0
+    def onlyCall:    Mode = Mode(m&(4|8))
     def onlyCallExp: Mode = Mode(m&(1|4|8))
     def onlyTyCall:  Mode = Mode(m&(2|4|8))
 
@@ -210,7 +211,7 @@ object Semantics {
   val NewMode  = Mode(4|8)
   val PackMode = Mode(16)
 
-  @inline def denoteExp   (e: AExp)(implicit env: Env): Scored[Exp]       = denote(e,ExpMode).asInstanceOf[Scored[Exp]]
+  @inline def denoteExp   (e: AExp, expects: Option[Type] = None)(implicit env: Env): Scored[Exp] = denote(e,ExpMode,expects).asInstanceOf[Scored[Exp]]
   @inline def denoteType  (e: AExp)(implicit env: Env): Scored[TypeDen]   = denote(e,TypeMode).asInstanceOf[Scored[TypeDen]]
   @inline def denoteParent(e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
   @inline def denoteNew   (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
@@ -221,32 +222,32 @@ object Semantics {
 
   // Turn f into f(), etc.
   // TODO: Make Pr.missingArgList much higher for explicit new
-  def bareCall(f: Callable)(implicit env: Env): Scored[Exp] =
-    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,ArgMatching.useAll))
-  def fixCall(m: Mode, f: => Scored[Den])(implicit env: Env): Scored[Den] =
+  def bareCall(f: Callable, expects: Option[Type])(implicit env: Env): Scored[Exp] =
+    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,expects,ArgMatching.useAll))
+  def fixCall(m: Mode, expects: Option[Type], f: => Scored[Den])(implicit env: Env): Scored[Den] =
     if (m.call) f
     else biased(Pr.missingArgList,f flatMap {
-      case f:Callable => ArgMatching.fiddleCall(f,Nil,ArgMatching.useAll)
+      case f:Callable => ArgMatching.fiddleCall(f,Nil,expects,ArgMatching.useAll)
       case f => known(f)
     })
 
-  def denote(e: AExp, m: Mode)(implicit env: Env): Scored[Den] = e match {
+  def denote(e: AExp, m: Mode, expects: Option[Type] = None)(implicit env: Env): Scored[Den] = e match {
     case x:ALit if m.exp => denoteLit(x)
-    case NameAExp(n) => denoteName(n,m)
+    case NameAExp(n) => denoteName(n,m,expects)
 
     // Fields
-    case FieldAExp(x,None|Some(EmptyList),f) => denoteField(denoteParent(x),f,m,e)
+    case FieldAExp(x,None|Some(EmptyList),f) => denoteField(denoteParent(x),f,m,expects,e)
     case FieldAExp(x,Some(ts),f) =>
       if (!m.callExp) fail(s"${show(e)}: Unexpected type arguments in mode $m")
-      else addTypeArgs(denoteField(denoteParent(x),f,m.onlyCallExp,e),ts)
+      else fixCall(m,expects,addTypeArgs(denoteField(denoteParent(x),f,m.onlyCall,None,e),ts))
 
     // Parentheses.  Java doesn't allow parentheses around types or callables, but we do.
-    case ParenAExp(x,_) if m==ExpMode => denoteExp(x) map ParenExp
-    case ParenAExp(x,_) if m.exp => denote(x,m) flatMap {
+    case ParenAExp(x,_) if m==ExpMode => denoteExp(x,expects) map ParenExp
+    case ParenAExp(x,_) if m.exp => denote(x,m,expects) flatMap {
       case x:Exp => known(ParenExp(x))
       case x:TypeOrPackage => single(x,Pr.weirdParens)
       case x:Callable => if (m.call) single(x,Pr.weirdParens)
-                         else bareCall(x) map ParenExp
+                         else bareCall(x,expects) map ParenExp
     }
     case ParenAExp(x,_) => biased(Pr.weirdParens,denote(x,m))
 
@@ -254,26 +255,26 @@ object Semantics {
     // For callables, this is C++-style application of type arguments to a generic method
     case TypeApplyAExp(x,ts) => {
       def n = ts.size
-      if (n==0) denote(x,m)
+      if (n==0) denote(x,m,expects)
       else addTypeArgs(denote(x,m.onlyTyCall),ts)
     }
 
     // Explicit new
     case NewAExp(ts,x) if m.callExp =>
-      fixCall(m,biasedNotNew(m,addTypeArgs(denoteNew(x),ts).asInstanceOf[Scored[Callable]]))
+      fixCall(m,expects,biasedNotNew(m,addTypeArgs(denoteNew(x),ts).asInstanceOf[Scored[Callable]]))
 
     // Application
     case ApplyAExp(f,EmptyList,BrackAround) if m==TypeMode =>
       denoteType(f) map (_.array) // This case also shows up below
     case ApplyAExp(f,xsn,around) if m.exp =>
       val n = xsn.list.size
-      val args = xsn.list map denoteExp
+      val args = xsn.list map (denoteExp(_))
       val fs = denote(f,CallMode | (if (m.ty && around==BrackAround) TypeMode else NoMode)
                                  | (if (n > 0) ExpMode else NoMode))
       // Either array index or call
       val call = biased(Pr.callExp(xsn,around), fs flatMap {
         case f:TypeDen => known(f.array) // t[]
-        case f:Callable => ArgMatching.fiddleCall(f,args,ArgMatching.useAll)
+        case f:Callable => ArgMatching.fiddleCall(f,args,expects,ArgMatching.useAll)
         case _:Exp|_:PackageDen => fail("Expressions and packages are not callable")
       })
       if (n == 0) call // No arguments is never array access
@@ -283,9 +284,9 @@ object Semantics {
             product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp)))
         // Handle Javascript-style field access, Scala-style infix method calls, etc.
         def special(a: Scored[Den], x: Name, ys: List[Scored[Exp]], names: IdentityHashMap[Scored[Exp],Name]): Scored[Den] = {
-          val ax = denoteField(a,x,m|CallMode,e)
+          val ax = denoteField(a,x,m|CallMode,None,e)
           def apply: Scored[Den] = ax flatMap {
-            case ax:Callable => ArgMatching.fiddleCall(ax,ys,(axy,zs) => zs match {
+            case ax:Callable => ArgMatching.fiddleCall(ax,ys,expects,(axy,zs) => zs match {
               case Nil => known(axy)
               case z::zs => names.get(z) match {
                 case null => fail("Not a field name")
@@ -295,7 +296,7 @@ object Semantics {
             case _ => fail("Not applicable")
           }
           ys match {
-            case Nil => fixCall(m,ax)
+            case Nil => fixCall(m,expects,ax)
             case y::ys => names.get(y) match {
               case null => fail("Not a field name")
               case y => special(ax,y,ys,names) ++ apply
@@ -340,39 +341,57 @@ object Semantics {
     }}
 
     case CondAExp(c,x,y) if m.exp =>
-      biased(Pr.condExp,product(denoteBool(c),denoteExp(x),denoteExp(y)) map {case (c,x,y) =>
+      biased(Pr.condExp,product(denoteBool(c),denoteExp(x,expects),denoteExp(y,expects)) map {case (c,x,y) =>
         CondExp(c,x,y,condType(x.ty,y.ty))})
 
-    case AssignAExp(op,x,y) if m.exp => {
+    case AssignAExp(None,x,y) if m.exp =>
+      denoteVariable(x) flatMap (x => denoteAssignsTo(y,x.ty) map (AssignExp(None,x,_)))
+    case AssignAExp(Some(op),x,y) if m.exp => {
       product(denoteVariable(x),denoteExp(y)) flatMap {case (x,y) => {
-        val tx = x.ty
-        val ty = y.ty
-        assignOpType(op,tx,ty) match {
-          case None => fail(s"${show(e)}: invalid assignop ${show(tx)} ${show(token(op))} ${show(ty)}")
-          case Some(t) => single(AssignExp(op,x,y), Pr.assignExp)
+        assignOpType(op,x.ty,y.ty) match {
+          case None => fail(s"${show(e)}: invalid assignop ${show(x.ty)} ${show(op)} ${show(y.ty)}")
+          case Some(t) => known(AssignExp(Some(op),x,y))
         }
       }}
     }
 
     case ArrayAExp(xs,a) if m.exp =>
-      biased(Pr.arrayExp,product(xs.list map denoteExp) map (is => ArrayExp(condTypes(is map (_.ty)),is)))
+      biased(Pr.arrayExp,product(xs.list map (denoteExp(_))) map (is => ArrayExp(condTypes(is map (_.ty)),is)))
 
     case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
   }
 
-  def denoteName(n: Name, m: Mode)(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
+  def denoteAssignsTo(e: AExp, to: Type)(implicit env: Env): Scored[Exp] =
+    denoteExp(e,Some(to)) filter (assignsTo(_,to),s"Can't assign anything available to type ${show(to)}")
+
+  /*
+    // Optional check that e assigns to a type
+  def expect(e: Exp, expects: Type): Scored[Exp] =
+    if (!assignsTo(e,expects)) fail(s"Can't assign ${show(e)} to type ${show(expects)}")
+    else known(e)
+  def expect(e: Exp, expects: Option[Type]): Scored[Exp] = expects match {
+    case Some(t) if !assignsTo(e,t) => fail(s"Can't assign ${show(e)} to type ${show(t)}")
+    case _ => known(e)
+  }
+  def expect(e: Scored[Exp], expects: Option[Type]): Scored[Exp] = expects match {
+    case Some(t) => e filter (assignsTo(_,t),s"Can't assign anything to type ${show(t)}")
+    case None => e
+  }
+  */
+
+  def denoteName(n: Name, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
     case v:Value if m.exp => denoteValue(v,depth=0)
     case t:TypeItem =>
       if (!typeAccessible(t)) fail(s"${show(t)} is inaccessible")
       else {
         val s = if (!m.callExp) fail("Not in call mode") else t match {
           case t:ClassItem if t.constructors.length==0 => fail(s"$t has no constructors")
-          case t:ClassItem => fixCall(m,uniformGood(Pr.constructor,t.constructors) map (NewDen(None,_)))
+          case t:ClassItem => fixCall(m,expects,uniformGood(Pr.constructor,t.constructors) map (NewDen(None,_)))
           case _ => fail(s"$t is not a class, and therefore has no constructors")
         }
         if (m.ty) knownThen(TypeDen(Nil,t.raw),s) else s
       }
-    case c:PseudoCallableItem if m.callExp => fixCall(m,c match {
+    case c:PseudoCallableItem if m.callExp => fixCall(m,expects,c match {
       case i:MethodItem if i.isStatic => knownNotNew(m,MethodDen(None,i))
       case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i))
       case i:MethodItem => biasedNotNew(m,denoteMethod(i,0))
@@ -391,7 +410,7 @@ object Semantics {
     case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
   })
 
-  def denoteField(xs: Scored[Den], f: Name, mc: Mode, error: AExp)(implicit env: Env): Scored[Den] = {
+  def denoteField(xs: Scored[Den], f: Name, mc: Mode, expects: Option[Type], error: AExp)(implicit env: Env): Scored[Den] = {
     // Is f a field of x?
     def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
       case (x:ExpOrType,p:ClassItem) => isSubitem(x.item,p)
@@ -428,7 +447,7 @@ object Semantics {
           val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
             case f:ClassItem if f.constructors.length>0 =>
               val cons = uniformGood(Pr.constructor,f.constructors)
-              fixCall(mc,x match {
+              fixCall(mc,expects,x match {
                 // TODO: Also try applying the type arguments to the class (not the constructor)
                 // Only Classes have constructors, so t or x.ty below must be a ClassType
                 case PackageDen(p) => cons map (NewDen(None,_))
@@ -443,7 +462,7 @@ object Semantics {
             case _ => fail(s"$f has no constructors")
           }
           types++cons
-        case f:MethodItem => fixCall(mc,x match {
+        case f:MethodItem => fixCall(mc,expects,x match {
           case x:Exp     if f.isStatic => single(MethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
           case x:TypeDen if f.isStatic => knownNotNew(mc,MethodDen(None,f).discard(x.discards))
           case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f))
@@ -455,12 +474,13 @@ object Semantics {
   }
 
   // Expressions with type restrictions
+  private val zero = IntLit(0,"0")
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = denoteExp(n) flatMap {e =>
     val t = e.ty
     if (t.unboxesToBoolean) known(e)
-    else if (t.unboxesToNumeric) single(BinaryExp(NeOp, e, IntLit(0, "0")), Pr.insertComparison(t))
+    else if (t.unboxesToNumeric) single(BinaryExp(NeOp,e,zero),Pr.insertComparison(t))
     // TODO: all sequences should probably check whether they're empty (or null)
-    else if (t.isInstanceOf[RefType]) single(BinaryExp(NeOp, e, NullLit), Pr.insertComparison(t))
+    else if (t.isInstanceOf[RefType]) single(BinaryExp(NeOp,e,NullLit), Pr.insertComparison(t))
     else fail(s"${show(n)}: can't convert type ${show(t)} to boolean")
   }
   def denoteIndex(e: Exp)(implicit env: Env): Scored[Exp] = {
@@ -484,7 +504,6 @@ object Semantics {
     else fail(s"${show(e)}: ${show(x)} cannot be assigned to")
   }
 
-
   @tailrec
   def isVariable(e: Exp): Boolean = e match {
     // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
@@ -506,6 +525,39 @@ object Semantics {
     case DiscardExp(_,e) => isVariable(e)
   }
 
+  // Guess the item name referred to by e.  Used only for approximate purposes.
+  @tailrec def guessItem(e: AExp): Option[Name] = e match {
+    case NameAExp(n) => Some(n)
+    case ParenAExp(e,_) => guessItem(e)
+    case FieldAExp(_,_,f) => Some(f)
+    case TypeApplyAExp(e,_) => guessItem(e)
+    case ApplyAExp(e,_,_) => guessItem(e)
+    case _ => None
+  }
+
+  // Find a base type of t as similar to goal as possible.  For now, similar means _.item.name ~ goal.
+  def similarBase(t: Type, goal: Option[Name]): Type = goal match {
+    case None => t
+    case Some(goal) => t match {
+      case t:ClassType =>
+        @tailrec def best(px: Double, x: ClassType, ys: List[RefType]): ClassType = ys match {
+          case Nil => x
+          case (y:ClassType)::ys =>
+            val py = Pr.typoProbability(y.item.name,goal)
+            if (py > px) best(py,y,ys)
+            else best(px,x,ys)
+          case _::ys => best(px,x,ys)
+        }
+        best(0,t,supers(t).toList)
+      case _ => t
+    }
+  }
+
+  def safe[A](t: Type)(f: Type => Scored[A]): Scored[A] = t.safe match {
+    case None => fail(s"Cannot make variables of type $t")
+    case Some(t) => f(t)
+  }
+
   // Statements
   def denoteStmt(s: AStmt)(env: Env): Scored[(Env,List[Stmt])] = {
     implicit val imp = env
@@ -514,53 +566,44 @@ object Semantics {
       case HoleAStmt => single((env,List(HoleStmt)), Pr.holeStmt)
       case VarAStmt(m,t,ds) =>
         val isFinal = modifiers(m,Final)
-        above(denoteType(t)(env) flatMap (at => {
-          val t = at.beneath
-          def init(t: Type, v: Name, i: Option[AExp], env: Env): Scored[Option[Exp]] = i match {
-            case None => known(None)
-            case Some(e) => denoteExp(e)(env) flatMap {e =>
-              if (assignsTo(e,t)) known(Some(e))
-              else fail(s"${show(s)}: can't assign ${show(e)} to type ${show(t)} in declaration of $v}")
-            }
-          }
-          def define(env: Env, ds: List[AVarDecl]): Scored[(Env,List[VarDecl])] = ds match {
-            case Nil => known((env,Nil))
-            case (v,k,i)::ds =>
-              val tk = arrays(t,k)
-              product(env.newVariable(v,tk,isFinal),init(tk,v,i,env)) flatMap {case ((env,v),i) =>
-                define(env,ds) map {case (env,ds) => (env,(v,k,i)::ds)}}
-          }
-          (t.safe,ds.list) match {
-            case (None,_) => fail(s"Cannot make variables of type $t")
-            case (Some(t),List((v,0,Some(e)))) if at.discards.isEmpty =>
-              // Handle common T v = i specially for extra flexibility.  Specifically, we allow T to change.
-              denoteExp(e)(env) flatMap {e => {
-                def declare(t: Type) = env.newVariable(v,t,isFinal) map {case (env,v) => (env,VarStmt(t,List((v,0,Some(e)))))}
-                if (assignsTo(e,t)) declare(t)
-                else biased(Pr.changeVarType,similarBase(e.ty,t).safe match {
-                  case None => fail(s"Cannot make variables of type ${e.ty}")
-                  case Some(t) => declare(t)
+        def process(d: AVarDecl)(env: Env, x: Local): Scored[VarDecl] = d match {
+          case (_,k,None) => known(x,k,None)
+          case (_,k,Some(i)) => denoteAssignsTo(i,x.ty) map (i => (x,k,Some(i)))
+        }
+        val useType = env.newVariables(ds.list map (_._1),isFinal,ds.list map process) flatMap (f =>
+          above(denoteType(t)(env) flatMap (at => safe(at.beneath)(t => {
+            val (env,dss) = f(ds.list map {case (_,k,_) => arrays(t,k)})
+            product(dss) map (ds => (env,VarStmt(t,ds).discard(at.discards)))
+          }))))
+        ds.list match {
+          case List((v,0,Some(e))) => // For T v = i, allow T to change
+            useType ++ biased(Pr.ignoreVarType,{
+              val goal = guessItem(t)
+              product(env.newVariable(v,isFinal),denoteExp(e)(env)) flatMap {case (f,e) =>
+                safe(similarBase(e.ty,goal))(t => {
+                  val (env,x) = f(t)
+                  known(env,List(VarStmt(t,List((x,0,Some(e))))))
                 })
-              }}
-            case (Some(t),ds) => define(env,ds) map {case (env,ds) => (env,VarStmt(t,ds).discard(at.discards)) }
-          }
-        }))
+              }
+            })
+          case _ => useType
+        }
       case ExpAStmt(e) => {
         val exps = denoteExp(e) flatMap {
-          case e:StmtExp => single((env,ExpStmt(e)),Pr.expStmt)
+          case e:StmtExp => known(env,ExpStmt(e))
           case e => effects(e) match {
             case Nil => fail(s"${show(e)}: has no side effects")
             case ss => single((env,blocked(ss)),Pr.expStmtsSplit)
           }
         }
-        val stmts: Scored[(Env,Stmt)] = e match {
-          case AssignAExp(None,NameAExp(x),y) => denoteExp(y) flatMap {y => y.ty.safe match {
-            case Some(t) => env.newVariable(x,t,false) flatMap { case (env,x) => single((env,VarStmt(t,List((x,0,Some(y))))), Pr.assignmentAsVarStmt) }
-            case None => fail(s"expression $y does not return anything usable (${y.ty})")
-          }}
-          case _ => fail(s"${show(e)}: expression doesn't look like a statement ($e)")
-        }
-        above(exps++stmts)
+        above(e match {
+          case AssignAExp(None,NameAExp(x),y) => exps ++ biased(Pr.assignmentAsVarStmt,
+            product(env.newVariable(x,isFinal=false),denoteExp(y)) flatMap {case (f,y) => safe(y.ty)(t => {
+              val (env,x) = f(t)
+              known(env,VarStmt(t,List((x,0,Some(y)))))
+            })})
+          case _ => exps
+        })
       }
       case BlockAStmt(b) => denoteStmts(b)(env) flatMap {case (e,ss) => single((e,List(BlockStmt(ss))), Pr.blockStmt)}
       case AssertAStmt(c,m) => biased(Pr.assertStmt,above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
@@ -572,11 +615,14 @@ object Semantics {
       case ContinueAStmt(lab) =>
         if (env.place.continuable) biased(Pr.continueStmt,denoteLabel(lab,(env,List(ContinueStmt))))
         else fail("cannot break outside of a loop")
-      case ReturnAStmt(e) => above(product(returnType,thread(e)(denoteExp)) flatMap {case (r,e) =>
-        val t = typeOf(e)
-        if (assignsTo(e,r)) single((env,ReturnStmt(e)), Pr.returnStmt)
-        else fail(s"${show(s)}: type ${show(t)} incompatible with return type ${show(r)}")
-      })
+      case ReturnAStmt(None) => returnType flatMap (r =>
+        if (r==VoidType) known(env,List(ReturnStmt(None)))
+        else valuesOfItem(r.item,0,"return") flatMap (x =>
+          if (assignsTo(x,r)) known(env,List(ReturnStmt(Some(x))))
+          else fail(s"${show(s)}: type ${show(x.ty)} incompatible with return type ${show(r)}")
+        )
+      )
+      case ReturnAStmt(Some(e)) => above(returnType flatMap (r => denoteAssignsTo(e,r) map (e => (env,ReturnStmt(Some(e))))))
       case ThrowAStmt(e) => above(denoteExp(e) flatMap {e =>
         if (isThrowable(e.item)) single((env,ThrowStmt(e)), Pr.throwStmt)
         else fail(s"${show(s)}: type ${e.ty} is not throwable")
@@ -600,34 +646,36 @@ object Semantics {
             case None => single((c,u,s) => BlockStmt(i:::List(ForStmt(ForExps(Nil),c,u,s))), Pr.blockForStmt)
           }
         }
-        denoteStmts(i)(env.pushScope) flatMap {case (env,i) => init(i) flatMap (i => {
+        scoped(env)(env => denoteStmts(i)(env) flatMap {case (env,i) => init(i) flatMap (i => {
           product(thread(c)(c => noAbove(denoteBool(c)(env))),
                   thread(u)(u => noAbove(denoteExp(u)(env))),
                   denoteScoped(s)(env))
-            .map {case (c,u,(env,s)) => (env.popScope,List(i(c,u,s)))}
-        })}
+            .map {case (c,u,(env,s)) => (env,List(i(c,u,s)))}
+        })})
       }
       case ForAStmt(info@Foreach(m,t,v,n,e),s,a) => {
         val isFinal = modifiers(m,Final) || t.isEmpty
         def hole = show(ForAStmt(info,HoleAStmt,a))
-        above(product(thread(t)(denoteType),denoteExp(e)) flatMap {case (at,e) =>
+        above(product(env.newVariable(v,isFinal),thread(t)(denoteType),denoteExp(e)) flatMap {case (f,at,e) =>
           val t = at map (_.beneath)
           val tc = e.ty
           isIterable(tc) match {
             case None => fail(s"${show(e)}: type ${show(tc)} is not Iterable or an Array")
             case Some(te) =>
-              (t match {
+              def rest(t: Type): Scored[(Env,Stmt)] = {
+                val (env,x) = f(t)
+                denoteStmt(s)(env) map {case (env,s) => (env,ForeachStmt(t,x,e,blocked(s)).discard(at.discards))}
+              }
+              t match {
                 case Some(t) =>
                   val ta = arrays(t,n)
-                  if (assignsTo(te,ta)) single(ta, Pr.forEachArray)
+                  if (assignsTo(te,ta)) rest(ta)
                   else fail(s"$hole: can't assign ${show(te)} to ${show(ta)}")
                 case None =>
                   val ne = dimensions(te)
-                  if (ne >= n) single(te, Pr.forEachArrayNoType)
+                  if (ne >= n) biased(Pr.forEachArrayNoType,rest(te))
                   else fail(s"$hole: expected $n array dimensions, got type ${show(te)} with $ne")
-              }) flatMap (t => env.pushScope.newVariable(v,t,isFinal) flatMap {case (env,v) => denoteStmt(s)(env) map {case (env,s) =>
-                (env.popScope,ForeachStmt(t,v,e,blocked(s)).discard(at.discards))
-              }})
+              }
           }
         })
       }
@@ -655,8 +703,10 @@ object Semantics {
     productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)}
 
   // Statement whose environment is discarded
+  def scoped[A](env: Env)(f: Env => Scored[(Env,A)]): Scored[(Env,A)] =
+    f(env.pushScope) map {case (e,x) => (e.popScope,x)}
   def denoteScoped(s: AStmt)(env: Env): Scored[(Env,Stmt)] =
-    denoteStmt(s)(env.pushScope) map {case (env,ss) => (env.popScope,blocked(ss))}
+    scoped(env)(denoteStmt(s)(_)) map {case (e,ss) => (e,blocked(ss))}
   def denoteScoped(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
-    denoteStmts(s)(env.pushScope) map {case (env,s) => (env.popScope,s)}
+    scoped(env)(denoteStmts(s)(_))
 }

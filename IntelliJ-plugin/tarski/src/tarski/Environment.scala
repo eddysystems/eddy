@@ -74,17 +74,34 @@ object Environment {
     def pushScope: Env
     def popScope: Env
 
-    // Add variables and fields
-    def newVariable(name: String, t: Type, isFinal: Boolean): Scored[(Env,Local)] = place.place match {
-      case c: CallableItem =>
-        if (scope exists { case (v:Local,_) => v.name == name; case _ => false })
-          fail(s"Invalid new local variable $name: already exists.")
-        else {
-          val x = Local(name,t,isFinal)
-          known((extend(Array(x),Map((x,0))),x))
+    // Add variables and fields.  Each variable is consumed by one of the fs.
+    def newVariables[A](names: List[String], isFinal: Boolean, fs: List[(Env,Local) => A]): Scored[List[Type] => (Env,List[A])] = {
+      val set = names.toSet
+      if (set.size < names.size) fail(s"Duplicate name among ${names mkString ", "}")
+      else place.place match {
+        case c:CallableItem => scope collect { case (v:Local,_) if set contains v.name => v.name } match {
+          case Nil => known((ts: List[Type]) => {
+            @tailrec def loop(as: List[A], env: Env, ns: List[String], ts: List[Type], fs: List[(Env,Local) => A]): (Env,List[A]) = (ns,ts,fs) match {
+              case (Nil,Nil,Nil) => (env,as.reverse)
+              case (n::ns,t::ts,f::fs) =>
+                val x = Local(n,t,isFinal)
+                val e = env.extend(Array(x),Map(x->0))
+                loop(f(env,x)::as,e,ns,ts,fs)
+              case _ => impossible
+            }
+            loop(Nil,this,names,ts,fs)
+          })
+          case bad => fail(s"Invalid new local variables ${bad mkString ", "}: names already exist")
         }
-      case _ => fail("Cannot declare local variables outside of methods or constructors.")
+        case _ => fail("Cannot declare local variables outside of methods or constructors.")
+      }
     }
+
+    def newVariable(name: String, isFinal: Boolean): Scored[Type => (Env,Local)] =
+      newVariables(List(name),isFinal,List((e:Env,x:Local) => x)) map (f => (t: Type) => f(List(t)) match {
+        case (e,List(x)) => (e,x)
+        case _ => impossible
+      })
 
     def newField(name: String, t: Type, isStatic: Boolean, isFinal: Boolean) = place.place match {
       case c: ClassItem =>

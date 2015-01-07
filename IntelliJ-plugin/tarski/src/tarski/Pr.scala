@@ -131,7 +131,6 @@ object Pr {
   val binaryExp = base // should be a function of operator and types
   val castExp = base // should be a function of from/to types
   val condExp = base // should be a function of inside types
-  val assignExp = base // should be a function of operator and types
   val arrayExp = Prob("array",.8) // {1,2,3}, should be a function of around, types, number of things inside
 
   // denoteBool(AExp)
@@ -143,15 +142,13 @@ object Pr {
   // denoteStmt(AStmt)
   val emptyStmt = Prob("empty stmt",.2) // empty statements are rarely written down
   val holeStmt = base // incomplete statements are common though
-  val changeVarType = Prob("change var type",.1)
-  val expStmt = base // could also be 1, nothing happens here
+  val ignoreVarType = Prob("change var type",.1)
   val expStmtsSplit = Prob("exp stmts split",.3) // tried to write a non-expression statement as a statement, had to be split
   val assignmentAsVarStmt = Prob("assign as var stmt",.4) // should depend on types: e.g. explicit constructor calls are more likely
   val blockStmt = base
   val assertStmt = base
   val breakStmt = base
   val continueStmt = base
-  val returnStmt = base
   val throwStmt = base // should depend on type of thing thrown
   val syncStmt = base // should depend on the variable used to synchronize
   val ifStmt = base
@@ -161,7 +158,6 @@ object Pr {
   val forStmt = base
   val expForStmt = Prob("exp for stmt",.9)
   val blockForStmt = Prob("block for stmt",.6)
-  val forEachArray = Prob("foreach array",.9)
   val forEachArrayNoType = Prob("foreach array no type",.7)
 
   // denoteLabel
