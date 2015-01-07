@@ -565,6 +565,8 @@ class TestDen {
 
   @Test def genericClass(): Unit = {
     implicit val env = setupGenericClass()
+    val X = env.allLocalItems.find(_.name == "X").get.asInstanceOf[NormalClassItem]
+    val B = env.allLocalItems.find(_.name == "B").get.asInstanceOf[NormalClassItem]
     test("X<String,B<String>> x = null", "x", x => VarStmt(X.generic(List(StringType,B.generic(List(StringType)))), List((x, 0, Some(NullLit)))))
   }
 
