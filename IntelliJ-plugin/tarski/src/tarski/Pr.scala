@@ -170,8 +170,8 @@ object Pr {
   // denoteLabel
   val labelNone = base
 
-  val exact = Prob("exact",.98)
-  val typo = Prob("typo",.02)
+  val exact = Prob("exact",1)
+  val typo = Prob("typo",.2)
   assert(pp(exact) > pp(typo))
   val objectOfType = base
   val objectOfItem = base

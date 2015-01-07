@@ -610,7 +610,7 @@ class TestDen {
     // Until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
     test("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),List((x,0,None))))
     test("A<S,S,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),List((x,0,None)))) // Unlikely, but should work
-    def bad(s: String) = testFail(s,bound=1e-5)
+    def bad(s: String) = testFail(s,bound=1e-4)
     bad("A<S,S,S> x")
     bad("A<S,S,T> x")
     bad("A<S,S,U> x")
