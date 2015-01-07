@@ -296,6 +296,7 @@ object Tokens {
       case x::Nil => show(x)
       case x::(ys@(y::_)) =>
         def safe(x: Token, y: Token) = (x,y) match {
+          case (_:WhitespaceTok,_)|(_,_:WhitespaceTok) => true
           case (LParenTok|LBrackTok,_) => true
           case (_,RParenTok|RBrackTok) => true
           case (_:IdentTok,LParenTok|LBrackTok) => true

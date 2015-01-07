@@ -97,6 +97,7 @@ object Pretty {
   def tokens[A](x: A)(implicit p: Pretty[A]): Tokens = p(x)._2
 
   // Pretty printing utilities
+  val space = WhitespaceTok(" ")
   def parens[A](x: A)(implicit p: Pretty[A]): Tokens = parens(tokens(x))
   def parens(ts: Tokens): Tokens = LParenTok :: ts ::: List(RParenTok)
   def around[A](x: A, a: Around)(implicit p: Pretty[A]): (Fixity,Tokens) = {
@@ -222,7 +223,7 @@ object Pretty {
     case BinaryAExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
     case CastAExp(t,e) => (PrefixFix, parens(t) ::: right(PrefixFix,e))
     case CondAExp(c,t,f) => fix(CondFix, s => left(s,c) ::: QuestionTok :: tokens(t) ::: ColonTok :: right(s,f))
-    case AssignAExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
+    case AssignAExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: space :: token(op) :: space :: right(s,y))
     case ArrayAExp(xs,a) => around(xs,a)
     case ApplyAExp(e,xs,a) => {
       val s = a match { case NoAround => JuxtFix; case _ => ApplyFix }
@@ -239,7 +240,7 @@ object Pretty {
     s match {
       case EmptyAStmt => (SemiFix,List(SemiTok))
       case HoleAStmt => (HighestFix,List(HoleTok))
-      case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: tokens(v))
+      case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(v))
       case BlockAStmt(b) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
       case ExpAStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok))
       case AssertAStmt(c,None) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
@@ -260,7 +261,7 @@ object Pretty {
   implicit def prettyAStmts(ss: List[AStmt]): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyAVar(d: AVarDecl): (Fixity,Tokens) = d match {
     case (x,n,None) => prettyDims(x,n)
-    case (x,n,Some(e)) => fix(AssignFix, prettyDims(x,n)._2 ::: EqTok :: right(_,e))
+    case (x,n,Some(e)) => fix(AssignFix, prettyDims(x,n)._2 ::: space :: EqTok :: space :: right(_,e))
   }
   implicit def prettyFor(i: ForInfo): (Fixity,Tokens) = (LowestExpFix,i match {
     case For(i,c,u) => tokens(i) ::: tokens(c) ::: SemiTok :: tokens(CommaList(u))
@@ -381,7 +382,7 @@ object Pretty {
     case ImpExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
     case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(token(e.op)))
     case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
-    case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: token(op) :: right(s,y))
+    case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: space :: token(op) :: space :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
     case ApplyExp(f,a) => (ApplyFix, tokens(f) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
     case FieldExp(None,f) => pretty(f)
@@ -447,7 +448,7 @@ object Pretty {
   implicit def prettyStmt(s: Stmt)(implicit env: Env): (Fixity,Tokens) = s match {
     case EmptyStmt => (SemiFix, List(SemiTok))
     case HoleStmt => (HighestFix, List(HoleTok))
-    case VarStmt(t,vs) => (SemiFix, tokens(t) ::: tokens(CommaList(vs)) ::: List(SemiTok))
+    case VarStmt(t,vs) => (SemiFix, tokens(t) ::: space :: tokens(CommaList(vs)) ::: List(SemiTok))
     case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok))
     case BlockStmt(b) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
     case AssertStmt(c,None) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
@@ -471,7 +472,7 @@ object Pretty {
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyVar(v: (Local,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
     case (x,n,None) => prettyDims(x,n)
-    case (x,n,Some(i)) => fix(AssignFix, prettyDims(x,n)._2 ::: EqTok :: right(_,i)(prettyInit))
+    case (x,n,Some(i)) => fix(AssignFix, prettyDims(x,n)._2 ::: space :: EqTok :: space :: right(_,i)(prettyInit))
   }
   implicit def prettyForInit(i: ForInit)(implicit env: Env): (Fixity,Tokens) = i match {
     case v: VarStmt => prettyStmt(v)
