@@ -32,7 +32,6 @@ public class JavaScores {
   static double pmul(double x, double y) { return x*y; }
   static final double pzero = 0;
   static double padd(double x, double y) { return x+y; }
-  static double pcomp(double x) { return 1-x; }
   static public Scores.Error ppretty(double x) { return new OneError(""+x); }
   /**/
 
@@ -81,20 +80,11 @@ public class JavaScores {
       if (y instanceof AddProb) ((AddProb)y).flatten(es); else es.add(y.pretty());
     }
   }
-  static final class CompProb extends DebugProb {
-    final DebugProb x;
-    CompProb(DebugProb x) { super(1-x.prob); this.x = x; }
-    final public Scores.Error pretty() {
-      final Scores.Error e = x.pretty();
-      return e instanceof OneError ? new OneError("1 - "+((OneError)e).e()) : nest("1 -",e);
-    }
-  }
   static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
   static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
   static final DebugProb pzero = null;
   static DebugProb padd(DebugProb x, DebugProb y) { return y==pzero ? x : new AddProb(x,y); }
-  static DebugProb pcomp(DebugProb x) { return new CompProb(x); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
   static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
   /**/
