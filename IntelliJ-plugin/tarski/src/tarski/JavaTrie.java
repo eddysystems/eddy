@@ -8,10 +8,6 @@ import java.util.List;
 
 public class JavaTrie {
 
-  public interface Generator<V> {
-    public V[] lookup(String s);
-  }
-
   // TODO: make a trie structure optimized for this use case (without a start index into the values array)
   public static int[] makeTrieStructure(String[] values) {
     // Count nodes and determine maximum depth
@@ -305,8 +301,8 @@ public class JavaTrie {
 
   // Find approximate matches for a string.  Exact matches are ignored.
   // We take char[] instead of String for typed to avoid string allocations (use _.toCharArray to convert)
-  public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>>
-  levenshteinLookup(final int[] structure, final Generator<V> lookup, final char[] typed,
+  public static <V> scala.collection.immutable.List<Scores.Alt<V>>
+  levenshteinLookupGenerated(final int[] structure, final Tries.Generator<V> lookup, final char[] typed,
                     final float maxDistance, final double expected, final double minProb) {
     final List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
     final int typed_length = typed.length;
@@ -380,7 +376,8 @@ public class JavaTrie {
           final double d = levenshteinDistance(prefix, level, typed, typed_length);
           final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
           if (p > minProb) {
-            for (V v : lookup.lookup(name)) {
+            V[] vs = (V[])lookup.lookup(name);
+            for (V v : vs) {
               result.add(new tarski.Scores.Alt<V>(p, v));
             }
           }

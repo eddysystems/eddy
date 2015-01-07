@@ -28,39 +28,52 @@ import static com.eddysystems.eddy.Utility.log;
 public class Converter {
   public final Place place;
   final GlobalSearchScope projectScope;
-  public final JavaEnvironment jenv;
 
-  // We will add to this
-  public final Map<PsiElement, Item> locals;
-  public final Map<PsiMethod, ConstructorItem> cons;
+  final JavaEnvironment jenv;
+
+  // non-project items go here
+  protected final Map<PsiElement, Item> globals;
+  protected final Map<PsiMethod, ConstructorItem> globalCons;
+
+  // project items go here
+  protected final Map<PsiElement, Item> locals;
+  protected final Map<PsiMethod, ConstructorItem> cons;
+
+  // anything added to project items also goes in here
+  protected final Map<PsiElement, Item> added;
 
   Converter(Place place,
             JavaEnvironment jenv,
             Map<PsiElement, Item> globals, Map<PsiMethod, ConstructorItem> globalCons,
-            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons) {
+            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons,
+            Map<PsiElement, Item> added) {
     this.place = place;
     this.projectScope = ProjectScope.getProjectScope(place.project);
     this.jenv = jenv;
+    this.globals = globals;
+    this.globalCons = globalCons;
     this.locals = locals;
     this.cons = cons;
+    this.added = added;
   }
 
-  @Nullable Item lookup(PsiElement e) {
-    Item i = jenv.lookup(e);
-    return i != null ? i : locals.get(e);
-  }
-
-  @Nullable ConstructorItem lookupConstructor(PsiMethod m) {
-    ConstructorItem i = jenv.lookupConstructor(m);
-    return i != null ? i : cons.get(m);
-  }
 
   void put(PsiElement e, Item it) {
-    locals.put(e,it);
+    if (isInProject(e)) {
+      locals.put(e,it);
+      if (!(it instanceof ConstructorItem) && added != null)
+        added.put(e,it);
+    } else {
+      globals.put(e,it);
+    }
   }
 
   void putCons(PsiMethod e, ConstructorItem it) {
-    cons.put(e,it);
+    if (isInProject(e)) {
+      cons.put(e,it);
+    } else {
+      globalCons.put(e,it);
+    }
   }
 
   boolean isInProject(PsiElement elem) {
@@ -146,7 +159,7 @@ public class Converter {
 
   ParentItem addContainer(PsiElement elem) {
     {
-      Item i = lookup(elem);
+      Item i = jenv.lookup(elem);
       if (i != null)
         return (ParentItem)i;
     }
@@ -326,7 +339,7 @@ public class Converter {
     public ClassItem resolve() {
       if (_resolved == null) {
         // try to resolve reference, will remain null if it fails
-        _resolved = (ClassItem)env.lookup(cls.resolve());
+        _resolved = (ClassItem)env.jenv.lookup(cls.resolve());
       }
       return _resolved;
     }
@@ -435,7 +448,7 @@ public class Converter {
 
   private TypeVar addTypeParam(PsiTypeParameter p) {
     {
-      Item i = lookup(p);
+      Item i = jenv.lookup(p);
       if (i != null)
         return (TypeVar)i;
     }
@@ -539,7 +552,7 @@ public class Converter {
         final ArrayList<ConstructorItem> cons = new ArrayList<ConstructorItem>();
         boolean found = false;
         for (PsiMethod m : cls.getConstructors())
-          if (Converter.isConstructor(m)) {
+          if (isConstructor(m)) {
             found = true;
             if (!env.place.isInaccessible(m,false))
               cons.add((ConstructorItem)env.addMethod(m));
@@ -641,7 +654,7 @@ public class Converter {
 
   RefTypeItem addClass(PsiClass cls, boolean recurse, boolean noProtected) {
     {
-      Item i = lookup(cls);
+      Item i = jenv.lookup(cls);
       if (i != null) {
         if (recurse) // if we are forced to recurse, we may still have to force fields that were previously unseen
           addClassMembers(cls, (ClassItem)i, noProtected);
@@ -888,16 +901,16 @@ public class Converter {
   }
 
   CallableItem addMethod(PsiMethod method) {
-    if (Converter.isConstructor(method)) {
+    if (isConstructor(method)) {
       // constructors are not stored in locals, but in cons
-      ConstructorItem i = lookupConstructor(method);
+      ConstructorItem i = jenv.lookupConstructor(method);
       if (i != null)
         return i;
       i = new LazyConstructor(this,method);
-      cons.put(method,i);
+      putCons(method, i);
       return i;
     } else {
-      Item i = lookup(method);
+      Item i = jenv.lookup(method);
       if (i != null)
         return (CallableItem)i;
       i = new LazyMethod(this,method);
@@ -973,7 +986,7 @@ public class Converter {
 
   Value addField(PsiField f) {
     {
-      final Item i = lookup(f);
+      final Item i = jenv.lookup(f);
       if (i != null)
         return (Value)i;
     }

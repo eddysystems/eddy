@@ -58,7 +58,7 @@ public class EddyPlugin implements ProjectComponent {
 
     if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
       // free env before allocating the new one
-      env = EnvironmentProcessor.getEnvironment(project);
+      env = new JavaEnvironment(project);
       psiListener = new EddyPsiListener(env);
       PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
     } else {
@@ -70,10 +70,10 @@ public class EddyPlugin implements ProjectComponent {
 
       String err = "";
       try {
-        env = EnvironmentProcessor.getEnvironment(project);
+        env = new JavaEnvironment(project);
         psiListener = new EddyPsiListener(env);
         PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-      } catch (EnvironmentProcessor.NoJDKError e) {
+      } catch (JavaEnvironment.NoJDKError e) {
         env = null;
         err = e.getMessage();
         log(e.getMessage());

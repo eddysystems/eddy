@@ -14,15 +14,6 @@ import scala.collection.mutable
 import scala.annotation.tailrec
 
 object Environment {
-  // Minimum probability before an object is considered a match for a query
-  val minimumProbability = .01
-
-  // Lookup a string approximately-only (ignoring exact matches)
-  private def typoQuery(trie: Trie[Item], typed: Array[Char]): List[Alt[Item]] = {
-    val expected = typed.length * Pr.typingErrorRate
-    val maxErrors = Pr.poissonQuantile(expected,minimumProbability) // Never discards anything because it has too few errors
-    JavaTrie.levenshteinLookup(trie.structure, trie.values,typed,maxErrors,expected, minimumProbability)
-  }
 
   // Information about where we are
   // TODO: add information about static scope
@@ -192,42 +183,39 @@ object Environment {
     override def pushScope: Env = ???
   }
 
-  case class ThreeEnv(private val sTrie: Trie[Item], // never rebuilt (large)
-                      private val dTrie: DTrie[Item], // occasionally rebuilt (medium)
+  case class ThreeEnv(private val sTrie: LazyTrie[Item], // creates global (library) items as they are queried
+                      private val dTrie: DTrie[Item], // occasionally rebuilt when the project has changed a lot
                       private val vTrie: Trie[Item], // rebuilt all the time, including by this Env's functions returning new Envs (small)
-                      private val sByItem: java.util.Map[TypeItem,Array[Value]],
                       private val dByItem: java.util.Map[TypeItem,Array[Value]],
                       private val vByItem: java.util.Map[TypeItem,Array[Value]],
                       scope: Map[Item,Int], place: PlaceInfo) extends Env {
 
     val emptyValues = new Array[Value](0)
 
-    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,sByItem,dByItem,vByItem,scope,to)
+    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,scope,to)
 
     // Enter and leave block scopes
-    override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,sByItem,dByItem,vByItem,
+    override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
                                            scope map { case (i,n) => (i,n+1) },
                                            place)
 
-    override def popScope: Env = ThreeEnv(sTrie,dTrie,vTrie,sByItem,dByItem,vByItem,
+    override def popScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
                                            scope collect { case (i,n) if n>1 => (i,n-1) },
                                            place)
 
     // Lookup by type.item
     override def byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
-      val v0 = sByItem.get(t)
-      val v0r = if (v0 == null) emptyValues else v0
       val v1 = dByItem.get(t)
       val v1r = if (v1 == null) emptyValues else v1 filter (!_.deleted)
       val v2 = vByItem.get(t)
       val v2r = if (v2 == null) emptyValues else v2
-      uniform(Pr.objectOfItem, v0r ++ v1r ++ v2r, s"Value of item ${show(t)} not found")
+      uniform(Pr.objectOfItem, v1r ++ v2r, s"Value of item ${show(t)} not found")
     }
 
     // Add more objects
     override def extend(things: Array[Item], scope: Map[Item, Int]): Env =
-      ThreeEnv(sTrie,dTrie,vTrie ++ things, sByItem,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place)
+      ThreeEnv(sTrie,dTrie,vTrie ++ things,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place)
 
     // Slow, use only for tests
     def allLocalItems: Array[Item] = (dTrie.values filter (!_.deleted)) ++ vTrie.values
@@ -235,7 +223,7 @@ object Environment {
     // Fragile or slow, only use for tests
     override def exactLocal(name: String): Local = {
       val query = name.toCharArray
-      def options(t: Trie[Item]) = t exact query collect { case x:Local => x }
+      def options(t: Queriable[Item]) = t exact query collect { case x:Local => x }
       options(sTrie)++options(dTrie)++options(vTrie) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
@@ -248,7 +236,7 @@ object Environment {
 
     // Get exact and typo probabilities for string queries
     override def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
-      Environment.typoQuery(sTrie,typed)++Environment.typoQuery(dTrie,typed)++Environment.typoQuery(vTrie,typed)
+      sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)
   }
 
   // Store two tries and two byItems: one large one for globals, one small one for locals.
@@ -298,7 +286,7 @@ object Environment {
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly (requires word database?)
     def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
-      Environment.typoQuery(trie1,typed)++Environment.typoQuery(trie0,typed)
+      trie1.typoQuery(typed)++trie0.typoQuery(typed)
 
     def _exactQuery(typed: Array[Char]): List[Item] =
       trie1.exact(typed) ++ trie0.exact(typed)

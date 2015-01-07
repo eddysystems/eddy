@@ -2,6 +2,7 @@ package tarski
 
 import java.util
 
+import tarski.Items.Item
 import tarski.Scores._
 
 import scala.annotation.tailrec
@@ -21,7 +22,12 @@ object Tries {
     }
   }
 
-  class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) {
+  trait Queriable[V] {
+    def exact(s: Array[Char]): List[V]
+    def typoQuery(typed: Array[Char]): List[Alt[V]]
+  }
+
+  class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) extends Queriable[V] {
     // structure contains tuples: (start_values,n_children,(character,start_idx)*)
 
     // A node in structure is
@@ -39,10 +45,10 @@ object Tries {
     //              3] // sentinel (always size of values)
     // values = [x,y,z]
 
-    def nodeValues(node: Int) =
+    protected def nodeValues(node: Int) =
       values.view(structure(node),structure(node+2+2*structure(node+1)))
 
-    def children(node: Int): IndexedSeq[(Char,Int)] = {
+    protected def children(node: Int): IndexedSeq[(Char,Int)] = {
       class ChildList extends IndexedSeq[(Char,Int)] {
         def length: Int = structure(node+1)
         def apply(i: Int): (Char,Int) = {
@@ -60,6 +66,13 @@ object Tries {
       else nodeValues(n).toList
     }
 
+    // Lookup a string approximately only (ignoring exact matches)
+    @inline def typoQuery(typed: Array[Char]): List[Alt[V]] = {
+      val expected = typed.length * Pr.typingErrorRate
+      val maxErrors = Pr.poissonQuantile(expected,Pr.minimumProbability) // Never discards anything because it has too few errors
+      JavaTrie.levenshteinLookup(structure, values, typed, maxErrors, expected, Pr.minimumProbability)
+    }
+
     // The two keys are assumed equal
     def ++(t: Trie[V])(implicit tt: ClassTag[V]): Trie[V] =
       makeHelper(merge(values,t.values))
@@ -75,9 +88,23 @@ object Tries {
       makeHelper(Array.empty)
   }
 
-  class LazyTrie[V](val structure: Array[Int], lookup: (String) => Iterable[V]) {
-    def exact(s: Array[Char]): List[V] = {
+  trait Generator[V] {
+    def lookup(s: String): Array[V]
+  }
 
+  class LazyTrie[V](val structure: Array[Int], lookup: Generator[V]) extends Queriable[V] {
+    override def exact(s: Array[Char]): List[V] = lookup.lookup(s.toString).toList
+
+    override def typoQuery(typed: Array[Char]): List[Alt[V]] = {
+      val expected = typed.length * Pr.typingErrorRate
+      val maxErrors = Pr.poissonQuantile(expected,Pr.minimumProbability) // Never discards anything because it has too few errors
+      JavaTrie.levenshteinLookupGenerated(structure, lookup, typed, maxErrors, expected, Pr.minimumProbability)
+    }
+  }
+
+  object LazyTrie {
+    def apply[V](input: Iterable[String], lookup: Generator[V]) = {
+      new LazyTrie[V](JavaTrie.makeTrieStructure(toSorted(input)), lookup)
     }
   }
 
@@ -112,6 +139,12 @@ object Tries {
 
   // Sort input into an array
   private def toSorted[V <: Named](input: Iterable[V])(implicit tt: ClassTag[V]): Array[V] = {
+    val values = input.toArray
+    util.Arrays.sort(values.asInstanceOf[Array[Object]])
+    values
+  }
+
+  private def toSorted(input: Iterable[String]): Array[String] = {
     val values = input.toArray
     util.Arrays.sort(values.asInstanceOf[Array[Object]])
     values

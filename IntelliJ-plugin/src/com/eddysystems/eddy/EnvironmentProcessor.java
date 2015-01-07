@@ -6,26 +6,20 @@ import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
 import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.util.PsiScopesUtil;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.ProjectScope;
-import com.intellij.psi.search.PsiShortNamesCache;
-import com.intellij.util.Processor;
 import com.intellij.util.SmartList;
-import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
-import scala.NotImplementedError;
 import scala.collection.JavaConversions;
-import tarski.*;
-import tarski.Environment.Env;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
+import tarski.Tarski;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import static ambiguity.JavaUtils.popScope;
-import static ambiguity.JavaUtils.pushScope;
 import static com.eddysystems.eddy.Utility.log;
 
 /**
@@ -33,13 +27,8 @@ import static com.eddysystems.eddy.Utility.log;
  */
 public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
 
-  static class NoJDKError extends RuntimeException {
-    NoJDKError(String s) {
-      super("No JDK found: " + s);
-    }
-  }
-
   private final @NotNull Place place;
+
   public class ShadowElement<E> {
     public final E e;
     public final int shadowingPriority;
@@ -62,7 +51,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private PsiElement currentFileContext;
   private boolean honorPrivate;
 
-  public EnvironmentProcessor(@NotNull Project project, PsiElement place, boolean honorPrivate) {
+  // filled in fillLocalInfo
+  public PlaceInfo placeInfo;
+  public final List<Item> localItems = new ArrayList<Item>();
+  public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
+
+  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, PsiElement place, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
 
@@ -71,129 +65,18 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     // this walks up the PSI tree, but also processes import statements
     PsiScopesUtil.treeWalkUp(this, place, place.getContainingFile());
-  }
-
-  static private void addBase(Converter env, GlobalSearchScope scope, boolean noProtected) {
-    pushScope("add base");
-    try {
-      // Extra things don't correspond to PsiElements
-      final Set<Item> extra =  new HashSet<Item>();
-      Collections.addAll(extra, Base.extraEnv().allItems());
-
-      // Add classes and packages
-      final JavaPsiFacade facade = JavaPsiFacade.getInstance(env.place.project);
-      for (Item item : tarski.Base.baseEnv().allItems()) {
-        if (extra.contains(item) || item instanceof ConstructorItem)
-          continue;
-        final String name = item.qualifiedName().get();
-        PsiElement psi;
-        if (item instanceof PackageItem)
-          psi = facade.findPackage(name);
-        else if (item instanceof ClassItem)
-          psi = facade.findClass(name,scope);
-        else
-          throw new NotImplementedError("Unknown base type "+item.getClass());
-        if (psi == null)
-          throw new NoJDKError("Couldn't find " + name);
-        //log("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
-        env.locals.put(psi,item);
-      }
-
-      // Add constructors
-      for (Item item : tarski.Base.baseEnv().allItems()) {
-        if (!(item instanceof ConstructorItem))
-          continue;
-        final String clsName = ((ConstructorItem)item).parent().qualifiedName().get();
-        final PsiClass cls = facade.findClass(clsName,scope);
-        assert cls != null;
-        final PsiMethod[] cons = cls.getConstructors();
-        if (cons.length != 1)
-          log("found " + cons.length + " constructors for Object " + cls);
-        env.locals.put(cons[0],item);
-      }
-
-      // Add class members
-      for (Item item : tarski.Base.baseEnv().allItems()) {
-        if (extra.contains(item) || !(item instanceof ClassItem))
-          continue;
-        final String name = item.qualifiedName().get();
-        env.addClassMembers(facade.findClass(name,scope),(ClassItem)item,noProtected);
-      }
-    } finally { popScope(); }
-  }
-
-  static int counter;
-  protected static void storeClassInfo(final Place place, final GlobalSearchScope scope, JavaEnvironment lookup, Map<PsiElement,Item> items, Map<PsiMethod,ConstructorItem> cons, boolean doAddBase) {
-    counter = 0;
-    final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(place.project);
-    final Converter env = new Converter(place,lookup,items,cons);
-
-    if (doAddBase)
-      addBase(env,scope,true);
-
-    final IdFilter filter = IdFilter.getProjectIdFilter(place.project, true);
-    final Processor<PsiClass> proc = new Processor<PsiClass>() {
-      @Override
-      public boolean process(PsiClass cls) {
-        if (!place.isInaccessible(cls, true))
-          env.addClass(cls, true, true);
-        // keep IDE alive
-        Utility.processEvents();
-        return true;
-      }
-    };
-
-    cache.processAllClassNames(new Processor<String>() {
-      @Override
-      public boolean process(String name) {
-        if (counter++ % 100 == 0) {
-          log("processing classname: " + name + ", free memory: " + Runtime.getRuntime().freeMemory());
-        }
-
-        // if we're low on memory, squeeze the most out of it
-        long mem = Runtime.getRuntime().freeMemory();
-        if (mem < 50000) {
-          PsiManager.getInstance(place.project).dropResolveCaches();
-          log("low memory: " + mem + ", dropping resolve caches.");
-        }
-
-        cache.processClassesWithName(name, proc, scope, filter);
-        return true;
-      }
-    }, scope, filter);
-  }
-
-  protected static JavaEnvironment getEnvironment(Project project) {
-    final JavaEnvironment jenv = new JavaEnvironment(project);
-
-    pushScope("make base environment");
-    try {
-      final Place place = new Place(project, null);
-
-      final GlobalSearchScope librariesScope = ProjectScope.getLibrariesScope(place.project);
-      storeClassInfo(place, librariesScope, jenv, jenv.items, jenv.cons, true);
-      log("making static environment with " + jenv.items.size() + " items.");
-      jenv.buildStaticEnv();
-
-      final GlobalSearchScope projectScope = ProjectScope.getProjectScope(place.project);
-      storeClassInfo(place, projectScope, jenv, jenv.localItems, jenv.localCons, false);
-      log("making dynamic environment with " + jenv.localItems.size() + " items.");
-      jenv.buildDynamicEnv();
-
-    } finally { popScope(); }
-
-    return jenv;
+    fillLocalInfo(jenv);
   }
 
   /**
    * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names, using jenv as a base
    */
-  protected Env getLocalEnvironment(JavaEnvironment jenv) {
+  private void fillLocalInfo(JavaEnvironment jenv) {
+
     // local variables, parameters, type parameters, as well as protected/private things in scope
     final Map<PsiElement,Item> locals = new HashMap<PsiElement, Item>();
     final Map<PsiMethod,ConstructorItem> localCons = new HashMap<PsiMethod, ConstructorItem>();
-    final Map<Item,Integer> scopeItems = new HashMap<Item, Integer>();
-    final Converter env = new Converter(place,jenv,locals,localCons);
+    final Converter env = new Converter(place,jenv,locals,localCons,locals,localCons,null);
 
     log("getting local items...");
 
@@ -240,8 +123,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     log("added " + locals.size() + " locals");
 
-    final List<Item> local_items = new ArrayList<Item>();
-    local_items.addAll(locals.values());
+    localItems.addAll(locals.values());
 
     // find out which element we are inside (method, class or interface, or package)
     ParentItem placeItem = null;
@@ -277,13 +159,13 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         assert scopeItems.containsKey(c);
         final int p = scopeItems.get(c);
         final ThisItem ti = new ThisItem(c);
-        local_items.add(ti);
+        localItems.add(ti);
         scopeItems.put(ti,p);
 
         final ClassType s = c.base();
         assert s.item().isClass();
         final SuperItem si = new SuperItem(s);
-        local_items.add(si);
+        localItems.add(si);
         scopeItems.put(si,p);
       }
 
@@ -316,9 +198,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     assert placeItem != null;
 
-    log("environment (" + local_items.size() + " local items) taken inside " + placeItem + ", making env");
+    log("environment (" + localItems.size() + " local items) taken inside " + placeItem + ", making env");
 
-    return jenv.makeEnvironment(local_items, scopeItems, new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList()));
+    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList());
   }
 
   @Override

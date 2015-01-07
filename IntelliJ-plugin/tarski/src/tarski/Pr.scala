@@ -10,7 +10,11 @@ import ambiguity.JavaUtils.poissonPDF
 
 object Pr {
 
-  val typingErrorRate = .15
+  // Minimum probability before an object is considered a match for a query
+  val minimumProbability = .01
+
+  // Errors per character
+  val typingErrorRate = .05
 
   def normalCDF(mu: Double, sigma: Double, x_in: Double): Double = {
     val x = (x_in-mu)/sigma

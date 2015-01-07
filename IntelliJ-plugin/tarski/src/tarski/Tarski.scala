@@ -8,7 +8,7 @@ import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
-import tarski.Tries.{DTrie, Trie}
+import tarski.Tries.{LazyTrie, DTrie, Trie}
 
 import scala.collection.JavaConverters._
 
@@ -26,12 +26,11 @@ object Tarski {
     DTrie(jvalues.asScala)
   }
 
-  def environment(sTrie: Trie[Item], dTrie: DTrie[Item], vTrie: Trie[Item],
-                  sByItem: java.util.Map[TypeItem,Array[Value]],
+  def environment(sTrie: LazyTrie[Item], dTrie: DTrie[Item], vTrie: Trie[Item],
                   dByItem: java.util.Map[TypeItem,Array[Value]],
                   vByItem: java.util.Map[TypeItem,Array[Value]],
                   scope: java.util.Map[Item,Integer], place: PlaceInfo): Env = {
-    new ThreeEnv(sTrie, dTrie, vTrie, sByItem, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
+    new ThreeEnv(sTrie, dTrie, vTrie, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
   }
 
   def localPkg(): PackageItem = Base.LocalPkg
