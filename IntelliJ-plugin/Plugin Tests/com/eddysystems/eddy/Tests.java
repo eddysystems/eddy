@@ -399,4 +399,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
     // TODO: add tests for static visibility, more thorough tests of package local and protected visibility
   }
+
+  public void testLibraryObject() {
+    Eddy eddy = setupEddy(null, "LibraryObject.java");
+  }
 }
