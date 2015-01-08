@@ -191,7 +191,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   // actual tests
   public void testCreateEddy() throws Exception {
-    Eddy eddy = setupEddy(null,"dummy.java");
+    setupEddy(null,"dummy.java");
   }
 
   public void testProbLE1() {
@@ -217,7 +217,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testImplicitConstructor() {
     Eddy eddy = setupEddy(null,"ConstructorTest.java");
-    boolean Bc = false, Cc = false;
     for (Item i : eddy.getEnv().allLocalItems()) {
       if (!(i instanceof Items.ClassItem))
         continue;
@@ -402,5 +401,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testLibraryObject() {
     Eddy eddy = setupEddy(null, "LibraryObject.java");
+    checkBest(eddy,"java.util.ArrayList<Object> x = new java.util.ArrayList<Object>();",.9);
   }
 }

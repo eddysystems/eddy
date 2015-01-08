@@ -1,6 +1,5 @@
 package com.eddysystems.eddy;
 
-import com.intellij.openapi.roots.FileIndexFacade;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
@@ -24,8 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static com.eddysystems.eddy.Utility.log;
-
 public class Converter {
   public final Place place;
   final GlobalSearchScope projectScope;
@@ -34,77 +31,52 @@ public class Converter {
 
   // non-project items go here
   protected final Map<PsiElement, Item> globals;
-  protected final Map<PsiMethod, ConstructorItem> globalCons;
 
   // project items go here
   protected final Map<PsiElement, Item> locals;
-  protected final Map<PsiMethod, ConstructorItem> cons;
 
   // anything added to project items also goes in here
   protected final Map<PsiElement, Item> added;
 
-  // true if we have to check our locals ourselves, false if they're part of the environment
-  private final boolean checkLocals;
   // true if we should sort items into globals and locals, false if we put everything in locals
   private final boolean splitScope;
 
   Converter(Place place,
             JavaEnvironment jenv,
-            Map<PsiElement, Item> globals, Map<PsiMethod, ConstructorItem> globalCons,
-            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons,
+            Map<PsiElement, Item> globals,
+            Map<PsiElement, Item> locals,
             Map<PsiElement, Item> added) {
     this.place = place;
     this.projectScope = ProjectScope.getProjectScope(place.project);
     this.jenv = jenv;
     this.globals = globals;
-    this.globalCons = globalCons;
     this.locals = locals;
-    this.cons = cons;
     this.added = added;
-    this.checkLocals = false;
     this.splitScope = true;
   }
 
   // constructed like this, put and lookup behave differently
   Converter(Place place,
             JavaEnvironment jenv,
-            Map<PsiElement, Item> locals, Map<PsiMethod, ConstructorItem> cons) {
+            Map<PsiElement, Item> scope) {
     this.place = place;
     this.projectScope = ProjectScope.getProjectScope(place.project);
     this.jenv = jenv;
     this.globals = null;
-    this.globalCons = null;
-    this.locals = locals;
-    this.cons = cons;
+    this.locals = scope;
     this.added = null;
-    this.checkLocals = true;
     this.splitScope = false;
   }
 
   Item lookup(PsiElement e) {
-    if (checkLocals) {
-      if (locals.containsKey(e))
-        return locals.get(e);
-      if (e instanceof PsiMethod && cons.containsKey(e))
-        return cons.get(e);
-    }
-
     return jenv.lookup(e);
-  }
-
-  ConstructorItem lookupConstructor(PsiMethod m) {
-    if (checkLocals) {
-      if (cons.containsKey(m))
-        return cons.get(m);
-    }
-
-    return jenv.lookupConstructor(m);
   }
 
   void put(PsiElement e, Item it) {
     if (splitScope) {
       if (isInProject(e)) {
         locals.put(e,it);
+        // don't add constructor items to added -- they won't end up in the trie anyway
         if (!(it instanceof ConstructorItem) && added != null)
           added.put(e,it);
       } else {
@@ -114,18 +86,6 @@ public class Converter {
       locals.put(e,it);
       if (!(it instanceof ConstructorItem) && added != null)
         added.put(e,it);
-    }
-  }
-
-  void putCons(PsiMethod e, ConstructorItem it) {
-    if (splitScope) {
-      if (isInProject(e)) {
-        cons.put(e,it);
-      } else {
-        globalCons.put(e,it);
-      }
-    } else {
-      cons.put(e,it);
     }
   }
 
@@ -729,10 +689,6 @@ public class Converter {
       }
     }
 
-    if (FileIndexFacade.getInstance(place.project).isInSourceContent(cls.getContainingFile().getVirtualFile())) {
-      log("adding local class " + cls + "@" + cls.hashCode());
-    }
-
     if (cls instanceof PsiTypeParameter)
       return addTypeParam((PsiTypeParameter)cls);
 
@@ -970,11 +926,11 @@ public class Converter {
   CallableItem addMethod(PsiMethod method) {
     if (isConstructor(method)) {
       // constructors are not stored in locals, but in cons
-      ConstructorItem i = lookupConstructor(method);
+      ConstructorItem i = (ConstructorItem)lookup(method);
       if (i != null)
         return i;
       i = new LazyConstructor(this,method);
-      putCons(method, i);
+      put(method, i);
       return i;
     } else {
       Item i = lookup(method);

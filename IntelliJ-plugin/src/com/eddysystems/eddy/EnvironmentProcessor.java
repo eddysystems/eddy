@@ -11,7 +11,6 @@ import org.jetbrains.annotations.NotNull;
 import scala.collection.JavaConversions;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
-import tarski.JavaItems;
 import tarski.Tarski;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
@@ -55,10 +54,12 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   public PlaceInfo placeInfo;
   public final List<Item> localItems = new ArrayList<Item>();
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
+  final Map<PsiElement,Item> locals;
 
-  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, PsiElement place, boolean honorPrivate) {
+  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, PsiElement place, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
+    this.locals = locals;
 
     // this is set to null when we go to java.lang
     this.currentFileContext = place;
@@ -74,9 +75,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
   private void fillLocalInfo(JavaEnvironment jenv) {
 
     // local variables, parameters, type parameters, as well as protected/private things in scope
-    final Map<PsiElement,Item> locals = new HashMap<PsiElement, Item>();
-    final Map<PsiMethod,ConstructorItem> localCons = new HashMap<PsiMethod, ConstructorItem>();
-    final Converter env = new Converter(place,jenv,locals,localCons);
+    final Converter env = new Converter(place,jenv,locals);
 
     log("getting local items...");
 
@@ -99,7 +98,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     for (ShadowElement<PsiMethod> smethod : methods) {
       final PsiMethod method = smethod.e;
       final Item imethod = env.addMethod(method);
-      scopeItems.put(imethod,smethod.shadowingPriority);
+      if (!(imethod instanceof ConstructorItem)) {
+        scopeItems.put(imethod,smethod.shadowingPriority);
+      }
     }
 
     // then, register objects which have types (enum constants, variables, parameters, fields), and their types
@@ -173,10 +174,6 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (placeItem == null) {
           if (jenv.knows(place))
             placeItem = (ParentItem)jenv.lookup(place);
-          else if (locals.containsKey(place))
-            placeItem = (ParentItem)locals.get(place);
-          else if (place instanceof PsiMethod && localCons.containsKey(place))
-            placeItem = localCons.get(place);
           else
             assert false : "cannot find placeItem " + place;
         }
@@ -198,7 +195,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     }
     assert placeItem != null;
 
-    log("environment (" + localItems.size() + " local items) taken inside " + placeItem + ", making env");
+    log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
     placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList());
   }

@@ -1,6 +1,5 @@
 package com.eddysystems.eddy;
 
-import ambiguity.JavaUtils;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -115,15 +114,16 @@ public class JavaEnvironment {
 
   // global (library) environment. Only added to, never deleted from or changed. All items not in project files go in here
   Map<PsiElement, Items.Item> items = new HashMap<PsiElement, Items.Item>();
-  Map<PsiMethod, Items.ConstructorItem> cons = new HashMap<PsiMethod, Items.ConstructorItem>();
 
   // mutable, local (project) environment, can be added to and changed by edits. All items in project files go in here
   Map<PsiElement, Items.Item> localItems = new HashMap<PsiElement, Items.Item>();
-  Map<PsiMethod, Items.ConstructorItem> localCons = new HashMap<PsiMethod, Items.ConstructorItem>();
 
   // items added since the last time the local environment was built (to be added to the scope environment)
   Map<PsiElement, Items.Item> addedItems = new HashMap<PsiElement, Items.Item>();
   int nDeletions;
+
+  // items found in scope by the EnvironmentProcessor
+  Map<PsiElement, Items.Item> scopeItems = new HashMap<PsiElement, Items.Item>();
 
   // pre-computed data structures to enable fast creation of appropriate scala Env instances
 
@@ -138,7 +138,7 @@ public class JavaEnvironment {
 
   JavaEnvironment(@NotNull Project project) {
     this.project = project;
-    converter = new Converter(new Place(project, null), this, items, cons, localItems, localCons, addedItems);
+    converter = new Converter(new Place(project, null), this, items, localItems, addedItems);
 
     pushScope("make base environment");
     try {
@@ -150,13 +150,13 @@ public class JavaEnvironment {
       buildDynamicEnv();
 
       // make global item generator
-      sTrie = makeLazyTrie();
+      sTrie = prepareLazyTrie();
     } finally { popScope(); }
 
   }
 
   boolean knows(PsiElement elem) {
-    return items.containsKey(elem) || localItems.containsKey(elem);
+    return items.containsKey(elem) || localItems.containsKey(elem) || scopeItems.containsKey(elem);
   }
 
   @Nullable
@@ -165,17 +165,8 @@ public class JavaEnvironment {
     Items.Item i = items.get(elem);
     if (i == null)
       i = localItems.get(elem);
-    if (i == null && elem instanceof PsiMethod) {
-      // for methods, also try to look them up in the constructors
-      return lookupConstructor((PsiMethod)elem);
-    }
-    return i;
-  }
-
-  @Nullable Items.ConstructorItem lookupConstructor(PsiMethod elem) {
-    Items.ConstructorItem i = cons.get(elem);
     if (i == null)
-      i = localCons.get(elem);
+      i = scopeItems.get(elem);
     return i;
   }
 
@@ -231,7 +222,7 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  private Tries.LazyTrie<Items.Item> makeLazyTrie() {
+  private Tries.LazyTrie<Items.Item> prepareLazyTrie() {
     String[] classNames = PsiShortNamesCache.getInstance(project).getAllClassNames();
     String[] fieldNames = PsiShortNamesCache.getInstance(project).getAllFieldNames();
     String[] methodNames = PsiShortNamesCache.getInstance(project).getAllMethodNames();
@@ -273,9 +264,16 @@ public class JavaEnvironment {
     }, scope, filter);
   }
 
+  List<Items.Item> removeConstructors(Collection<Items.Item> items) {
+    List<Items.Item> newitems = new ArrayList<Items.Item>(items.size());
+    for (Items.Item i : items)
+      if (!(i instanceof Items.ConstructorItem))
+        newitems.add(i);
+    return newitems;
+  }
+
   void buildDynamicEnv() {
-    ArrayList<Items.Item> items = new ArrayList<Items.Item>(this.localItems.values());
-    dTrie = Tarski.makeDTrie(items);
+    dTrie = Tarski.makeDTrie(removeConstructors(localItems.values()));
     dByItem = JavaItems.valuesByItem(dTrie.values());
 
     // clear volatile stores
@@ -299,10 +297,12 @@ public class JavaEnvironment {
       dByItem = JavaItems.valuesByItem(dTrie.values());
     }
 
-    EnvironmentProcessor ep = new EnvironmentProcessor(project, this, place, true);
+    // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
+    EnvironmentProcessor ep = new EnvironmentProcessor(project, this, scopeItems, place, true);
 
-    ArrayList<Items.Item> newitems = new ArrayList<Items.Item>(ep.localItems);
-    newitems.addAll(addedItems.values());
+    List<Items.Item> newitems = removeConstructors(ep.localItems);
+    newitems.addAll(addedItems.values()); // addedItems never contains constructors (see Converter.put() and changeItemName())
+
     final Items.Item[] newArray = newitems.toArray(new Items.Item[newitems.size()]);
     return Tarski.environment(sTrie, dTrie, Tarski.makeTrie(newArray), dByItem, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
   }
@@ -355,16 +355,12 @@ public class JavaEnvironment {
     log("deleting " + it);
     it.delete();
 
-    if (it instanceof Items.ConstructorItem) {
-      assert elem instanceof PsiMethod;
-      localCons.remove(elem);
+    localItems.remove(elem);
+    if (addedItems.containsKey(elem)) {
+      addedItems.remove(elem);
     } else {
-      localItems.remove(elem);
-      if (addedItems.containsKey(elem)) {
-        addedItems.remove(elem);
-      } else {
+      if (!(it instanceof Items.ConstructorItem))
         nDeletions++;
-      }
     }
 
     // change not yet reflected in the trie, don't count it as a deletion
