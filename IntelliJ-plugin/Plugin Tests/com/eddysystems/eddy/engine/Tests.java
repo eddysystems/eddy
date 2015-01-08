@@ -404,4 +404,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     Eddy eddy = setupEddy(null, "LibraryObject.java");
     checkBest(eddy,"java.util.ArrayList<Object> x = new java.util.ArrayList<Object>();",.9);
   }
+
+  // TODO: test scope resolution of imported package, * import, or static import (make sure objects are added to scope properly)
+  // TODO: test codeblocks that are contained in single line (should not expand past code block)
 }
