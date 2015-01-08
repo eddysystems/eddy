@@ -10,9 +10,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
-public class EddyInjector implements FileEditorManagerListener {
+class EddyInjector implements FileEditorManagerListener {
   private final Project project;
   private final HashMap<FileEditor, EddyFileListener> injected = new HashMap<FileEditor, EddyFileListener>();
 

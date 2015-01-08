@@ -12,9 +12,9 @@ import javax.swing.*;
 import java.awt.event.MouseEvent;
 import java.io.File;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
-public class EddyWidget implements StatusBarWidget {
+class EddyWidget implements StatusBarWidget {
 
   static private boolean icons_initialized = false;
   private Icon eddyIcon;
@@ -76,6 +76,10 @@ public class EddyWidget implements StatusBarWidget {
       eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
       icons_initialized = true;
     }
+  }
+
+  public boolean installed() {
+    return statusBar != null;
   }
 
   public void update() {

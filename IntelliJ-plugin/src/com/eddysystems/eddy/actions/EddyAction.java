@@ -1,5 +1,6 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.actions;
 
+import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.QuestionAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -10,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyAction implements QuestionAction {
 
@@ -18,7 +19,7 @@ public class EddyAction implements QuestionAction {
   private final @NotNull Editor editor;
   private final @NotNull TextRange replace_range;
 
-  EddyAction(Eddy eddy) {
+  public EddyAction(Eddy eddy) {
     this.eddy = eddy;
     this.editor = eddy.getEditor();
     this.replace_range = eddy.getRange();

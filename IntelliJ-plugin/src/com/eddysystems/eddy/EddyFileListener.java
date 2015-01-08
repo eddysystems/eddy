@@ -1,5 +1,7 @@
 package com.eddysystems.eddy;
 
+import com.eddysystems.eddy.actions.EddyAction;
+import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.IdeActions;
@@ -20,7 +22,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import org.jetbrains.annotations.NotNull;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Project project;
@@ -66,7 +68,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   private static final Object current_eddythread_lock = new Object();
   private static EddyFileListener current_eddythread_owner = null;
-  private static EddyThread current_eddythread= null;
+  private static EddyThread current_eddythread = null;
 
   private void runEddyThread() {
     synchronized (current_eddythread_lock) {

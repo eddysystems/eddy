@@ -1,4 +1,4 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
 import org.jetbrains.annotations.Nullable;
 

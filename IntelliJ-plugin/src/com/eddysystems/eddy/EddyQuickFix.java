@@ -1,5 +1,7 @@
 package com.eddysystems.eddy;
 
+import com.eddysystems.eddy.actions.EddyAction;
+import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.QuestionAction;
 import com.intellij.codeInsight.intention.BaseElementAtCaretIntentionAction;

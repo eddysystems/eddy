@@ -1,6 +1,7 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
 import ambiguity.Locations.Located;
+import com.eddysystems.eddy.EddyPlugin;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
@@ -25,7 +26,7 @@ import tarski.Tokens;
 
 import java.util.List;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 public class Eddy {
   final private Project project;

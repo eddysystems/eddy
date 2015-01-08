@@ -1,5 +1,6 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
+import com.intellij.lang.Language;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
@@ -23,7 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class Converter {
+import static com.eddysystems.eddy.engine.Utility.log;
+
+class Converter {
+  @NotNull final static Language java = Language.findLanguageByID("JAVA");
+
   public final Place place;
   final GlobalSearchScope projectScope;
 
@@ -99,13 +104,30 @@ public class Converter {
       return false;
     } else {
       PsiFile file = elem.getContainingFile();
-      return projectScope.contains(file.getVirtualFile());
+      while (file == null && elem.getParent() != null) {
+        // the element cannot resolve to a containing file. This is a mistake with some scala elements (which can be
+        // synthetic, such as the $-classes and MODULE$ fields), try to resolve the containing file of the parent
+        elem = elem.getParent();
+        if (elem instanceof PsiFile) {
+          file = (PsiFile)elem;
+        } else
+          file = elem.getContainingFile();
+      }
+      if (file != null)
+        return projectScope.contains(file.getVirtualFile());
+      else
+        return true; // can't figure out the containing file, assume it's in the project
     }
+  }
+
+  static boolean isJava(PsiElement elem) {
+    return elem.getLanguage().isKindOf(java);
   }
 
   // return type is null *and* has same name as containing class
   static boolean isConstructor(PsiMethod elem) {
-    return elem.getReturnType() == null && elem.getName().equals(((PsiClass)elem.getParent()).getName());
+    // elem.isConstructor checks whether the method has a null return type element
+    return elem.isConstructor() && elem.getContainingClass() != null && elem.getName().equals(elem.getContainingClass().getName());
   }
 
   TypeArg convertTypeArg(PsiType t, Parent parent) {
@@ -156,7 +178,6 @@ public class Converter {
         assert params.size() == ((PsiClassType)t).getParameterCount();
 
         if (item.arity() > 0 && params.isEmpty()) {
-          // This happens. For instance in java.lang.SecurityManager.getClassContext()
           return item.raw();
         } else if (parent == null) {
           ParentItem container = addContainer(place.containing(tcls));
@@ -178,6 +199,12 @@ public class Converter {
     if (t == PsiType.VOID)    return VoidType$.MODULE$;
 
     throw new NotImplementedError("Unknown type: " + t.getCanonicalText() + " type " + t.getClass().getCanonicalName());
+  }
+
+  static class UnknownContainerError extends RuntimeException {
+    UnknownContainerError(PsiElement elem) {
+      super("Unknown container type: " + elem);
+    }
   }
 
   ParentItem addContainer(PsiElement elem) {
@@ -202,7 +229,7 @@ public class Converter {
       put(pkg, item);
       return item;
     }
-    throw new RuntimeException("weird container "+elem);
+    throw new UnknownContainerError(elem);
   }
 
   protected interface PsiEquivalent {
@@ -291,6 +318,31 @@ public class Converter {
       return JavaConversions.asScalaBuffer(jrefs).toList();
     } else {
       return refs;
+    }
+  }
+
+  static protected class UnknownContainerItem extends UnknownContainerItemBase implements PsiEquivalent, CachedNameItem {
+
+    final PsiElement elem;
+
+    UnknownContainerItem(PsiElement elem) {
+      this.elem = elem;
+    }
+
+    @Override
+    public void refreshName() {}
+
+    @Override
+    public Parent simple() { throw new RuntimeException("For UnknownContainerItem, only inside is valid, not simple"); }
+
+    @Override
+    public String name() {
+      return elem.getText();
+    }
+
+    @Override
+    public PsiElement psi() {
+      return elem;
     }
   }
 
@@ -693,10 +745,19 @@ public class Converter {
       return addTypeParam((PsiTypeParameter)cls);
 
     // Make and add the class
-    final ParentItem parent = addContainer(place.containing(cls));
+    ParentItem parent;
+    PsiElement cont = place.containing(cls);
+    try {
+      parent = addContainer(cont);
+    } catch (UnknownContainerError e) {
+      log(e);
+      parent = new UnknownContainerItem(cont);
+    }
+
     ClassItem item = new LazyClass(this,cls,parent);
     put(cls, item);
 
+    // if we're a class, all our members should really be ok
     if (recurse)
       addClassMembers(cls,item,noProtected);
     return item;
@@ -973,8 +1034,9 @@ public class Converter {
       if (_inside == null) {
         try {
           _inside = env.convertType(f.getType());
-        } catch (Exception e) {
-          throw new RuntimeException("LazyField::inside failed: field "+qualifiedName().get()+": "+e.getMessage());
+        } catch (Place.UnexpectedContainerError e) {
+          log("LazyField:" + qualifiedName().get() + " failed: " + e.getMessage());
+          throw e;
         }
       }
       return _inside;

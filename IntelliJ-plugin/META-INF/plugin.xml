@@ -51,16 +51,20 @@
   </project-components>
 
   <actions>
-      <action id="PrevEddySuggestion" class="com.eddysystems.eddy.EddyPrevAction" text="Previous eddy suggestion"
+      <action id="PrevEddySuggestion" class="com.eddysystems.eddy.actions.PrevSuggestion" text="Previous eddy suggestion"
               description="Select previous eddy suggestion">
           <keyboard-shortcut keymap="$default" first-keystroke="alt UP"/>
       </action>
-      <action id="NextEddySuggestion" class="com.eddysystems.eddy.EddyNextAction" text="Next eddy suggestion"
+      <action id="NextEddySuggestion" class="com.eddysystems.eddy.actions.NextSuggestion" text="Next eddy suggestion"
               description="Select next eddy suggestion">
           <add-to-group group-id="CodeMenu" anchor="last"/>
           <keyboard-shortcut keymap="$default" first-keystroke="alt DOWN"/>
       </action>
-      <action id="EddyDumpEnvironmentAction" class="com.eddysystems.eddy.DumpEnvironmentAction" text="Dump environment"
+      <action id="EddyReinitEnvironmentAction" class="com.eddysystems.eddy.actions.Reinit" text="Reinitialize eddy"
+              description="Reinitialize eddy's environment scan">
+          <add-to-group group-id="CodeMenu" anchor="last"/>
+      </action>
+      <action id="EddyDumpEnvironmentAction" class="com.eddysystems.eddy.actions.DumpEnvironment" text="Dump environment"
               description="Dump the environment at the cursor to ~/dump.jenv">
           <add-to-group group-id="CodeMenu" anchor="last"/>
       </action>

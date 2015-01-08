@@ -1,4 +1,4 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
@@ -6,9 +6,9 @@ import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
-public class Place {
+class Place {
   public final @NotNull Project project;
   public final @Nullable PsiElement place;
   public final @Nullable PsiJavaFile file;
@@ -25,12 +25,12 @@ public class Place {
     //System.out.println("Place at: " + place + " in class " + placeClass + " in package " + pkg + " in file " + file + " in project " + project);
   }
 
-  @Nullable PsiPackage getPackage(PsiJavaFile file) {
+  @Nullable PsiPackage getPackage(PsiClassOwner file) {
     return file == null ? null : JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
   }
 
   @NotNull PsiPackage getElementPackage(@NotNull PsiElement elem) {
-    return JavaPsiFacade.getInstance(project).findPackage(((PsiJavaFile)(elem.getContainingFile())).getPackageName());
+    return JavaPsiFacade.getInstance(project).findPackage(((PsiClassOwner)(elem.getContainingFile())).getPackageName());
   }
 
   class UnexpectedContainerError extends RuntimeException {
@@ -40,11 +40,12 @@ public class Place {
   }
 
   PsiElement containing(PsiElement elem) {
+
     PsiElement parent = elem.getParent();
     if (parent instanceof PsiPackage) {
       return parent;
-    } else if (parent instanceof PsiJavaFile) {
-      return getPackage((PsiJavaFile)parent);
+    } else if (parent instanceof PsiClassOwner) { // more general than PsiJavaFile, also works for ScalaFile
+      return getPackage((PsiClassOwner)parent);
     } else if (parent instanceof PsiClass) {
       return parent;
     } else if (parent instanceof PsiDeclarationStatement || // local variable
@@ -56,6 +57,29 @@ public class Place {
     } else if (parent instanceof PsiTypeParameterList) {
       assert elem instanceof PsiTypeParameter;
       return ((PsiTypeParameter)elem).getOwner();
+    } else if (elem instanceof PsiClass) {
+      // maybe it's a class
+      parent = ((PsiClass) elem).getContainingClass();
+      if (parent != null) {
+        return parent;
+      }
+      // maybe we can deduce the proper parent from the qualified name
+      String qname = ((PsiClass) elem).getQualifiedName();
+      if (qname != null) {
+        int idx = qname.lastIndexOf('.');
+        if (idx >= 0) {
+          qname = qname.substring(0, idx);
+          parent = JavaPsiFacade.getInstance(project).findPackage(qname);
+          if (parent != null)
+            return parent;
+        }
+      }
+      // Otherwise, we're local, and if we can't figure out what we're local to, we might as well give up.
+    } else if (elem instanceof PsiMember) {
+      parent = ((PsiMember) elem).getContainingClass();
+      if (parent != null)
+        return parent;
+      // now we're out of luck.
     }
     throw new UnexpectedContainerError(elem);
   }

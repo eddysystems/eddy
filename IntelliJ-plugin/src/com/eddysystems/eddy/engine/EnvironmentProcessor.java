@@ -1,5 +1,6 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
+import ambiguity.Locations;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.scope.BaseScopeProcessor;
@@ -14,18 +15,18 @@ import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
-import ambiguity.Locations;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 /**
  * Extracts information about the environment at a given place in the code and makes it available in a format understood by tarski
  */
-public class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
+class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHint {
   private final @NotNull Place place;
 
   public class ShadowElement<E> {
@@ -199,7 +200,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     final int lastEdit = -1; // TODO
     placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable,
-                              JavaConversions.asScalaBuffer(labels).toList(), lastEdit);
+                              JavaConversions.asScalaBuffer(labels).toList(), new Locations.SLoc(lastEdit));
   }
 
   @Override

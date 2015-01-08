@@ -28,6 +28,10 @@ object Items {
     def inside = this
   }
 
+  abstract class UnknownContainerItemBase extends SimpleParentItem {
+    override def qualifiedName: Option[String] = None
+  }
+
   // Containing package
   sealed trait PackageOrMember extends Item
   @tailrec def pkg(x: PackageOrMember): PackageItem = x match {

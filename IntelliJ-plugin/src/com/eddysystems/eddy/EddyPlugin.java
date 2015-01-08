@@ -1,7 +1,10 @@
 package com.eddysystems.eddy;
 
+import com.eddysystems.eddy.engine.EddyPsiListener;
+import com.eddysystems.eddy.engine.JavaEnvironment;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.progress.PerformInBackgroundOption;
@@ -21,7 +24,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyPlugin implements ProjectComponent {
   @NotNull final private Application app;
@@ -110,19 +113,35 @@ public class EddyPlugin implements ProjectComponent {
     DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() {
       @Override
       public void run() {
-        app.runReadAction(new Runnable() {
+        log("starting init env");
+        app.invokeAndWait(new Runnable() {
           @Override
           public void run() {
-            app.invokeLater(new Runnable() {
+            if (!widget.installed()) {
+              final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+              if (sbar != null) sbar.addWidget(widget);
+            }
+
+            app.runWriteAction(new Runnable() {
               @Override
               public void run() {
-                final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-                if (sbar != null) sbar.addWidget(widget);
+                initEnv(indicator);
               }
             });
-            initEnv(indicator);
           }
-        });
+        }, ModalityState.NON_MODAL);
+      }
+    });
+  }
+
+  public void rescan() {
+    ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
+      @Override public boolean shouldStartInBackground() { return true; }
+      @Override public void processSentToBackground() { }
+    }) {
+      @Override
+      public void run(@NotNull ProgressIndicator indicator) {
+        init_internal(indicator);
       }
     });
   }
@@ -138,30 +157,7 @@ public class EddyPlugin implements ProjectComponent {
       StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
         @Override
         public void run() {
-          ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
-            @Override
-            public boolean shouldStartInBackground() {
-              return true;
-            }
-
-            @Override
-            public void processSentToBackground() {
-            }
-          }) {
-            @Override
-            public void run(@NotNull ProgressIndicator indicator) {
-              init_internal(indicator);
-            }
-          });
-
-          /*
-          app.executeOnPooledThread(new Runnable() {
-            @Override
-            public void run() {
-              init_internal();
-            }
-          });
-          */
+          rescan();
         }
       });
     }

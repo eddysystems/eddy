@@ -1,5 +1,8 @@
 package com.eddysystems.eddy;
 
+import com.eddysystems.eddy.engine.Converter;
+import com.eddysystems.eddy.engine.Eddy;
+import com.eddysystems.eddy.engine.JavaEnvironment;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
@@ -36,7 +39,7 @@ import java.util.List;
 
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 

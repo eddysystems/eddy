@@ -1,4 +1,4 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
 import com.intellij.psi.*;
 import com.intellij.psi.impl.PsiTreeChangeEventImpl;
@@ -11,13 +11,13 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyPsiListener implements PsiTreeChangeListener {
 
   @NotNull final JavaEnvironment env;
 
-  EddyPsiListener(@NotNull final JavaEnvironment env) {
+  public EddyPsiListener(@NotNull final JavaEnvironment env) {
     this.env = env;
   }
 

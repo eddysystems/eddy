@@ -1,4 +1,4 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
 import com.intellij.ide.IdeEventQueue;
 import com.intellij.openapi.application.ApplicationManager;

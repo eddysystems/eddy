@@ -1,4 +1,4 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
@@ -16,12 +16,12 @@ import java.util.*;
 
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
-import static com.eddysystems.eddy.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.log;
 
 // a class storing information about the environment.
 public class JavaEnvironment {
 
-  static class NoJDKError extends RuntimeException {
+  public static class NoJDKError extends RuntimeException {
     NoJDKError(String s) {
       super("No JDK found: " + s);
     }
@@ -136,7 +136,7 @@ public class JavaEnvironment {
   // dynamic by item needs to be rebuilt a lot more than the trie.
   boolean byItemNeedsRebuild = false;
 
-  JavaEnvironment(@NotNull Project project) {
+  public JavaEnvironment(@NotNull Project project) {
     this.project = project;
     converter = new Converter(new Place(project, null), this, items, localItems, addedItems);
 
@@ -241,16 +241,15 @@ public class JavaEnvironment {
   // store all classes and their member in the given scope
   private void storeProjectClassInfo() {
     final GlobalSearchScope scope = ProjectScope.getContentScope(project);
-    final Place place = new Place(project, null);
     final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
+    final Place place = new Place(project, null);
     final IdFilter filter = IdFilter.getProjectIdFilter(project, false);
     final Processor<PsiClass> proc = new Processor<PsiClass>() {
       @Override
       public boolean process(PsiClass cls) {
-        if (!place.isInaccessible(cls, true))
+        if (!place.isInaccessible(cls, true)) {
           converter.addClass(cls, true, true);
-        // keep IDE alive
-        Utility.processEvents();
+        }
         return true;
       }
     };
