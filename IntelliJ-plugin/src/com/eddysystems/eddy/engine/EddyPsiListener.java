@@ -8,8 +8,9 @@ import com.intellij.psi.impl.source.tree.JavaElementType;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
@@ -61,7 +62,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   }
 
   // map to keep elem type info around between before and after events
-  final Map<PsiElement, ElemInfo> unprocessed = new HashMap<PsiElement, ElemInfo>();
+  final ConcurrentMap<PsiElement, ElemInfo> unprocessed = new ConcurrentHashMap<PsiElement, ElemInfo>();
 
   void rememberUnprocessed(PsiElement elem) {
     ElemInfo ei = elemInfo(elem);
