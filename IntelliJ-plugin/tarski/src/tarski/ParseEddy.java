@@ -1105,7 +1105,7 @@ class ParseEddy {
             final long s1 = slices.get(iList_Type<<24|lo+1<<12|j); if (s1 == 0) continue;
             final long s3 = slices.get(iGtSep<<24|j<<12|hi-1); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++)
-              values.add(TypeArgs0((KList)values.get((int)(s1>>32)+k1)));
+              values.add(TypeArgs0((KList)values.get((int)(s1>>32)+k1),range));
           }
         }
       }
@@ -1119,7 +1119,7 @@ class ParseEddy {
         final long s1 = slices.get(iTypeArgs<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Option_TypeArgs0((KList)values.get((int)(s1>>32)+k)));
+            values.add(Option_TypeArgs0((Located)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
@@ -1584,7 +1584,7 @@ class ParseEddy {
             final long s3 = slices.get(iTypeArgs<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3),range));
+                values.add(ExpPrimary0((AExp)values.get((int)(s1>>32)+k1),(Located)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1615,7 +1615,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpHigh<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary3((KList)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
+                values.add(ExpPrimary3((Located)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }

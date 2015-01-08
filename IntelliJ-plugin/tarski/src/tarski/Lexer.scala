@@ -80,7 +80,7 @@ object Lexer {
         case None => throw new RuntimeException(
           "Scan failed, column "+(input.length-s.length+1)+": "+escape(input)+", "+escape(s)+", "+ts.reverse)
         case Some(m) => (for ((i,f) <- factories; g = m.group(i); if g != null) yield (g.length,f(g))) match {
-          case List((n,t)) => loop(lo+n,s.substring(n),Located(t,SRange.build(lo,lo+n-1))::ts)
+          case List((n,t)) => loop(lo+n,s.substring(n),Located(t,SRange(lo,lo+n-1))::ts)
           case ts => throw new RuntimeException("string "+escape(s)+" matches as ambiguous token list "+ts)
         }
       }

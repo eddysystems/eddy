@@ -8,7 +8,7 @@ import tarski.Items._
 import tarski.Operators._
 import tarski.Tokens._
 import tarski.Types._
-
+import ambiguity.Locations._
 import ambiguity.Utility.impossible
 
 import scala.collection.mutable
@@ -214,7 +214,7 @@ object Pretty {
     case FieldAExp(e,t,f,_) => fix(FieldFix, left(_,e) ::: DotTok :: tokens(t) ::: tokens(f))
     case MethodRefAExp(e,t,f,_) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: tokens(f))
     case NewRefAExp(e,t,_) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: List(NewTok))
-    case TypeApplyAExp(e,t,_) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
+    case TypeApplyAExp(e,t,_,_) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
     case NewAExp(t,e,_) => fix(NewFix, tokens(t) ::: List(NewTok) ::: right(_,e))
     case WildAExp(None,_) => (HighestFix, List(QuestionTok))
     case WildAExp(Some((b,t)),_) => fix(WildFix, QuestionTok :: token(b) :: right(_,t))
@@ -230,8 +230,8 @@ object Pretty {
       fix(s, left(_,e) ::: around(xs,a)._2)
     }
   }
-  implicit def prettyATypeArgs(t: Option[KList[AExp]]): (Fixity,Tokens) =
-    (HighestFix, t map (typeBracket(_)) getOrElse Nil)
+  implicit def prettyATypeArgs(t: Option[Located[KList[AExp]]]): (Fixity,Tokens) =
+    (HighestFix, t map (t => typeBracket(t.x)) getOrElse Nil)
 
   // AST statements
   implicit def prettyAStmt(s: AStmt): (Fixity,Tokens) = {
