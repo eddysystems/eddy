@@ -1,8 +1,6 @@
-package com.eddysystems.eddy;
+package com.eddysystems.eddy.engine;
 
-import com.eddysystems.eddy.engine.Converter;
-import com.eddysystems.eddy.engine.Eddy;
-import com.eddysystems.eddy.engine.JavaEnvironment;
+import com.eddysystems.eddy.EddyPlugin;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;

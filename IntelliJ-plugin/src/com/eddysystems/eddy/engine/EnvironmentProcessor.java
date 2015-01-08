@@ -200,7 +200,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     final int lastEdit = -1; // TODO
     placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable,
-                              JavaConversions.asScalaBuffer(labels).toList(), new Locations.SLoc(lastEdit));
+                              JavaConversions.asScalaBuffer(labels).toList(), lastEdit);
   }
 
   @Override
