@@ -1,7 +1,9 @@
 package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.source.DummyHolder;
 import com.intellij.psi.util.PsiTreeUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,18 +27,43 @@ class Place {
     //System.out.println("Place at: " + place + " in class " + placeClass + " in package " + pkg + " in file " + file + " in project " + project);
   }
 
-  @Nullable PsiPackage getPackage(PsiClassOwner file) {
-    return file == null ? null : JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
-  }
-
-  @NotNull PsiPackage getElementPackage(@NotNull PsiElement elem) {
-    return JavaPsiFacade.getInstance(project).findPackage(((PsiClassOwner)(elem.getContainingFile())).getPackageName());
-  }
-
   class UnexpectedContainerError extends RuntimeException {
     UnexpectedContainerError(PsiElement elem) {
       super("unexpected container of " + elem + ": " + elem.getParent() + " in file " + elem.getContainingFile());
     }
+  }
+
+  class UnknownPackageError extends RuntimeException {
+    UnknownPackageError(PsiElement elem) {
+      super("can't determine package of " + elem + " with parent " + elem.getParent() + " in file " + elem.getContainingFile());
+    }
+  }
+
+  @Nullable PsiPackage getPackage(PsiClassOwner file) {
+    return file == null ? null : JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
+  }
+
+  static @Nullable VirtualFile getElementFile(@NotNull PsiElement elem) {
+    PsiFile file = elem.getContainingFile();
+    if (file == null || file instanceof DummyHolder) {
+      if (elem.getContext() != null)
+        return getElementFile(elem.getContext());
+      else
+        return null;
+    } else {
+      return file.getVirtualFile();
+    }
+  }
+
+  @NotNull PsiPackage getElementPackage(@NotNull PsiElement elem) {
+    assert (elem instanceof DummyHolder) || !(elem instanceof PsiDirectory) && !(elem instanceof PsiPackage) && !(elem instanceof PsiFile);
+    if (elem.getContainingFile() instanceof PsiClassOwner)
+      return JavaPsiFacade.getInstance(project).findPackage(((PsiClassOwner)(elem.getContainingFile())).getPackageName());
+    else if (elem.getContext() != null)
+      // synthetic elements don't believe that they're in a file. Usually though, their parent (or context) knows.
+      return getElementPackage(elem.getContext());
+
+    throw new UnknownPackageError(elem);
   }
 
   PsiElement containing(PsiElement elem) {

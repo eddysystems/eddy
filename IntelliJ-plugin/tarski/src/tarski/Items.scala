@@ -30,6 +30,7 @@ object Items {
 
   abstract class UnknownContainerItemBase extends SimpleParentItem {
     override def qualifiedName: Option[String] = None
+    def pkg: PackageItem
   }
 
   // Containing package
@@ -37,11 +38,13 @@ object Items {
   @tailrec def pkg(x: PackageOrMember): PackageItem = x match {
     case x:PackageItem => x
     case x:Member => pkg(x.parent)
+    case x:UnknownContainerItemBase => x.pkg
   }
   // Are we inside a class?
   @tailrec def inClass(x: PackageOrMember, c: ClassItem): Boolean = x==c || (x match {
     case _:PackageItem => false
     case x:Member => inClass(x.parent,c)
+    case _:UnknownContainerItemBase => false
   })
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).

@@ -17,6 +17,7 @@ import java.util.*;
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
 import static com.eddysystems.eddy.engine.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.processEvents;
 
 // a class storing information about the environment.
 public class JavaEnvironment {
@@ -171,11 +172,11 @@ public class JavaEnvironment {
   }
 
   private void addBase() {
-    final GlobalSearchScope scope = ProjectScope.getAllScope(project);
-    final boolean noProtected = true;
-
     pushScope("add base");
     try {
+      final GlobalSearchScope scope = ProjectScope.getAllScope(project);
+      final boolean noProtected = true;
+
       // Extra things don't correspond to PsiElements
       final Set<Items.Item> extra =  new HashSet<Items.Item>();
       Collections.addAll(extra, Base.extraEnv().allItems());
@@ -223,44 +224,56 @@ public class JavaEnvironment {
   }
 
   private Tries.LazyTrie<Items.Item> prepareLazyTrie() {
-    String[] classNames = PsiShortNamesCache.getInstance(project).getAllClassNames();
-    String[] fieldNames = PsiShortNamesCache.getInstance(project).getAllFieldNames();
-    String[] methodNames = PsiShortNamesCache.getInstance(project).getAllMethodNames();
-    String[] allNames = new String[classNames.length + fieldNames.length + methodNames.length];
+    Tries.LazyTrie<Items.Item> t = null;
 
-    System.arraycopy(classNames, 0, allNames, 0, classNames.length);
-    System.arraycopy(fieldNames, 0, allNames, classNames.length, fieldNames.length);
-    System.arraycopy(methodNames, 0, allNames, classNames.length+fieldNames.length, methodNames.length);
+    pushScope("prepare lazy global trie");
+    try {
+      String[] classNames = PsiShortNamesCache.getInstance(project).getAllClassNames();
+      String[] fieldNames = PsiShortNamesCache.getInstance(project).getAllFieldNames();
+      String[] methodNames = PsiShortNamesCache.getInstance(project).getAllMethodNames();
+      String[] allNames = new String[classNames.length + fieldNames.length + methodNames.length];
 
-    // there may be duplicates, but we don't care
-    Arrays.sort(allNames);
+      System.arraycopy(classNames, 0, allNames, 0, classNames.length);
+      System.arraycopy(fieldNames, 0, allNames, classNames.length, fieldNames.length);
+      System.arraycopy(methodNames, 0, allNames, classNames.length+fieldNames.length, methodNames.length);
 
-    return new Tries.LazyTrie<Items.Item>(JavaTrie.makeTrieStructure(allNames), new PsiGenerator(project, ProjectScope.getLibrariesScope(project), converter));
+      // there may be duplicates, but we don't care
+      Arrays.sort(allNames);
+
+    t = new Tries.LazyTrie<Items.Item>(JavaTrie.makeTrieStructure(allNames), new PsiGenerator(project, ProjectScope.getLibrariesScope(project), converter));
+    } finally { popScope(); }
+
+    return t;
   }
 
   // store all classes and their member in the given scope
   private void storeProjectClassInfo() {
-    final GlobalSearchScope scope = ProjectScope.getContentScope(project);
-    final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
-    final Place place = new Place(project, null);
-    final IdFilter filter = IdFilter.getProjectIdFilter(project, false);
-    final Processor<PsiClass> proc = new Processor<PsiClass>() {
-      @Override
-      public boolean process(PsiClass cls) {
-        if (!place.isInaccessible(cls, true)) {
-          converter.addClass(cls, true, true);
-        }
-        return true;
-      }
-    };
+    pushScope("store project classes");
+    try {
+      final GlobalSearchScope scope = ProjectScope.getContentScope(project);
+      final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
+      final Place place = new Place(project, null);
+      final IdFilter filter = IdFilter.getProjectIdFilter(project, false);
+      final Processor<PsiClass> proc = new Processor<PsiClass>() {
+        @Override
+        public boolean process(PsiClass cls) {
+          if (!place.isInaccessible(cls, true)) {
+            converter.addClass(cls, true, true);
+          }
+          return true;
+          }
+      };
 
-    cache.processAllClassNames(new Processor<String>() {
-      @Override
-      public boolean process(String name) {
-        cache.processClassesWithName(name, proc, scope, filter);
-        return true;
-      }
-    }, scope, filter);
+      cache.processAllClassNames(new Processor<String>() {
+        @Override
+        public boolean process(String name) {
+          cache.processClassesWithName(name, proc, scope, filter);
+          // keep UI alive
+          processEvents();
+          return true;
+        }
+      }, scope, filter);
+    } finally { popScope(); }
   }
 
   List<Items.Item> removeConstructors(Collection<Items.Item> items) {
@@ -272,12 +285,15 @@ public class JavaEnvironment {
   }
 
   void buildDynamicEnv() {
-    dTrie = Tarski.makeDTrie(removeConstructors(localItems.values()));
-    dByItem = JavaItems.valuesByItem(dTrie.values());
+    pushScope("building project trie");
+    try {
+      dTrie = Tarski.makeDTrie(removeConstructors(localItems.values()));
+      dByItem = JavaItems.valuesByItem(dTrie.values());
 
-    // clear volatile stores
-    addedItems.clear();
-    nDeletions = 0;
+      // clear volatile stores
+      addedItems.clear();
+      nDeletions = 0;
+    } finally { popScope(); }
   }
 
   boolean localEnvNeedsRebuild() {

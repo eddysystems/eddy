@@ -24,6 +24,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
+import static ambiguity.JavaUtils.popScope;
+import static ambiguity.JavaUtils.pushScope;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyPlugin implements ProjectComponent {
@@ -51,44 +53,49 @@ public class EddyPlugin implements ProjectComponent {
     if (indicator != null)
       indicator.setIndeterminate(true);
 
-    log("start init environment");
 
-    if (psiListener != null) {
-      PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
-    }
-    env = null;
-
-    if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
-      // free env before allocating the new one
-      env = new JavaEnvironment(project);
-      psiListener = new EddyPsiListener(env);
-      PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-    } else {
-      final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-      if (sbar != null) {
-        sbar.setInfo("eddy is scanning libraries...");
-        widget.moreBusy();
+    pushScope("start init environment");
+    try {
+      if (psiListener != null) {
+        PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
       }
+      env = null;
 
-      String err = "";
-      try {
+      if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
+        // free env before allocating the new one
         env = new JavaEnvironment(project);
         psiListener = new EddyPsiListener(env);
         PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-      } catch (JavaEnvironment.NoJDKError e) {
-        env = null;
-        err = e.getMessage();
-        log(e.getMessage());
-      }
+      } else {
+        final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+        if (sbar != null) {
+          sbar.setInfo("eddy is scanning libraries...");
+          widget.moreBusy();
+        }
 
-      if (sbar != null) {
-        if (err.isEmpty())
-          sbar.setInfo("eddy scan done.");
-        else
-          sbar.setInfo("eddy scan aborted, " + err);
-        widget.lessBusy();
+        String err = "";
+        try {
+          env = new JavaEnvironment(project);
+
+          log("environment initialized");
+
+          psiListener = new EddyPsiListener(env);
+          PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
+        } catch (JavaEnvironment.NoJDKError e) {
+          env = null;
+          err = e.getMessage();
+          log(e.getMessage());
+        }
+
+        if (sbar != null) {
+          if (err.isEmpty())
+            sbar.setInfo("eddy scan done.");
+          else
+            sbar.setInfo("eddy scan aborted, " + err);
+          widget.lessBusy();
+        }
       }
-    }
+    } finally { popScope(); }
   }
 
   public EddyPlugin(Project project) {
@@ -114,7 +121,7 @@ public class EddyPlugin implements ProjectComponent {
       @Override
       public void run() {
         log("starting init env");
-        app.invokeAndWait(new Runnable() {
+        app.invokeLater(new Runnable() {
           @Override
           public void run() {
             if (!widget.installed()) {

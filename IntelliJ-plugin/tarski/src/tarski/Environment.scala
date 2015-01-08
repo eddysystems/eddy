@@ -325,6 +325,7 @@ object Environment {
       case c:ConstructorItem => known(VoidType)
       case _:PackageItem => die("package")
       case _:ClassItem => die("class or interface")
+      case _:UnknownContainerItemBase => die("non-Java item")
     }
   }
 

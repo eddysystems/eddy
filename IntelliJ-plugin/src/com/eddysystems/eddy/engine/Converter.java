@@ -103,20 +103,13 @@ class Converter {
       }
       return false;
     } else {
-      PsiFile file = elem.getContainingFile();
-      while (file == null && elem.getParent() != null) {
-        // the element cannot resolve to a containing file. This is a mistake with some scala elements (which can be
-        // synthetic, such as the $-classes and MODULE$ fields), try to resolve the containing file of the parent
-        elem = elem.getParent();
-        if (elem instanceof PsiFile) {
-          file = (PsiFile)elem;
-        } else
-          file = elem.getContainingFile();
+      VirtualFile vf = Place.getElementFile(elem);
+      if (vf != null)
+        return projectScope.contains(vf);
+      else {
+        log("can't determine whether " + elem + " is in project.");
+        return true;
       }
-      if (file != null)
-        return projectScope.contains(file.getVirtualFile());
-      else
-        return true; // can't figure out the containing file, assume it's in the project
     }
   }
 
@@ -324,9 +317,11 @@ class Converter {
   static protected class UnknownContainerItem extends UnknownContainerItemBase implements PsiEquivalent, CachedNameItem {
 
     final PsiElement elem;
+    final Converter converter;
 
-    UnknownContainerItem(PsiElement elem) {
+    UnknownContainerItem(PsiElement elem, Converter converter) {
       this.elem = elem;
+      this.converter = converter;
     }
 
     @Override
@@ -344,6 +339,9 @@ class Converter {
     public PsiElement psi() {
       return elem;
     }
+
+    @Override
+    public PackageItem pkg() { return (PackageItem)converter.addContainer(converter.place.getElementPackage(elem)); }
   }
 
   static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent, CachedNameItem, SettableFinalItem {
@@ -605,7 +603,11 @@ class Converter {
           supers.add(sc);
         }
         if (_base == null) {
-          _base = ((ClassItem)env.addClass(base,false,false)).inside();
+          if (base != null)
+            _base = ((ClassItem)env.addClass(base,false,false)).inside();
+          else
+            // base can be null if JDK is not defined, for Object (should be impossible), and for scala traits
+            _base = ObjectType$.MODULE$;
         }
         _supers = JavaConversions.asScalaBuffer(supers).toList();
       }
@@ -751,7 +753,7 @@ class Converter {
       parent = addContainer(cont);
     } catch (UnknownContainerError e) {
       log(e);
-      parent = new UnknownContainerItem(cont);
+      parent = new UnknownContainerItem(cont, this);
     }
 
     ClassItem item = new LazyClass(this,cls,parent);

@@ -3,17 +3,15 @@ package tarski;
 import scala.Function0;
 import scala.Function1;
 import scala.Function2;
+import scala.collection.JavaConversions;
 import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.PriorityQueue;
+
 import static java.lang.Math.max;
-import static tarski.Scores.oneError;
-import static tarski.Scores.nestError;
 
 public class JavaScores {
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
@@ -191,7 +189,7 @@ public class JavaScores {
           return (Scored)Empty$.MODULE$;
         else if (as instanceof Bad)
           bads = $colon$colon$.MODULE$.<Bad>apply((Bad)as,bads);
-        return nestError("flatMap failed",bads);
+        return Scores.nestError("flatMap failed",bads);
       } while (p() > goal);
       // If we hit goal without finding an option, return more laziness
       return new Extractor<B>(this);
@@ -237,18 +235,16 @@ public class JavaScores {
       default:
         if (trackErrors)
           then = Scores.good(then);
-        final Object[] sx = new Object[xs.size()];
-        for (int i=0;i<n;i++) {
-          sx[i] = xs.head();
-          xs = (List)xs.tail();
-        }
-        Arrays.sort(sx);
-        assert ((Alt)sx[n-1]).p() >= then.p();
-        for (int i=n-1;i>=0;i--) {
-          final Alt<A> a = (Alt<A>)sx[i];
-          then = new Best<A>(a.dp(),a.x(),then);
-        }
-        return then;
+
+        final PriorityQueue<Alt<A>> pq = new PriorityQueue<Alt<A>>(JavaConversions.asJavaCollection(xs));
+        Alt<A> besta = pq.poll();
+        final MultipleAltState<A> ms = new MultipleAltState<A>(pq);
+        Best<A> best = new Best<A>(besta.dp(), besta.x(), new Extractor<A>(ms));
+
+        if (then != Empty$.MODULE$)
+          return best.$plus$plus(then);
+        else
+          return best;
     }
   }
 
@@ -303,7 +299,7 @@ public class JavaScores {
         if (heap.isEmpty()) {
           if (bads == null)
             return (Scored<A>)Empty$.MODULE$;
-          return nestError("multiple failed",bads);
+          return Scores.nestError("multiple failed",bads);
         }
         final Scored<A> s = heap.poll();
         if (s instanceof LazyScored) {
@@ -319,6 +315,37 @@ public class JavaScores {
       } while (heap.isEmpty() || heap.peek().p() > goal);
       // If we hit goal without finding an option, return more laziness
       return new Extractor<A>(this);
+    }
+  }
+
+  static public final class MultipleAltState<A> extends State<A> {
+    private final PriorityQueue<Alt<A>> heap;
+
+    // List of errors, null if we've already found at least one option.
+    private List<Bad> bads;
+
+    // The Alt's probability is an upper bound on the Scored returned by the functions
+    protected MultipleAltState(PriorityQueue<Alt<A>> heap) {
+      this.heap = heap;
+      this.bads = trackErrors ? (List)Nil$.MODULE$ : null;
+    }
+
+    // Current probability bound
+    public double p() {
+      final Alt<A> a = heap.peek();
+      return a == null ? 0 : a.p();
+    }
+
+    public Scored<A> extract(final double goal) {
+      do {
+        if (heap.isEmpty()) {
+          if (bads == null)
+            return (Scored<A>)Empty$.MODULE$;
+          return Scores.nestError("multiple alt failed",bads);
+        }
+        final Alt<A> s = heap.poll();
+        return new Best<A>(s.dp(), s.x(), new Extractor<A>(this));
+      } while (heap.isEmpty() || heap.peek().p() > goal);
     }
   }
 
