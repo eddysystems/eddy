@@ -1,6 +1,7 @@
 package tarski
 
 import ambiguity.Utility._
+import ambiguity.Locations._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Base.VoidItem
@@ -109,16 +110,16 @@ object Semantics {
       case TypeDen(_,t) => fail(s"${show(t)}: can't add type arguments to a non-raw type")
     }
   }
-  def addTypeArgs(fs: Scored[Den], ts: KList[AExp])(implicit env: Env): Scored[Den] = ts match {
+  def addTypeArgs(fs: Scored[Den], ts: KList[AExp], r: SRange)(implicit env: Env): Scored[Den] = ts match {
     case EmptyList => fs // Ignore empty type parameter lists
     case ts =>
       val n = ts.list.size
       val use = product(fs flatMap (prepareTypeArgs(n,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
-      use ++ biased(Pr.ignoreTypeArgs,fs)
+      use ++ biased(Pr.ignoreTypeArgs(env.place.lastEditIn(r)),fs)
   }
-  def addTypeArgs(fs: Scored[Den], ts: Option[KList[AExp]])(implicit env: Env): Scored[Den] = ts match {
+  def addTypeArgs(fs: Scored[Den], ts: Option[Located[KList[AExp]]])(implicit env: Env): Scored[Den] = ts match {
     case None => fs
-    case Some(ts) => addTypeArgs(fs,ts)
+    case Some(Located(ts,r)) => addTypeArgs(fs,ts,r)
   }
 
   // Check whether a type is accessible in the environment (can be qualified by something in scope).
@@ -237,10 +238,10 @@ object Semantics {
     case NameAExp(n,_) => denoteName(n,m,expects)
 
     // Fields
-    case FieldAExp(x,None|Some(EmptyList),f,_) => denoteField(denoteParent(x),f,m,expects,e)
-    case FieldAExp(x,Some(ts),f,_) =>
+    case FieldAExp(x,None|Some(Located(EmptyList,_)),f,_) => denoteField(denoteParent(x),f,m,expects,e)
+    case FieldAExp(x,Some(Located(ts,r)),f,_) =>
       if (!m.callExp) fail(s"${show(e)}: Unexpected type arguments in mode $m")
-      else fixCall(m,expects,addTypeArgs(denoteField(denoteParent(x),f,m.onlyCall,None,e),ts))
+      else fixCall(m,expects,addTypeArgs(denoteField(denoteParent(x),f,m.onlyCall,None,e),ts,r))
 
     // Parentheses.  Java doesn't allow parentheses around types or callables, but we do.
     case ParenAExp(x,_,_) if m==ExpMode => denoteExp(x,expects) map ParenExp
@@ -254,10 +255,10 @@ object Semantics {
 
     // Type application.  TODO: add around to TypeApplyAExp
     // For callables, this is C++-style application of type arguments to a generic method
-    case TypeApplyAExp(x,ts,_) => {
+    case TypeApplyAExp(x,ts,tr,_) => {
       def n = ts.size
       if (n==0) denote(x,m,expects)
-      else addTypeArgs(denote(x,m.onlyTyCall),ts)
+      else addTypeArgs(denote(x,m.onlyTyCall),ts,tr)
     }
 
     // Explicit new
@@ -531,7 +532,7 @@ object Semantics {
     case NameAExp(n,_) => Some(n)
     case ParenAExp(e,_,_) => guessItem(e)
     case FieldAExp(_,_,f,_) => Some(f)
-    case TypeApplyAExp(e,_,_) => guessItem(e)
+    case TypeApplyAExp(e,_,_,_) => guessItem(e)
     case ApplyAExp(e,_,_,_) => guessItem(e)
     case _ => None
   }
@@ -578,7 +579,7 @@ object Semantics {
           }))))
         ds.list match {
           case List((v,0,Some(e))) => // For T v = i, allow T to change
-            useType ++ biased(Pr.ignoreVarType,{
+            useType ++ biased(Pr.ignoreVarType(env.place.lastEditIn(t.r)),{
               val goal = guessItem(t)
               product(env.newVariable(v,isFinal),denoteExp(e)(env)) flatMap {case (f,e) =>
                 safe(similarBase(e.ty,goal))(t => {

@@ -87,12 +87,12 @@ object AST {
   sealed abstract class AExp extends HasRange
   case class NameAExp(name: Name, r: SRange) extends AExp
   case class ParenAExp(e: AExp, a: Grouped, r: SRange) extends AExp
-  case class FieldAExp(e: AExp, t: Option[KList[AExp]], f: Name, r: SRange) extends AExp
-  case class MethodRefAExp(e: AExp, t: Option[KList[AExp]], f: Name, r: SRange) extends AExp
-  case class NewRefAExp(e: AExp, t: Option[KList[AExp]], r: SRange) extends AExp
-  case class TypeApplyAExp(e: AExp, t: KList[AExp], r: SRange) extends AExp
+  case class FieldAExp(e: AExp, t: Option[Located[KList[AExp]]], f: Name, r: SRange) extends AExp
+  case class MethodRefAExp(e: AExp, t: Option[Located[KList[AExp]]], f: Name, r: SRange) extends AExp
+  case class NewRefAExp(e: AExp, t: Option[Located[KList[AExp]]], r: SRange) extends AExp
+  case class TypeApplyAExp(e: AExp, t: KList[AExp], tr: SRange, r: SRange) extends AExp
   case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around, r: SRange) extends AExp
-  case class NewAExp(t: Option[KList[AExp]], e: AExp, r: SRange) extends AExp
+  case class NewAExp(t: Option[Located[KList[AExp]]], e: AExp, r: SRange) extends AExp
   case class WildAExp(b: Option[(Bound,AExp)], r: SRange) extends AExp
   case class UnaryAExp(op: UnaryOp, e: AExp, r: SRange) extends AExp
   case class BinaryAExp(op: BinaryOp, e0: AExp, e1: AExp, r: SRange) extends AExp

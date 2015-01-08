@@ -155,7 +155,7 @@ class TestParse {
 
   @Test def genericType() =
     testASTPossible("X<String,A<String>> x = null",
-      VarAStmt(Nil,TypeApplyAExp(NameAExp("X",r),CommaList(List("String",TypeApplyAExp("A",SingleList("String"),r))),r),
+      VarAStmt(Nil,TypeApplyAExp(NameAExp("X",r),CommaList(List("String",TypeApplyAExp("A",SingleList("String"),r,r))),r,r),
         SingleList(("x",0,Some(NameAExp("null",r)))),r))
 
   // We lex >> into GtTok GtNoSepTok GtTok.  Make sure we don't screw it up.

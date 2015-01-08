@@ -144,8 +144,8 @@ object Pr {
   val insertedCastIndexExp = Prob("inserted cast index exp",.1) // it's unlikely.
 
   // Completely drop types or type parameters
-  val ignoreVarType = Prob("ignore var type",.001)
-  val ignoreTypeArgs = Prob("ignore type args",.001)
+  def ignoreVarType(edited: Boolean)  = Prob("ignore var type",if (edited) 1e-5 else 1e-3)
+  def ignoreTypeArgs(edited: Boolean) = Prob("ignore type args",if (edited) 1e-5 else 1e-3)
 
   // denoteStmt(AStmt)
   val emptyStmt = Prob("empty stmt",.2) // empty statements are rarely written down

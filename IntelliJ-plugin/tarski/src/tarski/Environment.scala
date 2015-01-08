@@ -3,10 +3,10 @@ package tarski
 import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 
 import ambiguity.Utility._
+import ambiguity.Locations._
 import tarski.JavaItems._
 import tarski.Items._
 import tarski.Scores._
-import tarski.JavaScores._
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
@@ -21,7 +21,8 @@ object Environment {
   case class PlaceInfo(place: ParentItem,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
-                       labels: List[String] = Nil) {
+                       labels: List[String] = Nil,
+                       lastEdit: SLoc = SLoc.unknown) {
     // Can we forward to a constructor of class c?
     // TODO: Restrict to first statement of the constructor
     def forwardThisPossible(c: ClassItem): Boolean = place match {
@@ -33,6 +34,8 @@ object Environment {
       case _ => false
     }
     // TODO: in static scope?
+
+    def lastEditIn(r: SRange): Boolean = r contains lastEdit
   }
   val localPlace = PlaceInfo(Base.LocalPkg)
 

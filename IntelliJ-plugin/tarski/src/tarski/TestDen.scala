@@ -759,13 +759,14 @@ class TestDen {
   @Test def fixType() = test("int x = 1L","x",x => VarStmt(LongType,(x,1L)))
   @Test def fixGarbageType() = test("garbageGarbageGarbage x = 1L","x",x => VarStmt(LongType,(x,1L)))
 
-  @Test def fixTypeGeneric() = {
+  @Test def fixTypeGenericRightToLeft() = {
     val S = SimpleTypeVar("S")
     val T = SimpleTypeVar("T")
     lazy val A: ClassItem = NormalClassItem("A",tparams=List(S))
     lazy val B: ClassItem = NormalClassItem("B",tparams=List(T),base=A.generic(List(T)),constructors=Array(cons))
     lazy val cons = DefaultConstructorItem(B)
-    implicit val env = localEnvWithBase().extendLocal(Array(A,B))
+    val pre = localEnvWithBase().extendLocal(Array(A,B))
+    implicit val env = pre.move(PlaceInfo(pre.place.place,lastEdit=SLoc(22)))
     test("A<Integer> x = new B<Long>","x",x =>
       VarStmt(A.generic(List(LongType.box)),(x,ApplyExp(NewDen(None,cons,Some(List(LongType.box))),Nil))))
   }
@@ -776,7 +777,8 @@ class TestDen {
     lazy val A: ClassItem = NormalClassItem("A",tparams=List(S))
     lazy val B: ClassItem = NormalClassItem("B",tparams=List(T),base=A.generic(List(T)),constructors=Array(cons))
     lazy val cons = DefaultConstructorItem(B)
-    implicit val env = localEnvWithBase().extendLocal(Array(A,B))
+    val pre = localEnvWithBase().extendLocal(Array(A,B))
+    implicit val env = pre.move(PlaceInfo(pre.place.place,lastEdit=SLoc(7)))
     test("A<Integer> x = new B<Long>","x",x =>
       VarStmt(A.generic(List(IntType.box)),(x,ApplyExp(NewDen(None,cons,Some(List(IntType.box))),Nil))))
   }

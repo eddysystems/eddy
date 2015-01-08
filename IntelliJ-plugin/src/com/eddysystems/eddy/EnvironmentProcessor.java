@@ -14,7 +14,7 @@ import tarski.Items.*;
 import tarski.Tarski;
 import tarski.Types.ClassType;
 import tarski.Types.Type;
-
+import ambiguity.Locations;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -197,7 +197,9 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
 
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
-    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, JavaConversions.asScalaBuffer(labels).toList());
+    final int lastEdit = -1; // TODO
+    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable,
+                              JavaConversions.asScalaBuffer(labels).toList(), lastEdit);
   }
 
   @Override
