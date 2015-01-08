@@ -828,4 +828,6 @@ class TestDen {
     implicit val env = Env(Array(A,x),Map(A->2,x->1),PlaceInfo(f))
     test("return",ReturnStmt(x))
   }
+
+  // TODO: test something like x != null for some Object x
 }
