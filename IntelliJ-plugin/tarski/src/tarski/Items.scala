@@ -344,6 +344,9 @@ object Items {
     val params = Nil
   }
 
+  // Labels
+  case class Label(name: Name, continuable: Boolean) extends Item
+
   // traits used by lazy classes that can change some of their fields
   trait CachedConstructorsItem {
     def invalidateConstructors(): Unit

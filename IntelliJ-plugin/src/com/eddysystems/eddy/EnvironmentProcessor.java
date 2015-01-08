@@ -130,18 +130,16 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     ParentItem placeItem = null;
     boolean inside_continuable = false;
     boolean inside_breakable = false;
-    final List<String> labels = new SmartList<String>();
     // walk straight up until we see a method, class, or package
     PsiElement place = this.place.place;
     while (place != null) {
       // scan the current method for labels, loops, and switch statements
       if (placeItem != null) {
         if (place instanceof PsiLabeledStatement) {
-          // found a label
-          log("found a labeled statement: " + place + ", label: " + ((PsiLabeledStatement) place).getLabelIdentifier());
-          labels.add(((PsiLabeledStatement) place).getLabelIdentifier().getText());
+          final PsiLabeledStatement lab = (PsiLabeledStatement)place;
+          final boolean continuable = !(lab instanceof PsiSwitchStatement);
+          localItems.add(new Label(lab.getLabelIdentifier().getText(),continuable));
         }
-
         if (place instanceof PsiSwitchStatement) {
           log("inside switch statement: " + place);
           inside_breakable = true;
@@ -198,8 +196,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
     final int lastEdit = -1; // TODO
-    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable,
-                              JavaConversions.asScalaBuffer(labels).toList(), lastEdit);
+    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, lastEdit);
   }
 
   @Override

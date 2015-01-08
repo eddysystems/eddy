@@ -612,12 +612,15 @@ object Semantics {
       case AssertAStmt(c,m,_) => biased(Pr.assertStmt,above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
         (env,AssertStmt(c,m))}))
 
-      case BreakAStmt(lab,_) =>
-        if (env.place.breakable) biased(Pr.breakStmt,denoteLabel(lab,(env,List(BreakStmt))))
-        else fail("cannot break outside of a loop or switch statement.")
-      case ContinueAStmt(lab,_) =>
-        if (env.place.continuable) biased(Pr.continueStmt,denoteLabel(lab,(env,List(ContinueStmt))))
-        else fail("cannot break outside of a loop")
+      case BreakAStmt(l,_) =>
+        if (!env.place.breakable) fail("Cannot break outside of a loop or switch statement.")
+        else thread(l)(l => env.collect(l,s"Label $l not found",{
+          case l:Label => l })) map (l => (env,List(BreakStmt(l))))
+      case ContinueAStmt(l,_) =>
+        if (!env.place.continuable) fail("Cannot continue outside of a loop")
+        else thread(l)(l => env.collect(l,s"Continuable label $l not found",{
+          case l:Label if l.continuable => l })) map (l => (env,List(ContinueStmt(l))))
+
       case ReturnAStmt(None,_) => returnType flatMap (r =>
         if (r==VoidType) known(env,List(ReturnStmt(None)))
         else valuesOfItem(r.item,0,"return") flatMap (x =>
@@ -696,11 +699,6 @@ object Semantics {
 
   def xor(x: Boolean, y: Exp): Exp =
     if (x) NonImpExp(NotOp,y) else y
-
-  def denoteLabel[A](lab: Option[Name], x: => A): Scored[A] = lab match {
-    case None => single(x, Pr.labelNone)
-    case Some(_) => notImplemented
-  }
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)}

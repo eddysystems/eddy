@@ -828,4 +828,28 @@ class TestDen {
     implicit val env = Env(Array(A,x),Map(A->2,x->1),PlaceInfo(f))
     test("return",ReturnStmt(x))
   }
+
+  @Test def noLabel() = {
+    val pre = localEnv()
+    def f(b: Boolean, c: Boolean): Unit = {
+      implicit val env = pre.move(PlaceInfo(pre.place.place,breakable=b,continuable=c))
+      if (b) test("break",BreakStmt(None)) else testFail("break")
+      if (c) test("continue",ContinueStmt(None)) else testFail("continue")
+    }
+    f(false,false); f(false,true)
+    f(true ,false); f(true ,true)
+  }
+  @Test def label() = {
+    val pre = localEnv()
+    def f(c: Boolean): Unit = {
+      val lab = Label("label",continuable=c)
+      implicit val env = pre.extendLocal(Array(lab)).move(PlaceInfo(pre.place.place,breakable=true,continuable=c))
+      for (name <- List("label","labl")) {
+        test(s"break $name",BreakStmt(Some(lab)))
+        if (c) test(s"continue $name",ContinueStmt(Some(lab)))
+        else testFail(s"continue $name")
+      }
+    }
+    f(false); f(true)
+  }
 }

@@ -223,11 +223,11 @@ object Denotations {
     def discards = m match { case None => c.discards; case Some(m) => m.discards ::: c.discards }
     def strip = AssertStmt(c.strip,m map (_.strip))
   }
-  case object BreakStmt extends Stmt { // TODO: optional label
+  case class BreakStmt(label: Option[Label]) extends Stmt {
     def discards = Nil
     def strip = this
   }
-  case object ContinueStmt extends Stmt { // TODO: optional label
+  case class ContinueStmt(label: Option[Label]) extends Stmt {
     def discards = Nil
     def strip = this
   }

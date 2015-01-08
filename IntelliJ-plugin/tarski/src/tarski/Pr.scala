@@ -153,8 +153,6 @@ object Pr {
   val assignmentAsVarStmt = Prob("assign as var stmt",.4) // should depend on types: e.g. explicit constructor calls are more likely
   val blockStmt = base
   val assertStmt = base
-  val breakStmt = base
-  val continueStmt = base
   val throwStmt = base // should depend on type of thing thrown
   val syncStmt = base // should depend on the variable used to synchronize
   val ifStmt = base
@@ -165,9 +163,6 @@ object Pr {
   val expForStmt = Prob("exp for stmt",.9)
   val blockForStmt = Prob("block for stmt",.6)
   val forEachArrayNoType = Prob("foreach array no type",.7)
-
-  // denoteLabel
-  val labelNone = base
 
   val exact = Prob("exact",1)
   val typo = Prob("typo",.2)

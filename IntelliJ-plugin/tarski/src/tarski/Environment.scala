@@ -21,7 +21,6 @@ object Environment {
   case class PlaceInfo(place: ParentItem,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
-                       labels: List[String] = Nil,
                        lastEdit: SLoc = SLoc.unknown) {
     // Can we forward to a constructor of class c?
     // TODO: Restrict to first statement of the constructor
