@@ -14,10 +14,12 @@ import scala.Some;
 import scala.collection.JavaConversions;
 import scala.collection.immutable.List$;
 import scala.collection.immutable.Map$;
+import scala.collection.immutable.Nil$;
 import scala.runtime.AbstractFunction0;
+import scala.collection.immutable.$colon$colon$;
+import static ambiguity.JavaUtils.*;
 import tarski.Items.*;
 import tarski.Types.*;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -187,7 +189,7 @@ public class Converter {
         return (ParentItem)i;
     }
     if (elem == null)
-      return tarski.Tarski.localPkg();
+      return LocalPkg$.MODULE$;
 
     // local classes
     if (elem instanceof PsiMethod) {
@@ -196,10 +198,13 @@ public class Converter {
       return (ParentItem)addClass((PsiClass) elem, false, false);
     else if (elem instanceof PsiPackage) {
       final PsiPackage pkg = (PsiPackage)elem;
-      if (pkg.getName() == null)
-        return tarski.Tarski.localPkg();
-      final PackageItem item = new PackageItem(pkg.getName(),pkg.getQualifiedName());
-      put(pkg, item);
+      final String name = pkg.getName();
+      if (name == null)
+        return LocalPkg$.MODULE$;
+      final PsiPackage parent = pkg.getParentPackage();
+      final ParentItem item = parent==null ? new RootPackage(name)
+                                           : new ChildPackage((tarski.Items.Package)addContainer(parent),name);
+      put(pkg,item);
       return item;
     }
     throw new RuntimeException("weird container "+elem);
@@ -305,23 +310,13 @@ public class Converter {
     ClassItem _resolved = null;
 
     static final ConstructorItem[] noConstructors = new ConstructorItem[0];
-    static final scala.collection.immutable.List<RefType> _supers = List$.MODULE$.fill(1, new AbstractFunction0<RefType>() {
-      @Override
-      public RefType apply() {
-        return ObjectType$.MODULE$;
-      }
-    });
-    static final scala.collection.immutable.List<RefTypeItem> _superItems = List$.MODULE$.fill(1, new AbstractFunction0<RefTypeItem>() {
-      @Override
-      public RefTypeItem apply() {
-        return ObjectItem$.MODULE$;
-      }
-    });
+    static final scala.collection.immutable.List<RefType> _supers = scalaList((RefType)ObjectType$.MODULE$);
+    static final scala.collection.immutable.List<RefTypeItem> _superItems = scalaList((RefTypeItem)ObjectItem$.MODULE$);
 
     UnresolvedClassItem(@NotNull final Converter env, @NotNull final PsiClassReferenceType cls, @Nullable final Parent parent) {
       this.env = env;
       this.cls = cls;
-      _parent = parent == null ? (PackageItem)env.addContainer(env.place.getElementPackage(cls.getReference())) : parent;
+      _parent = parent == null ? (tarski.Items.Package)env.addContainer(env.place.getElementPackage(cls.getReference())) : parent;
 
       if (cls instanceof PsiModifierListOwner)
         _isFinal = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.FINAL);

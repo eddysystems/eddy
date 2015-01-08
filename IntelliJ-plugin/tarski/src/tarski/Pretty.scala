@@ -1,7 +1,6 @@
 package tarski
 
 import tarski.AST._
-import tarski.Base.LocalPkg
 import tarski.Denotations._
 import tarski.Environment.Env
 import tarski.Items._

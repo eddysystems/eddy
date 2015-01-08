@@ -187,7 +187,7 @@ public class JavaEnvironment {
           continue;
         final String name = item.qualifiedName().get();
         PsiElement psi;
-        if (item instanceof Items.PackageItem)
+        if (item instanceof Items.Package)
           psi = facade.findPackage(name);
         else if (item instanceof Items.ClassItem)
           psi = facade.findClass(name,scope);

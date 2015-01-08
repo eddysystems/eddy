@@ -448,10 +448,10 @@ class TestDen {
   }
 
   @Test def omittedQualifier(): Unit = {
-    val P = PackageItem("com.P", "com.P")
-    val Z = NormalClassItem("Z", P, Nil)
-    val Y = NormalClassItem("Y", LocalPkg, Nil)
-    val X = NormalClassItem("X", LocalPkg, Nil)
+    val P = Package("com","P")
+    val Z = NormalClassItem("Z",P)
+    val Y = NormalClassItem("Y")
+    val X = NormalClassItem("X")
     val Zx = NormalStaticFieldItem("x", BooleanType, Z, isFinal=false)
     val Yx = NormalStaticFieldItem("x", BooleanType, Y, isFinal=false)
     val Xx = NormalStaticFieldItem("x", BooleanType, X, isFinal=false)
@@ -734,7 +734,7 @@ class TestDen {
   }
 
   @Test def classInPackage() = {
-    val P = PackageItem("P","P")
+    val P = Package("P")
     lazy val A: ClassItem = NormalClassItem("A",P,constructors=Array(cons))
     lazy val cons = NormalConstructorItem(A,Nil,Nil)
     implicit val env = localEnv().extend(Array(P,A,cons),Map.empty)

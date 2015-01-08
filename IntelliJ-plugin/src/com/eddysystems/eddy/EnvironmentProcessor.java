@@ -182,7 +182,7 @@ public class EnvironmentProcessor extends BaseScopeProcessor implements ElementC
         if (pkg == null) {
           // probably we're top-level in a file without package statement, use LocalPackageItem
           if (placeItem == null)
-            placeItem = Tarski.localPkg();
+            placeItem = LocalPkg$.MODULE$;
         } else {
           if (placeItem == null) {
             assert locals.containsKey(pkg) || jenv.knows(pkg);

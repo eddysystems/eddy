@@ -36,7 +36,7 @@ class TestPretty {
     ApplyExp(TypeApply(NormalMethodItem("f",A,List(SimpleTypeVar("T")),IntType,Nil,isStatic=true),List(ObjectType)),Nil)
   })
   @Test def genericPlacement() = test("pkg.L.<String>fill(1,\"s\")", {
-    val P = PackageItem("pkg", "pkg")
+    val P = Package("pkg")
     val L = NormalClassItem("L", P, List(SimpleTypeVar("A")))
     val fill = NormalMethodItem("fill", L, List(SimpleTypeVar("A")), VoidType, List(IntType, StringItem.simple), isStatic=true)
     ApplyExp(TypeApply(fill,List(StringItem.simple)), List(IntLit(1, "1"), StringLit("s","\"s\"")))

@@ -1,6 +1,8 @@
 package ambiguity;
 
 import org.apache.commons.lang.StringUtils;
+import scala.collection.immutable.Nil$;
+import scala.collection.immutable.$colon$colon$;
 import java.util.*;
 
 public class JavaUtils {
@@ -63,5 +65,13 @@ public class JavaUtils {
     while (p < n && x.charAt(p) == y.charAt(p))
       p++;
     return p;
+  }
+
+  // Build a scala list from Java
+  public static <A> scala.collection.immutable.List<A> scalaList(final A... xs) {
+    scala.collection.immutable.List<A> r = (scala.collection.immutable.List)Nil$.MODULE$;
+    for (int i=xs.length-1;i>=0;i--)
+      r = $colon$colon$.MODULE$.apply(xs[i],r);
+    return r;
   }
 }

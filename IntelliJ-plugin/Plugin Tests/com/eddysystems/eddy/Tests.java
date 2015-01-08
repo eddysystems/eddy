@@ -159,7 +159,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     dumpResults(eddy,best);
     final List<String> ss = eddy.getResultStrings();
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
-    assertTrue("eddy wanted best = "+best+", got = "+got, best.equals(got));
+    assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
       final List<Alt<List<String>>> rs = eddy.getResults();
       final double p0 = rs.get(0).p(),

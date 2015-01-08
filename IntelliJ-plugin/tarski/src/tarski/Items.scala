@@ -30,13 +30,13 @@ object Items {
 
   // Containing package
   sealed trait PackageOrMember extends Item
-  @tailrec def pkg(x: PackageOrMember): PackageItem = x match {
-    case x:PackageItem => x
+  @tailrec def pkg(x: PackageOrMember): Package = x match {
+    case x:Package => x
     case x:Member => pkg(x.parent)
   }
   // Are we inside a class?
   @tailrec def inClass(x: PackageOrMember, c: ClassItem): Boolean = x==c || (x match {
-    case _:PackageItem => false
+    case _:Package => false
     case x:Member => inClass(x.parent,c)
   })
 
@@ -56,13 +56,30 @@ object Items {
   }
 
   // Packages
-  case class PackageItem(name: Name, qualified: Name) extends Item with SimpleParentItem {
-    def qualifiedName = Some(qualified)
+  sealed abstract class Package extends Item with SimpleParentItem {
     def simple = this
-
-    override def toString =
-      if (this eq LocalPkg) "LocalPkg"
-      else s"PackageItem($name${if (name==qualified) "" else s",$qualified"})"
+    def qualified: String
+    override def toString = s"Package($qualified)"
+  }
+  case class RootPackage(name: Name) extends Package {
+    def qualified = name
+    def qualifiedName = Some(qualified)
+  }
+  case class ChildPackage(parent: Package, name: Name) extends Package with Member {
+    def qualified = parent.qualified + "." + name
+    override def qualifiedName = Some(qualified)
+  }
+  case object LocalPkg extends Package {
+    def name = ""
+    def qualified = ""
+    def qualifiedName = None
+    override def toString = "LocalPkg"
+  }
+  object Package {
+    def apply(names: Name*): Package = names.toList match {
+      case Nil => LocalPkg
+      case n::ns => ns.foldLeft(RootPackage(n):Package)(ChildPackage)
+    }
   }
 
   // Annotations

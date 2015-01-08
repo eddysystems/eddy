@@ -43,7 +43,7 @@ object Denotations {
   }
 
   // Wrapped packages
-  case class PackageDen(p: PackageItem) extends ParentDen with TypeOrPackage {
+  case class PackageDen(p: Package) extends ParentDen with TypeOrPackage {
     def strip = this
     def discards = Nil
   }

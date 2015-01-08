@@ -128,7 +128,7 @@ object Semantics {
   def typeAccessible(t: TypeItem)(implicit env: Env): Boolean = env.inScope(t) || (t match {
     case t:ClassItem => t.parent match {
       case p:ClassType => typeAccessible(p.item)
-      case p:PackageItem => true
+      case p:Package => true
       case _ => false // We're not in scope, and we're a local class
     }
     case _ => false
@@ -408,7 +408,7 @@ object Semantics {
       })
       case _ => fail(s"Unusable callable $c")
     })
-    case p:PackageItem if m.pack => known(PackageDen(p))
+    case p:Package if m.pack => known(PackageDen(p))
     case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
   })
 
@@ -425,6 +425,7 @@ object Semantics {
       case f:TypeItem with Member => f
       case f:MethodItem if mc.callExp && maybeMemberIn(f) => f
       case f:MethodItem => throw new RuntimeException(s"f $f, mc $mc, maybe ${maybeMemberIn(f)}")
+      case f:ChildPackage if mc.pack => f
     })
     product(xs,fs) flatMap {case (x,f) => x match {
       case _:Callable => fail(s"${show(x)}: Callables do not have fields (such as $f)")
