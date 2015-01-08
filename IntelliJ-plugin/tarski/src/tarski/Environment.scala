@@ -162,44 +162,6 @@ object Environment {
                scope,place)
   }
 
-  case class LazyEnv() extends Env {
-
-    //
-
-    // name resolution is queried on demand, it doesn't store Items. Whenever it completes a query, the
-    // result is stored
-    // All classes inside the project are added to dTrie, all classes outside are
-
-    // Where we are
-    override def scope: Map[Item, Int] = ???
-
-    override def move(to: PlaceInfo): Env = ???
-
-    override def popScope: Env = ???
-
-    // Lookup by type.item (locals only
-    override def byItem(t: TypeItem): Scored[Value] = ???
-
-    override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = ???
-
-    // Add more objects
-    override def extend(things: Array[Item], scope: Map[Item, Int]): Env = ???
-
-    // Fragile or slow, only use for tests
-    override def exactLocal(name: String): Local = ???
-
-    // for tests
-    override def allLocalItems: Array[Item] = ???
-
-    // Get exact and typo probabilities for string queries
-    override def _exactQuery(typed: Array[Char]): List[Item] = ???
-
-    override def place: PlaceInfo = ???
-
-    // Enter and leave block scopes
-    override def pushScope: Env = ???
-  }
-
   case class ThreeEnv(private val sTrie: LazyTrie[Item], // creates global (library) items as they are queried
                       private val dTrie: DTrie[Item], // occasionally rebuilt when the project has changed a lot
                       private val vTrie: Trie[Item], // rebuilt all the time, including by this Env's functions returning new Envs (small)
