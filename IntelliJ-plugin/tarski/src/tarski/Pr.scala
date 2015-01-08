@@ -45,12 +45,11 @@ object Pr {
     typoProbability(d, typed.length) // could be meant.length, but that's inconsistent with when we don't have meant available
   }
 
-  // generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
+  // Generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
   // for the qualifying objects, and the object chosen as qualifier
   def omitQualifier[A <: ClassMember](probs: Scored[Exp], choice: Exp, item: A): Prob = {
     if (probs.isSingle) Prob("omit one choice",.8) // Only choice
-    else if (choice.item.qualifiedName.nonEmpty && choice.item.qualifiedName.get.startsWith("java.lang."))
-      Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
+    else if (Items.inPackage(choice.item,Base.JavaLangPkg)) Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
   }
 
@@ -154,8 +153,6 @@ object Pr {
   val assignmentAsVarStmt = Prob("assign as var stmt",.4) // should depend on types: e.g. explicit constructor calls are more likely
   val blockStmt = base
   val assertStmt = base
-  val breakStmt = base
-  val continueStmt = base
   val throwStmt = base // should depend on type of thing thrown
   val syncStmt = base // should depend on the variable used to synchronize
   val ifStmt = base
@@ -166,9 +163,6 @@ object Pr {
   val expForStmt = Prob("exp for stmt",.9)
   val blockForStmt = Prob("block for stmt",.6)
   val forEachArrayNoType = Prob("foreach array no type",.7)
-
-  // denoteLabel
-  val labelNone = base
 
   val exact = Prob("exact",1)
   val typo = Prob("typo",.2)

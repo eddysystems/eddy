@@ -10,9 +10,9 @@ import scala.collection.mutable
 
 object Base {
   // Basic packages
-  val JavaLangPkg = PackageItem("java.lang","java.lang")
-  val JavaIoPkg = PackageItem("java.io","java.io")
-  val LocalPkg = PackageItem("","")
+  val JavaPkg = RootPackage("java")
+  val JavaLangPkg = ChildPackage(JavaPkg,"lang")
+  val JavaIoPkg = ChildPackage(JavaPkg,"io")
 
   // Basic interfaces and classes
   val CloneableItem = NormalInterfaceItem("Cloneable",JavaLangPkg)
@@ -167,7 +167,7 @@ object Base {
   // Standard base environment for tests
   val baseEnv = silenced(Env(Array(
     // Packages
-    JavaLangPkg,JavaIoPkg,
+    JavaPkg,JavaLangPkg,JavaIoPkg,
     // Primitive types
     ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem,
     // Classes
@@ -182,9 +182,9 @@ object Base {
     trueLit,falseLit,nullLit
   )))
 
-  // base environment with all class/interface items at scope level 7
+  // Base environment with all class/interface items at scope level 7
   val testEnv = silenced(Env(baseEnv.allItems, (baseEnv.allItems collect {
-    case t@(_:PackageItem|_:ClassItem) => (t,7)
+    case t@(_:Package|_:ClassItem) => (t,7)
   }).toMap))
 
   // Things that EnvironmentProcessor won't add on its own

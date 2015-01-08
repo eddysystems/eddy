@@ -448,10 +448,10 @@ class TestDen {
   }
 
   @Test def omittedQualifier(): Unit = {
-    val P = PackageItem("com.P", "com.P")
-    val Z = NormalClassItem("Z", P, Nil)
-    val Y = NormalClassItem("Y", LocalPkg, Nil)
-    val X = NormalClassItem("X", LocalPkg, Nil)
+    val P = Package("com","P")
+    val Z = NormalClassItem("Z",P)
+    val Y = NormalClassItem("Y")
+    val X = NormalClassItem("X")
     val Zx = NormalStaticFieldItem("x", BooleanType, Z, isFinal=false)
     val Yx = NormalStaticFieldItem("x", BooleanType, Y, isFinal=false)
     val Xx = NormalStaticFieldItem("x", BooleanType, X, isFinal=false)
@@ -734,7 +734,7 @@ class TestDen {
   }
 
   @Test def classInPackage() = {
-    val P = PackageItem("P","P")
+    val P = Package("P")
     lazy val A: ClassItem = NormalClassItem("A",P,constructors=Array(cons))
     lazy val cons = NormalConstructorItem(A,Nil,Nil)
     implicit val env = localEnv().extend(Array(P,A,cons),Map.empty)
@@ -827,6 +827,30 @@ class TestDen {
     val f = NormalMethodItem("f",NormalClassItem("F"),Nil,A,Nil,isStatic=true)
     implicit val env = Env(Array(A,x),Map(A->2,x->1),PlaceInfo(f))
     test("return",ReturnStmt(x))
+  }
+
+  @Test def noLabel() = {
+    val pre = localEnv()
+    def f(b: Boolean, c: Boolean): Unit = {
+      implicit val env = pre.move(PlaceInfo(pre.place.place,breakable=b,continuable=c))
+      if (b) test("break",BreakStmt(None)) else testFail("break")
+      if (c) test("continue",ContinueStmt(None)) else testFail("continue")
+    }
+    f(false,false); f(false,true)
+    f(true ,false); f(true ,true)
+  }
+  @Test def label() = {
+    val pre = localEnv()
+    def f(c: Boolean): Unit = {
+      val lab = Label("label",continuable=c)
+      implicit val env = pre.extendLocal(Array(lab)).move(PlaceInfo(pre.place.place,breakable=true,continuable=c))
+      for (name <- List("label","labl")) {
+        test(s"break $name",BreakStmt(Some(lab)))
+        if (c) test(s"continue $name",ContinueStmt(Some(lab)))
+        else testFail(s"continue $name")
+      }
+    }
+    f(false); f(true)
   }
 
   // TODO: test something like x != null for some Object x

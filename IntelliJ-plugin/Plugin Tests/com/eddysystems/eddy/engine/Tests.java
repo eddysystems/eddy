@@ -160,7 +160,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     dumpResults(eddy,best);
     final List<String> ss = eddy.getResultStrings();
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
-    assertTrue("eddy wanted best = "+best+", got = "+got, best.equals(got));
+    assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
       final List<Alt<List<String>>> rs = eddy.getResults();
       final double p0 = rs.get(0).p(),
@@ -222,7 +222,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       if (!(i instanceof Items.ClassItem))
         continue;
       if (i.name().equals("A") || i.name().equals("B") || i.name().equals("C"))
-        log("found class " + i.name() + " (" + i.qualifiedName() + ")");
+        log("found class " + i.name() + " (" + i.qualified() + ")");
       if (i.name().equals("A"))
         assertEquals("found constructor for " + i + " which should be private and inAccessible", ((Items.ClassItem) i).constructors().length, 0);
       if (i.name().equals("B")) {

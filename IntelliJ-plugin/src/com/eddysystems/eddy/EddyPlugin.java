@@ -120,7 +120,7 @@ public class EddyPlugin implements ProjectComponent {
     DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() {
       @Override
       public void run() {
-        log("starting init env");
+
         app.invokeLater(new Runnable() {
           @Override
           public void run() {
@@ -128,7 +128,6 @@ public class EddyPlugin implements ProjectComponent {
               final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
               if (sbar != null) sbar.addWidget(widget);
             }
-
             app.runWriteAction(new Runnable() {
               @Override
               public void run() {
@@ -137,6 +136,22 @@ public class EddyPlugin implements ProjectComponent {
             });
           }
         }, ModalityState.NON_MODAL);
+
+        /*
+        app.runReadAction(new Runnable() {
+          @Override
+          public void run() {
+            app.invokeLater(new Runnable() { @Override public void run() {
+              if (!widget.installed()) {
+                final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+                if (sbar != null) sbar.addWidget(widget);
+              }
+            }});
+
+            initEnv(indicator);
+          }
+        });
+        */
       }
     });
   }

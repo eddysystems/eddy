@@ -1,7 +1,6 @@
 package tarski
 
 import tarski.AST._
-import tarski.Base.LocalPkg
 import tarski.Denotations._
 import tarski.Environment.Env
 import tarski.Items._
@@ -298,24 +297,13 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
-    def relative(i: Item) = if (env.inScope(i)) pretty(i.name) else i match {
+  implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) =
+    if (env.inScope(i)) pretty(i.name)
+    else i match {
       case i:Member if i.parent != LocalPkg && i.parent != Base.JavaLangPkg =>
         (FieldFix, tokens(i.parent) ::: DotTok :: tokens(i.name))
       case _ => pretty(i.name) // We can't see this item, show it anyway
     }
-    i match {
-      // Types
-      case i:RefTypeItem => relative(i)
-
-      // Static members
-      case i:FieldItem if i.isStatic => relative(i)
-      case i:MethodItem if i.isStatic => relative(i)
-
-      // Non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)
-      case i:Item => pretty(i.name)
-    }
-  }
   implicit def prettyParentItem(i: Item with Parent)(implicit env: Env): (Fixity,Tokens) =
     prettyItem(i)
 
@@ -453,8 +441,8 @@ object Pretty {
     case BlockStmt(b) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
     case AssertStmt(c,None) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
     case AssertStmt(c,Some(m)) => (SemiFix, AssertTok :: tokens(c) ::: ColonTok :: tokens(m) ::: List(SemiTok))
-    case BreakStmt => (SemiFix, List(BreakTok,SemiTok))
-    case ContinueStmt => (SemiFix, List(ContinueTok,SemiTok))
+    case BreakStmt(lab)    => (SemiFix, BreakTok    :: lab.map(l => IdentTok(l.name)).toList ::: List(SemiTok))
+    case ContinueStmt(lab) => (SemiFix, ContinueTok :: lab.map(l => IdentTok(l.name)).toList ::: List(SemiTok))
     case ReturnStmt(None) => (SemiFix, List(ReturnTok,SemiTok))
     case ReturnStmt(Some(e)) => (SemiFix, ReturnTok :: tokens(e) ::: List(SemiTok))
     case ThrowStmt(e) => (SemiFix, ThrowTok :: tokens(e) ::: List(SemiTok))
@@ -494,7 +482,7 @@ object Pretty {
   }
   implicit def prettyDen(x: Den)(implicit env: Env): (Fixity,Tokens) = x match {
     case x:Exp => prettyExp(x)
-    case PackageDen(p) => pretty(p)
+    case p:PackageDen => prettyItem(p.p)
     case x:Callable => prettyCallable(x)
     case TypeDen(ds,t) => above(ds,t)
   }

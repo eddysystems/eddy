@@ -21,7 +21,6 @@ object Environment {
   case class PlaceInfo(place: ParentItem,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
-                       labels: List[String] = Nil,
                        lastEdit: SLoc = SLoc.unknown) {
     // Can we forward to a constructor of class c?
     // TODO: Restrict to first statement of the constructor
@@ -37,7 +36,7 @@ object Environment {
 
     def lastEditIn(r: SRange): Boolean = r contains lastEdit
   }
-  val localPlace = PlaceInfo(Base.LocalPkg)
+  val localPlace = PlaceInfo(LocalPkg)
 
   // An environment for name resolution
   abstract class Env {
@@ -323,7 +322,7 @@ object Environment {
     env.place.place match {
       case m:MethodItem => known(m.retVal)
       case c:ConstructorItem => known(VoidType)
-      case _:PackageItem => die("package")
+      case _:Package => die("package")
       case _:ClassItem => die("class or interface")
       case _:UnknownContainerItemBase => die("non-Java item")
     }

@@ -2,7 +2,7 @@ package tarski
 
 import tarski.Denotations.Stmt
 import tarski.Environment.{ThreeEnv, PlaceInfo, Env}
-import tarski.Items.{Value, TypeItem, Item, PackageItem}
+import tarski.Items.{Value, TypeItem, Item, Package}
 import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
@@ -32,8 +32,6 @@ object Tarski {
     println("environment with " + dTrie.values.length + " local items, " + vTrie.values.length + " scope items taken at " + place)
     new ThreeEnv(sTrie, dTrie, vTrie, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
   }
-
-  def localPkg(): PackageItem = Base.LocalPkg
 
   def print(is: Iterable[Alt[Item]]): Unit = {
     is foreach { case Alt(p,i) =>

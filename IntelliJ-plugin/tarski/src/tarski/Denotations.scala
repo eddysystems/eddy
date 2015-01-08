@@ -11,7 +11,7 @@ import scala.language.implicitConversions
 
 object Denotations {
   // The equivalent of Any in the denotation world
-  sealed abstract class Den
+  sealed trait Den
   sealed trait ParentDen extends Den
   sealed trait ExpOrType extends ParentDen {
     def item: TypeItem
@@ -42,8 +42,9 @@ object Denotations {
     loop(Nil,Nil,xs)
   }
 
-  // Wrapped packages
-  case class PackageDen(p: PackageItem) extends ParentDen with TypeOrPackage {
+  // Wrapped packages.  Items.Package inherits from this.
+  trait PackageDen extends ParentDen with TypeOrPackage {
+    def p: Package
     def strip = this
     def discards = Nil
   }
@@ -222,11 +223,11 @@ object Denotations {
     def discards = m match { case None => c.discards; case Some(m) => m.discards ::: c.discards }
     def strip = AssertStmt(c.strip,m map (_.strip))
   }
-  case object BreakStmt extends Stmt { // TODO: optional label
+  case class BreakStmt(label: Option[Label]) extends Stmt {
     def discards = Nil
     def strip = this
   }
-  case object ContinueStmt extends Stmt { // TODO: optional label
+  case class ContinueStmt(label: Option[Label]) extends Stmt {
     def discards = Nil
     def strip = this
   }

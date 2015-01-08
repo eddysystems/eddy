@@ -242,7 +242,7 @@ object Inference {
   }
   def equalForm(bs: Bounds, s: TypeArg, t: TypeArg): Option[Bounds] = (s,t) match {
     case (s:RefType,t:RefType) => equalForm(bs,s,t)
-    case _ => notImplemented
+    case (_:Wildcard,_)|(_,_:Wildcard) => impossible // Wildcards should have been eliminated before inference
   }
 
   // Resolution: 18.4

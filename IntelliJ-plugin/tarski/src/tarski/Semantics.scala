@@ -128,7 +128,7 @@ object Semantics {
   def typeAccessible(t: TypeItem)(implicit env: Env): Boolean = env.inScope(t) || (t match {
     case t:ClassItem => t.parent match {
       case p:ClassType => typeAccessible(p.item)
-      case p:PackageItem => true
+      case p:Package => true
       case _ => false // We're not in scope, and we're a local class
     }
     case _ => false
@@ -408,7 +408,7 @@ object Semantics {
       })
       case _ => fail(s"Unusable callable $c")
     })
-    case p:PackageItem if m.pack => known(PackageDen(p))
+    case p:Package if m.pack => known(p)
     case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
   })
 
@@ -416,7 +416,7 @@ object Semantics {
     // Is f a field of x?
     def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
       case (x:ExpOrType,p:ClassItem) => isSubitem(x.item,p)
-      case (PackageDen(x),p) => x eq p
+      case (x:Package,p) => x.p eq p
       case _ => false
     }
     def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
@@ -425,12 +425,13 @@ object Semantics {
       case f:TypeItem with Member => f
       case f:MethodItem if mc.callExp && maybeMemberIn(f) => f
       case f:MethodItem => throw new RuntimeException(s"f $f, mc $mc, maybe ${maybeMemberIn(f)}")
+      case f:ChildPackage if mc.pack => f
     })
     product(xs,fs) flatMap {case (x,f) => x match {
       case _:Callable => fail(s"${show(x)}: Callables do not have fields (such as $f)")
       case x:ParentDen if !memberIn(f,x) => fail(x match {
         case x:ExpOrType => s"${show(x)}: Item ${show(x.item)} does not contain $f"
-        case PackageDen(x) => s"${show(x)}: Package does not contain $f"
+        case x:PackageDen => s"${show(x)}: Package does not contain $f"
       })
       case x:ParentDen => f match {
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
@@ -452,7 +453,7 @@ object Semantics {
               fixCall(mc,expects,x match {
                 // TODO: Also try applying the type arguments to the class (not the constructor)
                 // Only Classes have constructors, so t or x.ty below must be a ClassType
-                case PackageDen(p) => cons map (NewDen(None,_))
+                case _:PackageDen => cons map (NewDen(None,_))
                 case TypeDen(ds,tp) =>
                   val t = Some(tp.asInstanceOf[ClassType])
                   biased(Pr.constructorFieldCallable,cons map (NewDen(t,_).discard(ds)))
@@ -611,12 +612,15 @@ object Semantics {
       case AssertAStmt(c,m,_) => biased(Pr.assertStmt,above(productWith(denoteBool(c),thread(m)(denoteNonVoid)){case (c,m) =>
         (env,AssertStmt(c,m))}))
 
-      case BreakAStmt(lab,_) =>
-        if (env.place.breakable) biased(Pr.breakStmt,denoteLabel(lab,(env,List(BreakStmt))))
-        else fail("cannot break outside of a loop or switch statement.")
-      case ContinueAStmt(lab,_) =>
-        if (env.place.continuable) biased(Pr.continueStmt,denoteLabel(lab,(env,List(ContinueStmt))))
-        else fail("cannot break outside of a loop")
+      case BreakAStmt(l,_) =>
+        if (!env.place.breakable) fail("Cannot break outside of a loop or switch statement.")
+        else thread(l)(l => env.collect(l,s"Label $l not found",{
+          case l:Label => l })) map (l => (env,List(BreakStmt(l))))
+      case ContinueAStmt(l,_) =>
+        if (!env.place.continuable) fail("Cannot continue outside of a loop")
+        else thread(l)(l => env.collect(l,s"Continuable label $l not found",{
+          case l:Label if l.continuable => l })) map (l => (env,List(ContinueStmt(l))))
+
       case ReturnAStmt(None,_) => returnType flatMap (r =>
         if (r==VoidType) known(env,List(ReturnStmt(None)))
         else valuesOfItem(r.item,0,"return") flatMap (x =>
@@ -695,11 +699,6 @@ object Semantics {
 
   def xor(x: Boolean, y: Exp): Exp =
     if (x) NonImpExp(NotOp,y) else y
-
-  def denoteLabel[A](lab: Option[Name], x: => A): Scored[A] = lab match {
-    case None => single(x, Pr.labelNone)
-    case Some(_) => notImplemented
-  }
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)}

@@ -3,7 +3,7 @@ package tarski
 import ambiguity.Utility._
 import tarski.AST._
 import tarski.Base._
-import tarski.Denotations.Lit
+import tarski.Denotations.{PackageDen, Lit}
 import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
@@ -14,7 +14,7 @@ object Items {
   // A language item, given to us by someone who knows about the surrounding code
   sealed trait Item extends RefEq with Tries.Named with Tries.Delable {
     def name: Name
-    def qualifiedName: Option[Name] // A name that is valid anywhere
+    def qualified: Name = name // Overridden by Member
   }
 
   // Something which we can be inside
@@ -29,22 +29,26 @@ object Items {
   }
 
   abstract class UnknownContainerItemBase extends SimpleParentItem {
-    override def qualifiedName: Option[String] = None
-    def pkg: PackageItem
+    def pkg: Package
   }
 
   // Containing package
   sealed trait PackageOrMember extends Item
-  @tailrec def pkg(x: PackageOrMember): PackageItem = x match {
-    case x:PackageItem => x
+  @tailrec def pkg(x: PackageOrMember): Package = x match {
+    case x:Package => x
     case x:Member => pkg(x.parent)
     case x:UnknownContainerItemBase => x.pkg
   }
   // Are we inside a class?
   @tailrec def inClass(x: PackageOrMember, c: ClassItem): Boolean = x==c || (x match {
-    case _:PackageItem => false
+    case _:Package => false
     case x:Member => inClass(x.parent,c)
     case _:UnknownContainerItemBase => false
+  })
+  // Are we inside a package?
+  @tailrec def inPackage(x: Item, p: Package): Boolean = x==p || (x match {
+    case x:Member => inPackage(x.parent,p)
+    case _ => false
   })
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
@@ -63,18 +67,22 @@ object Items {
   }
 
   // Packages
-  case class PackageItem(name: Name, qualified: Name) extends Item with SimpleParentItem {
-    def qualifiedName = Some(qualified)
+  sealed abstract class Package extends Item with SimpleParentItem with PackageDen {
+    def p = this
     def simple = this
-
-    override def toString =
-      if (this eq LocalPkg) "LocalPkg"
-      else s"PackageItem($name${if (name==qualified) "" else s",$qualified"})"
+    override def toString = s"Package($qualified)"
   }
-
-  // Annotations
-  case class AnnotationItem(name: Name, qualified: Name) extends Item {
-    def qualifiedName = Some(qualified)
+  case class RootPackage(name: Name) extends Package
+  case class ChildPackage(parent: Package, name: Name) extends Package with Member
+  case object LocalPkg extends Package {
+    def name = ""
+    override def toString = "LocalPkg"
+  }
+  object Package {
+    def apply(names: Name*): Package = names.toList match {
+      case Nil => LocalPkg
+      case n::ns => ns.foldLeft(RootPackage(n):Package)(ChildPackage)
+    }
   }
 
   // Types
@@ -88,7 +96,6 @@ object Items {
   abstract class LangTypeItem extends TypeItem {
     def ty: LangType
     val name = show(ty)
-    def qualifiedName = Some(name)
     def supers = Nil
     def superItems = Nil
     def inside = ty
@@ -247,7 +254,6 @@ object Items {
 
   case object ArrayItem extends RefTypeItem {
     def name = "Array"
-    override def qualifiedName = None
     def parent = JavaLangPkg
     private def error = throw new RuntimeException("Array<T> is special: T can be primitive, and is covariant")
     def tparams = error
@@ -260,7 +266,6 @@ object Items {
   }
   case object NoTypeItem extends RefTypeItem {
     def name = "NoTypeItem"
-    override def qualifiedName = None
     def supers = Nil
     def superItems = Nil
     private def error = throw new RuntimeException("NoTypeItem shouldn't be touched")
@@ -271,11 +276,8 @@ object Items {
 
   trait Member extends Item with PackageOrMember {
     def name: Name
-    def parent: ParentItem // Package, class, or callable.
-    def qualifiedName = parent.qualifiedName map {
-      case "" => name
-      case s => s + "." + name
-    }
+    def parent: ParentItem // Package, class, or callable
+    override def qualified = parent.qualified + "." + name
   }
   trait ClassMember extends Member {
     def parent: ClassItem
@@ -287,20 +289,17 @@ object Items {
     def isFinal: Boolean
   }
   case class Local(name: Name, ty: Type, isFinal: Boolean) extends Value {
-    def qualifiedName = None
     override def toString = "local:" + name
     def item = ty.item
   }
   case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
     def name = "this"
-    def qualifiedName = None
     def item = self
     def inside = self.inside
     def isFinal = true
   }
   case class SuperItem(self: ClassType) extends Value with PseudoCallableItem {
     def name = "super"
-    def qualifiedName = None
     def item = self.item
     def inside = self
     def isFinal = true
@@ -312,7 +311,6 @@ object Items {
   }
   case class LitValue(x: Lit) extends Value {
     val name = show(x)
-    val qualifiedName = Some(name)
     val ty = x.ty
     val item = x.item
     def isFinal = true
@@ -351,6 +349,9 @@ object Items {
     val tparams = Nil
     val params = Nil
   }
+
+  // Labels
+  case class Label(name: Name, continuable: Boolean) extends Item
 
   // traits used by lazy classes that can change some of their fields
   trait CachedConstructorsItem {
