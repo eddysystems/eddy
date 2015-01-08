@@ -61,6 +61,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
     this.locals = locals;
+    locals.clear();
 
     // this is set to null when we go to java.lang
     this.currentFileContext = place;
@@ -156,7 +157,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
-        assert locals.containsKey(place) || jenv.knows(place);
+        assert jenv.knows(place);
         final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);
         assert scopeItems.containsKey(c);
         final int p = scopeItems.get(c);
@@ -186,7 +187,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
             placeItem = Tarski.localPkg();
         } else {
           if (placeItem == null) {
-            assert locals.containsKey(pkg) || jenv.knows(pkg);
+            assert jenv.knows(pkg);
             placeItem = env.addContainer(pkg);
           }
         }
