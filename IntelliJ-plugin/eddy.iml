@@ -6,9 +6,9 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/Plugin Tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/Test Data" type="java-test-resource" />
       <sourceFolder url="file://$MODULE_DIR$/test-data" type="java-test-resource" />
       <sourceFolder url="file://$MODULE_DIR$/resources" type="java-resource" />
+      <excludeFolder url="file://$MODULE_DIR$/META-INF" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
