@@ -3,7 +3,7 @@ package tarski
 import ambiguity.Utility._
 import tarski.AST._
 import tarski.Base._
-import tarski.Denotations.Lit
+import tarski.Denotations.{PackageDen, Lit}
 import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
@@ -61,7 +61,8 @@ object Items {
   }
 
   // Packages
-  sealed abstract class Package extends Item with SimpleParentItem {
+  sealed abstract class Package extends Item with SimpleParentItem with PackageDen {
+    def p = this
     def simple = this
     override def toString = s"Package($qualified)"
   }

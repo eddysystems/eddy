@@ -408,7 +408,7 @@ object Semantics {
       })
       case _ => fail(s"Unusable callable $c")
     })
-    case p:Package if m.pack => known(PackageDen(p))
+    case p:Package if m.pack => known(p)
     case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
   })
 
@@ -416,7 +416,7 @@ object Semantics {
     // Is f a field of x?
     def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
       case (x:ExpOrType,p:ClassItem) => isSubitem(x.item,p)
-      case (PackageDen(x),p) => x eq p
+      case (x:Package,p) => x.p eq p
       case _ => false
     }
     def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
@@ -431,7 +431,7 @@ object Semantics {
       case _:Callable => fail(s"${show(x)}: Callables do not have fields (such as $f)")
       case x:ParentDen if !memberIn(f,x) => fail(x match {
         case x:ExpOrType => s"${show(x)}: Item ${show(x.item)} does not contain $f"
-        case PackageDen(x) => s"${show(x)}: Package does not contain $f"
+        case x:PackageDen => s"${show(x)}: Package does not contain $f"
       })
       case x:ParentDen => f match {
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
@@ -453,7 +453,7 @@ object Semantics {
               fixCall(mc,expects,x match {
                 // TODO: Also try applying the type arguments to the class (not the constructor)
                 // Only Classes have constructors, so t or x.ty below must be a ClassType
-                case PackageDen(p) => cons map (NewDen(None,_))
+                case _:PackageDen => cons map (NewDen(None,_))
                 case TypeDen(ds,tp) =>
                   val t = Some(tp.asInstanceOf[ClassType])
                   biased(Pr.constructorFieldCallable,cons map (NewDen(t,_).discard(ds)))
