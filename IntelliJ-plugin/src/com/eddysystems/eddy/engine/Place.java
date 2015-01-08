@@ -48,6 +48,8 @@ class Place {
     if (file == null || file instanceof DummyHolder) {
       if (elem.getContext() != null)
         return getElementFile(elem.getContext());
+      else if (elem.getParent() != null)
+        return getElementFile(elem.getParent());
       else
         return null;
     } else {
