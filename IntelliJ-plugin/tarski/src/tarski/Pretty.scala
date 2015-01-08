@@ -297,24 +297,13 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) = {
-    def relative(i: Item) = if (env.inScope(i)) pretty(i.name) else i match {
+  implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) =
+    if (env.inScope(i)) pretty(i.name)
+    else i match {
       case i:Member if i.parent != LocalPkg && i.parent != Base.JavaLangPkg =>
         (FieldFix, tokens(i.parent) ::: DotTok :: tokens(i.name))
       case _ => pretty(i.name) // We can't see this item, show it anyway
     }
-    i match {
-      // Types
-      case i:RefTypeItem => relative(i)
-
-      // Static members
-      case i:FieldItem if i.isStatic => relative(i)
-      case i:MethodItem if i.isStatic => relative(i)
-
-      // Non-static things ought to be fully resolved by the expression they're contained in (otherwise the denotation was wrong)
-      case i:Item => pretty(i.name)
-    }
-  }
   implicit def prettyParentItem(i: Item with Parent)(implicit env: Env): (Fixity,Tokens) =
     prettyItem(i)
 
