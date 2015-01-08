@@ -185,7 +185,7 @@ public class JavaEnvironment {
       for (Items.Item item : tarski.Base.baseEnv().allItems()) {
         if (extra.contains(item) || item instanceof Items.ConstructorItem)
           continue;
-        final String name = item.qualifiedName().get();
+        final String name = item.qualified();
         PsiElement psi;
         if (item instanceof Items.Package)
           psi = facade.findPackage(name);
@@ -203,7 +203,7 @@ public class JavaEnvironment {
       for (Items.Item item : tarski.Base.baseEnv().allItems()) {
         if (!(item instanceof Items.ConstructorItem))
           continue;
-        final String clsName = ((Items.ConstructorItem)item).parent().qualifiedName().get();
+        final String clsName = ((Items.ConstructorItem)item).parent().qualified();
         final PsiClass cls = facade.findClass(clsName,scope);
         assert cls != null;
         final PsiMethod[] cons = cls.getConstructors();
@@ -216,7 +216,7 @@ public class JavaEnvironment {
       for (Items.Item item : tarski.Base.baseEnv().allItems()) {
         if (extra.contains(item) || !(item instanceof Items.ClassItem))
           continue;
-        final String name = item.qualifiedName().get();
+        final String name = item.qualified();
         converter.addClassMembers(facade.findClass(name, scope), (Items.ClassItem) item, noProtected);
       }
     } finally { popScope(); }

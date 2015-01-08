@@ -14,7 +14,7 @@ object Items {
   // A language item, given to us by someone who knows about the surrounding code
   sealed trait Item extends RefEq with Tries.Named with Tries.Delable {
     def name: Name
-    def qualifiedName: Option[Name] // A name that is valid anywhere
+    def qualified: Name = name // Overridden by Member
   }
 
   // Something which we can be inside
@@ -39,6 +39,11 @@ object Items {
     case _:Package => false
     case x:Member => inClass(x.parent,c)
   })
+  // Are we inside a package?
+  @tailrec def inPackage(x: Item, p: Package): Boolean = x==p || (x match {
+    case x:Member => inPackage(x.parent,p)
+    case _ => false
+  })
 
   // Type parameters.  Must be abstract for lazy generation of fresh variables (which can be recursive).
   case class NormalTypeVar(name: String, base: RefType, interfaces: List[ClassType]) extends TypeVar {
@@ -58,21 +63,12 @@ object Items {
   // Packages
   sealed abstract class Package extends Item with SimpleParentItem {
     def simple = this
-    def qualified: String
     override def toString = s"Package($qualified)"
   }
-  case class RootPackage(name: Name) extends Package {
-    def qualified = name
-    def qualifiedName = Some(qualified)
-  }
-  case class ChildPackage(parent: Package, name: Name) extends Package with Member {
-    def qualified = parent.qualified + "." + name
-    override def qualifiedName = Some(qualified)
-  }
+  case class RootPackage(name: Name) extends Package
+  case class ChildPackage(parent: Package, name: Name) extends Package with Member
   case object LocalPkg extends Package {
     def name = ""
-    def qualified = ""
-    def qualifiedName = None
     override def toString = "LocalPkg"
   }
   object Package {
@@ -80,11 +76,6 @@ object Items {
       case Nil => LocalPkg
       case n::ns => ns.foldLeft(RootPackage(n):Package)(ChildPackage)
     }
-  }
-
-  // Annotations
-  case class AnnotationItem(name: Name, qualified: Name) extends Item {
-    def qualifiedName = Some(qualified)
   }
 
   // Types
@@ -98,7 +89,6 @@ object Items {
   abstract class LangTypeItem extends TypeItem {
     def ty: LangType
     val name = show(ty)
-    def qualifiedName = Some(name)
     def supers = Nil
     def superItems = Nil
     def inside = ty
@@ -257,7 +247,6 @@ object Items {
 
   case object ArrayItem extends RefTypeItem {
     def name = "Array"
-    override def qualifiedName = None
     def parent = JavaLangPkg
     private def error = throw new RuntimeException("Array<T> is special: T can be primitive, and is covariant")
     def tparams = error
@@ -270,7 +259,6 @@ object Items {
   }
   case object NoTypeItem extends RefTypeItem {
     def name = "NoTypeItem"
-    override def qualifiedName = None
     def supers = Nil
     def superItems = Nil
     private def error = throw new RuntimeException("NoTypeItem shouldn't be touched")
@@ -281,11 +269,8 @@ object Items {
 
   trait Member extends Item with PackageOrMember {
     def name: Name
-    def parent: ParentItem // Package, class, or callable.
-    def qualifiedName = parent.qualifiedName map {
-      case "" => name
-      case s => s + "." + name
-    }
+    def parent: ParentItem // Package, class, or callable
+    override def qualified = parent.qualified + "." + name
   }
   trait ClassMember extends Member {
     def parent: ClassItem
@@ -297,20 +282,17 @@ object Items {
     def isFinal: Boolean
   }
   case class Local(name: Name, ty: Type, isFinal: Boolean) extends Value {
-    def qualifiedName = None
     override def toString = "local:" + name
     def item = ty.item
   }
   case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
     def name = "this"
-    def qualifiedName = None
     def item = self
     def inside = self.inside
     def isFinal = true
   }
   case class SuperItem(self: ClassType) extends Value with PseudoCallableItem {
     def name = "super"
-    def qualifiedName = None
     def item = self.item
     def inside = self
     def isFinal = true
@@ -322,7 +304,6 @@ object Items {
   }
   case class LitValue(x: Lit) extends Value {
     val name = show(x)
-    val qualifiedName = Some(name)
     val ty = x.ty
     val item = x.item
     def isFinal = true

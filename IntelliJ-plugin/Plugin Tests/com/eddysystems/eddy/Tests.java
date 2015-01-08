@@ -221,7 +221,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       if (!(i instanceof Items.ClassItem))
         continue;
       if (i.name().equals("A") || i.name().equals("B") || i.name().equals("C"))
-        log("found class " + i.name() + " (" + i.qualifiedName() + ")");
+        log("found class " + i.name() + " (" + i.qualified() + ")");
       if (i.name().equals("A"))
         assertEquals("found constructor for " + i + " which should be private and inAccessible", ((Items.ClassItem) i).constructors().length, 0);
       if (i.name().equals("B")) {

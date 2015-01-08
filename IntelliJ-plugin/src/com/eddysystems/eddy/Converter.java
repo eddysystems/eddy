@@ -969,7 +969,7 @@ public class Converter {
         try {
           _inside = env.convertType(f.getType());
         } catch (Exception e) {
-          throw new RuntimeException("LazyField::inside failed: field "+qualifiedName().get()+": "+e.getMessage());
+          throw new RuntimeException("LazyField::inside failed: field "+qualified()+": "+e.getMessage());
         }
       }
       return _inside;

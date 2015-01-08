@@ -45,12 +45,11 @@ object Pr {
     typoProbability(d, typed.length) // could be meant.length, but that's inconsistent with when we don't have meant available
   }
 
-  // generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
+  // Generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
   // for the qualifying objects, and the object chosen as qualifier
   def omitQualifier[A <: ClassMember](probs: Scored[Exp], choice: Exp, item: A): Prob = {
     if (probs.isSingle) Prob("omit one choice",.8) // Only choice
-    else if (choice.item.qualifiedName.nonEmpty && choice.item.qualifiedName.get.startsWith("java.lang."))
-      Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
+    else if (Items.inPackage(choice.item,Base.JavaLangPkg)) Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
   }
 
