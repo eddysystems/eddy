@@ -442,4 +442,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     Eddy eddy = setupEddy(null, "wildcardImport.java");
     checkBest(eddy, "fill(a, binarySearch(a, 5))",.9);
   }
+
+  public void testLiteralFalse() {
+    Eddy eddy = setupEddy(null, "literalFalse.java");
+    checkBest(eddy, "return false;",.9);
+  }
 }
