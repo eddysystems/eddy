@@ -243,7 +243,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testClosingBrace() {
     Eddy eddy = setupEddy(null,"closingBrace.java");
-    checkBest(eddy,"}",.9);
+    checkBest(eddy,"",.9);
   }
 
   public void testPartialEditTypeConflict() {

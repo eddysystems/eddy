@@ -84,8 +84,7 @@ object Mismatch {
         j flatMap (j => mutate(rs,n-abs(i-j)) map ((k,tweak(k,is,j))::_))
     }
 
-  def repair(ts: List[Located[Token]]): Scored[List[Located[Token]]] = {
-    // FIXME: breaks if ensure gets empty list
+  def repair(ts: List[Located[Token]]): Scored[List[Located[Token]]] = if (ts.isEmpty) known(ts) else {
     val rs = ensure(segmentBy(ts map part)(_.x==_.x) map { case ps => (ps.head,ps) })
     if (matched(rs)) known(ts)
     else {
