@@ -463,6 +463,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testWildcardImport() {
     Eddy eddy = setupEddy(null, "wildcardImport.java");
+    checkBest(eddy, "getRuntime().gc();",.9);
+  }
+
+  public void testOverloadedScope() {
+    Eddy eddy = setupEddy(null, "overloadedScope.java");
     checkBest(eddy, "fill(a, binarySearch(a, 5))",.9);
   }
 
