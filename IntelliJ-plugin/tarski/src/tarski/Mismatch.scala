@@ -85,6 +85,7 @@ object Mismatch {
     }
 
   def repair(ts: List[Located[Token]]): Scored[List[Located[Token]]] = {
+    // FIXME: breaks if ensure gets empty list
     val rs = ensure(segmentBy(ts map part)(_.x==_.x) map { case ps => (ps.head,ps) })
     if (matched(rs)) known(ts)
     else {
