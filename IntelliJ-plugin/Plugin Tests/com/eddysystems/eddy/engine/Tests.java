@@ -109,10 +109,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private void dumpResults(final Eddy eddy, final String special) {
-    log("results:");
     final List<Alt<List<String>>> results = eddy.getResults();
+    if (results == null) {
+      log("nothing found.");
+      return;
+    }
     final List<String> strings = eddy.getResultStrings();
     final String sep = "  -------------------------------";
+    log("results:");
     for (int i=0;i<results.size();i++) {
       final Alt<List<String>> r = results.get(i);
       final String s = strings.get(i);
@@ -424,5 +428,18 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     checkBest(eddy, "return false;",.9);
   }
 
-  // TODO: test scope resolution of imported package, * import, or static import (make sure objects are added to scope properly)
+  public void testImport() {
+    Eddy eddy = setupEddy(null, "importScope.java");
+    checkBest(eddy, "List<X> x;",.9);
+  }
+
+  public void testStaticImport() {
+    Eddy eddy = setupEddy(null, "staticImport.java");
+    checkBest(eddy, "List<X> x = asList(a);",.9);
+  }
+
+  public void testWildcardImport() {
+    Eddy eddy = setupEddy(null, "wildcardImport.java");
+    checkBest(eddy, "fill(a, binarySearch(a, 5))",.9);
+  }
 }
