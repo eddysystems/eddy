@@ -852,4 +852,10 @@ class TestDen {
     }
     f(false); f(true)
   }
+
+  @Test def ifNull() = {
+    val x = Local("x",ObjectType,isFinal=true)
+    implicit val env = localEnvWithBase().extendLocal(Array(x))
+    test("if (x == null)",IfStmt(BinaryExp(EqOp,x,NullLit),HoleStmt))
+  }
 }

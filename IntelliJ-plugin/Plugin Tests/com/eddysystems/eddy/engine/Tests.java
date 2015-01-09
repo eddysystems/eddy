@@ -423,13 +423,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testUnresolved() {
     Eddy eddy = setupEddy(null, "unresolved.java");
-    checkBest(eddy,"if (x != null) {}",.9);
-    // mostly shouldn't crash, but  unresolved casses should be reftypes and compare to null fine
+    // Unresolved types are assumed to be references, and thus comparable to null
+    checkBest(eddy,"if (x != null) {\n}",.9);
   }
 
   public void testNullComparison() {
     Eddy eddy = setupEddy(null, "nullComparison.java");
-    checkBest(eddy,"if (x != null) {}",.9);
+    checkBest(eddy,"if (x != null) {\n}",.9);
   }
 
   public void testSpuriousTypeArgs() {

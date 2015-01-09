@@ -268,7 +268,7 @@ public class JavaEnvironment {
       // there may be duplicates, but we don't care
       Arrays.sort(allNames);
 
-    t = new Tries.LazyTrie<Items.Item>(JavaTrie.makeTrieStructure(allNames), new PsiGenerator(project, ProjectScope.getLibrariesScope(project), converter));
+      t = new Tries.LazyTrie<Items.Item>(JavaTrie.makeTrieStructure(allNames), new PsiGenerator(project, ProjectScope.getLibrariesScope(project), converter));
     } finally { popScope(); }
 
     return t;
@@ -310,7 +310,9 @@ public class JavaEnvironment {
   void buildDynamicEnv() {
     pushScope("building project trie");
     try {
-      dTrie = Tarski.makeDTrie(removeConstructors(localItems.values()));
+      final List<Items.Item> items = removeConstructors(localItems.values());
+      items.addAll(Arrays.asList(Base.extraEnv().allItems())); // Add int, false, null, etc.
+      dTrie = Tarski.makeDTrie(items);
       dByItem = JavaItems.valuesByItem(dTrie.values());
 
       // clear volatile stores
