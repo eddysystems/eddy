@@ -175,7 +175,6 @@ public class EddyPlugin implements ProjectComponent {
 
     // initialize the global environment
     if (!app.isHeadlessEnvironment()) {
-      // TODO: maybe run with a ProgressManager function to show a dialog while this is going on
       StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
         @Override
         public void run() {

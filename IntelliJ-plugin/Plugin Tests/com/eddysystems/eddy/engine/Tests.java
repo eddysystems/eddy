@@ -41,8 +41,6 @@ import static com.eddysystems.eddy.engine.Utility.log;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
-  // TODO: initialize global environment once for all tests
-
   static class ProjectDesc implements LightProjectDescriptor {
     @Override
     public ModuleType getModuleType() {
@@ -405,6 +403,26 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     checkBest(eddy,"java.util.ArrayList<Object> x = new java.util.ArrayList<Object>();",.9);
   }
 
+  public void testUnresolved() {
+    Eddy eddy = setupEddy(null, "unresolved.java");
+    checkBest(eddy,"if (x != null) {}",.9);
+    // mostly shouldn't crash, but  unresolved casses should be reftypes and compare to null fine
+  }
+
+  public void testNullComparison() {
+    Eddy eddy = setupEddy(null, "nullComparison.java");
+    checkBest(eddy,"if (x != null) {}",.9);
+  }
+
+  public void testSpuriousTypeArgs() {
+    Eddy eddy = setupEddy(null, "spuriousTypeArgs.java");
+    checkBest(eddy, "Map<X, Y> map = A.f(y);",.9);
+  }
+
+  public void testExtraCode() {
+    Eddy eddy = setupEddy(null, "extraCode.java");
+    checkBest(eddy, "return false;",.9);
+  }
+
   // TODO: test scope resolution of imported package, * import, or static import (make sure objects are added to scope properly)
-  // TODO: test codeblocks that are contained in single line (should not expand past code block)
 }

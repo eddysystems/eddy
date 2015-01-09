@@ -852,6 +852,4 @@ class TestDen {
     }
     f(false); f(true)
   }
-
-  // TODO: test something like x != null for some Object x
 }
