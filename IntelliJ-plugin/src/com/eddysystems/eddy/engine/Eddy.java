@@ -12,9 +12,8 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.impl.source.tree.LeafElement;
-import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
-import com.intellij.psi.impl.source.tree.TreeElement;
+import com.intellij.psi.impl.source.tree.*;
+import com.intellij.psi.impl.source.tree.java.MethodElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -143,119 +142,133 @@ public class Eddy {
     //log("processing at " + lnum + "/" + column);
     log("  current line: " + line);
 
-    // whitespace is counted toward the next token/statement, so start at the beginning of the line
+    PsiElement elem = psifile.findElementAt(pos);
 
-    PsiElement prevLineEnd = psifile.findElementAt(lnum == 0 ? 0 : document.getLineEndOffset(lnum - 1));
-    PsiElement elem = psifile.findElementAt(document.getLineStartOffset(lnum));
-
-    // if we hit whitespace, advance until we find something substantial, or leave the line
-    if (elem instanceof PsiWhiteSpace) {
-      elem = elem.getNextSibling();
-      //log("  found whitespace, next token " + elem);
-      if (!lrange.intersects(elem.getTextRange())) {
-        //log("out of line range");
-        elem = null;
-      }
+    // TODO: remove this once we can handle class/method declarations
+    // Bail if we're not inside a code block
+    PsiElement block = elem;
+    //log("  elem: " + block);
+    while (block != null &&
+           !(block instanceof PsiFile) &&
+           !(block instanceof PsiClass) &&
+           !(block instanceof PsiMethod) &&
+           !(block instanceof PsiCodeBlock)) {
+      block = block.getParent();
+      //log("    block: " + block);
+    }
+    if (!(block instanceof PsiCodeBlock)) {
+      log("  not inside code block, found: " + block);
+      return;
     }
 
-    if (elem != null) {
-      // Bail if we're not inside a code block
-      // TODO: remove this once we can handle class/method declarations
-      PsiElement block = elem;
-      while (block != null && !(block instanceof PsiClass) && !(block instanceof PsiMethod) && !(block instanceof PsiCodeBlock)) {
-        block = block.getParent();
-      }
-      if (!(block instanceof PsiCodeBlock))
-        return;
+    //log("    found code block");
 
-      // parse beginning of the line to the end of the line
-      ASTNode node = elem.getNode();
+    // walk further up, until we hit the containing method
+    while (block != null && !(block instanceof PsiMethod)) {
+      block = block.getParent();
+      //log("    block: " + block);
+    }
 
-      // walk up the tree until the line is fully contained
-      while (node != null && lrange.contains(node.getTextRange())) {
-        //log("  PSI node: " + node.getPsi() + ", contained in this line: " + lrange.contains(node.getTextRange()));
-        node = node.getTreeParent();
-      }
+    if (block == null) {
+      log("  not inside method");
+      return;
+    }
 
-      // then walk the node subtree and output all tokens contained in any statement overlapping with the line
-      // now, node is the AST node we want to interpret.
-      if (node == null) {
-        log("cannot find a node to look at.");
-        return;
-      }
+    // get the method body
+    block = ((CompositeElement)(block.getNode())).findChildByRoleAsPsiElement(ChildRole.METHOD_BODY);
 
-      // get token stream for this node
-      assert node instanceof TreeElement;
+    ASTNode node = block.getNode();
+    if (node == null) {
+      log("  cannot find a node to look at.");
+      return;
+    }
 
-      final List<Located<Tokens.Token>> vtokens = new SmartList<Located<Tokens.Token>>();
-      final List<TextRange> vtokens_ranges = new SmartList<TextRange>();
+    // then walk the node subtree and output all tokens contained in any statement overlapping with the line
+    // now, node is the AST node we want to interpret.
 
-      ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
-        @Override
-        protected boolean visitNode(TreeElement element) {
-          // if the element is not overlapping, don't output any of it
-          if (!lrange.intersects(element.getTextRange())) {
-            return false;
-          }
+    // get token stream for this node
+    assert node instanceof TreeElement;
 
-          if (element instanceof LeafElement) {
-            //log("    node: " + element + " " + element.getTextRange() + " -> " + Tokenizer.psiToTok(element));
-            vtokens_ranges.add(element.getTextRange());
-            vtokens.add(Tokenizer.psiToTok(element));
-          }
+    final List<Located<Tokens.Token>> vtokens = new SmartList<Located<Tokens.Token>>();
+    final List<TextRange> vtokens_ranges = new SmartList<TextRange>();
 
-          return true;
-        }
-      });
-
-      List<Located<Tokens.Token>> tokens = vtokens;
-      List<TextRange> tokens_ranges = vtokens_ranges;
-
-      // Remove leading and trailing whitespace
-      while (!tokens.isEmpty() && tokens.get(0).x() instanceof Tokens.WhitespaceTok) {
-        tokens = tokens.subList(1,tokens.size());
-        tokens_ranges = tokens_ranges.subList(1,tokens_ranges.size());
-      }
-      while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof Tokens.WhitespaceTok) {
-        tokens = tokens.subList(0,tokens.size()-1);
-        tokens_ranges = tokens_ranges.subList(0,tokens_ranges.size()-1);
-      }
-
-      // compute range to be replaced
-      tokens_range = TextRange.EMPTY_RANGE; // TextRange is broken. Argh.
-      if (!tokens_ranges.isEmpty()) {
-        tokens_range = tokens_ranges.get(0);
-        for (TextRange range: tokens_ranges) {
-          tokens_range = tokens_range.union(range);
-        }
-      }
-
-      String before_text = document.getText(tokens_range);
-
-      // place is just before this line
-      place = prevLineEnd;
-
-      // don't do the environment if we're canceled
-      if (canceled)
-        return;
-
-      env = EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(place);
-      final Tarski.Enough enough = new Tarski.Enough() { @Override
-        public boolean enough(Map<List<String>,Object> m) {
-          if (m.size() < 4) return false;
-          if (special == null) return true;
-          final scala.collection.Iterator<List<String>> i =  m.keysIterator();
-          while (i.hasNext()) {
-            final List<String> x = i.next();
-            if (reformat(x).equals(special))
-              return true;
-          }
+    ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
+      @Override
+      protected boolean visitNode(TreeElement element) {
+        // if the element is not overlapping, don't output any of it
+        if (!lrange.intersects(element.getTextRange())) {
           return false;
         }
-      };
-      results = Tarski.fixJava(tokens,env,enough);
-      resultStrings = reformat(results, before_text);
+
+        if (element instanceof LeafElement) {
+          //log("    node: " + element + " " + element.getTextRange() + " -> " + Tokenizer.psiToTok(element));
+          // don't include the opening and closing brace of the outermost code block before we hit the method
+          if ((element.getElementType() == JavaTokenType.LBRACE || element.getElementType() == JavaTokenType.RBRACE) &&
+              element.getTreeParent().getTreeParent() instanceof MethodElement)
+            return true;
+
+          vtokens_ranges.add(element.getTextRange());
+
+          // if this would be the first token added to the stream, remember the previous token as the place where we
+          // compute the environment
+          if (vtokens.isEmpty()) {
+            place = element.getTreePrev().getPsi();
+            assert place != null;
+          }
+
+          vtokens.add(Tokenizer.psiToTok(element));
+        }
+
+        return true;
+      }
+    });
+
+    List<Located<Tokens.Token>> tokens = vtokens;
+    List<TextRange> tokens_ranges = vtokens_ranges;
+
+    // Remove leading and trailing whitespace
+    while (!tokens.isEmpty() && tokens.get(0).x() instanceof Tokens.WhitespaceTok) {
+      tokens = tokens.subList(1,tokens.size());
+      tokens_ranges = tokens_ranges.subList(1,tokens_ranges.size());
     }
+    while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof Tokens.WhitespaceTok) {
+      tokens = tokens.subList(0,tokens.size()-1);
+      tokens_ranges = tokens_ranges.subList(0,tokens_ranges.size()-1);
+    }
+
+    // compute range to be replaced
+    tokens_range = TextRange.EMPTY_RANGE; // TextRange is broken. Argh.
+    if (!tokens_ranges.isEmpty()) {
+      tokens_range = tokens_ranges.get(0);
+      for (TextRange range: tokens_ranges) {
+        tokens_range = tokens_range.union(range);
+      }
+    }
+
+    String before_text = document.getText(tokens_range);
+
+    log("  before: " + before_text);
+
+    // don't do the environment if we're canceled
+    if (canceled)
+      return;
+
+    env = EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(place);
+    final Tarski.Enough enough = new Tarski.Enough() { @Override
+      public boolean enough(Map<List<String>,Object> m) {
+        if (m.size() < 4) return false;
+        if (special == null) return true;
+        final scala.collection.Iterator<List<String>> i =  m.keysIterator();
+        while (i.hasNext()) {
+          final List<String> x = i.next();
+          if (reformat(x).equals(special))
+            return true;
+        }
+        return false;
+      }
+    };
+    results = Tarski.fixJava(tokens,env,enough);
+    resultStrings = reformat(results, before_text);
   }
 
   private List<String> reformat(List<Scores.Alt<List<String>>> results, String before_text) {
