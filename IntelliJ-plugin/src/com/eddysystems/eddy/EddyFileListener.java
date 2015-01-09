@@ -37,6 +37,11 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   private boolean inChange = false;
+  private int lastEditLocation = -1;
+
+  public int getLastEditLocation() {
+    return lastEditLocation;
+  }
 
   public EddyFileListener(@NotNull Project project, TextEditor editor) {
     this.project = project;
@@ -112,7 +117,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
                 sleep(millis);
 
               EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
-              eddy.process(owner.editor,null);
+              eddy.process(owner.editor,owner.getLastEditLocation(),null);
               EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
 
               if (!eddy.foundSomethingUseful() || isInterrupted())
@@ -207,6 +212,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   @Override
   public void documentChanged(DocumentEvent event) {
     inChange = false;
+    lastEditLocation = event.getOffset();
     if (!enabled())
       return;
     process();

@@ -111,7 +111,7 @@ public class Eddy {
     canceled = true;
   }
 
-  public void process(@NotNull Editor editor, final @Nullable String special) {
+  public void process(@NotNull Editor editor, int lastedit, final @Nullable String special) {
     log("processing eddy@" + hashCode() + "...");
     assert project == editor.getProject();
 
@@ -253,7 +253,7 @@ public class Eddy {
     if (canceled)
       return;
 
-    env = EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(place);
+    env = EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(place, lastedit);
     final Tarski.Enough enough = new Tarski.Enough() { @Override
       public boolean enough(Map<List<String>,Object> m) {
         if (m.size() < 4) return false;

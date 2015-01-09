@@ -57,7 +57,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
   final Map<PsiElement,Item> locals;
 
-  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, PsiElement place, boolean honorPrivate) {
+  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, PsiElement place, int lastedit, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
     this.locals = locals;
@@ -68,13 +68,13 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     // this walks up the PSI tree, but also processes import statements
     PsiScopesUtil.treeWalkUp(this, place, place.getContainingFile());
-    fillLocalInfo(jenv);
+    fillLocalInfo(jenv, lastedit);
   }
 
   /**
    * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names, using jenv as a base
    */
-  private void fillLocalInfo(JavaEnvironment jenv) {
+  private void fillLocalInfo(JavaEnvironment jenv, int lastedit) {
 
     // local variables, parameters, type parameters, as well as protected/private things in scope
     final Converter env = new Converter(place,jenv,locals);
@@ -197,8 +197,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
-    final int lastEdit = -1; // TODO
-    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, lastEdit);
+    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, lastedit);
   }
 
   @Override

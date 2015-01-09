@@ -41,7 +41,7 @@ public class EddyQuickFix extends BaseElementAtCaretIntentionAction implements H
   public boolean showHint(@NotNull final Editor editor) {
 
     // Only if it comes up with something will we show a hint.
-    eddy.process(editor,null);
+    eddy.process(editor,-1,null);
 
     if (!eddy.foundSomethingUseful())
       return false;

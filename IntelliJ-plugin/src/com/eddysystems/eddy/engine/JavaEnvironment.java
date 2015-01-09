@@ -328,7 +328,7 @@ public class JavaEnvironment {
   }
 
   // get a combined environment at the given place
-  Environment.Env getLocalEnvironment(PsiElement place) {
+  Environment.Env getLocalEnvironment(PsiElement place, int lastedit) {
     if (localEnvNeedsRebuild()) {
       buildDynamicEnv();
     } else if (byItemNeedsRebuild) {
@@ -336,7 +336,7 @@ public class JavaEnvironment {
     }
 
     // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
-    EnvironmentProcessor ep = new EnvironmentProcessor(project, this, scopeItems, place, true);
+    EnvironmentProcessor ep = new EnvironmentProcessor(project, this, scopeItems, place, lastedit, true);
 
     List<Items.Item> newitems = removeConstructors(ep.localItems);
     newitems.addAll(addedItems.values()); // addedItems never contains constructors (see Converter.put() and changeItemName())

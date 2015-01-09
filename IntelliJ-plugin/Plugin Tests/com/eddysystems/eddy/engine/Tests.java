@@ -76,7 +76,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
-  private Eddy makeEddy(@Nullable String special) {
+  private Eddy makeEddy(@Nullable String special, int lastEdit) {
     // not sure why we have to explicitly call this
     PsiManager.getInstance(myFixture.getProject()).dropResolveCaches();
     EddyPlugin.getInstance(myFixture.getProject()).dropEnv();
@@ -84,7 +84,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     log("Document:");
     log(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject());
-    eddy.process(myFixture.getEditor(),special);
+    if (lastEdit == -1) {
+      lastEdit = myFixture.getEditor().getCaretModel().getOffset();
+    }
+    eddy.process(myFixture.getEditor(),lastEdit,special);
 
     /*
     for (Map.Entry<PsiElement,Item> it : EddyPlugin.getInstance(myFixture.getProject()).getEnv().items.entrySet()) {
@@ -95,17 +98,28 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return eddy;
   }
 
-  private Eddy setupEddy(@Nullable String special, String... filename) {
-    myFixture.configureByFiles(filename);
-    return makeEddy(special);
+  private Eddy setupEddy(@Nullable String special, int lastEdit, String... filename) {
+    pushScope("setup eddy");
+    try {
+      myFixture.configureByFiles(filename);
+      return makeEddy(special, lastEdit);
+    } finally { popScope(); }
   }
 
-  private Eddy setupEddy(@Nullable String special, final String filename) {
+  private Eddy setupEddy(@Nullable String special, int lastEdit, final String filename) {
     pushScope("setup eddy");
     try {
       myFixture.configureByFile(filename);
-      return makeEddy(special);
+      return makeEddy(special, lastEdit);
     } finally { popScope(); }
+  }
+
+  private Eddy setupEddy(@Nullable String special, String... filenames) {
+    return setupEddy(special, -1, filenames);
+  }
+
+  private Eddy setupEddy(@Nullable String special, final String filename) {
+    return setupEddy(special, -1, filename);
   }
 
   private void dumpResults(final Eddy eddy, final String special) {
@@ -312,7 +326,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertNotNull(Super);
     assertNotNull(Interface);
 
-    final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi());
+    final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi(),-1);
 
     // should find sub and sup when looking for Supers
     assertEquals(tenv.byItem(Super).all().right().get().length(), 2);
@@ -325,7 +339,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       log("  sub supers: " + sub.item().supers() + ", items " + sub.item().superItems());
       log("  sub deleted? " + sub.deleted());
 
-      final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi());
+      final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi(),-1);
 
       // should find sup only when looking for Supers
       assertEquals(tenv.byItem(Super).all().right().get().length(), 1);
