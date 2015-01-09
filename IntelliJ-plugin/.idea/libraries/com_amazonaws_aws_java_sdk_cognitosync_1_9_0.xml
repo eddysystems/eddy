@@ -1,0 +1,23 @@
+<component name="libraryTable">
+  <library name="com.amazonaws:aws-java-sdk-cognitosync:1.9.0" type="repository">
+    <properties maven-id="com.amazonaws:aws-java-sdk-cognitosync:1.9.0" />
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/amazonaws/aws-java-sdk-cognitosync/1.9.0/aws-java-sdk-cognitosync-1.9.0.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/amazonaws/aws-java-sdk-core/1.9.0/aws-java-sdk-core-1.9.0.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/commons-logging/commons-logging/1.1.1/commons-logging-1.1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/httpcomponents/httpclient/4.2/httpclient-4.2.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/org/apache/httpcomponents/httpcore/4.2/httpcore-4.2.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/commons-codec/commons-codec/1.6/commons-codec-1.6.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/fasterxml/jackson/core/jackson-core/2.1.1/jackson-core-2.1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/fasterxml/jackson/core/jackson-databind/2.1.1/jackson-databind-2.1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/com/fasterxml/jackson/core/jackson-annotations/2.1.1/jackson-annotations-2.1.1.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/joda-time/joda-time/2.6/joda-time-2.6.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/com/amazonaws/aws-java-sdk-cognitosync/1.9.0/aws-java-sdk-cognitosync-1.9.0-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/amazonaws/aws-java-sdk-cognitosync/1.9.0/aws-java-sdk-cognitosync-1.9.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

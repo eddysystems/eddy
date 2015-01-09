@@ -30,3 +30,13 @@ Clone git@github.com:eddysystems/eddy-plugin, and open it as a directory. It sho
 
 5. To see debug output using the Logger class used in the eddy plugin, make sure you see the IDEA Log in the output, and set the debug level to "all".
 
+
+### Logging
+
+We use the following Amazon services for logging:
+
+1. DynamoDB: An "eddy-log" table with primary key "install" and range key "time".
+   "install" is a cryptographic random number unique to a given installation of eddy, and
+   "time" is gettimeofday (Greenwich time down to microseconds).
+
+2. Cogito: An "eddy users" pool with a role that gives it write-only access to eddy-log.
