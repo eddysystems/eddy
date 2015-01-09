@@ -105,9 +105,8 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   }
 
   boolean isParameter(PsiElement elem) {
-    return elem instanceof PsiParameter;
+    return elem instanceof PsiParameter && elem.getParent() instanceof PsiParameterList;
   }
-
 
   private boolean deleteRecursive(PsiElement elem) {
     // depth first -- we want to be rid of everything below before we delete the common parent

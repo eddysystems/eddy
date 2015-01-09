@@ -4,7 +4,6 @@ import com.eddysystems.eddy.engine.EddyPsiListener;
 import com.eddysystems.eddy.engine.JavaEnvironment;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.progress.PerformInBackgroundOption;
@@ -42,7 +41,7 @@ public class EddyPlugin implements ProjectComponent {
   private PsiTreeChangeListener psiListener = null;
   private JavaEnvironment env = null;
   public JavaEnvironment getEnv() { return env; }
-  public boolean isInitialized() { return env != null; }
+  public boolean isInitialized() { return env.initialized(); }
 
   public void dropEnv() {
     env = null;
@@ -52,7 +51,6 @@ public class EddyPlugin implements ProjectComponent {
 
     if (indicator != null)
       indicator.setIndeterminate(true);
-
 
     pushScope("start init environment");
     try {
@@ -66,6 +64,7 @@ public class EddyPlugin implements ProjectComponent {
         env = new JavaEnvironment(project);
         psiListener = new EddyPsiListener(env);
         PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
+        env.initialize();
       } else {
         final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
         if (sbar != null) {
@@ -75,12 +74,17 @@ public class EddyPlugin implements ProjectComponent {
 
         String err = "";
         try {
-          env = new JavaEnvironment(project);
+          // can't have changes between when we make the environment and when we register the psi listener
+          app.runReadAction(new Runnable() { @Override public void run() {
+            env = new JavaEnvironment(project);
+            psiListener = new EddyPsiListener(env);
+            PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
+          }});
+
+          env.initialize();
 
           log("environment initialized");
 
-          psiListener = new EddyPsiListener(env);
-          PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
         } catch (JavaEnvironment.NoJDKError e) {
           env = null;
           err = e.getMessage();
@@ -117,10 +121,11 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   private void init_internal(final ProgressIndicator indicator) {
+    /*
     DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() {
       @Override
       public void run() {
-
+        // big write action blocks the UI
         app.invokeLater(new Runnable() {
           @Override
           public void run() {
@@ -136,24 +141,19 @@ public class EddyPlugin implements ProjectComponent {
             });
           }
         }, ModalityState.NON_MODAL);
+       */
 
-        /*
-        app.runReadAction(new Runnable() {
-          @Override
-          public void run() {
-            app.invokeLater(new Runnable() { @Override public void run() {
-              if (!widget.installed()) {
-                final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-                if (sbar != null) sbar.addWidget(widget);
-              }
-            }});
-
-            initEnv(indicator);
-          }
-        });
-        */
-      }
-    });
+    DumbService.getInstance(project).runWhenSmart(new Runnable() { @Override public void run() {
+      // either testing or in background
+      assert (app.isHeadlessEnvironment() || !app.isDispatchThread());
+      app.invokeLater(new Runnable() { @Override public void run() {
+        if (!widget.installed()) {
+          final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+          if (sbar != null) sbar.addWidget(widget);
+        }
+      }});
+      initEnv(indicator);
+    }});
   }
 
   public void rescan() {

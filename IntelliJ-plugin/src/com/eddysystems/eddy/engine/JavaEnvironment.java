@@ -1,6 +1,8 @@
 package com.eddysystems.eddy.engine;
 
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Computable;
 import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
@@ -17,7 +19,6 @@ import java.util.*;
 import static ambiguity.JavaUtils.popScope;
 import static ambiguity.JavaUtils.pushScope;
 import static com.eddysystems.eddy.engine.Utility.log;
-import static com.eddysystems.eddy.engine.Utility.processEvents;
 
 // a class storing information about the environment.
 public class JavaEnvironment {
@@ -111,7 +112,12 @@ public class JavaEnvironment {
 
   @NotNull final Project project;
   @NotNull final Converter converter;
-  @NotNull final Tries.LazyTrie<Items.Item> sTrie;
+
+  private boolean _initialized = false;
+
+  public boolean initialized() {
+    return _initialized;
+  }
 
   // global (library) environment. Only added to, never deleted from or changed. All items not in project files go in here
   Map<PsiElement, Items.Item> items = new HashMap<PsiElement, Items.Item>();
@@ -131,6 +137,7 @@ public class JavaEnvironment {
   // when a local env is created, it contains: A global lookup object (created from the global list of all names and a generator object
   // able to translate a name into a list of items), a trie storing Local items, a byItem map for local items, and a trie and byItem map
   // containing items added to locals (but not in the trie yet), and the locals found by the EnvironmentProcessor.
+  Tries.LazyTrie<Items.Item> sTrie = null;
   Tries.DTrie<Items.Item> dTrie = null;
   Map<Items.TypeItem, Items.Value[]> dByItem = null;
 
@@ -140,20 +147,41 @@ public class JavaEnvironment {
   public JavaEnvironment(@NotNull Project project) {
     this.project = project;
     converter = new Converter(new Place(project, null), this, items, localItems, addedItems);
+  }
 
+  public void initialize() {
     pushScope("make base environment");
     try {
       // add base items
-      addBase();
+      DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() {
+        @Override
+        public void run() {
+          addBase();
+        }
+      });
 
-      // store all project items and their dependencies
-      storeProjectClassInfo();
-      buildDynamicEnv();
+      // get all class names
+      final List<String> classNames = new ArrayList<String>();
+      DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() {
+        @Override
+        public void run() {
+          Collections.addAll(classNames, PsiShortNamesCache.getInstance(project).getAllClassNames());
+        }
+      });
+
+      // takes care of read action business inside
+      storeProjectClassInfo(classNames);
+
+      DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() { @Override public void run() {
+        buildDynamicEnv();
+      }});
 
       // make global item generator
-      sTrie = prepareLazyTrie();
+      sTrie = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<Tries.LazyTrie<Items.Item>>() { @Override public Tries.LazyTrie<Items.Item> compute() {
+        return prepareLazyTrie();
+      }});
+      _initialized = true;
     } finally { popScope(); }
-
   }
 
   boolean knows(PsiElement elem) {
@@ -247,7 +275,7 @@ public class JavaEnvironment {
   }
 
   // store all classes and their member in the given scope
-  private void storeProjectClassInfo() {
+  private void storeProjectClassInfo(List<String> classNames) {
     pushScope("store project classes");
     try {
       final GlobalSearchScope scope = ProjectScope.getContentScope(project);
@@ -256,23 +284,18 @@ public class JavaEnvironment {
       final IdFilter filter = IdFilter.getProjectIdFilter(project, false);
       final Processor<PsiClass> proc = new Processor<PsiClass>() {
         @Override
-        public boolean process(PsiClass cls) {
-          if (!place.isInaccessible(cls, true)) {
+        public boolean process(final PsiClass cls) {
+          if (!place.isInaccessible(cls, true))
             converter.addClass(cls, true, true);
-          }
           return true;
           }
       };
 
-      cache.processAllClassNames(new Processor<String>() {
-        @Override
-        public boolean process(String name) {
-          cache.processClassesWithName(name, proc, scope, filter);
-          // keep UI alive
-          processEvents();
-          return true;
-        }
-      }, scope, filter);
+      for (final String s : classNames) {
+        DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() { @Override public void run() {
+            cache.processClassesWithName(s, proc, scope, filter);
+        }});
+      }
     } finally { popScope(); }
   }
 
