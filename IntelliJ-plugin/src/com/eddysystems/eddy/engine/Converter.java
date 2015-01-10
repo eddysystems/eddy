@@ -364,7 +364,8 @@ class Converter {
     UnresolvedClassItem(@NotNull final Converter env, @NotNull final PsiClassReferenceType cls, @Nullable final Parent parent) {
       this.env = env;
       this.cls = cls;
-      _parent = parent == null ? (tarski.Items.Package)env.addContainer(env.place.getElementPackage(cls.getReference())) : parent;
+      PsiPackage pkg = env.place.getElementPackage(cls.getReference());
+      _parent = parent == null ? pkg == null ? LocalPkg$.MODULE$ : (tarski.Items.Package)env.addContainer(pkg) : parent;
 
       if (cls instanceof PsiModifierListOwner)
         _isFinal = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.FINAL);

@@ -476,5 +476,20 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     checkBest(eddy, "return false;",.9);
   }
 
+  public void testIllegalExtends() {
+    Eddy eddy = setupEddy(null, "illegalExtends.java");
+    checkBest(eddy, "int x;", .9);
+  }
+
+  public void testUnresolvedPackage() {
+    Eddy eddy = setupEddy(null, "unresolvedPackage.java");
+    checkBest(eddy, "int x;", .9);
+  }
+
+  public void testInheritedVisibility() {
+    Eddy eddy = setupEddy(null, "inheritedVisibility.java");
+    checkBest(eddy, "removeRange(0, 1);", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }

@@ -57,11 +57,11 @@ class Place {
     }
   }
 
-  @NotNull PsiPackage getElementPackage(@NotNull PsiElement elem) {
+  PsiPackage getElementPackage(@NotNull PsiElement elem) {
     assert (elem instanceof DummyHolder) || !(elem instanceof PsiDirectory) && !(elem instanceof PsiPackage) && !(elem instanceof PsiFile);
-    if (elem.getContainingFile() instanceof PsiClassOwner)
+    if (elem.getContainingFile() instanceof PsiClassOwner) {
       return JavaPsiFacade.getInstance(project).findPackage(((PsiClassOwner)(elem.getContainingFile())).getPackageName());
-    else if (elem.getContext() != null)
+    } else if (elem.getContext() != null)
       // synthetic elements don't believe that they're in a file. Usually though, their parent (or context) knows.
       return getElementPackage(elem.getContext());
 
