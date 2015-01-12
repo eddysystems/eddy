@@ -473,7 +473,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testOverloadedScope() {
     Eddy eddy = setupEddy(null, "overloadedScope.java");
-    checkBest(eddy, "fill(a, binarySearch(a, 5))",.9);
+    checkBest(eddy, "fill(a, binarySearch(a, 5));",.9);
   }
 
   public void testIllegalExtends() {

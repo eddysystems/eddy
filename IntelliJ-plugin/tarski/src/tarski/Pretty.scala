@@ -213,7 +213,8 @@ object Pretty {
     case FieldAExp(e,t,f,_) => fix(FieldFix, left(_,e) ::: DotTok :: tokens(t) ::: tokens(f))
     case MethodRefAExp(e,t,f,_) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: tokens(f))
     case NewRefAExp(e,t,_) => fix(FieldFix, left(_,e) ::: ColonColonTok :: tokens(t) ::: List(NewTok))
-    case TypeApplyAExp(e,t,_,_) => fix(ApplyFix, left(_,e) ::: typeBracket(t))
+    case TypeApplyAExp(e,t,_,true,_)  => fix(ApplyFix, left(_,e) ::: typeBracket(t))
+    case TypeApplyAExp(e,t,_,false,_) => fix(ApplyFix, typeBracket(t) ::: right(_,e))
     case NewAExp(t,e,_) => fix(NewFix, tokens(t) ::: List(NewTok) ::: right(_,e))
     case WildAExp(None,_) => (HighestFix, List(QuestionTok))
     case WildAExp(Some((b,t)),_) => fix(WildFix, QuestionTok :: token(b) :: right(_,t))
@@ -408,19 +409,23 @@ object Pretty {
       (ApplyFix,tokensTypeArgs(ts) ::: List(forward))
     }
     // TODO: If ts is inferable, don't print it
-    f match {
+    val hide = f match {
+      case TypeApply(f,_,true) => f
+      case _ => f
+    }
+    hide match {
       case           LocalMethodDen(f) => pretty(f)
-      case TypeApply(LocalMethodDen(f),ts) => method(ThisExp(env.getThis),ts,f)
+      case TypeApply(LocalMethodDen(f),ts,_) => method(ThisExp(env.getThis),ts,f)
       case           MethodDen(Some(x),f) => method(x,Nil,f)
-      case TypeApply(MethodDen(Some(x),f),ts) => method(x,ts,f)
+      case TypeApply(MethodDen(Some(x),f),ts,_) => method(x,ts,f)
       case           MethodDen(None,f) => pretty(f)
-      case TypeApply(MethodDen(None,f),ts) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
+      case TypeApply(MethodDen(None,f),ts,_) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
       case           NewDen(p,c,ts0) => gnu(p,c,ts0 getOrElse Nil,Nil)
-      case TypeApply(NewDen(p,c,ts0),ts1) => gnu(p,c,ts0 getOrElse Nil,ts1)
+      case TypeApply(NewDen(p,c,ts0),ts1,_) => gnu(p,c,ts0 getOrElse Nil,ts1)
       case           ForwardDen(_,c) => forward(c,Nil)
-      case TypeApply(ForwardDen(_,c),ts) => forward(c,ts)
+      case TypeApply(ForwardDen(_,c),ts,_) => forward(c,ts)
       case           DiscardCallableDen(ds,f) => above(ds,f)
-      case TypeApply(DiscardCallableDen(ds,f),ts) => above(ds,TypeApply(f,ts))
+      case TypeApply(DiscardCallableDen(ds,f),ts,_) => above(ds,TypeApply(f,ts,false))
     }
   }
   def tokensTypeArgs[A](ts: List[A])(implicit p: Pretty[A]): Tokens = ts match {

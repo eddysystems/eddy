@@ -14,6 +14,8 @@ import scala.collection.mutable
 import scala.annotation.tailrec
 
 object Environment {
+  // Turn on to skip all approximate lookups
+  val exactOnly = false
 
   // Information about where we are
   // TODO: add information about static scope
@@ -56,9 +58,12 @@ object Environment {
     private lazy val _inScope: java.util.Set[Item] = {
       val set = new java.util.HashSet[Item]
       Base.extraEnv.allItems foreach { case t:LangTypeItem => set.add(t); case _ => () }
-      val best = new mutable.HashMap[String,(Item,Int)]
-      scope foreach { case (i,n) => if (!best.contains(i.name) || n < best(i.name)._2) best(i.name) = (i,n) }
-      best foreach { case (_,(i,n)) => set.add(i) }
+      val best = new mutable.HashMap[String,(Int,List[Item])]
+      scope foreach { case (i,n) =>
+        val (m,is) = best.getOrElse(i.name,(n,Nil))
+        if (n <= m) best(i.name) = (n,i :: (if (n==m) is else Nil))
+      }
+      best foreach { case (_,(n,is)) => is foreach set.add }
       set
     }
     @inline final def inScope(i: Item): Boolean = _inScope.contains(i)
@@ -124,7 +129,8 @@ object Environment {
         case Nil => as
         case Alt(p,i)::is => approx(is,if (filter.isDefinedAt(i)) Alt(p,filter.apply(i))::as else as)
       }
-      exact(_exactQuery(typed),biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error)))
+      exact(_exactQuery(typed),if (exactOnly) fail(error)
+                               else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error)))
     }
     def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
@@ -135,7 +141,8 @@ object Environment {
         case Nil => as
         case Alt(p,i)::is => approx(is,Alt(p,i)::as)
       }
-      exact(_exactQuery(typed),biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error))) flatMap f
+      exact(_exactQuery(typed),if (exactOnly) fail(error)
+                               else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error))) flatMap f
     }
 
     // Convenience aliases taking String

@@ -11,7 +11,7 @@ import tarski.Items._
 import tarski.Operators._
 import tarski.Pretty._
 import tarski.Scores._
-import tarski.JavaScores.pmul
+import tarski.JavaScores.{pp,pmul}
 import tarski.Tokens._
 import tarski.Types._
 import java.util.IdentityHashMap
@@ -97,11 +97,11 @@ object Semantics {
         if (n == n0) known(absorb(v0,ts => NewDen(p,f,Some(ts))))
         else if (n == n0+n1) known(absorb(v0++v1,ts => {
           val (ts0,ts1) = ts splitAt n0
-          TypeApply(NewDen(p,f,Some(ts0)),ts1)
+          TypeApply(NewDen(p,f,Some(ts0)),ts1,hide=false)
         })) else fail(s"${show(f)} expects $n0 or ${n0+n1} type arguments, got $n")
       case f:NotTypeApply =>
         val vs = f.tparams
-        if (n == vs.size) known(absorb(vs,TypeApply(f,_)))
+        if (n == vs.size) known(absorb(vs,TypeApply(f,_,hide=false)))
         else fail(s"${show(f)}: expects ${vs.size} type arguments, got $n")
       case TypeDen(ds,RawType(c,p)) =>
         val vs = c.tparams
@@ -218,8 +218,8 @@ object Semantics {
   @inline def denoteParent(e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
   @inline def denoteNew   (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
 
-  @inline def knownNotNew[A](m: Mode, x: A): Scored[A] = single(x,if (m.inNew) 1 else Pr.dropNew)
-  @inline def biasedNotNew[A](m: Mode, x: => Scored[A]): Scored[A] = if (m.inNew) x else biased(Pr.dropNew,x)
+  @inline def knownNotNew[A](m: Mode, x: A): Scored[A] = single(x,if (m.inNew) Pr.dropNew else Pr.notDropNew)
+  @inline def biasedNotNew[A](m: Mode, x: => Scored[A]): Scored[A] = if (m.inNew) biased(Pr.dropNew,x) else x
   @inline def dropNew(m: Mode, p: Prob) = if (m.inNew) pmul(p,Pr.dropNew) else p
 
   // Turn f into f(), etc.
@@ -255,10 +255,18 @@ object Semantics {
 
     // Type application.  TODO: add around to TypeApplyAExp
     // For callables, this is C++-style application of type arguments to a generic method
-    case TypeApplyAExp(x,ts,tr,_) => {
+    case TypeApplyAExp(x,ts,tr,after,_) => {
       def n = ts.size
       if (n==0) denote(x,m,expects)
-      else addTypeArgs(denote(x,m.onlyTyCall),ts,tr)
+      else {
+        val mx = m.onlyTyCall | (if (m.exp) CallMode else NoMode)
+        val p = x match {
+          case TypeApplyAExp(_,_,_,after2,_) if after && !after2 => Pr.badNestedTypeArgs
+          case NewAExp(_,_,_) if after => Pr.badNewInsideTypeArgs
+          case _ => Pr.reasonable
+        }
+        biased(p,fixCall(m,expects,addTypeArgs(denote(x,mx),ts,tr)))
+      }
     }
 
     // Explicit new
@@ -438,7 +446,7 @@ object Semantics {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
           case (x:Exp,    f:FieldItem) => single(FieldExp(Some(x),f),
                                                  if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
-          case (t:TypeDen,f:FieldItem) => if (f.isStatic) single(FieldExp(None,f).discard(t.discards),Pr.staticFieldExp)
+          case (t:TypeDen,f:FieldItem) => if (f.isStatic) known(FieldExp(None,f).discard(t.discards))
                                           else fail(s"Can't access non-static field $f without object")
         }
         case f:TypeItem =>
@@ -533,7 +541,7 @@ object Semantics {
     case NameAExp(n,_) => Some(n)
     case ParenAExp(e,_,_) => guessItem(e)
     case FieldAExp(_,_,f,_) => Some(f)
-    case TypeApplyAExp(e,_,_,_) => guessItem(e)
+    case TypeApplyAExp(e,_,_,_,_) => guessItem(e)
     case ApplyAExp(e,_,_,_) => guessItem(e)
     case _ => None
   }
@@ -546,7 +554,7 @@ object Semantics {
         @tailrec def best(px: Double, x: ClassType, ys: List[RefType]): ClassType = ys match {
           case Nil => x
           case (y:ClassType)::ys =>
-            val py = Pr.typoProbability(y.item.name,goal)
+            val py = pp(Pr.typoProbability(y.item.name,goal))
             if (py > px) best(py,y,ys)
             else best(px,x,ys)
           case _::ys => best(px,x,ys)

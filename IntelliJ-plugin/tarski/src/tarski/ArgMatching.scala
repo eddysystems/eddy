@@ -27,7 +27,7 @@ object ArgMatching {
     val na = args.size
     def process(k: Int, targs: List[TypeArg], used: List[Exp], unused: Exps): Scored[A] = {
       if (k == n)
-        cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,targs),used),unused)
+        cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,targs,hide=true),used),unused)
       else {
         def add(x: Exp, xs: List[Scored[Exp]]): Scored[A] = {
           val args = used :+ x
@@ -66,11 +66,11 @@ object ArgMatching {
       if (f.tparams.size == 0) cont(ApplyExp(f,Nil),args)
       else resolveOptions(List(f),Nil,if (args.isEmpty) expects else None) match {
         case Nil => fail(s"Can't apply $f to no arguments")
-        case List((f0,ts)) if f eq f0 => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts),Nil),args)
+        case List((f0,ts)) if f eq f0 => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts,hide=true),Nil),args)
         case _ => impossible
       }
     if (!useEnv && n > na) fail(s"Too few arguments for function $f: $na < $n")
     else orError(biased(Pr.dropArgs(math.max(0,na-n)),if (n>0) process(0,null,Nil,args) else processNullary),
-                 s"Can't match arguments for function $f.")
+                 s"Can't match arguments for function $f")
   }
 }

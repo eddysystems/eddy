@@ -119,8 +119,12 @@ object Pr {
   // new in front of a non-constructor callable
   val dropNew = Prob("drop new",.1)
 
+  // (<A1>C)<A2> without parentheses
+  val badNestedTypeArgs = Prob("bad nested type args",.1)
+  // (new C)<A> without parentheses
+  val badNewInsideTypeArgs = Prob("new inside type args",.1)
+
   // denoteExp(AExp)
-  val staticFieldExp = base
   val staticFieldExpWithObject = Prob("static field with object",.7)
   val fieldExp = base
   def callExp(list: AST.KList[AST.AExp], around: AST.Around) =
@@ -182,4 +186,6 @@ object Pr {
   val forwardThis = Prob("forward this",1)
   val forwardSuper = Prob("forward super",1)
   val constructor = Prob("constructor",1)
+  val notDropNew = Prob("not drop new",1)
+  val reasonable = Prob("reasonable",1)
 }

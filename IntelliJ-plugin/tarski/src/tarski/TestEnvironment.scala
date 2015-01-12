@@ -124,4 +124,7 @@ class TestEnvironment {
 
     assertEquals("Trie query failed to find high probability item(s).", qr, lr)
   }
+
+  // Warn if exactOnly is true
+  @Test def noExactOnly(): Unit = assertEquals(false,exactOnly)
 }

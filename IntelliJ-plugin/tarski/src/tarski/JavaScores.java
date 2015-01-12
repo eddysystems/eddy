@@ -8,7 +8,7 @@ import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
-
+import java.util.ArrayList;
 import java.util.PriorityQueue;
 
 import static java.lang.Math.max;
@@ -41,11 +41,13 @@ public class JavaScores {
     public boolean equals(Object y) { return y instanceof DebugProb && prob==((DebugProb)y).prob; }
     final public String toString() { return ""+prob; }
     abstract public Scores.Error pretty();
+    public boolean known() { return false; }
   }
   static final class NameProb extends DebugProb {
     final String name;
     NameProb(String name, double prob) { super(prob); this.name = name; }
     final public Scores.Error pretty() { return new OneError(prob+" : "+name); }
+    @Override public boolean known() { return prob==1 && name.equals("known"); }
   }
   static private NestError nest(String e, Scores.Error... es) {
     List xs = (List)Nil$.MODULE$;
@@ -61,8 +63,8 @@ public class JavaScores {
       return nest("* : "+prob,es.toArray(new Scores.Error[es.size()]));
     }
     private void flatten(ArrayList<Scores.Error> es) {
-      if (x instanceof MulProb) ((MulProb)x).flatten(es); else es.add(x.pretty());
-      if (y instanceof MulProb) ((MulProb)y).flatten(es); else es.add(y.pretty());
+      if (x instanceof MulProb) ((MulProb)x).flatten(es); else if (!x.known()) es.add(x.pretty());
+      if (y instanceof MulProb) ((MulProb)y).flatten(es); else if (!y.known()) es.add(y.pretty());
     }
   }
   static final class AddProb extends DebugProb {
@@ -198,7 +200,7 @@ public class JavaScores {
 
   // Requires p >= then.p()
   static public <A> Scored<A> uniformThen(double/*Prob*/ p, A[] xs, Scored<A> then) {
-    assert p >= then.p();
+    assert pp(p) >= then.p();
     if (xs != null && xs.length>0) {
       if (trackErrors)
         then = Scores.good(then);
@@ -208,7 +210,7 @@ public class JavaScores {
     return then;
   }
   static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<A> xs, Scored<A> then) {
-    assert p >= then.p();
+    assert pp(p) >= then.p();
     if (xs.isEmpty())
       return then;
     if (trackErrors)

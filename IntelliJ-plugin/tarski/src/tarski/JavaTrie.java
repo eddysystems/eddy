@@ -4,6 +4,7 @@ import ambiguity.JavaUtils;
 import com.intellij.util.SmartList;
 import java.util.ArrayList;
 import java.util.List;
+import tarski.JavaScores.*;
 
 public class JavaTrie {
 
@@ -380,7 +381,8 @@ public class JavaTrie {
             if (p > minProb) {
               V[] vs = (V[])lookup.lookup(name);
               for (V v : vs) {
-                result.add(new tarski.Scores.Alt<V>(p, v));
+                //final DebugProb dp = new NameProb("typo",p); // Leave this line here for trackProbabilities use
+                result.add(new tarski.Scores.Alt<V>(p,v));
               }
             }
           }
@@ -473,6 +475,7 @@ public class JavaTrie {
             final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
             if (p >= minProb)
               for (int i=lo;i<hi;i++) {
+                //final DebugProb dp = new NameProb("typo",p); // Leave this line here for trackProbabilities use
                 result.add(new tarski.Scores.Alt<V>(p,values[i]));
               }
           }

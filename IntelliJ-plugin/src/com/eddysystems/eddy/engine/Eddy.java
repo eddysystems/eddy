@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import scala.collection.immutable.Map;
 import tarski.Environment;
 import tarski.Scores;
+import tarski.JavaScores.*;
 import tarski.Tarski;
 import tarski.Tokens;
 
