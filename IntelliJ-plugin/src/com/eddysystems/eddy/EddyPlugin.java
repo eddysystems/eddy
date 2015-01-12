@@ -136,21 +136,29 @@ public class EddyPlugin implements ProjectComponent {
       initializing = true;
     }
 
-    // schedule initialization if necessary (on a different thread)
-    ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
-      @Override public boolean shouldStartInBackground() { return true; }
-      @Override public void processSentToBackground() { }
-    }) {
-      @Override
-      public void run(@NotNull final ProgressIndicator indicator) {
-        // either testing or in background
-        assert (app.isHeadlessEnvironment() || !app.isDispatchThread());
+    // schedule initialization if necessary
+    final Runnable init = new Runnable() { @Override public void run() {
+      ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
+        @Override public boolean shouldStartInBackground() { return true; }
+        @Override public void processSentToBackground() { }
+      }) {
+        @Override
+        public void run(@NotNull final ProgressIndicator indicator) {
+          // either testing or in background
+          assert (app.isHeadlessEnvironment() || !app.isDispatchThread());
 
-        DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() { @Override public void run() {
-          initEnv(indicator);
-        }});
-      }
-    });
+          DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() { @Override public void run() {
+            initEnv(indicator);
+          }});
+        }
+      });
+    }};
+
+    if (app.isDispatchThread()) {
+      init.run();
+    } else {
+      app.invokeLater(init);
+    }
   }
 
   public void initComponent() {
