@@ -587,21 +587,30 @@ class Converter {
 
     public scala.collection.immutable.List<RefType> supers() {
       if (_supers == null) {
-        PsiClass base = cls.getSuperClass();
         ArrayList<RefType> supers = new ArrayList<RefType>();
         for (PsiClassType stype : cls.getSuperTypes()) {
           ClassType sc = (ClassType)env.convertType(stype);
           PsiClass stypeClass = stype.resolve();
-          if (base == stypeClass)
-            _base = sc;
+
+          // if the code illegally uses an interface in the extends clause, we assume it meant to use that interface in
+          // the implements clause. If more than one class are inherited from, use the first one mentioned as base.
+          if (stypeClass != null && !stypeClass.isInterface())
+            if (_base == null) // first non-interface in supers is base.
+              _base = sc;
+            else // other non-interfaces in supers
+              log("multiple class inheritance in " + this + ": at least " + _base + " and " + stypeClass);
           supers.add(sc);
         }
         if (_base == null) {
-          if (base != null)
+          PsiClass base = cls.getSuperClass();
+          if (base != null && !base.isInterface())
             _base = ((ClassItem)env.addClass(base,false,false)).inside();
-          else
+          else {
+            if (base != null)
+              log("class " + this + " extends interface: " + base);
             // base can be null if JDK is not defined, for Object (should be impossible), and for scala traits
             _base = ObjectType$.MODULE$;
+          }
         }
         _supers = JavaConversions.asScalaBuffer(supers).toList();
       }

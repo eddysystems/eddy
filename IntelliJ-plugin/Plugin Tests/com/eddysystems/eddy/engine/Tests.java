@@ -451,6 +451,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     checkBest(eddy, "return false;",.9);
   }
 
+  public void testLiteralFalse() {
+    Eddy eddy = setupEddy(null, "literalFalse.java");
+    checkBest(eddy, "return false;",.9);
+  }
+
   public void testImport() {
     Eddy eddy = setupEddy(null, "importScope.java");
     checkBest(eddy, "List<X> x;",.9);
@@ -469,11 +474,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testOverloadedScope() {
     Eddy eddy = setupEddy(null, "overloadedScope.java");
     checkBest(eddy, "fill(a, binarySearch(a, 5))",.9);
-  }
-
-  public void testLiteralFalse() {
-    Eddy eddy = setupEddy(null, "literalFalse.java");
-    checkBest(eddy, "return false;",.9);
   }
 
   public void testIllegalExtends() {
