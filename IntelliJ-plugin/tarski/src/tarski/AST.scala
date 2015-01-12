@@ -28,7 +28,7 @@ object AST {
     def map[B](f: A => B): KList[B]
     def size = list.size
   }
-  case object EmptyList extends KList {
+  case object EmptyList extends KList[Nothing] {
     def list = Nil
     def map[B](f: Nothing => B) = EmptyList
   }
