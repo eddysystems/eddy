@@ -1,10 +1,7 @@
-package test;
-
-import static java.util.Arrays.*;
+import static java.lang.Runtime.*;
 
 class X {
   void f() {
-    int[] a = new int[10];
-    fill(a, binarySearch(a, 5))<caret>
+    getRuntime().gc()<caret>
   }
 }

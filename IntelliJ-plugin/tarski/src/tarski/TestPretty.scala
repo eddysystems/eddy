@@ -65,4 +65,22 @@ class TestPretty {
   @Test def wild() = test("?",WildSub())
   @Test def wildSub() = test("? extends Number",WildSub(NumberItem.simple))
   @Test def wildSuper() = test("? super Number",WildSuper(NumberItem.simple))
+
+  @Test def scopeMethod() = {
+    val A = NormalClassItem("A", LocalPkg)
+    val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=true)
+    val B = NormalClassItem("B", LocalPkg)
+    val g = NormalMethodItem("g",A,Nil,VoidType,Nil,isStatic=false)
+    implicit val env = Env(Array(A,f,B,g), Map((f,3)),PlaceInfo(g))
+    test("f", MethodDen(None,f))
+  }
+
+  @Test def applyFixity() = {
+    val A = NormalClassItem("A", LocalPkg)
+    val a = Local("a", A.simple, isFinal=false);
+    val f = NormalMethodItem("f",A,Nil,A.simple,Nil,isStatic=true)
+    implicit val env = Env(Array(A,f,a), Map((a,1),(f,2)),PlaceInfo(f))
+    test("a.f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(Some(LocalExp(a)),f),List())),f),List()))
+    test("f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(None,f),List())),f),List()))
+  }
 }

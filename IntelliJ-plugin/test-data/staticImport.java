@@ -1,11 +1,9 @@
 package test;
 
-import java.util.List;
-import static java.util.Arrays.asList;
+import static java.lang.System.out;
 
 class X {
   void f() {
-    X[] a = new X[5];
-    List<X> x = asList(a)<caret>
+    out.println("test")<caret>
   }
 }

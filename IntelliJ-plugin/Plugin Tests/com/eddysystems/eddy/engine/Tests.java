@@ -76,8 +76,17 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     return System.getProperty("data.dir");
   }
 
+  private boolean isSetUp = false;
+  protected void setUp() throws Exception {
+    super.setUp();
+    isSetUp = true;
+  }
+
   private Eddy makeEddy(@Nullable String special, int lastEdit) {
-    // not sure why we have to explicitly call this
+    if (!isSetUp) try {
+      setUp();
+    } catch (Exception e) { log("setup threw: " + e); }
+
     PsiManager.getInstance(myFixture.getProject()).dropResolveCaches();
     EddyPlugin.getInstance(myFixture.getProject()).dropEnv();
     EddyPlugin.getInstance(myFixture.getProject()).initEnv(null);
@@ -442,6 +451,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     checkBest(eddy, "return false;",.9);
   }
 
+  public void testLiteralFalse() {
+    Eddy eddy = setupEddy(null, "literalFalse.java");
+    checkBest(eddy, "return false;",.9);
+  }
+
   public void testImport() {
     Eddy eddy = setupEddy(null, "importScope.java");
     checkBest(eddy, "List<X> x;",.9);
@@ -449,16 +463,33 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testStaticImport() {
     Eddy eddy = setupEddy(null, "staticImport.java");
-    checkBest(eddy, "List<X> x = asList(a);",.9);
+    checkBest(eddy, "out.println(\"test\");",.9);
   }
 
   public void testWildcardImport() {
     Eddy eddy = setupEddy(null, "wildcardImport.java");
+    checkBest(eddy, "getRuntime().gc();",.9);
+  }
+
+  public void testOverloadedScope() {
+    Eddy eddy = setupEddy(null, "overloadedScope.java");
     checkBest(eddy, "fill(a, binarySearch(a, 5))",.9);
   }
 
-  public void testLiteralFalse() {
-    Eddy eddy = setupEddy(null, "literalFalse.java");
-    checkBest(eddy, "return false;",.9);
+  public void testIllegalExtends() {
+    Eddy eddy = setupEddy(null, "illegalExtends.java");
+    checkBest(eddy, "int x;", .9);
   }
+
+  public void testUnresolvedPackage() {
+    Eddy eddy = setupEddy(null, "unresolvedPackage.java");
+    checkBest(eddy, "int x;", .9);
+  }
+
+  public void testInheritedVisibility() {
+    Eddy eddy = setupEddy(null, "inheritedVisibility.java");
+    checkBest(eddy, "removeRange(0, 1);", .9);
+  }
+
+  // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }

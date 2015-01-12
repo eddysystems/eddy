@@ -85,8 +85,8 @@ object Pretty {
   val WildFix      = N("Wild") // ? extends T (? alone is HighestFix)
   val JuxtFix      = N("Juxt") // Juxtaposition lists
   val NewFix       = N("New") // new x
-  val ApplyFix     = L("Apply") // x[y], x(y)
   val FieldFix     = L("Field") // x.y
+  val ApplyFix     = L("Apply") // x[y], x(y)
   val HighestFix   = N("Highest") // Parentheses, etc.
 
   // Top level pretty printing
