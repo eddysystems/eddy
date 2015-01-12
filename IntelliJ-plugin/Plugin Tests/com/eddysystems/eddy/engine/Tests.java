@@ -487,7 +487,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testPrivateCons() {
-    testMargin("privateCons.java", "test();", .9);
+    testMargin("privateCons.java", "this();", .9);
   }
 
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
