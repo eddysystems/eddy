@@ -58,9 +58,12 @@ object Environment {
     private lazy val _inScope: java.util.Set[Item] = {
       val set = new java.util.HashSet[Item]
       Base.extraEnv.allItems foreach { case t:LangTypeItem => set.add(t); case _ => () }
-      val best = new mutable.HashMap[String,(Item,Int)]
-      scope foreach { case (i,n) => if (!best.contains(i.name) || n < best(i.name)._2) best(i.name) = (i,n) }
-      best foreach { case (_,(i,n)) => set.add(i) }
+      val best = new mutable.HashMap[String,(Int,List[Item])]
+      scope foreach { case (i,n) =>
+        val (m,is) = best.getOrElse(i.name,(n,Nil))
+        if (n <= m) best(i.name) = (n,i :: (if (n==m) is else Nil))
+      }
+      best foreach { case (_,(n,is)) => is foreach set.add }
       set
     }
     @inline final def inScope(i: Item): Boolean = _inScope.contains(i)
