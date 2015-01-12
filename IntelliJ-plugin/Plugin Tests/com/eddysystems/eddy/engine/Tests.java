@@ -492,5 +492,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     checkBest(eddy, "removeRange(0, 1);", .9);
   }
 
+  public void testLocalClass() {
+    Eddy eddy = setupEddy(null, "localClass.java");
+    checkBest(eddy, "test();", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }
