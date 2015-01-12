@@ -40,7 +40,7 @@ object Scores {
     def p: Double
 
     // These force some evaluation
-    private final def strict: StrictScored[A] = {
+    final def strict: StrictScored[A] = {
       @tailrec def loop(x: Scored[A]): StrictScored[A] = x match {
         case x:StrictScored[A] => x
         case x:LazyScored[A] => loop(x force 0)
@@ -67,6 +67,10 @@ object Scores {
       case Best(_,_,r) => r.isEmpty
       case _:EmptyOrBad => false
     }
+    @tailrec final def below(q: Double): Boolean = p <= q || (this match {
+      case s:LazyScored[A] => s.force(q).below(q)
+      case _ => false
+    })
 
     // Multiply all probabilities by p.  For internal use only: users should call biased(p,s).
     def _bias(p: Prob): Scored[A]

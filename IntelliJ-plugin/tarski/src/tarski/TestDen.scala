@@ -25,28 +25,34 @@ class TestDen {
   // Default to an empty local environment
   implicit val env = localEnvWithBase()
 
-  def testHelper[A](input: String, best: Env => A)(implicit env: Env, convert: A => List[Stmt]): Unit = {
+  def testHelper[A](input: String, best: Env => A, margin: Double = .9)(implicit env: Env, convert: A => List[Stmt]): Unit = {
     val fixes = fix(lex(input))
-    //println(fixes)
-    fixes.best match {
-      case Left(e) => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.prefixed("error: "))
-      case Right(Alt(p,(env,s))) =>
+    fixes.strict match {
+      case e:EmptyOrBad => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.error.prefixed("error: "))
+      case Best(p,(env,s),rest) =>
         val b = convert(best(env))
         def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env))
+        def fp(p: Prob) = pp(p) + (if (!trackProbabilities) "" else s"\n${ppretty(p).prefixed("  ")}")
         if (b != s) {
           val ep = probOf(fixes,env => convert(best(env)))
-          def f(p: Prob) = if (!trackProbabilities) "" else s"\n${ppretty(p).prefixed("  ")}"
           throw new AssertionError(s"Denotation test failed:\ninput: $input" +
                                    s"\nexpected: ${sh(b)}\nactual  : ${sh(s)}" +
-                                   s"\nexpected p = ${pp(ep)}${f(ep)}" +
-                                   s"\nactual   p = ${pp(p)}${f(p)}" +
+                                   s"\nexpected p = ${fp(ep)}" +
+                                   s"\nactual   p = ${fp(p)}" +
                                    s"\nexpected (full): $b\nactual   (full): $s")
+        } else if (!rest.below(margin*pp(p))) {
+          val n = rest.stream.head
+          throw new AssertionError(s"Denotation test failed:\ninput: $input" +
+                                   s"\nwanted margin $margin, got ${pp(n.dp)} / ${pp(p)} = ${pp(n.dp) / pp(p)}" +
+                                   s"\nbest: ${sh(b)}\nnext: ${sh(n.x._2)}" +
+                                   s"\nbest p = ${fp(p)}" +
+                                   s"\nnext p = ${fp(n.dp)}")
         }
     }
   }
 
-  def test[A](input: String, best: A)(implicit env: Env, c: A => List[Stmt]): Unit =
-    testHelper(input, env => best)
+  def test[A](input: String, best: A, margin: Double = .9)(implicit env: Env, c: A => List[Stmt]): Unit =
+    testHelper(input, env => best, margin=margin)
   def test[A](input: String, x: Name, best: Local => A)(implicit env: Env, c: A => List[Stmt]): Unit =
     testHelper(input, env => best(env.exactLocal(x)))
   def test[A](input: String, x: Name, y: Name, best: (Local,Local) => A)(implicit env: Env, c: A => List[Stmt]): Unit =
@@ -369,7 +375,7 @@ class TestDen {
   }
   @Test def ifStmt()       = test ("if (true);", IfStmt(t,e))
   @Test def ifHole()       = test ("if (true)", IfStmt(t,h))
-  @Test def ifBare()       = test ("if true;", IfStmt(t,e))
+  @Test def ifBare()       = test ("if true;", IfStmt(t,e), margin=.99)
   @Test def ifBareHole()   = test ("if true", IfStmt(t,h))
   @Test def ifThen()       = test ("if true then;", IfStmt(t,e))
   @Test def ifThenHole()   = test ("if true then", IfStmt(t,h))
@@ -509,7 +515,7 @@ class TestDen {
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,isStatic=false)
     implicit val env = localEnv(X,cons,f)
     val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(None,cons),Nil)),f),Nil)
-    test("((X()).f()",best)
+    test("((X()).f()",best,margin=1)
     test("((X()).f(",best)
   }
 
