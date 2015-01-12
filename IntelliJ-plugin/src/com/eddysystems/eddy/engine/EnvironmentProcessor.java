@@ -113,7 +113,6 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
         scopeItems.put(ivar,svar.shadowingPriority);
       } else {
         assert !jenv.knows(var);
-        assert !locals.containsKey(var);
         final Type t = env.convertType(var.getType());
         final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
         final Item i = new Local(var.getName(),t,isFinal);
