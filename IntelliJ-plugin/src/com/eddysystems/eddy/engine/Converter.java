@@ -156,7 +156,8 @@ class Converter {
       if (tcls == null) {
         // we don't know how to deal with unresolved things that are not references.
         assert t instanceof PsiClassReferenceType;
-        // ClassType cannot be resolved to a Class (probably because its class file is missing or the code is incomplete)
+        // ClassType cannot be resolved to a Class (probably because its class file is missing or the code is incomplete
+        // or there is an error)
         return new UnresolvedClassItem(this, (PsiClassReferenceType)t, parent).generic();
       } else if (tcls instanceof PsiTypeParameter) {
         return addTypeParam((PsiTypeParameter) tcls);
@@ -372,7 +373,7 @@ class Converter {
 
       List<TypeArg> jargs = new SmartList<TypeArg>();
       for (PsiType arg : cls.getParameters())
-        jargs.add(env.convertTypeArg(arg,_parent));
+        jargs.add(env.convertTypeArg(arg,parent));
       _targs = scala.collection.JavaConversions.asScalaBuffer(jargs).toList();
     }
 
