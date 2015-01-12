@@ -23,8 +23,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static ambiguity.JavaUtils.popScope;
-import static ambiguity.JavaUtils.pushScope;
+import static utility.JavaUtils.popScope;
+import static utility.JavaUtils.pushScope;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyPlugin implements ProjectComponent {

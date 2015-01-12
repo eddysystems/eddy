@@ -2,8 +2,8 @@ package tarski
 
 import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 
-import ambiguity.Utility._
-import ambiguity.Locations._
+import utility.Utility._
+import utility.Locations._
 import tarski.JavaItems._
 import tarski.Items._
 import tarski.Scores._

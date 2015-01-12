@@ -1,5 +1,7 @@
 package ambiguity
-import ambiguity.Utility._
+
+import utility.Utility
+import Utility._
 import scala.collection.mutable
 import scala.util.matching.Regex
 import scala.math.min

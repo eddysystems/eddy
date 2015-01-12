@@ -1,12 +1,12 @@
 package tarski
 
+import utility.JavaUtils.poissonPDF
 import tarski.AST.CommaList
-import tarski.Denotations.{Callable, Exp}
+import tarski.Denotations.Exp
 import tarski.Items.{ClassMember, FieldItem, MethodItem, TypeItem}
 import tarski.Scores._
 import tarski.Types.Type
 import tarski.JavaScores._
-import ambiguity.JavaUtils.poissonPDF
 
 object Pr {
 

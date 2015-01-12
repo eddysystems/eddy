@@ -1,7 +1,7 @@
 package tarski
 
-import ambiguity.Utility._
-import ambiguity.Locations._
+import utility.Utility._
+import utility.Locations._
 import tarski.Scores._
 import tarski.Tokens._
 import scala.annotation.tailrec

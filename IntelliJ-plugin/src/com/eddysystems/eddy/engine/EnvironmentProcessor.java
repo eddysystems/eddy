@@ -1,6 +1,6 @@
 package com.eddysystems.eddy.engine;
 
-import ambiguity.Locations;
+import utility.Locations;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.scope.BaseScopeProcessor;

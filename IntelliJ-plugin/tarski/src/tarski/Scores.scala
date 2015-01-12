@@ -1,10 +1,8 @@
 package tarski
 
+import utility.Utility._
 import scala.annotation.tailrec
-import scala.math._
 import tarski.JavaScores._
-import ambiguity.Utility._
-import scala.reflect.ClassTag
 
 object Scores {
   /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability

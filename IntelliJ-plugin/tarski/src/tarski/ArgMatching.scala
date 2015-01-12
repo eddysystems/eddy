@@ -7,7 +7,7 @@ import tarski.JavaScores._
 import tarski.Types._
 import tarski.Semantics.denoteValue
 import tarski.Tokens._
-import ambiguity.Utility._
+import utility.Utility._
 import scala.annotation.tailrec
 
 object ArgMatching {

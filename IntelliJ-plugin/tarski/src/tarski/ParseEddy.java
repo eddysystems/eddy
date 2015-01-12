@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import scala.Tuple2;
 import scala.Tuple3;
 import scala.Option;
-import static ambiguity.Locations.*;
+import static utility.Locations.*;
 import static tarski.ParseEddyActions.*;
 
 class ParseEddy {

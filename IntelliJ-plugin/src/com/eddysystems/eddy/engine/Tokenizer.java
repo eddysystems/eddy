@@ -1,7 +1,7 @@
 package com.eddysystems.eddy.engine;
 
-import ambiguity.Locations;
-import ambiguity.Locations.Located;
+import utility.Locations;
+import utility.Locations.Located;
 import com.intellij.lang.java.lexer.JavaLexer;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.JavaTokenType;

@@ -11,6 +11,9 @@ $(PARSE): $(AMBIGUITY) $(GRAM)
 $(ACTIONS): $(AMBIGUITY) $(GRAM)
 	java -jar $(AMBIGUITY) -a $(GRAM) > $(ACTIONS)
 
+eddy.jar: eddy.zip shrink.pro
+	proguard @shrink.pro 2>&1 | tee blah
+
 .PHONY: clean
 clean:
 	rm -f $(PARSE) $(ACTIONS)

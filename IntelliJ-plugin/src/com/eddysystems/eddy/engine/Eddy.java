@@ -1,6 +1,6 @@
 package com.eddysystems.eddy.engine;
 
-import ambiguity.Locations.Located;
+import utility.Locations.Located;
 import com.eddysystems.eddy.EddyPlugin;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;

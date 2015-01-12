@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static ambiguity.JavaUtils.scalaList;
+import static utility.JavaUtils.scalaList;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 class Converter {
