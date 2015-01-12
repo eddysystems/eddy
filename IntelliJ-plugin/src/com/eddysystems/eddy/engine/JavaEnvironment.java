@@ -37,12 +37,7 @@ public class JavaEnvironment {
     final Project project;
     final GlobalSearchScope scope;
     final PsiShortNamesCache psicache;
-    final IdFilter filter = new IdFilter() {
-      @Override
-      public boolean containsFileId(int id) {
-        return true;
-      }
-    };
+    final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
     final Place place;
     final Converter converter;
     final List<Items.Item> results = new ArrayList<Items.Item>();

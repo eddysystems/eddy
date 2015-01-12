@@ -113,10 +113,6 @@ class Converter {
     }
   }
 
-  static boolean isJava(PsiElement elem) {
-    return elem.getLanguage().isKindOf(java);
-  }
-
   // return type is null *and* has same name as containing class
   static boolean isConstructor(PsiMethod elem) {
     // elem.isConstructor checks whether the method has a null return type element
@@ -639,6 +635,7 @@ class Converter {
         for (PsiMethod m : cls.getConstructors())
           if (isConstructor(m)) {
             found = true;
+            // TODO: we have to recompute this every time, or store all constructors (incl. non-public), since the place information may change from when we (and the env) are created, and when this is queried.
             if (!env.place.isInaccessible(m,false))
               cons.add((ConstructorItem)env.addMethod(m));
           }
