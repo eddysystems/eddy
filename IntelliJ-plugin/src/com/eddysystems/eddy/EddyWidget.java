@@ -3,36 +3,35 @@ package com.eddysystems.eddy;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.StatusBarWidget;
+import com.intellij.openapi.wm.WindowManager;
 import com.intellij.util.Consumer;
 import com.intellij.util.PathUtil;
+import com.intellij.util.ResourceUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.net.URL;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
 class EddyWidget implements StatusBarWidget {
 
-  static private boolean icons_initialized = false;
   private Icon eddyIcon;
   private Icon eddyIconGray;
 
-  class EddyWidgetPresentation implements IconPresentation {
-
+  class EddyPresentation implements WidgetPresentation {
     private boolean _busy = false;
-
     public boolean busy() {
       return _busy;
     }
-
     public void setBusy(boolean b) {
       _busy = b;
     }
 
-    @Nullable
+    @Nullable @Override
     public String getTooltipText() {
       if (busy()) {
         if (plugin.isInitialized())
@@ -47,8 +46,12 @@ class EddyWidget implements StatusBarWidget {
       }
     }
 
-    @Nullable
-    public Consumer<MouseEvent> getClickConsumer() { return null; }
+    @Nullable @Override public Consumer<MouseEvent> getClickConsumer() {
+      return null;
+    }
+  }
+
+  class FancyPresentation extends EddyPresentation implements IconPresentation {
 
     @NotNull
     @Override
@@ -63,19 +66,43 @@ class EddyWidget implements StatusBarWidget {
   private final @NotNull EddyPlugin plugin;
   private StatusBar statusBar = null;
   int users = 0;
-  EddyWidgetPresentation presentation = new EddyWidgetPresentation();
+  EddyPresentation presentation = null;
 
   public EddyWidget(final @NotNull EddyPlugin plugin) {
     this.plugin = plugin;
 
-    if (!icons_initialized) {
-      String path = PathUtil.getJarPathForClass(this.getClass());
-      log("looking for resources in: " + path);
+    String pathname = PathUtil.getJarPathForClass(this.getClass());
+    File path = new File(pathname);
 
+    if (path.isDirectory()) {
+      log("looking for resources in directory: " + pathname);
       eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
       eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
-      icons_initialized = true;
+    } else {
+      URL colorurl = ResourceUtil.getResource(this.getClass(), "", "eddy-icon-16.png");
+      URL greyurl = ResourceUtil.getResource(this.getClass(), "", "eddy-icon-16-gray.png");
+      eddyIcon = new ImageIcon(colorurl);
+      eddyIconGray = new ImageIcon(greyurl);
     }
+
+    presentation = new FancyPresentation();
+  }
+
+  public void requestInstall() {
+
+    // can't install -- problem during construction
+    if (presentation == null) {
+      log("presentation is null when requesting widget install.");
+      return;
+    }
+
+    ApplicationManager.getApplication().invokeLater(new Runnable() { @Override public void run() {
+      if (!installed()) {
+        final StatusBar sbar = WindowManager.getInstance().getStatusBar(plugin.getProject());
+        if (sbar != null)
+          sbar.addWidget(EddyWidget.this);
+      }
+    }});
   }
 
   public boolean installed() {

@@ -174,7 +174,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
           if (jenv.knows(place))
             placeItem = (ParentItem)jenv.lookup(place);
           else
-            assert false : "cannot find placeItem " + place;
+            assert false: "cannot find placeItem " + place + ", possibly in anonymous local class";
         }
       } else if (place instanceof PsiJavaFile) {
         final PsiPackage pkg = this.place.getPackage((PsiJavaFile) place);

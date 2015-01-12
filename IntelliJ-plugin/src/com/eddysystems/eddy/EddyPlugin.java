@@ -30,6 +30,7 @@ import static com.eddysystems.eddy.engine.Utility.log;
 public class EddyPlugin implements ProjectComponent {
   @NotNull final private Application app;
   private Project project;
+  public Project getProject() { return project; }
   private EddyInjector injector;
   private EddyWidget widget = new EddyWidget(this);
 
@@ -41,6 +42,9 @@ public class EddyPlugin implements ProjectComponent {
   private PsiTreeChangeListener psiListener = null;
   private JavaEnvironment env = null;
   public JavaEnvironment getEnv() { return env; }
+
+  private boolean initializing = false;
+  private Object initLock = new Object();
   public boolean isInitialized() { return env != null && env.initialized(); }
 
   public void dropEnv() {
@@ -48,12 +52,11 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void initEnv(@Nullable ProgressIndicator indicator) {
-
-    if (indicator != null)
-      indicator.setIndeterminate(true);
-
     pushScope("start init environment");
     try {
+      if (indicator != null)
+        indicator.setIndeterminate(true);
+
       if (psiListener != null) {
         PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
       }
@@ -67,12 +70,13 @@ public class EddyPlugin implements ProjectComponent {
         env.initialize();
       } else {
         final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+        String err = "";
+
         if (sbar != null) {
           sbar.setInfo("eddy is scanning libraries...");
           widget.moreBusy();
         }
 
-        String err = "";
         try {
           // can't have changes between when we make the environment and when we register the psi listener
           app.runReadAction(new Runnable() { @Override public void run() {
@@ -89,14 +93,15 @@ public class EddyPlugin implements ProjectComponent {
           env = null;
           err = e.getMessage();
           log(e.getMessage());
-        }
-
-        if (sbar != null) {
-          if (err.isEmpty())
-            sbar.setInfo("eddy scan done.");
-          else
-            sbar.setInfo("eddy scan aborted, " + err);
-          widget.lessBusy();
+        } finally {
+          initializing = false;
+          if (sbar != null) {
+            widget.lessBusy();
+            if (err.isEmpty())
+              sbar.setInfo("eddy scan done.");
+            else
+              sbar.setInfo("eddy scan aborted, " + err);
+          }
         }
       }
     } finally { popScope(); }
@@ -120,56 +125,43 @@ public class EddyPlugin implements ProjectComponent {
     return widget;
   }
 
-  private void init_internal(final ProgressIndicator indicator) {
-    /*
-    DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() {
-      @Override
-      public void run() {
-        // big write action blocks the UI
-        app.invokeLater(new Runnable() {
-          @Override
-          public void run() {
-            if (!widget.installed()) {
-              final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-              if (sbar != null) sbar.addWidget(widget);
-            }
-            app.runWriteAction(new Runnable() {
-              @Override
-              public void run() {
-                initEnv(indicator);
-              }
-            });
-          }
-        }, ModalityState.NON_MODAL);
-       */
+  // returns immediately
+  public void requestInit() {
+    if (isInitialized())
+      return;
 
-    DumbService.getInstance(project).runWhenSmart(new Runnable() { @Override public void run() {
-      // either testing or in background
-      assert (app.isHeadlessEnvironment() || !app.isDispatchThread());
-      app.invokeLater(new Runnable() { @Override public void run() {
-        if (!widget.installed()) {
-          final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-          if (sbar != null) sbar.addWidget(widget);
+    synchronized (initLock) {
+      if (initializing)
+        return;
+      initializing = true;
+    }
+
+    // schedule initialization if necessary
+    final Runnable init = new Runnable() { @Override public void run() {
+      ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
+        @Override public boolean shouldStartInBackground() { return true; }
+        @Override public void processSentToBackground() { }
+      }) {
+        @Override
+        public void run(@NotNull final ProgressIndicator indicator) {
+          // either testing or in background
+          assert (app.isHeadlessEnvironment() || !app.isDispatchThread());
+
+          DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() { @Override public void run() {
+            initEnv(indicator);
+          }});
         }
-      }});
-      initEnv(indicator);
-    }});
-  }
+      });
+    }};
 
-  public void rescan() {
-    ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
-      @Override public boolean shouldStartInBackground() { return true; }
-      @Override public void processSentToBackground() { }
-    }) {
-      @Override
-      public void run(@NotNull ProgressIndicator indicator) {
-        init_internal(indicator);
-      }
-    });
+    if (app.isDispatchThread()) {
+      init.run();
+    } else {
+      app.invokeLater(init);
+    }
   }
 
   public void initComponent() {
-
     // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
 
@@ -178,7 +170,8 @@ public class EddyPlugin implements ProjectComponent {
       StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
         @Override
         public void run() {
-          rescan();
+          widget.requestInstall();
+          requestInit();
         }
       });
     }
