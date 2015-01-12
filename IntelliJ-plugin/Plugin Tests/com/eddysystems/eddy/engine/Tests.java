@@ -210,10 +210,20 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phi + "), but shouldn't.", plo < phi);
   }
 
+  private void test(String filename, String expected) {
+    Eddy eddy = setupEddy(null, filename);
+    checkResult(eddy, expected);
+  }
 
+  private void testMargin(String filename, String best, double margin) {
+    Eddy eddy = setupEddy(null, filename);
+    checkBest(eddy, best, margin);
+  }
 
-
-
+  private void testPriority(String filename, String hi, String lo) {
+    Eddy eddy = setupEddy(null, filename);
+    checkPriority(eddy, hi, lo);
+  }
 
   // actual tests
   public void testCreateEddy() throws Exception {
@@ -265,26 +275,20 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testClosingBrace() {
-    Eddy eddy = setupEddy(null,"closingBrace.java");
-    checkBest(eddy,"",.9);
+    testMargin("closingBrace.java", "", .9);
   }
 
   public void testPartialEditTypeConflict() {
-    Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
-    checkResult(eddy, "List<NewNewNewType> xs = new ArrayList<NewNewNewType>();");
+    test("partialEditTypeConflict.java", "List<NewNewNewType> xs = new ArrayList<NewNewNewType>();");
   }
 
   public void testPartialEditTypeConflictPriority() {
-    Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
-    // because our cursor is hovering at NewType, this is the one we edited, so it should be higher probability
-    checkPriority(eddy, "List<NewNewNewType> xs = new ArrayList<NewNewNewType>();",
-                        "List<OldOldOldType> xs = new ArrayList<OldOldOldType>();");
+    testPriority("partialEditTypeConflict.java", "List<NewNewNewType> xs = new ArrayList<NewNewNewType>();",
+                 "List<OldOldOldType> xs = new ArrayList<OldOldOldType>();");
   }
 
   public void testFizz() {
-    final String best = "fizz(\"s\", x, q);";
-    Eddy eddy = setupEddy(best,"fizz.java");
-    checkBest(eddy,best,.9);
+    testMargin("fizz.java", "fizz(\"s\", x, q);", .9);
   }
 
   public void testPsiListener() {
@@ -427,74 +431,63 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testLibraryObject() {
-    Eddy eddy = setupEddy(null, "LibraryObject.java");
-    checkBest(eddy,"java.util.ArrayList<Object> x = new java.util.ArrayList<Object>();",.9);
+    testMargin("LibraryObject.java", "java.util.ArrayList<Object> x = new java.util.ArrayList<Object>();", .9);
   }
 
   public void testUnresolved() {
-    Eddy eddy = setupEddy(null, "unresolved.java");
-    // Unresolved types are assumed to be references, and thus comparable to null
-    checkBest(eddy,"if (x != null) {\n}",.9);
+    testMargin("unresolved.java", "if (x != null) {\n}", .9);
   }
 
   public void testNullComparison() {
-    Eddy eddy = setupEddy(null, "nullComparison.java");
-    checkBest(eddy,"if (x != null) {\n}",.9);
+    testMargin("nullComparison.java", "if (x != null) {\n}", .9);
   }
 
   public void testSpuriousTypeArgs() {
-    Eddy eddy = setupEddy(null, "spuriousTypeArgs.java");
-    checkBest(eddy, "Map<X, Y> map = A.f(y);",.9);
+    testMargin("spuriousTypeArgs.java", "Map<X, Y> map = A.f(y);", .9);
   }
 
   public void testExtraCode() {
-    Eddy eddy = setupEddy(null, "extraCode.java");
-    checkBest(eddy, "return false;",.9);
+    testMargin("extraCode.java", "return false;",.9);
   }
 
   public void testLiteralFalse() {
-    Eddy eddy = setupEddy(null, "literalFalse.java");
-    checkBest(eddy, "return false;",.9);
+    testMargin("literalFalse.java", "return false;",.9);
   }
 
   public void testImport() {
-    Eddy eddy = setupEddy(null, "importScope.java");
-    checkBest(eddy, "List<X> x;",.9);
+    testMargin("importScope.java", "List<X> x;",.9);
   }
 
   public void testStaticImport() {
-    Eddy eddy = setupEddy(null, "staticImport.java");
-    checkBest(eddy, "out.println(\"test\");",.9);
+    testMargin("staticImport.java", "out.println(\"test\");",.9);
   }
 
   public void testWildcardImport() {
-    Eddy eddy = setupEddy(null, "wildcardImport.java");
-    checkBest(eddy, "getRuntime().gc();",.9);
+    testMargin("wildcardImport.java", "getRuntime().gc();",.9);
   }
 
   public void testOverloadedScope() {
-    Eddy eddy = setupEddy(null, "overloadedScope.java");
-    checkBest(eddy, "fill(a, binarySearch(a, 5));",.9);
+    testMargin("overloadedScope.java", "fill(a, binarySearch(a, 5));",.9);
   }
 
   public void testIllegalExtends() {
-    Eddy eddy = setupEddy(null, "illegalExtends.java");
-    checkBest(eddy, "int x;", .9);
+    testMargin("illegalExtends.java", "int x;", .9);
   }
 
   public void testUnresolvedPackage() {
-    Eddy eddy = setupEddy(null, "unresolvedPackage.java");
-    checkBest(eddy, "int x;", .9);
+    testMargin("unresolvedPackage.java", "int x;", .9);
   }
 
   public void testInheritedVisibility() {
-    Eddy eddy = setupEddy(null, "inheritedVisibility.java");
-    checkBest(eddy, "removeRange(0, 1);", .9);
+    testMargin("inheritedVisibility.java", "removeRange(0, 1);", .9);
   }
 
   public void testLocalClass() {
-    Eddy eddy = setupEddy(null, "localClass.java");
-    checkBest(eddy, "test();", .9);
+    testMargin("localClass.java", "test();", .9);
+  }
+
+  public void testPrivateCons() {
+    testMargin("privateCons.java", "test();", .9);
   }
 
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
