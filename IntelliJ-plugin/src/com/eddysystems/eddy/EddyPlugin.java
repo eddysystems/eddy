@@ -41,7 +41,7 @@ public class EddyPlugin implements ProjectComponent {
   private PsiTreeChangeListener psiListener = null;
   private JavaEnvironment env = null;
   public JavaEnvironment getEnv() { return env; }
-  public boolean isInitialized() { return env.initialized(); }
+  public boolean isInitialized() { return env != null && env.initialized(); }
 
   public void dropEnv() {
     env = null;
