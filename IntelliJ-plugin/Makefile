@@ -4,6 +4,7 @@ ACTIONS = tarski/src/tarski/ParseEddyActions.scala
 AMBIGUITY = out/artifacts/ambiguity_jar/ambiguity.jar
 
 all: $(PARSE) $(ACTIONS)
+jar: eddy.jar
 
 $(PARSE): $(AMBIGUITY) $(GRAM)
 	java -jar $(AMBIGUITY) $(GRAM) > $(PARSE)
@@ -12,7 +13,7 @@ $(ACTIONS): $(AMBIGUITY) $(GRAM)
 	java -jar $(AMBIGUITY) -a $(GRAM) > $(ACTIONS)
 
 eddy.jar: eddy.zip shrink.pro
-	proguard @shrink.pro 2>&1 | tee blah
+	proguard @shrink.pro
 
 .PHONY: clean
 clean:
