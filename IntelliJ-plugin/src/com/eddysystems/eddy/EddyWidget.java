@@ -5,12 +5,14 @@ import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.StatusBarWidget;
 import com.intellij.util.Consumer;
 import com.intellij.util.PathUtil;
+import com.intellij.util.ResourceUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.event.MouseEvent;
 import java.io.File;
+import java.net.URL;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
@@ -69,11 +71,23 @@ class EddyWidget implements StatusBarWidget {
     this.plugin = plugin;
 
     if (!icons_initialized) {
-      String path = PathUtil.getJarPathForClass(this.getClass());
-      log("looking for resources in: " + path);
+      String pathname = PathUtil.getJarPathForClass(this.getClass());
+      File path = new File(pathname);
 
-      eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
-      eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
+      if (path.isDirectory()) {
+        log("looking for resources in directory: " + pathname);
+        eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
+        eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
+      } else {
+        URL colorurl = ResourceUtil.getResource(this.getClass(), "", "eddy-icon-16.png");
+        URL greyurl = ResourceUtil.getResource(this.getClass(), "", "eddy-icon-16-gray.png");
+        eddyIcon = new ImageIcon(colorurl);
+        eddyIconGray = new ImageIcon(greyurl);
+      }
+
+      assert eddyIcon != null;
+      assert eddyIconGray != null;
+
       icons_initialized = true;
     }
   }
