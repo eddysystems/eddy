@@ -542,7 +542,7 @@ class TestDen {
     val X = NormalClassItem("X", LocalPkg, Nil, Y)
     val Xc = NormalConstructorItem(X, Nil, Nil)
     val f = NormalMethodItem("f", X, Nil, VoidType, Nil, isStatic = false)
-    implicit val env = Env(Array(Y,Yc,X,Xc), Map((f,2),(Xc,2),(X,2),(Y,3),(Yc,3)), PlaceInfo(f))
+    implicit val env = Env(Array(Y,Yc,X,Xc), Map(f->2,Xc->2,X->2,Y->3,Yc->3), PlaceInfo(f))
     testFail("this()")
     testFail("super()")
   }
