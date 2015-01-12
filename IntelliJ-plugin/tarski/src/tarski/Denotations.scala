@@ -81,7 +81,7 @@ object Denotations {
       case ds => DiscardCallableDen(ds,this)
     }
   }
-  case class TypeApply(c: NotTypeApply, ts: List[TypeArg]) extends Callable {
+  case class TypeApply(c: NotTypeApply, ts: List[TypeArg], hide: Boolean) extends Callable {
     def tparams = Nil
     lazy val params = {
       // TODO: Map.empty may be wrong here
@@ -94,11 +94,11 @@ object Denotations {
       case Nil => result
       case _ => throw new RuntimeException("TypeApply already has type arguments")
     }
-    def strip = TypeApply(c.strip,ts)
+    def strip = TypeApply(c.strip,ts,hide)
     def discards = c.discards
     def discard(ds: List[Stmt]) = ds match {
       case Nil => this
-      case ds => TypeApply(c.discard(ds),ts)
+      case ds => TypeApply(c.discard(ds),ts,hide)
     }
   }
   case class MethodDen(x: Option[Exp], f: MethodItem) extends NotTypeApply {
@@ -177,12 +177,12 @@ object Denotations {
   }
 
   // Add type arguments to a Callable without checking for correctness
-  def uncheckedAddTypeArgs(f: Callable, ts: List[TypeArg]): Callable = f match {
+  def uncheckedAddTypeArgs(f: Callable, ts: List[TypeArg], hide: Boolean): Callable = f match {
     case _ if ts.isEmpty => f
     case _:TypeApply => impossible
     case NewDen(p,f,None) => val (ts0,ts1) = ts splitAt f.parent.arity
-                             uncheckedAddTypeArgs(NewDen(p,f,Some(ts0)),ts1)
-    case f:NotTypeApply => TypeApply(f,ts)
+                             uncheckedAddTypeArgs(NewDen(p,f,Some(ts0)),ts1,hide)
+    case f:NotTypeApply => TypeApply(f,ts,hide)
   }
 
   type Dims = Int

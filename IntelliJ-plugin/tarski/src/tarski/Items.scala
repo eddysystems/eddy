@@ -288,7 +288,7 @@ object Items {
     def item: TypeItem // The item of our type
     def isFinal: Boolean
   }
-  case class Local(name: Name, ty: Type, isFinal: Boolean) extends Value {
+  case class Local(name: Name, ty: Type, isFinal: Boolean = true) extends Value {
     override def toString = "local:" + name
     def item = ty.item
   }
@@ -344,7 +344,9 @@ object Items {
   case class NormalMethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
                               params: List[Type], isStatic: Boolean) extends MethodItem
   case class NormalConstructorItem(parent: ClassItem, tparams: List[TypeVar],
-                                   params: List[Type]) extends ConstructorItem
+                                   params: List[Type]) extends ConstructorItem {
+    override def toString = s"NormalConstructorItem(${parent.name},$tparams,$params)"
+  }
   case class DefaultConstructorItem(parent: ClassItem) extends ConstructorItem {
     val tparams = Nil
     val params = Nil

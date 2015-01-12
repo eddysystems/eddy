@@ -243,11 +243,10 @@ object ParseEddyActions {
   def Mod8(): Mod = Synchronized
   def Mod9(): Mod = Protected
   def Mod10(): Mod = Final
-  def ExpPrimary0(x0: AExp, x1: Located[KList[AExp]], r: Range): AExp = TypeApplyAExp(x0,x1.x,x1.r,r)
+  def ExpPrimary0(x0: AExp, x1: Located[KList[AExp]], r: Range): AExp = TypeApplyAExp(x0,x1.x,x1.r,true,r)
   def ExpPrimary1(x0: AExp, x1: (Option[Located[KList[AExp]]],String), r: Range): AExp = FieldAExp(x0,x1._1,x1._2,r)
-  def ExpPrimary2(x0: ALit): AExp = x0
-  def ExpPrimary3(x0: Located[KList[AExp]], x1: AExp, r: Range): AExp = TypeApplyAExp(x1,x0.x,x0.r,r)
-  def ExpPrimary4(x0: String, r: Range): AExp = NameAExp(x0,r)
+  def ExpPrimary2(x0: String, r: Range): AExp = NameAExp(x0,r)
+  def ExpPrimary3(x0: ALit): AExp = x0
   def ExpAssignNP__DoTok__Stmt0(x0: AExp, x2: AStmt): (AExp,AStmt) = (x0,x2)
   def DoTok__MaybeStmt0(x1: AStmt): AStmt = x1
   def Juxts0_Mod0(x0: List[Mod]): List[Mod] = x0
@@ -276,7 +275,8 @@ object ParseEddyActions {
   def ExpAdd_ExpJuxtNP1(x0: AExp, x2: AExp, r: Range): AExp = BinaryAExp(AddOp,x0,x2,r)
   def ExpAdd_ExpJuxtNP2(x0: AExp): AExp = x0
   def ExpNew0(x1: Option[Located[KList[AExp]]], x2: AExp, r: Range): AExp = NewAExp(x1,x2,r)
-  def ExpNew1(x0: AExp): AExp = x0
+  def ExpNew1(x0: Located[KList[AExp]], x1: AExp, r: Range): AExp = TypeApplyAExp(x1,x0.x,x0.r,false,r)
+  def ExpNew2(x0: AExp): AExp = x0
   def Juxts1_Type0(x0: AExp, x1: List[AExp]): List[AExp] = x0 :: x1
   def Juxts1_Type1(x0: AExp): List[AExp] = List(x0)
   def Right__Stmt0(x0: Group, x1: AStmt): (Group,AStmt) = (x0,x1)

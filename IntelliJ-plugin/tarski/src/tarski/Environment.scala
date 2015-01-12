@@ -14,6 +14,8 @@ import scala.collection.mutable
 import scala.annotation.tailrec
 
 object Environment {
+  // Turn on to skip all approximate lookups
+  val exactOnly = false
 
   // Information about where we are
   // TODO: add information about static scope
@@ -124,7 +126,8 @@ object Environment {
         case Nil => as
         case Alt(p,i)::is => approx(is,if (filter.isDefinedAt(i)) Alt(p,filter.apply(i))::as else as)
       }
-      exact(_exactQuery(typed),biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error)))
+      exact(_exactQuery(typed),if (exactOnly) fail(error)
+                               else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error)))
     }
     def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
@@ -135,7 +138,8 @@ object Environment {
         case Nil => as
         case Alt(p,i)::is => approx(is,Alt(p,i)::as)
       }
-      exact(_exactQuery(typed),biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error))) flatMap f
+      exact(_exactQuery(typed),if (exactOnly) fail(error)
+                               else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error))) flatMap f
     }
 
     // Convenience aliases taking String

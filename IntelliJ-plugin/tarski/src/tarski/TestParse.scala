@@ -17,6 +17,7 @@ class TestParse {
   val r = SRange.unknown
   val p = ParenAround
   def noLoc[A](x: Located[A]): Located[A] = Located(x.x,r)
+  def clean(s: String): String = s.replaceAllLiterally(",SRange(-1,-1)","")
 
   @Test
   def lexer(): Unit = {
@@ -68,7 +69,7 @@ class TestParse {
     for (e <- ss if !asts.contains(e)) {
       println()
     }
-    assertSetsEqual(ss,asts)
+    assertSetsEqual(ss,asts,clean=clean)
   }
 
   def testASTPossible(s: String, ss: List[AStmt]): Unit = {
@@ -93,23 +94,23 @@ class TestParse {
   @Test
   def nestApply() =
     testAST("x = A(Object())",
-      AssignAExp(None,"x",ApplyAExp("A",SingleList(ApplyAExp("Object",EmptyList,p,r)),p,r),r),
-      AssignAExp(None,"x",ApplyAExp("A",JuxtList(List("Object",ArrayAExp(EmptyList,p,r))),p,r),r))
+      AssignAExp(None,"x",ApplyAExp("A",ApplyAExp("Object",EmptyList,p,r),p,r),r),
+      AssignAExp(None,"x",ApplyAExp("A",JuxtList("Object",ArrayAExp(EmptyList,p,r)),p,r),r))
 
   @Test
   def primTypes() =
     for (t <- List(VoidType,ByteType,ShortType,IntType,LongType,FloatType,DoubleType,CharType))
       testAST(show(t)+" x",
-        VarAStmt(Nil,t,SingleList(("x",0,None)),r),
-        ApplyAExp(t,SingleList("x"),NoAround,r))
+        VarAStmt(Nil,t,("x",0,None),r),
+        ApplyAExp(t,"x",NoAround,r))
 
   @Test
   def varArray() =
-    testAST("int x[]",VarAStmt(Nil,IntType,SingleList(("x",1,None)),r),
+    testAST("int x[]",VarAStmt(Nil,IntType,("x",1,None),r),
                       ApplyAExp("int",SingleList(ApplyAExp("x",EmptyList,BrackAround,r)),NoAround,r))
 
   @Test def varField() = testAST("X().Y y",
-    ApplyAExp("X",JuxtList(List(FieldAExp(ArrayAExp(EmptyList,ParenAround,r),None,"Y",r),"y")),NoAround,r),
+    ApplyAExp("X",JuxtList(FieldAExp(ArrayAExp(EmptyList,ParenAround,r),None,"Y",r),"y"),NoAround,r),
     ApplyAExp(FieldAExp(ApplyAExp("X",EmptyList,ParenAround,r),None,"Y",r),SingleList("y"),NoAround,r),
     VarAStmt(Nil,FieldAExp(ApplyAExp("X",EmptyList,ParenAround,r),None,"Y",r),SingleList(("y",0,None)),r))
 
@@ -147,7 +148,7 @@ class TestParse {
   @Test def superForward() = testAST("super()",ApplyAExp("super",EmptyList,ParenAround,r))
 
   @Test def arrayVar() = {
-    val rhs = ArrayAExp(CommaList(List(1,2,3)),CurlyAround,r)
+    val rhs = ArrayAExp(CommaList(1,2,3),CurlyAround,r)
     testAST("int[] x = {1,2,3}",
       VarAStmt(Nil,ApplyAExp("int",EmptyList,BrackAround,r),SingleList(("x",0,Some(rhs))),r),
       AssignAExp(None,ApplyAExp(ApplyAExp("int",EmptyList,BrackAround,r),SingleList("x"),NoAround,r),rhs,r))
@@ -155,7 +156,7 @@ class TestParse {
 
   @Test def genericType() =
     testASTPossible("X<String,A<String>> x = null",
-      VarAStmt(Nil,TypeApplyAExp(NameAExp("X",r),CommaList(List("String",TypeApplyAExp("A",SingleList("String"),r,r))),r,r),
+      VarAStmt(Nil,TypeApplyAExp(NameAExp("X",r),CommaList("String",TypeApplyAExp("A","String",r,true,r)),r,true,r),
         SingleList(("x",0,Some(NameAExp("null",r)))),r))
 
   // We lex >> into GtTok GtNoSepTok GtTok.  Make sure we don't screw it up.
@@ -165,6 +166,11 @@ class TestParse {
   @Test def urshiftSep() = testAST("x >> > y")
 
   @Test def juxt() = testAST("a b c",
-    ApplyAExp("a",JuxtList(List("b","c")),NoAround,r),
-    VarAStmt(Nil,"a",JuxtList(List(("b",0,None),("c",0,None))),r))
+    ApplyAExp("a",JuxtList("b","c"),NoAround,r),
+    VarAStmt(Nil,"a",JuxtList(("b",0,None),("c",0,None)),r))
+
+  @Test def twoTypeArgs() =
+    testAST("new<C>A<B>",NewAExp(Some(Located(SingleList("C"),r)),TypeApplyAExp("A","B",r,true,r),r),
+                         NewAExp(None,TypeApplyAExp(TypeApplyAExp("A","C",r,false,r),"B",r,true,r),r),
+                         TypeApplyAExp(NewAExp(Some(Located(SingleList("C"),r)),"A",r),"B",r,true,r))
 }

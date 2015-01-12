@@ -45,6 +45,9 @@ object AST {
   case class AndList[+A](list: List[A]) extends KList[A] {
     def map[B](f: A => B) = CommaList(list map f)
   }
+  object CommaList { def apply[A](x0: A, x1: A, xs: A*): CommaList[A] = CommaList(x0::x1::xs.toList) }
+  object JuxtList  { def apply[A](x0: A, x1: A, xs: A*): JuxtList[A]  =  JuxtList(x0::x1::xs.toList) }
+  object AndList   { def apply[A](x0: A, x1: A, xs: A*): AndList[A]   =   AndList(x0::x1::xs.toList) }
 
   sealed abstract class Group
   case object Paren extends Group
@@ -90,7 +93,7 @@ object AST {
   case class FieldAExp(e: AExp, t: Option[Located[KList[AExp]]], f: Name, r: SRange) extends AExp
   case class MethodRefAExp(e: AExp, t: Option[Located[KList[AExp]]], f: Name, r: SRange) extends AExp
   case class NewRefAExp(e: AExp, t: Option[Located[KList[AExp]]], r: SRange) extends AExp
-  case class TypeApplyAExp(e: AExp, t: KList[AExp], tr: SRange, r: SRange) extends AExp
+  case class TypeApplyAExp(e: AExp, t: KList[AExp], tr: SRange, after: Boolean, r: SRange) extends AExp // after ? A<T> : <T>A
   case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around, r: SRange) extends AExp
   case class NewAExp(t: Option[Located[KList[AExp]]], e: AExp, r: SRange) extends AExp
   case class WildAExp(b: Option[(Bound,AExp)], r: SRange) extends AExp

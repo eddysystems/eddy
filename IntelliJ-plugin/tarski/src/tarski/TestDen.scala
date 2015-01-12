@@ -12,6 +12,7 @@ import tarski.Items._
 import tarski.Lexer._
 import tarski.Operators._
 import tarski.Scores._
+import tarski.JavaScores._
 import tarski.Tarski.fix
 import tarski.TestUtils._
 import tarski.Types._
@@ -29,12 +30,18 @@ class TestDen {
     //println(fixes)
     fixes.best match {
       case Left(e) => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.prefixed("error: "))
-      case Right((env,s)) =>
+      case Right(Alt(p,(env,s))) =>
         val b = convert(best(env))
         def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env))
-        if (b != s) throw new AssertionError(s"Denotation test failed:\ninput: $input" +
-                                             s"\nexpected: ${sh(b)}\nactual  : ${sh(s)}" +
-                                             s"\nexpected (full): $b\nactual   (full): $s")
+        if (b != s) {
+          val ep = probOf(fixes,env => convert(best(env)))
+          def f(p: Prob) = if (!trackProbabilities) "" else s"\n${ppretty(p).prefixed("  ")}"
+          throw new AssertionError(s"Denotation test failed:\ninput: $input" +
+                                   s"\nexpected: ${sh(b)}\nactual  : ${sh(s)}" +
+                                   s"\nexpected p = ${pp(ep)}${f(ep)}" +
+                                   s"\nactual   p = ${pp(p)}${f(p)}" +
+                                   s"\nexpected (full): $b\nactual   (full): $s")
+        }
     }
   }
 
@@ -48,7 +55,7 @@ class TestDen {
   def testOnly(input: String, best: Env => List[Stmt])(implicit env: Env) = {
     val fixes = fix(lex(input))
     assertEquals(fixes.all.right.get.length, 1)
-    val (env2,stmt) = fixes.best.right.get
+    val (env2,stmt) = fixes.best.right.get.x
     assertEquals(stmt, best(env2))
   }
 
@@ -61,13 +68,18 @@ class TestDen {
     case _:EmptyOrBad => ()
   }
 
-  def probOf(s: Scored[(Env,List[Stmt])], a: List[Stmt]): Double = {
-    def loop(s: Stream[Alt[(Env,List[Stmt])]]): Double =
-      if (s.isEmpty) -1
-      else if (a == s.head.x._2) s.head.p
-      else loop(s.tail)
+  def probOf(s: Scored[(Env,List[Stmt])], a: Env => List[Stmt]): Prob = {
+    def loop(s: Stream[Alt[(Env,List[Stmt])]]): Prob =
+      if (s.isEmpty) Prob("not found",-1)
+      else {
+        val (env,ss) = s.head.x
+        if (a(env) == ss) s.head.dp
+        else loop(s.tail)
+      }
     loop(s.stream)
   }
+  def probOf(s: Scored[(Env,List[Stmt])], a: List[Stmt]): Prob =
+    probOf(s,env => a)
 
   def assertFinal(v: Local) =
     assert(v.isFinal)
@@ -461,10 +473,10 @@ class TestDen {
     val fixes = fix(lex("x = true"))
     // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
     def set(e: Exp): List[Stmt] = AssignExp(None,e,true)
-    val px = probOf(fixes,set(x))
-    val pXx = probOf(fixes,set(FieldExp(None,Xx)))
-    val pYx = probOf(fixes,set(FieldExp(None,Yx)))
-    val pZx = probOf(fixes,set(FieldExp(None,Zx)))
+    val px  = pp(probOf(fixes,set(x)))
+    val pXx = pp(probOf(fixes,set(FieldExp(None,Xx))))
+    val pYx = pp(probOf(fixes,set(FieldExp(None,Yx))))
+    val pZx = pp(probOf(fixes,set(FieldExp(None,Zx))))
 
     println(s"probabilities:\n  x   : $px\n  X.x : $pXx\n  Y.x : $pYx\n  Z.x : $pZx")
     assertTrue(s"All probabilities should be positive",px > 0 && pXx > 0 && pYx > 0 && pZx > 0)
@@ -486,7 +498,7 @@ class TestDen {
       val t = A.generic(List(w))
       val x = Local("x",t,isFinal=true)
       implicit val env = localEnv(A,x,F,f)
-      test("f(x) // "+w,ApplyExp(TypeApply(f,List(t)),List(x)))
+      test("f(x) // "+w,ApplyExp(TypeApply(f,List(t),hide=true),List(x)))
     }
   }
 
@@ -574,11 +586,11 @@ class TestDen {
     implicit val env = setupGenericClass()
     val f = env.allLocalItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
     val This = env.allLocalItems.find(_.isInstanceOf[ThisItem]).get.asInstanceOf[ThisItem]
-    test("""this.<Integer>f(7)""",ApplyExp(TypeApply(MethodDen(This,f),List(IntType.box)),List(7)))
-    test("""<Integer>f(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
-    test("""f<Integer>(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box)),List(7)))
+    test("""this.<Integer>f(7)""",ApplyExp(TypeApply(MethodDen(This,f),List(IntType.box),hide=false),List(7)))
+    test("""<Integer>f(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box),hide=false),List(7)))
+    test("""f<Integer>(7)""",     ApplyExp(TypeApply(LocalMethodDen(f),List(IntType.box),hide=false),List(7)))
     // These three fail because f's type argument extends Number
-    def bad(s: String) = testFail(s,bound=1e-4)
+    def bad(s: String) = testFail(s,bound=1e-3)
     bad("""this.<String>f("test")""")
     bad("""<String>f("test")""")
     bad("""f<String>("test")""")
@@ -730,7 +742,7 @@ class TestDen {
     lazy val cons = NormalConstructorItem(A,List(S),Nil)
     implicit val env = localEnv().extend(Array(A,cons,B,C),Map(A->1,B->1,C->1))
     test("x = new<C>A<B>","x",x =>
-      VarStmt(A.generic(List(B)),(x,ApplyExp(TypeApply(NewDen(None,cons,Some(List(B))),List(C)),Nil))))
+      VarStmt(A.generic(List(B)),(x,ApplyExp(TypeApply(NewDen(None,cons,Some(List(B))),List(C),hide=false),Nil))))
   }
 
   @Test def classInPackage() = {
@@ -818,7 +830,7 @@ class TestDen {
     val T = SimpleTypeVar("T")
     val f = NormalMethodItem("f",A,List(T),VoidType,Nil,isStatic=true)
     implicit val env = localEnv().extendLocal(Array(f))
-    test("f()",ApplyExp(TypeApply(MethodDen(None,f),List(ObjectType)),Nil))
+    test("f()",ApplyExp(TypeApply(MethodDen(None,f),List(ObjectType),hide=true),Nil))
   }
 
   @Test def autoReturn() = {
@@ -855,7 +867,25 @@ class TestDen {
 
   @Test def ifNull() = {
     val x = Local("x",ObjectType,isFinal=true)
-    implicit val env = localEnvWithBase().extendLocal(Array(x))
+    implicit val env = localEnvWithBase(x)
     test("if (x == null)",IfStmt(BinaryExp(EqOp,x,NullLit),HoleStmt))
+  }
+
+  @Test def spuriousTypeArgs() = {
+    lazy val A: ClassItem = NormalClassItem("A",constructors=Array(DefaultConstructorItem(A)))
+    val T = SimpleTypeVar("T")
+    val f = NormalMethodItem("f",A,List(T),VoidType,List(T),isStatic=true)
+    val Y = NormalClassItem("Y")
+    val y = Local("y",Y)
+    implicit val env = localEnvWithBase().extend(Array(A,f,y),Map(A->2,y->1))
+    test("A.f(y)",ApplyExp(TypeApply(MethodDen(None,f),List(Y),hide=true),List(y)))
+  }
+
+  @Test def explicitStaticMethod() = {
+    // Give A a default constructor make sure eddy doesn't call "new A()" unnecessarily
+    lazy val A: ClassItem = NormalClassItem("A",constructors=Array(DefaultConstructorItem(A)))
+    val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=true)
+    implicit val env = localEnvWithBase().extend(Array(A,f),Map(A->2))
+    test("A.f()",ApplyExp(MethodDen(None,f),Nil))
   }
 }

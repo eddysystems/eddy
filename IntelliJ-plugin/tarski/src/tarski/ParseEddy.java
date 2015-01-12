@@ -1602,29 +1602,17 @@ class ParseEddy {
         }
       }
       if (hi-lo==1) {
-        final long s1 = slices.get(iLit<<24|lo<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpPrimary2((ALit)values.get((int)(s1>>32)+k)));
-        }
-      }
-      if (hi-lo>=3) {
-        for (int j=lo+2;j<=hi-1;j++) {
-          {
-            final long s1 = slices.get(iTypeArgs<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iExpHigh<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary3((Located)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
-            }
-          }
-        }
-      }
-      if (hi-lo==1) {
         final long s1 = slices.get(iIdent<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpPrimary4((String)values.get((int)(s1>>32)+k),range));
+            values.add(ExpPrimary2((String)values.get((int)(s1>>32)+k),range));
+        }
+      }
+      if (hi-lo==1) {
+        final long s1 = slices.get(iLit<<24|lo<<12|hi);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(ExpPrimary3((ALit)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
@@ -1645,11 +1633,23 @@ class ParseEddy {
           }
         }
       }
+      if (hi-lo>=3) {
+        for (int j=lo+2;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iTypeArgs<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iExpPrimary<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(ExpNew1((Located)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpPrimary<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpNew1((AExp)values.get((int)(s1>>32)+k)));
+            values.add(ExpNew2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;

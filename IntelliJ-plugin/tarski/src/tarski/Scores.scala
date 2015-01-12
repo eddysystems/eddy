@@ -47,8 +47,8 @@ object Scores {
       }
       loop(this)
     }
-    final def best: Either[Error,A] = strict match {
-      case Best(_,x,_) => Right(x)
+    final def best: Either[Error,Alt[A]] = strict match {
+      case Best(p,x,_) => Right(Alt(p,x))
       case x:EmptyOrBad => Left(x.error)
     }
     final def all: Either[Error,Stream[Alt[A]]] = strict match {
@@ -127,8 +127,8 @@ object Scores {
     lazy val error = _error
     def ++[B](s: Scored[B]) = s match {
       case s:LazyScored[B] => new LazyPlus(s,this)
-      case s:EmptyOrBad => new Bad(NestError("++ failed",List(error,s.error)))
-      case _:Best[_] => this
+      case s:Bad => new Bad(NestError("++ failed",List(error,s.error)))
+      case Empty|_:Best[_] => s
     }
   }
   // No options, but not Bad
@@ -235,7 +235,11 @@ object Scores {
     else x
 
   // Bias and delay
-  @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = new LazyBiased(p,() => s)
+  @inline def biased[A](p: Prob, s: => Scored[A]): Scored[A] = {
+    val f = () => s
+    if (pp(p) == 1) f() // Don't bother delaying if the bound is useless
+    else new LazyBiased(p,f)
+  }
 
   @inline def uniform[A <: AnyRef](p: Prob, xs: Array[A], error: => String): Scored[A] =
     uniformThen(p,xs,fail(error))

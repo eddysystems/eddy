@@ -25,6 +25,8 @@ object TestUtils {
   implicit def toAStmts(s: AStmt): List[AStmt] = List(s)
   implicit def toAExp(t: LangType): AExp = NameAExp(show(t),r)
   implicit def toAExps[A](xs: KList[A])(implicit to: A => AExp): KList[AExp] = xs map to
+  implicit def toAExps[A](x: A)(implicit to: A => AExp): KList[AExp] = SingleList(to(x))
+  implicit def toAVarDecls(v: AVarDecl): KList[AVarDecl] = SingleList(v)
 
   // Denotation implicit conversions
   implicit def toExp(b: Boolean): Exp = BooleanLit(b)
@@ -75,8 +77,9 @@ object TestUtils {
     if (!xs.contains(x))
       throw new AssertionError("assertIn failed:\nx  = "+x+"\nxs = "+xs.mkString("\n     "))
 
-  def assertSetsEqual[A](exp: Traversable[A], got: Traversable[A]): Unit = {
-    def s(n: Name, xs: Set[A]) = f"\n$n%-7s = ${xs.mkString("\n          ")}"
+  private def noClean(s: String) = s
+  def assertSetsEqual[A](exp: Traversable[A], got: Traversable[A], clean: String => String = noClean): Unit = {
+    def s(n: Name, xs: Set[A]) = f"\n$n%-7s = ${xs map (x => clean(x.toString)) mkString "\n          "}"
     val e = exp.toSet
     val g = got.toSet
     if (e != g)
