@@ -58,13 +58,6 @@ class TestDen {
   def test[A](input: String, x: Name, y: Name, best: (Local,Local) => A)(implicit env: Env, c: A => List[Stmt]): Unit =
     testHelper(input, env => best(env.exactLocal(x),env.exactLocal(y)))
 
-  def testOnly(input: String, best: Env => List[Stmt])(implicit env: Env) = {
-    val fixes = fix(lex(input))
-    assertEquals(fixes.all.right.get.length, 1)
-    val (env2,stmt) = fixes.best.right.get.x
-    assertEquals(stmt, best(env2))
-  }
-
   // Ensure that all options have probability at most bound
   def testFail(input: String, bound: Double = -1)(implicit env: Env) =
     checkFail(fix(lex(input)),bound)(_._2)
