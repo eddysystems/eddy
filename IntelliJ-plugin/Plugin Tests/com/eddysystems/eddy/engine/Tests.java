@@ -277,7 +277,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testPartialEditTypeConflictPriority() {
     Eddy eddy = setupEddy(null,"partialEditTypeConflict.java");
     // because our cursor is hovering at NewType, this is the one we edited, so it should be higher probability
-    checkPriority(eddy, "List<NewNewNewType> xs = new ArrayList<NewNewNewType>()", "List<OldOldOldType> xs = new ArrayList<OldOldOldType>()");
+    checkPriority(eddy, "List<NewNewNewType> xs = new ArrayList<NewNewNewType>();",
+                        "List<OldOldOldType> xs = new ArrayList<OldOldOldType>();");
   }
 
   public void testFizz() {
