@@ -1,10 +1,9 @@
 package tarski;
 
-import ambiguity.JavaUtils;
+import utility.JavaUtils;
 import com.intellij.util.SmartList;
 import java.util.ArrayList;
 import java.util.List;
-import tarski.JavaScores.*;
 
 public class JavaTrie {
 
@@ -377,7 +376,7 @@ public class JavaTrie {
           if (lo < hi) {
             String name = new String(prefix).substring(0,level);
             final double d = levenshteinDistance(prefix, level, typed, typed_length);
-            final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
+            final double p = utility.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
             if (p > minProb) {
               V[] vs = (V[])lookup.lookup(name);
               for (V v : vs) {
@@ -472,7 +471,7 @@ public class JavaTrie {
                     hi = structure[node+2+2*structure[node+1]];
           if (lo < hi) {
             final double d = levenshteinDistance(prefix, level, typed, typed_length);
-            final double p = ambiguity.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
+            final double p = utility.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
             if (p >= minProb)
               for (int i=lo;i<hi;i++) {
                 //final DebugProb dp = new NameProb("typo",p); // Leave this line here for trackProbabilities use

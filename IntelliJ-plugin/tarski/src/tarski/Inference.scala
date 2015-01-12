@@ -1,6 +1,6 @@
 package tarski
 
-import ambiguity.Utility._
+import utility.Utility._
 import tarski.Pretty._
 import tarski.Types._
 import tarski.Tokens._

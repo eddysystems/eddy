@@ -1,13 +1,13 @@
 package tarski
 
-import tarski.Remember._
-import ambiguity.Utility._
-import org.testng.annotations.Test
-import scala.concurrent.duration._
-import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
+import utility.Utility._
 import com.amazonaws.AmazonServiceException
 import com.amazonaws.AmazonServiceException.ErrorType
+import tarski.Remember._
+import scala.concurrent._
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+import org.testng.annotations.Test
 
 class TestRemember {
   // A large random string for unit test purposes

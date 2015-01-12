@@ -4,7 +4,7 @@ import tarski.Tokens._
 import tarski.AST._
 import tarski.Types._
 import tarski.Operators._
-import ambiguity.Locations._
+import utility.Locations._
 import scala.language.implicitConversions
 
 object ParseEddyActions {

@@ -1,7 +1,7 @@
 package tarski
 
 import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
-import ambiguity.Locations._
+import utility.Locations._
 
 object AST {
   type Name = String

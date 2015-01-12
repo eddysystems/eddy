@@ -7,8 +7,8 @@ import tarski.Items._
 import tarski.Operators._
 import tarski.Tokens._
 import tarski.Types._
-import ambiguity.Locations._
-import ambiguity.Utility.impossible
+import utility.Locations._
+import utility.Utility._
 
 import scala.collection.mutable
 import scala.language.implicitConversions

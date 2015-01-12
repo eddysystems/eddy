@@ -5,8 +5,7 @@ import tarski.Denotations.{BooleanLit, NullLit}
 import tarski.Environment.{TwoEnv, Env}
 import tarski.Items._
 import tarski.Types._
-import ambiguity.Utility._
-import scala.collection.mutable
+import utility.Utility._
 
 object Base {
   // Basic packages

@@ -35,8 +35,8 @@ import tarski.Scores.Alt;
 
 import java.util.List;
 
-import static ambiguity.JavaUtils.popScope;
-import static ambiguity.JavaUtils.pushScope;
+import static utility.JavaUtils.popScope;
+import static utility.JavaUtils.pushScope;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class Tests extends LightCodeInsightFixtureTestCase {

@@ -4,9 +4,6 @@ import tarski.Denotations._
 import tarski.Operators._
 import tarski.Types._
 
-/**
- * Created by martin on 11.12.14.
- */
 object Constants {
   sealed abstract class OptionCon
   sealed abstract class Con extends OptionCon {

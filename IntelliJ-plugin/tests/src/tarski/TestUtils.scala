@@ -1,5 +1,7 @@
 package tarski
 
+import utility.Locations._
+import utility.Utility._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Base._
@@ -8,9 +10,6 @@ import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
 import tarski.Types._
-import ambiguity.Locations._
-import ambiguity.Utility._
-
 import scala.language.implicitConversions
 
 object TestUtils {

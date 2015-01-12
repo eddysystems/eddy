@@ -1,7 +1,7 @@
 package ambiguity
 
 import ambiguity.Graphs._
-import ambiguity.Utility._
+import utility.Utility._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
 
@@ -16,14 +16,12 @@ class TestGraph {
               'g' -> "f",
               'h' -> "dg").mapValues(_.toList)
 
-  @Test
-  def depth() = {
+  @Test def depth() = {
     val order = "abcdhgfe".zipWithIndex.toMap
     assertEquals(order,depthFirst('a',G))
   }
 
-  @Test
-  def strong() = {
+  @Test def strong() = {
     val scc = splitWhitespace("abe cdh gf").map(_.toList)
     assertEquals(scc,strongComponents('a',G))
   }

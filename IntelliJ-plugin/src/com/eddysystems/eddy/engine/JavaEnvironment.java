@@ -16,8 +16,8 @@ import tarski.*;
 
 import java.util.*;
 
-import static ambiguity.JavaUtils.popScope;
-import static ambiguity.JavaUtils.pushScope;
+import static utility.JavaUtils.popScope;
+import static utility.JavaUtils.pushScope;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 // a class storing information about the environment.

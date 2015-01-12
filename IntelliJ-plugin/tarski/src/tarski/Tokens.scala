@@ -1,7 +1,7 @@
 package tarski
 
 import tarski.Pretty._
-import ambiguity.Locations._
+import utility.Locations._
 
 object Tokens {
 

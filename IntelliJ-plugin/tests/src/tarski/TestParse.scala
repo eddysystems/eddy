@@ -1,17 +1,16 @@
 package tarski
 
-import ambiguity.Utility._
-import org.testng.AssertJUnit._
-import org.testng.annotations.Test
+import utility.Locations._
+import utility.Utility._
 import tarski.AST._
 import tarski.Lexer._
 import tarski.Operators._
-import tarski.Pretty._
 import tarski.Scores._
 import tarski.TestUtils._
 import tarski.Tokens._
 import tarski.Types._
-import ambiguity.Locations._
+import org.testng.annotations.Test
+import org.testng.AssertJUnit._
 
 class TestParse {
   val r = SRange.unknown

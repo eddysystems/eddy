@@ -6,6 +6,8 @@
       <module fileurl="file://$PROJECT_DIR$/ambiguity/ambiguity.iml" filepath="$PROJECT_DIR$/ambiguity/ambiguity.iml" />
       <module fileurl="file://$PROJECT_DIR$/eddy.iml" filepath="$PROJECT_DIR$/eddy.iml" />
       <module fileurl="file://$PROJECT_DIR$/tarski/tarski.iml" filepath="$PROJECT_DIR$/tarski/tarski.iml" />
+      <module fileurl="file://$PROJECT_DIR$/tests/tests.iml" filepath="$PROJECT_DIR$/tests/tests.iml" />
+      <module fileurl="file://$PROJECT_DIR$/utility/utility.iml" filepath="$PROJECT_DIR$/utility/utility.iml" />
     </modules>
   </component>
 </project>

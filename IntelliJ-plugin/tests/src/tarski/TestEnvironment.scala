@@ -1,18 +1,17 @@
 package tarski
 
-import ambiguity.Utility._
-import org.testng.AssertJUnit._
-import org.testng.annotations.Test
-import tarski.Base._
+import utility.Utility._
 import tarski.Denotations.ThisExp
 import tarski.Environment._
 import tarski.Items._
-import tarski.Pretty._
-import tarski.Scores.{Alt,Prob}
 import tarski.JavaScores.pp
+import tarski.Pretty._
+import tarski.Scores.Alt
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
+import org.testng.annotations.Test
+import org.testng.AssertJUnit._
 
 class TestEnvironment {
 
@@ -64,8 +63,8 @@ class TestEnvironment {
   }
 
   @Test def poisson() = {
-    assertTrue(math.abs(0.213763017249736 - ambiguity.JavaUtils.poissonPDF(2.5, 3)) < 1e-6)
-    assertTrue(math.abs(0.037833274802070 - ambiguity.JavaUtils.poissonPDF(10, 5)) < 1e-6)
+    assertTrue(math.abs(0.213763017249736 - utility.JavaUtils.poissonPDF(2.5, 3)) < 1e-6)
+    assertTrue(math.abs(0.037833274802070 - utility.JavaUtils.poissonPDF(10, 5)) < 1e-6)
   }
 
   @Test def trie() = {

@@ -1,7 +1,7 @@
 package tarski
 
-import ambiguity.Utility._
-import ambiguity.Locations._
+import utility.Utility._
+import utility.Locations._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Base.VoidItem

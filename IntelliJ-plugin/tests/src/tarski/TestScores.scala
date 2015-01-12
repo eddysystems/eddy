@@ -1,8 +1,8 @@
 package tarski
 
-import tarski.Scores._
+import utility.Utility._
 import tarski.JavaScores._
-import ambiguity.Utility._
+import tarski.Scores._
 import scala.util.Random
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._

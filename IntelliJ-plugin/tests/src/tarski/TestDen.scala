@@ -1,25 +1,24 @@
 package tarski
 
-import ambiguity.Utility._
-import ambiguity.Locations._
-import org.testng.AssertJUnit._
-import org.testng.annotations.Test
+import utility.Locations._
+import utility.Utility._
 import tarski.AST._
 import tarski.Base._
 import tarski.Denotations._
 import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
+import tarski.JavaScores._
 import tarski.Lexer._
 import tarski.Operators._
+import tarski.Pretty._
 import tarski.Scores._
-import tarski.JavaScores._
 import tarski.Tarski.fix
 import tarski.TestUtils._
-import tarski.Types._
 import tarski.Tokens._
-import tarski.Pretty._
+import tarski.Types._
+import org.testng.annotations.Test
+import org.testng.AssertJUnit._
 import scala.annotation.tailrec
-import scala.language.implicitConversions
 
 class TestDen {
   // Default to an empty local environment

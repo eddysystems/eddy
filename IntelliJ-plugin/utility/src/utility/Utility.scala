@@ -1,4 +1,4 @@
-package ambiguity
+package utility
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Set

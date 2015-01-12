@@ -1,8 +1,8 @@
 package tarski
 
 import java.util.regex.Pattern
-import ambiguity.Locations._
-import ambiguity.Utility._
+import utility.Locations._
+import utility.Utility._
 import tarski.Tokens._
 import scala.util.matching.Regex
 import scala.util.matching.Regex.Match

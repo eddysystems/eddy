@@ -1,4 +1,4 @@
-package ambiguity
+package utility
 
 object Locations {
   // Helper functions, kept separate for use from Java

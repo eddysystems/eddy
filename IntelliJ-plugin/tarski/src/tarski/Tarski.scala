@@ -8,7 +8,7 @@ import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
 import tarski.Tries.{LazyTrie, DTrie, Trie}
-import ambiguity.Locations._
+import utility.Locations._
 import scala.collection.JavaConverters._
 
 object Tarski {
