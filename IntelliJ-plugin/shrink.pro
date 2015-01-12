@@ -1,22 +1,29 @@
--injars eddy.zip
+-injars eddy.zip(!META-INF/**)
 -outjars eddy.jar 
+-libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar
 
 ### Keep a few things
 
--keepclasseswithmembernames class com.eddysystems.eddy.EddyPlugin
--keepclasseswithmembernames class com.eddysystems.eddy.actions.EddyAction
--keepclasseswithmembernames class com.eddysystems.eddy.actions.DumpEnvironment
--keepclasseswithmembernames class com.eddysystems.eddy.actions.NextSuggestion
--keepclasseswithmembernames class com.eddysystems.eddy.actions.PrevSuggestion
--keepclasseswithmembernames class com.eddysystems.eddy.actions.Reinit
+-keep class com.eddysystems.eddy.EddyPlugin { 
+  <init>(...);
+  String getComponentName();
+  void initComponent();
+  void disposeComponent(); 
+  void projectOpened();
+  void projectClosed();
+}
+-keep class com.eddysystems.eddy.actions.DumpEnvironment,com.eddysystems.eddy.actions.NextSuggestion,com.eddysystems.eddy.actions.PrevSuggestion,com.eddysystems.eddy.actions.Reinit {
+  <init>(...);
+  public void actionPerformed(...);
+}
 
 ### Ignore various warnings and notes
 
 # Base
--dontwarn java.**
 -dontwarn javax.**
 -dontwarn scala.**
 -dontnote scala.**
+-dontnote String
 
 # Top level packages
 -dontwarn sun.misc.**
