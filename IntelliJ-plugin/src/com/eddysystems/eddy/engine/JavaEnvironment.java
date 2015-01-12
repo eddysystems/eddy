@@ -119,10 +119,10 @@ public class JavaEnvironment {
     return _initialized;
   }
 
-  // global (library) environment. Only added to, never deleted from or changed. All items not in project files go in here
+  // global (library) environment. Only added to, never deleted from or changed. All public items not in project files go in here
   Map<PsiElement, Items.Item> items = new HashMap<PsiElement, Items.Item>();
 
-  // mutable, local (project) environment, can be added to and changed by edits. All items in project files go in here
+  // mutable, local (project) environment, can be added to and changed by edits. All public items in project files go in here
   Map<PsiElement, Items.Item> localItems = new HashMap<PsiElement, Items.Item>();
 
   // items added since the last time the local environment was built (to be added to the scope environment)

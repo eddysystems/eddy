@@ -48,9 +48,9 @@ class Converter {
 
   Converter(Place place,
             JavaEnvironment jenv,
-            Map<PsiElement, Item> globals,
-            Map<PsiElement, Item> locals,
-            Map<PsiElement, Item> added) {
+            final Map<PsiElement, Item> globals,
+            final Map<PsiElement, Item> locals,
+            final Map<PsiElement, Item> added) {
     this.place = place;
     this.projectScope = ProjectScope.getProjectScope(place.project);
     this.jenv = jenv;
@@ -63,7 +63,7 @@ class Converter {
   // constructed like this, put and lookup behave differently
   Converter(Place place,
             JavaEnvironment jenv,
-            Map<PsiElement, Item> scope) {
+            final Map<PsiElement, Item> scope) {
     this.place = place;
     this.projectScope = ProjectScope.getProjectScope(place.project);
     this.jenv = jenv;
