@@ -13,7 +13,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="tarski" />
     <orderEntry type="library" name="testng" level="application" />
-    <orderEntry type="library" name="scala-compiler" level="project" />
     <orderEntry type="library" name="scala-library" level="project" />
     <orderEntry type="module" module-name="ambiguity" />
   </component>

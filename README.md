@@ -33,10 +33,13 @@ Clone git@github.com:eddysystems/eddy-plugin, and open it as a directory. It sho
 
 ### Logging
 
-We use the following Amazon services for logging:
+We use Amazon's DynamoDB for logging.  There is an "eddy-log" table with
+primary key "install" and range key "time".  "install" is a cryptographic
+random number unique to a given installation of eddy, and "time" is Greenwich
+time in seconds down to milliseconds.  There is an IAM "eddy-public" user with
+write-only access to eddy-log.
 
-1. DynamoDB: An "eddy-log" table with primary key "install" and range key "time".
-   "install" is a cryptographic random number unique to a given installation of eddy, and
-   "time" is gettimeofday (Greenwich time down to microseconds).
-
-2. Cogito: An "eddy users" pool with a role that gives it write-only access to eddy-log.
+IMPORTANT: The credentials for eddy-public are checked into the code and
+distributed along with the plugin.  This is safe because the access is
+write-only.  Since the "install" key is random, a malicious user can only stomp
+on their own data, which is harmless.
