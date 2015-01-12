@@ -3,6 +3,7 @@ package com.eddysystems.eddy;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.StatusBarWidget;
+import com.intellij.openapi.wm.WindowManager;
 import com.intellij.util.Consumer;
 import com.intellij.util.PathUtil;
 import com.intellij.util.ResourceUtil;
@@ -90,6 +91,16 @@ class EddyWidget implements StatusBarWidget {
 
       icons_initialized = true;
     }
+  }
+
+  public void requestInstall() {
+    ApplicationManager.getApplication().invokeLater(new Runnable() { @Override public void run() {
+      if (!installed()) {
+        final StatusBar sbar = WindowManager.getInstance().getStatusBar(plugin.getProject());
+        if (sbar != null)
+          sbar.addWidget(EddyWidget.this);
+      }
+    }});
   }
 
   public boolean installed() {

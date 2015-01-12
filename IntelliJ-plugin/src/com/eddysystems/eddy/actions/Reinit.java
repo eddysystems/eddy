@@ -6,6 +6,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 
 public class Reinit extends AnAction {
   public void actionPerformed(AnActionEvent e) {
-    EddyPlugin.getInstance(e.getProject()).rescan();
+    EddyPlugin.getInstance(e.getProject()).dropEnv();
+    EddyPlugin.getInstance(e.getProject()).requestInit();
   }
 }

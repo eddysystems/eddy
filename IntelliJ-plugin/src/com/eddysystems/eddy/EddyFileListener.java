@@ -116,9 +116,16 @@ public class EddyFileListener implements CaretListener, DocumentListener {
               if (millis > 0)
                 sleep(millis);
 
-              EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
-              eddy.process(owner.editor,owner.getLastEditLocation(),null);
-              EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
+              try {
+                EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
+                eddy.process(owner.editor,owner.getLastEditLocation(),null);
+              } catch (Exception e) {
+                log("exception in eddy thread: " + e.getMessage());
+                log("trace: ");
+                log(e.getStackTrace());
+              } finally {
+                EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
+              }
 
               if (!eddy.foundSomethingUseful() || isInterrupted())
                 return;
@@ -153,6 +160,14 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected void process() {
+    if (!enabled()) {
+      // check if we're not initialized, and if so, try to reinitialize
+      if (!EddyPlugin.getInstance(project).isInitialized()) {
+        EddyPlugin.getInstance(project).requestInit();
+      }
+      return;
+    }
+
     PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
       @Override
       public void run() {
@@ -191,8 +206,6 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   public void caretPositionChanged(CaretEvent e) {
     if (inChange)
       return;
-    if (!enabled())
-      return;
     process();
   }
 
@@ -213,8 +226,6 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   public void documentChanged(DocumentEvent event) {
     inChange = false;
     lastEditLocation = event.getOffset();
-    if (!enabled())
-      return;
     process();
   }
 }
