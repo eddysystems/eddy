@@ -43,6 +43,8 @@ class Place {
     if (file == null)
       return null;
     String pkgname = file.getPackageName();
+
+    // TODO: this only works if the directory structure corresponds to packages. Can we do better?
     PsiPackage pkg = JavaPsiFacade.getInstance(project).findPackage(pkgname);
     return pkg;
   }

@@ -19,9 +19,7 @@ import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
+import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.testFramework.LightProjectDescriptor;
@@ -398,7 +396,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
   
   public void testVisibility() {
-    Eddy eddy = setupEddy(null, "scopes1.java", "scopes2.java");
+    // package resolution only works if directory structure is consistent
+    Eddy eddy = setupEddy(null, "scope1/scopes1.java", "scope2/scopes2.java");
     Environment.Env env = eddy.getEnv();
     JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
     log("local items: ");
@@ -424,6 +423,15 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
     log(env.exactQuery("Local2"));
     assertEquals(1, env.exactQuery("Local2").length());
+
+    Items.Item l1 = env.exactQuery("Local1").apply(0);
+    PsiElement pl1 = ((Converter.PsiEquivalent)l1).psi();
+    Items.Item l2 = env.exactQuery("Local2").apply(0);
+    PsiElement pl2 = ((Converter.PsiEquivalent)l2).psi();
+
+    log("Local 1 file package: " + ((PsiJavaFile)pl1.getContainingFile()).getPackageName() + " => " + Place.containing(pl1, getProject()));
+    log("Local 2 file package: " + ((PsiJavaFile)pl2.getContainingFile()).getPackageName() + " => " + Place.containing(pl2, getProject()));
+
     assertFalse(env.exactQuery("Local2").apply(0).accessible(env.place()));
     Item L1 = env.exactQuery("Local1").head();
     assertTrue(env.scope().contains(L1));

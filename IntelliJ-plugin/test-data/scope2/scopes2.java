@@ -1,4 +1,4 @@
-package test2;
+package scope2;
 
 class Local2 {}
 
