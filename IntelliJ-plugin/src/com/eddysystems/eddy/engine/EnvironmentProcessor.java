@@ -57,7 +57,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
   final Map<PsiElement,Item> locals;
 
-  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, PsiElement place, int lastedit, boolean honorPrivate) {
+  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, @NotNull PsiElement place, int lastedit, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
     this.locals = locals;
@@ -77,7 +77,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   private void fillLocalInfo(JavaEnvironment jenv, int lastedit) {
 
     // local variables, parameters, type parameters, as well as protected/private things in scope
-    final Converter env = new Converter(place,jenv,locals);
+    final Converter env = new Converter(jenv,locals);
 
     log("getting local items...");
 
@@ -92,7 +92,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
     // classes may be contained in classes, so partial-order the list first
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
-      final Item icls = env.addClass(cls, true, false);
+      final Item icls = env.addClass(cls, true);
       scopeItems.put(icls,scls.shadowingPriority);
     }
 
@@ -155,7 +155,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         assert jenv.knows(place);
-        final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);
+        final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
         assert scopeItems.containsKey(c);
         final int p = scopeItems.get(c);
         final ThisItem ti = new ThisItem(c);
@@ -177,7 +177,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
             assert false: "cannot find placeItem " + place + ", possibly in anonymous local class";
         }
       } else if (place instanceof PsiJavaFile) {
-        final PsiPackage pkg = this.place.getPackage((PsiJavaFile) place);
+        final PsiPackage pkg = Place.getPackage((PsiJavaFile) place, env.project);
         if (pkg == null) {
           // probably we're top-level in a file without package statement, use LocalPackageItem
           if (placeItem == null)
@@ -220,7 +220,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
         return true;
     }
 
-    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element, false)) {
+    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element)) {
       //log("rejecting " + element + " because it is inaccessible");
       return true;
     }

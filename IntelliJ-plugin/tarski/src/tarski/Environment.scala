@@ -23,7 +23,7 @@ object Environment {
   case class PlaceInfo(place: ParentItem,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
-                       lastEdit: SLoc = SLoc.unknown) {
+                       lastEdit: SLoc = SLoc.unknown) extends RefEq {
     // Can we forward to a constructor of class c?
     // TODO: Restrict to first statement of the constructor
     def forwardThisPossible(c: ClassItem): Boolean = place match {
