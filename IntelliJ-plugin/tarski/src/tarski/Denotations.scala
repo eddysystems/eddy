@@ -369,11 +369,11 @@ object Denotations {
     def discards = e.discards
     def strip = ParenExp(e.strip)
   }
-  case class ApplyExp(f: Callable, args: List[Exp]) extends StmtExp {
+  case class ApplyExp(f: Callable, args: List[Exp], auto: Boolean) extends StmtExp {
     def item = f.callItem
     def ty = f.callType(Nil)
     def discards = f.discards ::: args flatMap (_.discards)
-    def strip = ApplyExp(f.strip,args map (_.strip))
+    def strip = ApplyExp(f.strip,args map (_.strip),auto)
   }
   case class IndexExp(e: Exp, i: Exp) extends Exp {
     def item = e.ty match {

@@ -27,18 +27,18 @@ class TestPretty {
     ApplyExp(TypeApply(MethodDen(FieldExp(None,NormalStaticFieldItem("a",A.simple,B,isFinal=false)),
                                  NormalMethodItem("f",A,List(SimpleTypeVar("T")),IntType,Nil,isStatic=false)),
                        List(ObjectType),hide=false),
-             Nil)
+             Nil,auto=false)
   })
   @Test def genericStaticMethod() = test("A.<Object>f()", {
     val A = NormalClassItem("A", LocalPkg)
     ApplyExp(TypeApply(NormalMethodItem("f",A,List(SimpleTypeVar("T")),IntType,Nil,isStatic=true),
-                       List(ObjectType),hide=false),Nil)
+                       List(ObjectType),hide=false),Nil,auto=false)
   })
   @Test def genericPlacement() = test("pkg.L.<String>fill(1,\"s\")", {
     val P = Package("pkg")
     val L = NormalClassItem("L", P, List(SimpleTypeVar("A")))
     val fill = NormalMethodItem("fill", L, List(SimpleTypeVar("A")), VoidType, List(IntType, StringItem.simple), isStatic=true)
-    ApplyExp(TypeApply(fill,List(StringItem.simple),hide=false), List(IntLit(1, "1"), StringLit("s","\"s\"")))
+    ApplyExp(TypeApply(fill,List(StringItem.simple),hide=false), List(IntLit(1, "1"), StringLit("s","\"s\"")), auto=false)
   })
   @Test def genericNew() = test("new<String>A<Integer>(\"s\")", {
     val S = SimpleTypeVar("S")
@@ -46,7 +46,7 @@ class TestPretty {
     val A = NormalClassItem("A",LocalPkg,List(S))
     val cons = NormalConstructorItem(A,List(T),List(T))
     ApplyExp(TypeApply(NewDen(None,cons,Some(List(IntegerItem.simple))),List(StringItem.simple),hide=false),
-             List(StringLit("s",""""s"""")))
+             List(StringLit("s",""""s"""")),auto=false)
   })
 
   @Test def qualifiedType() = {
@@ -78,7 +78,7 @@ class TestPretty {
     val a = Local("a", A.simple, isFinal=false);
     val f = NormalMethodItem("f",A,Nil,A.simple,Nil,isStatic=true)
     implicit val env = Env(Array(A,f,a), Map((a,1),(f,2)),PlaceInfo(f))
-    test("a.f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(Some(LocalExp(a)),f),List())),f),List()))
-    test("f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(None,f),List())),f),List()))
+    test("a.f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(Some(LocalExp(a)),f),Nil,auto=false)),f),Nil,auto=false))
+    test("f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(None,f),Nil,auto=false)),f),Nil,auto=false))
   }
 }

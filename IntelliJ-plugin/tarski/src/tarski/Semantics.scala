@@ -225,11 +225,11 @@ object Semantics {
   // Turn f into f(), etc.
   // TODO: Make Pr.missingArgList much higher for explicit new
   def bareCall(f: Callable, expects: Option[Type])(implicit env: Env): Scored[Exp] =
-    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,expects,ArgMatching.useAll))
+    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,expects,auto=true,ArgMatching.useAll))
   def fixCall(m: Mode, expects: Option[Type], f: => Scored[Den])(implicit env: Env): Scored[Den] =
     if (m.call) f
     else biased(Pr.missingArgList,f flatMap {
-      case f:Callable => ArgMatching.fiddleCall(f,Nil,expects,ArgMatching.useAll)
+      case f:Callable => ArgMatching.fiddleCall(f,Nil,expects,auto=true,ArgMatching.useAll)
       case f => known(f)
     })
 
@@ -284,7 +284,7 @@ object Semantics {
       // Either array index or call
       val call = biased(Pr.callExp(xsn,around), fs flatMap {
         case f:TypeDen => known(f.array) // t[]
-        case f:Callable => ArgMatching.fiddleCall(f,args,expects,ArgMatching.useAll)
+        case f:Callable => ArgMatching.fiddleCall(f,args,expects,auto=false,ArgMatching.useAll)
         case _:Exp|_:PackageDen => fail("Expressions and packages are not callable")
       })
       if (n == 0) call // No arguments is never array access
@@ -296,7 +296,7 @@ object Semantics {
         def special(a: Scored[Den], x: Name, ys: List[Scored[Exp]], names: IdentityHashMap[Scored[Exp],Name]): Scored[Den] = {
           val ax = denoteField(a,x,m|CallMode,None,e)
           def apply: Scored[Den] = ax flatMap {
-            case ax:Callable => ArgMatching.fiddleCall(ax,ys,expects,(axy,zs) => zs match {
+            case ax:Callable => ArgMatching.fiddleCall(ax,ys,expects,auto=false,(axy,zs) => zs match {
               case Nil => known(axy)
               case z::zs => names.get(z) match {
                 case null => fail("Not a field name")
@@ -435,6 +435,11 @@ object Semantics {
       case f:MethodItem => throw new RuntimeException(s"f $f, mc $mc, maybe ${maybeMemberIn(f)}")
       case f:ChildPackage if mc.pack => f
     })
+    @tailrec def automatic(e: Exp): Boolean = e match {
+      case ApplyExp(_,_,auto) => auto
+      case ParenExp(x) => automatic(x)
+      case _ => false
+    }
     product(xs,fs) flatMap {case (x,f) => x match {
       case _:Callable => fail(s"${show(x)}: Callables do not have fields (such as $f)")
       case x:ParentDen if !memberIn(f,x) => fail(x match {
@@ -444,8 +449,9 @@ object Semantics {
       case x:ParentDen => f match {
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
-          case (x:Exp,    f:FieldItem) => single(FieldExp(Some(x),f),
-                                                 if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
+          case (x:Exp,    f:FieldItem) => if (f.isStatic && automatic(x)) fail(s"${show(error)}: Implicit call . static field is silly")
+                                          else single(FieldExp(Some(x),f),
+                                                      if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
           case (t:TypeDen,f:FieldItem) => if (f.isStatic) known(FieldExp(None,f).discard(t.discards))
                                           else fail(s"Can't access non-static field $f without object")
         }
@@ -453,7 +459,8 @@ object Semantics {
           val types = if (!mc.ty) fail(s"${show(error)}: Unexpected or invalid type field") else x match {
             case _:PackageDen => known(TypeDen(Nil,f.raw))
             case TypeDen(ds,t) => known(TypeDen(ds,typeIn(f,t)))
-            case x:Exp => single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
+            case x:Exp => if (automatic(x)) fail(s"${show(error)}: Implicit call . type is silly")
+                          else single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
           }
           val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
             case f:ClassItem if f.constructors.length>0 =>
@@ -474,7 +481,8 @@ object Semantics {
           }
           types++cons
         case f:MethodItem => fixCall(mc,expects,x match {
-          case x:Exp     if f.isStatic => single(MethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
+          case x:Exp     if f.isStatic => if (automatic(x)) fail(s"${show(error)}: Implicit call . static method is silly")
+                                          else single(MethodDen(Some(x),f),dropNew(mc,Pr.staticFieldCallableWithObject))
           case x:TypeDen if f.isStatic => knownNotNew(mc,MethodDen(None,f).discard(x.discards))
           case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f))
           case x:TypeDen => fail(s"${show(error)}: Can't call non-static $f without object")
@@ -527,7 +535,7 @@ object Semantics {
     case BinaryExp(_,_,_) => false
     case AssignExp(_,_,_) => false
     case ParenExp(x) => isVariable(x)
-    case ApplyExp(_,_) => false
+    case ApplyExp(_,_,_) => false
     case FieldExp(_,f) => !f.isFinal
     case IndexExp(_,_) => true // Java arrays are always mutable
     case CondExp(_,_,_,_) => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement

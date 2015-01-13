@@ -373,7 +373,7 @@ object Pretty {
     case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: space :: token(op) :: space :: right(s,y))
     case ParenExp(x) => (HighestFix,parens(x))
-    case ApplyExp(f,a) => (ApplyFix, tokens(f) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
+    case ApplyExp(f,a,_) => (ApplyFix, tokens(f) ::: LParenTok :: separate(a.map(tokens(_)),List(CommaTok)) ::: List(RParenTok))
     case FieldExp(None,f) => pretty(f)
     case FieldExp(Some(x),f) => prettyField(x,f)
     case IndexExp(e,i) => fix(ApplyFix, left(_,e) ::: LBrackTok :: tokens(i) ::: List(RBrackTok))
