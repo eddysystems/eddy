@@ -213,15 +213,29 @@ public class JavaEnvironment {
    }
 
    @Nullable
-   Items.Item lookup(PsiElement elem) {
+   Items.Item lookup(PsiElement elem, boolean checkLocal) {
      // everything in addedItems is also in localItems.
      Items.Item i = items.get(elem);
      if (i == null)
        i = localItems.get(elem);
-     if (i == null)
+     if (i == null && checkLocal)
        i = scopeItems.get(elem);
      return i;
    }
+
+  // find an element. If it was found in the local part of the environment, move it to the global part
+  @Nullable
+  Items.Item lookupAndMove(PsiElement e) {
+    Items.Item it = lookup(e, false);
+    if (it == null) {
+      it = scopeItems.get(e);
+      if (it != null) {
+        converter.put(e,it);
+        scopeItems.remove(e);
+      }
+    }
+    return it;
+  }
 
    private void addBase() {
      pushScope("add base");
@@ -369,30 +383,30 @@ public class JavaEnvironment {
    }
 
 
-   void addLocalItem(PsiElement elem) {
-     // the handler calls this for each interesting element that is added, there is no need for Psi tree
-     // traversal in here
+   void addItem(PsiElement elem) {
+         // the handler calls this for each interesting element that is added, there is no need for Psi tree
+         // traversal in here
 
-     // add to localItems and addedItems
-     assert lookup(elem) == null;
+         // add to localItems and addedItems, make sure it's not known already
+         assert !knows(elem);
 
-     // this adds to localItems and possibly addedItems
-     Items.Item it = converter.addItem(elem);
+         // this adds to localItems and possibly addedItems
+         Items.Item it = converter.addItem(elem);
 
-     // save a copy in addedItems (constructors don't go there)
-     if (it instanceof Items.ConstructorItem) {
-       ((Items.CachedConstructorsItem)((Items.ConstructorItem) it).parent()).invalidateConstructors();
-     }
+         // save a copy in addedItems (constructors don't go there)
+         if (it instanceof Items.ConstructorItem) {
+           ((Items.CachedConstructorsItem)((Items.ConstructorItem) it).parent()).invalidateConstructors();
+         }
 
-     // if we added a class, check if we can fill in some of the undefined references
-     if (it instanceof Items.RefTypeItem) {
-       // go through all (local) items and check whether we can fill in some undefined references
-       // this may add inheritance structure that invalidates valuesByItem
-       for (Items.Item i : localItems.values())
-         if (i instanceof Converter.ReferencingItem)
-           byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).fillUnresolvedReferences();
-     }
-   }
+         // if we added a class, check if we can fill in some of the undefined references
+         if (it instanceof Items.RefTypeItem) {
+           // go through all (local) items and check whether we can fill in some undefined references
+           // this may add inheritance structure that invalidates valuesByItem
+           for (Items.Item i : localItems.values())
+             if (i instanceof Converter.ReferencingItem)
+               byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).fillUnresolvedReferences();
+         }
+       }
 
    void deleteItem(PsiElement elem) {
 
@@ -403,7 +417,7 @@ public class JavaEnvironment {
 
      // any elements in the psi tree below this element have been deleted already, if they needed to be deleted
 
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
 
      // do we even care?
      if (it == null)
@@ -440,7 +454,7 @@ public class JavaEnvironment {
 
    void changeModifiers(PsiModifierListOwner elem) {
      // find the item
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
      if (it == null)
        return;
 
@@ -459,7 +473,7 @@ public class JavaEnvironment {
    }
 
    void changeTypeParameters(PsiTypeParameterListOwner elem) {
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
      if (it == null)
        return;
 
@@ -469,7 +483,7 @@ public class JavaEnvironment {
    }
 
    void changeBase(PsiClass elem) {
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
      if (it == null)
        return;
 
@@ -482,7 +496,7 @@ public class JavaEnvironment {
    }
 
    void changeImplements(PsiClass elem) {
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
      if (it == null)
        return;
 
@@ -493,7 +507,7 @@ public class JavaEnvironment {
    }
 
    void changeParameters(PsiMethod elem) {
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
      if (it == null)
        return;
 
@@ -503,7 +517,7 @@ public class JavaEnvironment {
    }
 
    void changeReturnType(PsiMethod elem) {
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
 
      if (it == null)
        return;
@@ -515,10 +529,10 @@ public class JavaEnvironment {
        assert !Converter.isConstructor(elem);
        // add as a method
        deleteItem(elem);
-       addLocalItem(elem);
+       addItem(elem);
      } else if (Converter.isConstructor(elem)) { // or we just made a constructor by deleting the return type of a method with the same name as its class
        deleteItem(elem);
-       addLocalItem(elem);
+       addItem(elem);
      } else {
        ((Items.CachedReturnTypeItem)it).invalidateReturnType();
      }
@@ -528,7 +542,7 @@ public class JavaEnvironment {
    // the name of this item has changed, but references to it remain valid (must be re-inserted into the trie, but no other action necessary)
    void changeItemName(PsiNamedElement elem) {
      // find the item
-     Items.Item it = lookup(elem);
+     Items.Item it = lookup(elem, false);
 
      if (it == null)
        return;
@@ -542,7 +556,7 @@ public class JavaEnvironment {
        // there may be inner classes of it, but those should only be added in scope scanning
 
        deleteItem(elem);
-       addLocalItem(elem);
+       addItem(elem);
      } else {
        // regular name change
 

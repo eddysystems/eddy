@@ -57,6 +57,8 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
   final Map<PsiElement,Item> locals;
 
+  // Because it operates on a thread-local environment (locals), which will be discarded, the environment processor
+  // is only allowed to add elements which can safely be thrown out after it is done.
   public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, @NotNull PsiElement place, int lastedit, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
@@ -172,7 +174,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
           if (jenv.knows(place))
-            placeItem = (ParentItem)jenv.lookup(place);
+            placeItem = (ParentItem)jenv.lookup(place, true);
           else
             assert false: "cannot find placeItem " + place + ", possibly in anonymous local class";
         }

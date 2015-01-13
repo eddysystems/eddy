@@ -74,7 +74,14 @@ class Converter {
   }
 
   Item lookup(PsiElement e) {
-    return jenv.lookup(e);
+    if (globals == null) {
+      // if globals is null, we're ok with referencing local items
+      return jenv.lookup(e, true);
+    } else {
+      // if we're the global converter, and we find a local thing, move it to the global part of the environment, it's
+      // clearly needed there more than here
+      return jenv.lookupAndMove(e);
+    }
   }
 
   void put(PsiElement e, Item it) {
@@ -767,7 +774,9 @@ class Converter {
     {
       Item i = lookup(cls);
       if (i != null) {
-        if (recurse) // if we are forced to recurse, we may still have to force fields that were previously unseen
+        // if we are forced to recurse, we may still have to force fields that were previously unseen
+        // don't do this for TypeVars
+        if (recurse && i instanceof ClassItem)
           addClassMembers(cls, (ClassItem)i);
         return (RefTypeItem)i;
       }
