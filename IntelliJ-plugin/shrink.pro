@@ -1,55 +1,59 @@
--injars eddy.zip(!META-INF/**)
+-injars eddy.zip(!META-INF/MANIFEST.MF,!META-INF/LICENSE.txt,!META-INF/NOTICE.txt)
 -outjars eddy.jar 
--libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar
+-dontobfuscate
 
 ### Keep a few things
 
 -keep class com.eddysystems.eddy.EddyPlugin { 
   <init>(...);
-  String getComponentName();
-  void initComponent();
-  void disposeComponent(); 
-  void projectOpened();
-  void projectClosed();
 }
 -keep class com.eddysystems.eddy.actions.DumpEnvironment,com.eddysystems.eddy.actions.NextSuggestion,com.eddysystems.eddy.actions.PrevSuggestion,com.eddysystems.eddy.actions.Reinit {
   <init>(...);
-  public void actionPerformed(...);
 }
+
+### Libraries
+
+# Base
+-libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar
+-libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsse.jar
+-libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jce.jar
+
+# IntelliJ proper
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/annotations.jar"
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/extensions.jar"
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/idea.jar"
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/openapi.jar"
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/util.jar"
+
+# IntelliJ dependencies
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/commons-logging-1.1.3.jar"
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/log4j.jar"
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/trove4j.jar"
+-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/velocity.jar"
 
 ### Ignore various warnings and notes
 
-# Base
--dontwarn javax.**
+# Scala warnings
 -dontwarn scala.**
 -dontnote scala.**
 -dontnote String
 
-# Top level packages
--dontwarn sun.misc.**
--dontwarn org.xml.**
--dontwarn org.w3c.**
--dontwarn org.apache.**
--dontnote org.apache.**
--dontwarn com.amazonaws.** 
--dontnote com.amazonaws.**
--dontwarn com.fasterxml.**
--dontnote com.fasterxml.**
--dontwarn gnu.trove.**
--dontwarn org.joda.**
--dontnote org.joda.**
+# Miscellaneous warnings
+-dontwarn javax.servlet.ServletContextListener
+-dontwarn javax.servlet.ServletContextEvent
+-dontwarn org.apache.log.Logger
+-dontwarn org.apache.log.Hierarchy
+-dontwarn org.apache.avalon.framework.logger.Logger
+-dontwarn org.joda.convert.FromString
+-dontwarn org.joda.convert.ToString
+-dontwarn com.intellij.util.net.ssl.ConfirmingHostnameVerifier
 
-# IntelliJ
--dontwarn com.intellij.**
--dontwarn org.jetbrains.**
+# Miscellaneous notes
+-dontnote org.apache.commons.logging.**
+-dontnote org.apache.http.client.utils.JdkIdn
+-dontnote com.amazonaws.metrics.internal.cloudwatch.DefaultMetricCollectorFactory
+-dontnote org.bouncycastle.jce.provider.BouncyCastleProvider
+-dontnote org.joda.time.DateTimeZone
 
-# Missing methods of base classes
--dontwarn com.eddysystems.eddy.EddyFileListener$EddyThread
--dontwarn com.eddysystems.eddy.engine.JavaEnvironment$NoJDKError
--dontwarn com.eddysystems.eddy.engine.Place$UnexpectedContainerError
--dontwarn com.eddysystems.eddy.actions.EddyAction$1
--dontwarn com.eddysystems.eddy.engine.Eddy$1$1
--dontwarn com.eddysystems.eddy.engine.EddyPsiListener$ElemType
-
-# Weird scala issues
+# Weird scala issue
 -dontwarn tarski.Semantics$$anonfun$denoteStmt$27$$anonfun$tarski$Semantics$$anonfun$$rest$1$1

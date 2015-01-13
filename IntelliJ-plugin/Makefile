@@ -15,6 +15,10 @@ $(ACTIONS): $(AMBIGUITY) $(GRAM)
 eddy.jar: eddy.zip shrink.pro
 	proguard @shrink.pro
 
+.PHONY: install
+install:
+	cp eddy.jar "${HOME}/Library/Application Support/IdeaIC13"
+
 .PHONY: clean
 clean:
 	rm -f $(PARSE) $(ACTIONS)
