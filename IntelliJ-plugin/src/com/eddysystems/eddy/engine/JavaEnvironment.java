@@ -577,9 +577,13 @@ public class JavaEnvironment {
       // regular name change
 
       // delete from trie (by overwriting the corresponding stored item with a deleted dummy) and add to addedItems
-      Items.Item dummy = new Items.SimpleTypeVar(it.name());
-      dummy.delete();
-      dTrie.overwrite(it, dummy);
+
+      // only delete it from the trie if it's already in there
+      if (!addedItems.containsKey(elem)) {
+        Items.Item dummy = new Items.SimpleTypeVar(it.name());
+        dummy.delete();
+        dTrie.overwrite(it, dummy);
+      }
 
       ((Items.CachedNameItem)it).refreshName();
 
