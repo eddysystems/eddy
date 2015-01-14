@@ -134,7 +134,7 @@ class Place {
 
     // if place is null, and noPrivate is true, then we check whether we
 
-    PsiElement container = null;
+    PsiElement container;
     try {
       container = containing(element, project);
     } catch (UnexpectedContainerError e) {

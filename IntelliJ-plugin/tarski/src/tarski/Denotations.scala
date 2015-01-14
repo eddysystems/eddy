@@ -160,7 +160,7 @@ object Denotations {
     def callItem = f.parent
     def callType(ts: List[TypeArg]) = f.parent.generic(classArgs getOrElse ts.take(f.parent.arity), parent match {
       case Some(p) => p
-      case None => f.parent.parent.simple
+      case None => f.parent.parent.raw // TODO: check that this is right
     })
     def discards = Nil
     def strip = this
