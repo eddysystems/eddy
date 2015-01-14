@@ -158,7 +158,7 @@ object Denotations {
     lazy val params = f.params map (_.substitute(env))
     lazy val result = f.parent.inside.substitute(env)
     def callItem = f.parent
-    def callType(ts: List[TypeArg]) = f.parent.generic(classArgs getOrElse ts.take(f.parent.arity),parent match {
+    def callType(ts: List[TypeArg]) = f.parent.generic(classArgs getOrElse ts.take(f.parent.arity), parent match {
       case Some(p) => p
       case None => f.parent.parent.simple
     })

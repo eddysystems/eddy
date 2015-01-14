@@ -925,26 +925,21 @@ class Converter {
             return method;
           }
 
-     Items.ParentItem _place = null;
+     PsiElement _place = null;
      boolean _accessible = false;
      @Override
      public boolean accessible(Environment.PlaceInfo info) {
-       if (info.place() != _place) {
-         _place = info.place();
-         if (info.place() instanceof PsiEquivalent) {
-           _accessible = !new Place(env.project, ((PsiEquivalent) _place).psi()).isInaccessible(method);
-         } else {
-           log("can't determine whether " + this + " is accessible from " + info.place());
-           _accessible = false;
-         }
+       if (info.exactPlace() != _place) {
+         _place = info.exactPlace();
+         _accessible = !new Place(env.project, _place).isInaccessible(method);
        }
        return _accessible;
      }
 
      // Necessary only due to screwy Java/Scala interop
-     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
-     public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
-     public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
+     //public Parent simple() { throw new RuntimeException("For LazyConstructor, only inside is valid, not simple"); }
+     //public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
+     //public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
    }
 
    protected static class LazyMethod extends MethodItem implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableStaticItem, CachedTypeParametersItem, CachedParametersItem, CachedReturnTypeItem {
@@ -1055,26 +1050,21 @@ class Converter {
        return method;
      }
 
-     Items.ParentItem _place = null;
+     PsiElement _place = null;
      boolean _accessible = false;
      @Override
      public boolean accessible(Environment.PlaceInfo info) {
-       if (info.place() != _place) {
-         _place = info.place();
-         if (info.place() instanceof PsiEquivalent) {
-           _accessible = !new Place(env.project, ((PsiEquivalent) _place).psi()).isInaccessible(method);
-         } else {
-           log("can't determine whether " + this + " is accessible from " + info.place());
-           _accessible = false;
-         }
+       if (info.exactPlace() != _place) {
+         _place = info.exactPlace();
+         _accessible = !new Place(env.project, _place).isInaccessible(method);
        }
        return _accessible;
      }
 
      // Necessary only due to screwy Java/Scala interop
-     public Parent simple() { throw new RuntimeException("For ConstructorItem, only inside is valid, not simple"); }
-     public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
-     public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
+     //public Parent simple() { throw new RuntimeException("For LazyMethod, only inside is valid, not simple"); }
+     //public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
+     //public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
    }
 
    CallableItem addMethod(PsiMethod method) {
@@ -1163,18 +1153,13 @@ class Converter {
             return f;
           }
 
-     Items.ParentItem _place = null;
+     PsiElement _place = null;
      boolean _accessible = false;
      @Override
      public boolean accessible(Environment.PlaceInfo info) {
-       if (info.place() != _place) {
-         _place = info.place();
-         if (info.place() instanceof PsiEquivalent) {
-           _accessible = !new Place(env.project, ((PsiEquivalent) _place).psi()).isInaccessible(f);
-         } else {
-           log("can't determine whether " + this + " is accessible from " + info.place());
-           _accessible = false;
-         }
+       if (info.exactPlace() != _place) {
+         _place = info.exactPlace();
+         _accessible = !new Place(env.project, _place).isInaccessible(f);
        }
        return _accessible;
      }
