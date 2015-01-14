@@ -1,6 +1,5 @@
 package com.eddysystems.eddy.engine;
 
-import utility.Locations;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.scope.BaseScopeProcessor;
@@ -9,12 +8,9 @@ import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-import scala.collection.JavaConversions;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
-import tarski.Tarski;
 import tarski.Types.ClassType;
-import tarski.Types.Type;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,27 +52,27 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   public final List<Item> localItems = new ArrayList<Item>();
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
   final Map<PsiElement,Item> locals;
+  final JavaEnvironment jenv;
 
   // add to locals what you find in scope. There may be several threads writing to locals at the same time.
   public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, @NotNull PsiElement place, int lastedit, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
     this.locals = locals;
-    // TODO: don't clear locals once local items know about accessibility
-    locals.clear();
+    this.jenv = jenv;
 
     // this is set to null when we go to java.lang
     this.currentFileContext = place;
 
     // this walks up the PSI tree, but also processes import statements
     PsiScopesUtil.treeWalkUp(this, place, place.getContainingFile());
-    fillLocalInfo(jenv, lastedit);
+    fillLocalInfo(lastedit);
   }
 
   /**
    * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names, using jenv as a base
    */
-  private void fillLocalInfo(JavaEnvironment jenv, int lastedit) {
+  private void fillLocalInfo(int lastedit) {
 
     // local variables, parameters, type parameters, as well as protected/private things in scope
     final Converter env = new Converter(jenv,locals);
@@ -121,7 +117,10 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     log("added " + locals.size() + " locals");
 
-    localItems.addAll(locals.values());
+    synchronized(jenv) {
+      // .values is undefined if it is modified during iteration.
+      localItems.addAll(locals.values());
+    }
 
     // find out which element we are inside (method, class or interface, or package)
     ParentItem placeItem = null;
@@ -167,10 +166,8 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
-          if (jenv.knows(place))
-            placeItem = (ParentItem)jenv.lookup(place, true);
-          else
-            assert false: "cannot find placeItem " + place + ", possibly in anonymous local class";
+          placeItem = (ParentItem)jenv.lookup(place, true);
+          assert placeItem != null : "cannot find placeItem " + place + ", possibly in anonymous local class";
         }
       } else if (place instanceof PsiJavaFile) {
         final PsiPackage pkg = Place.getPackage((PsiJavaFile) place, env.project);
@@ -196,56 +193,56 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   }
 
   @Override
-  public boolean shouldProcess(DeclarationKind kind) {
-    return
-      kind == DeclarationKind.CLASS ||
-      kind == DeclarationKind.FIELD ||
-      kind == DeclarationKind.METHOD ||
-      kind == DeclarationKind.VARIABLE ||
-      kind == DeclarationKind.PACKAGE ||
-      kind == DeclarationKind.ENUM_CONST;
-  }
+     public boolean shouldProcess(DeclarationKind kind) {
+       return
+         kind == DeclarationKind.CLASS ||
+         kind == DeclarationKind.FIELD ||
+         kind == DeclarationKind.METHOD ||
+         kind == DeclarationKind.VARIABLE ||
+         kind == DeclarationKind.PACKAGE ||
+         kind == DeclarationKind.ENUM_CONST;
+     }
 
   @Override
-  public boolean execute(@NotNull PsiElement element, ResolveState state) {
+     public boolean execute(@NotNull PsiElement element, ResolveState state) {
 
-    // if we are in static scope, a class member has to be declared static for us to see it
-    // TODO: we should add these either way, and let the semantics logic take care of static scoping
-    if (element instanceof PsiField || element instanceof PsiMethod) {
-      if (inStaticScope && !((PsiMember)element).hasModifierProperty(PsiModifier.STATIC))
-        return true;
-    }
+       // if we are in static scope, a class member has to be declared static for us to see it
+       // TODO: we should add these either way, and let the semantics logic take care of static scoping
+       if (element instanceof PsiField || element instanceof PsiMethod) {
+         if (inStaticScope && !((PsiMember)element).hasModifierProperty(PsiModifier.STATIC))
+           return true;
+       }
 
-    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element)) {
-      //log("rejecting " + element + " because it is inaccessible");
-      return true;
-    }
+       if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element)) {
+         //log("rejecting " + element + " because it is inaccessible");
+         return true;
+       }
 
-    //log("found element " + element + " at level " + currentLevel);
+       //log("found element " + element + " at level " + currentLevel);
 
-    if (element instanceof PsiClass) {
-      classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
-    } else if (element instanceof PsiVariable) {
-      variables.add(new ShadowElement<PsiVariable>((PsiVariable)element, currentLevel));
-    } else if (element instanceof PsiMethod) {
-      methods.add(new ShadowElement<PsiMethod>((PsiMethod)element, currentLevel));
-    } else if (element instanceof PsiPackage) {
-      packages.add(new ShadowElement<PsiPackage>((PsiPackage)element, currentLevel));
-    }
-    return true;
-  }
+       if (element instanceof PsiClass) {
+         classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
+       } else if (element instanceof PsiVariable) {
+         variables.add(new ShadowElement<PsiVariable>((PsiVariable)element, currentLevel));
+       } else if (element instanceof PsiMethod) {
+         methods.add(new ShadowElement<PsiMethod>((PsiMethod)element, currentLevel));
+       } else if (element instanceof PsiPackage) {
+         packages.add(new ShadowElement<PsiPackage>((PsiPackage)element, currentLevel));
+       }
+       return true;
+     }
 
   @Override
-  public final void handleEvent(@NotNull Event event, Object associated){
-    if (event == JavaScopeProcessorEvent.START_STATIC) {
-      log("starting static scope");
-      inStaticScope = true;
-    } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
-      currentFileContext = (PsiElement)associated;
-      log("switching file context: " + currentFileContext);
-    } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
-      currentLevel++;
-      log("change level to " + currentLevel);
-    }
-  }
+     public final void handleEvent(@NotNull Event event, Object associated){
+       if (event == JavaScopeProcessorEvent.START_STATIC) {
+         log("starting static scope");
+         inStaticScope = true;
+       } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
+         currentFileContext = (PsiElement)associated;
+         log("switching file context: " + currentFileContext);
+       } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
+         currentLevel++;
+         log("change level to " + currentLevel);
+       }
+     }
 }

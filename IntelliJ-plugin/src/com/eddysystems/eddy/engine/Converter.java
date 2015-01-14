@@ -1,6 +1,5 @@
 package com.eddysystems.eddy.engine;
 
-import com.intellij.lang.ASTNode;
 import com.intellij.lang.Language;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -31,8 +30,6 @@ import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.scalaList;
 
 class Converter {
-   @NotNull final static Language java = Language.findLanguageByID("JAVA");
-
    public final Project project;
    final GlobalSearchScope projectScope;
 
@@ -89,17 +86,23 @@ class Converter {
    void put(PsiElement e, Item it) {
      if (splitScope) {
        if (isInProject(e)) {
-         locals.put(e,it);
-         // don't add constructor items to added -- they won't end up in the trie anyway
-         if (!(it instanceof ConstructorItem) && added != null)
-           added.put(e,it);
+         synchronized (jenv) {
+           locals.put(e,it);
+           // don't add constructor items to added -- they won't end up in the trie anyway
+           if (!(it instanceof ConstructorItem) && added != null)
+             added.put(e,it);
+         }
        } else {
-         globals.put(e,it);
+         synchronized (jenv) {
+           globals.put(e,it);
+         }
        }
      } else {
-       locals.put(e,it);
-       if (!(it instanceof ConstructorItem) && added != null)
-         added.put(e,it);
+       synchronized (jenv) {
+         locals.put(e,it);
+         if (!(it instanceof ConstructorItem) && added != null)
+           added.put(e,it);
+       }
      }
    }
 
@@ -207,31 +210,33 @@ class Converter {
    }
 
    ParentItem addContainer(PsiElement elem) {
-     {
-       Item i = lookup(elem);
-       if (i != null)
-         return (ParentItem)i;
-     }
-     if (elem == null)
-       return LocalPkg$.MODULE$;
-
-     // local classes
-     if (elem instanceof PsiMethod) {
-       return addMethod((PsiMethod) elem);
-     } if (elem instanceof PsiClass)
-       return (ParentItem)addClass((PsiClass) elem, false);
-     else if (elem instanceof PsiPackage) {
-       final PsiPackage pkg = (PsiPackage)elem;
-       final String name = pkg.getName();
-       if (name == null)
+     synchronized (jenv) {
+       {
+         Item i = lookup(elem);
+         if (i != null)
+           return (ParentItem)i;
+       }
+       if (elem == null)
          return LocalPkg$.MODULE$;
-       final PsiPackage parent = pkg.getParentPackage();
-       final ParentItem item = parent==null ? new RootPackage(name)
-                                            : new ChildPackage((tarski.Items.Package)addContainer(parent),name);
-       put(pkg,item);
-       return item;
+
+       // local classes
+       if (elem instanceof PsiMethod) {
+         return addMethod((PsiMethod) elem);
+       } if (elem instanceof PsiClass)
+         return (ParentItem)addClass((PsiClass) elem, false);
+       else if (elem instanceof PsiPackage) {
+         final PsiPackage pkg = (PsiPackage)elem;
+         final String name = pkg.getName();
+         if (name == null)
+           return LocalPkg$.MODULE$;
+         final PsiPackage parent = pkg.getParentPackage();
+         final ParentItem item = parent==null ? new RootPackage(name)
+                                              : new ChildPackage((tarski.Items.Package)addContainer(parent),name);
+         put(pkg,item);
+         return item;
+       }
+       throw new UnknownContainerError(elem);
      }
-     throw new UnknownContainerError(elem);
    }
 
    protected interface PsiEquivalent {
@@ -541,15 +546,17 @@ class Converter {
    }
 
    private TypeVar addTypeParam(PsiTypeParameter p) {
-     {
-       Item i = lookup(p);
-       if (i != null)
-         return (TypeVar)i;
+     synchronized (jenv) {
+       {
+         Item i = lookup(p);
+         if (i != null)
+           return (TypeVar)i;
+       }
+       // Use a maker to break recursion
+       TypeVar ti = new LazyTypeVar(this,p);
+       put(p, ti);
+       return ti;
      }
-     // Use a maker to break recursion
-     TypeVar ti = new LazyTypeVar(this,p);
-     put(p, ti);
-     return ti;
    }
 
    static protected class LazyClass extends ClassItem implements PsiEquivalent, ReferencingItem, CachedNameItem, CachedConstructorsItem, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem {
@@ -773,37 +780,39 @@ class Converter {
    }
 
    RefTypeItem addClass(PsiClass cls, boolean recurse) {
-     {
-       Item i = lookup(cls);
-       if (i != null) {
-         // if we are forced to recurse, we may still have to add fields that were previously unseen
-         // don't do this for TypeVars
-         if (recurse && i instanceof ClassItem)
-           addClassMembers(cls, (ClassItem)i);
-         return (RefTypeItem)i;
+     synchronized(jenv) {
+       {
+         Item i = lookup(cls);
+         if (i != null) {
+           // if we are forced to recurse, we may still have to add fields that were previously unseen
+           // don't do this for TypeVars
+           if (recurse && i instanceof ClassItem)
+             addClassMembers(cls, (ClassItem)i);
+           return (RefTypeItem)i;
+         }
        }
+
+       if (cls instanceof PsiTypeParameter)
+         return addTypeParam((PsiTypeParameter)cls);
+
+       // Make and add the class
+       ParentItem parent;
+       PsiElement cont = Place.containing(cls, project);
+       try {
+         parent = addContainer(cont);
+       } catch (UnknownContainerError e) {
+         log(e);
+         parent = new UnknownContainerItem(cont, this);
+       }
+
+       ClassItem item = new LazyClass(this,cls,parent);
+       put(cls, item);
+
+       // if we're a class, all our members should really be ok
+       if (recurse)
+         addClassMembers(cls,item);
+       return item;
      }
-
-     if (cls instanceof PsiTypeParameter)
-       return addTypeParam((PsiTypeParameter)cls);
-
-     // Make and add the class
-     ParentItem parent;
-     PsiElement cont = Place.containing(cls, project);
-     try {
-       parent = addContainer(cont);
-     } catch (UnknownContainerError e) {
-       log(e);
-       parent = new UnknownContainerItem(cont, this);
-     }
-
-     ClassItem item = new LazyClass(this,cls,parent);
-     put(cls, item);
-
-     // if we're a class, all our members should really be ok
-     if (recurse)
-       addClassMembers(cls,item);
-     return item;
    }
 
    void addClassMembers(PsiClass cls, ClassItem item) {
@@ -1057,21 +1066,23 @@ class Converter {
    }
 
    CallableItem addMethod(PsiMethod method) {
-     if (isConstructor(method)) {
-       // constructors are not stored in locals, but in cons
-       ConstructorItem i = (ConstructorItem)lookup(method);
-       if (i != null)
+     synchronized (jenv) {
+       if (isConstructor(method)) {
+         // constructors are not stored in locals, but in cons
+         ConstructorItem i = (ConstructorItem)lookup(method);
+         if (i != null)
+           return i;
+         i = new LazyConstructor(this,method);
+         put(method, i);
          return i;
-       i = new LazyConstructor(this,method);
-       put(method, i);
-       return i;
-     } else {
-       Item i = lookup(method);
-       if (i != null)
+       } else {
+         Item i = lookup(method);
+         if (i != null)
+           return (CallableItem)i;
+         i = new LazyMethod(this,method);
+         put(method, i);
          return (CallableItem)i;
-       i = new LazyMethod(this,method);
-       put(method, i);
-       return (CallableItem)i;
+       }
      }
    }
 
@@ -1158,16 +1169,18 @@ class Converter {
    }
 
   Value addField(PsiField f) {
-    {
-      final Item i = lookup(f);
-      if (i != null)
-        return (Value)i;
+    synchronized (jenv) {
+      {
+        final Item i = lookup(f);
+        if (i != null)
+          return (Value)i;
+      }
+      final boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
+      final boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
+      final Value v = new LazyField(this,f,isFinal,isStatic);
+      put(f, v);
+      return v;
     }
-    final boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
-    final boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
-    final Value v = new LazyField(this,f,isFinal,isStatic);
-    put(f, v);
-    return v;
   }
 
   protected static class LazyLocal extends Local implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableFinalItem {
@@ -1253,21 +1266,24 @@ class Converter {
   }
 
   Value addLocal(PsiVariable var) {
-    assert globals == null; // only the local converter should be used like this
-    assert added == null;
-    assert var instanceof PsiLocalVariable || var instanceof PsiParameter;
+    synchronized (jenv) {
+      assert globals == null; // only the local converter should be used like this
+      assert added == null;
+      assert var instanceof PsiLocalVariable || var instanceof PsiParameter;
 
-    // lookup only in locals (
-    Item i = locals.get(var);
-    if (i != null)
+      // lookup only in locals (
+      Item i = locals.get(var);
+      if (i != null)
+        return (Value)i;
+      else
+        // make sure Values never end up anywhere outside locals
+        assert !jenv.knows(var);
+
+      // add only to locals
+      final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
+      i = new LazyLocal(this, var, isFinal);
+      locals.put(var, i);
       return (Value)i;
-    else
-      assert !jenv.knows(var);
-
-    // add only to locals
-    final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
-    i = new LazyLocal(this, var, isFinal);
-    locals.put(var, i);
-    return (Value)i;
+    }
   }
 }
