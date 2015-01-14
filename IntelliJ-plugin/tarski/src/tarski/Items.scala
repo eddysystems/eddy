@@ -175,14 +175,13 @@ object Items {
       def constructors: Array[ConstructorItem]
 
       // All constructors visible from the given place
-      def constructors(place: PlaceInfo): Array[ConstructorItem]
+      def constructors(place: PlaceInfo): Array[ConstructorItem] = constructors filter (_.accessible(place))
     }
 
     private val noConstructors: Array[ConstructorItem] = Array()
     trait BaseItem extends ClassItem {
       val fieldNames: java.util.Set[String] = new java.util.HashSet[String]()
       var constructors: Array[ConstructorItem] = noConstructors
-      def constructors(place: PlaceInfo) = noConstructors
       def declaresField(kid: Name) = fieldNames.contains(kid)
     }
 
@@ -217,7 +216,6 @@ object Items {
       def isFinal = false
       def declaresField(kid: Name) = fields contains kid
       lazy val constructors = _constructors
-      def constructors(place: PlaceInfo) = _constructors filter (_.accessible(place))
 
       override def toString = {
         def f[A](s: String, x: A, d: A) = if (x == d) "" else s",$s=$x"
@@ -245,7 +243,6 @@ object Items {
       def isEnum = false
       def declaresField(kid: Name) = fields contains kid
       lazy val constructors = _constructors
-      def constructors(place: PlaceInfo) = _constructors filter (_.accessible(place))
 
       override def toString = {
         def f[A](s: String, x: A, d: A) = if (x == d) "" else s",$s=$x"

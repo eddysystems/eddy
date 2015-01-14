@@ -280,7 +280,7 @@ public class JavaEnvironment {
         assert cls != null;
         final PsiMethod[] cons = cls.getConstructors();
         if (cons.length != 1)
-          log("found " + cons.length + " constructors for Object " + cls);
+          log("found " + cons.length + " constructors for object " + cls);
         converter.put(cons[0],item);
       }
 
