@@ -14,7 +14,7 @@ public class Test {
 
     void x() {
         int a = 1;
-        double x = 0;
+        float x = 0.;
         f(a, x);
         f(a);
         Q q = fun(new Object());

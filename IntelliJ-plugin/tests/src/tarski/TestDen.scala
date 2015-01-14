@@ -899,7 +899,7 @@ class TestDen {
     lazy val cons = DefaultConstructorItem(A)
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=true)
     val x = NormalStaticFieldItem("f",IntType,A,isFinal=true)
-    val y = Local("y",IntType,isFinal=false)
+    val y = NormalLocal("y",IntType,isFinal=false)
     implicit val env = localEnvWithBase().extend(Array(A,f,x,y),Map(A->2,y->1))
     test("A.f()",ApplyExp(MethodDen(None,f),Nil,auto=false))
     test("y = A.x",AssignExp(None,y,FieldExp(None,x)))

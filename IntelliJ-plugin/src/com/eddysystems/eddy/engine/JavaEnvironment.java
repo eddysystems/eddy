@@ -1,5 +1,6 @@
 package com.eddysystems.eddy.engine;
 
+import com.eddysystems.eddy.EddyFileListener;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Computable;
@@ -39,7 +40,6 @@ public class JavaEnvironment {
     final PsiShortNamesCache psicache;
     final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
     final Converter converter;
-    final List<Items.Item> results = new ArrayList<Items.Item>();
 
     // true if there's a chance that element is visible from outside its file. Only elements that are private or
     // inside private or anonymous elements or that are local are not potentially visible.
@@ -69,36 +69,6 @@ public class JavaEnvironment {
         return false;
     }
 
-    final Processor<PsiClass> classProc = new Processor<PsiClass>() {
-      @Override
-      public boolean process(PsiClass cls) {
-        // TODO: classes that are never visible outside this file don't have to be added here (private or inside private)
-        if (possiblyVisible(cls))
-          results.add(converter.addClass(cls, false));
-        return true;
-      }
-    };
-
-    final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
-      @Override
-      public boolean process(PsiMethod method) {
-        // TODO: methods that are never visible outside this file don't have to be added here (private or inside private)
-        if (possiblyVisible(method) && !Converter.isConstructor(method))
-          results.add(converter.addMethod(method));
-        return true;
-      }
-    };
-
-    final Processor<PsiField> fieldProc = new Processor<PsiField>() {
-      @Override
-      public boolean process(PsiField fld) {
-        // TODO: fields that are never visible outside this file don't have to be added here (private or inside private)
-        if (possiblyVisible(fld))
-          results.add(converter.addField(fld));
-        return true;
-      }
-    };
-
     PsiGenerator(Project project, GlobalSearchScope scope, Converter conv) {
       this.project = project;
       this.scope = scope;
@@ -107,10 +77,49 @@ public class JavaEnvironment {
     }
 
     private Items.Item[] generate(String s) {
-      results.clear();
+      final EddyFileListener.EddyThread thread = EddyFileListener.getEddyThread();
+      final List<Items.Item> results = new ArrayList<Items.Item>();
+
+      final Processor<PsiClass> classProc = new Processor<PsiClass>() {
+      @Override
+      public boolean process(PsiClass cls) {
+        if (thread != null && thread.canceled())
+          return false;
+        if (possiblyVisible(cls))
+          results.add(converter.addClass(cls, false));
+        return true;
+      }
+      };
+
+      final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
+      @Override
+      public boolean process(PsiMethod method) {
+        if (thread != null && thread.canceled())
+          return false;
+        if (possiblyVisible(method) && !Converter.isConstructor(method))
+          results.add(converter.addMethod(method));
+        return true;
+      }
+      };
+
+      final Processor<PsiField> fieldProc = new Processor<PsiField>() {
+      @Override
+      public boolean process(PsiField fld) {
+        if (thread != null && thread.canceled())
+          return false;
+        if (possiblyVisible(fld))
+          results.add(converter.addField(fld));
+        return true;
+      }
+      };
+
+      if (thread != null)
+        thread.setSoftInterrupts(true);
       psicache.processClassesWithName(s, classProc, scope, filter);
       psicache.processMethodsWithName(s, methodProc, scope, filter);
       psicache.processFieldsWithName(s, fieldProc, scope, filter);
+      if (thread != null)
+        thread.setSoftInterrupts(false);
       return results.toArray(new Items.Item[results.size()]);
     }
 

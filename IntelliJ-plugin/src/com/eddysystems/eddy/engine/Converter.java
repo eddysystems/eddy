@@ -11,10 +11,8 @@ import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
-import scala.Option;
 import scala.Some;
 import scala.collection.JavaConversions;
-import scala.collection.immutable.Map$;
 import tarski.Environment;
 import tarski.Items;
 import tarski.Items.*;
@@ -1256,7 +1254,7 @@ class Converter {
 
       // add only to locals
       final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
-      i = new LazyLocal(this, var, isFinal);
+      i = (Items.Item) new LazyLocal(this, var, isFinal);
       locals.put(var, i);
       return (Value)i;
     }

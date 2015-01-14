@@ -86,7 +86,15 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     }
   }
 
-  static class EddyThread extends Thread {
+  public static EddyThread getEddyThread() {
+    Thread t = Thread.currentThread();
+    if (t instanceof EddyThread)
+      return (EddyThread)t;
+    else
+      return null;
+  }
+
+  public static class EddyThread extends Thread {
     private final Eddy eddy;
     private final EddyFileListener owner;
 
@@ -96,10 +104,39 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       this.eddy = new Eddy(owner.project);
     }
 
-    public void interrupt() {
-      log("interrupting " + this.getName());
+    private boolean softInterrupts = false;
+    private boolean _canceled = false;
+
+    public boolean canceled() {
+      return _canceled;
+    }
+
+    public synchronized void setSoftInterrupts(boolean b) {
+      if (softInterrupts == b)
+        return;
+
+      softInterrupts = b;
+
+      // if we switch to soft interrupts and we were interrupted, kill the thread now
+      if (softInterrupts && isInterrupted()) {
+        throw new ThreadDeath();
+      }
+
+      // if we switch back to hard interrupts and we tried interrupting before, interrupt now.
+      if (!softInterrupts && _canceled) {
+        interrupt();
+      }
+    }
+
+    public synchronized void interrupt() {
       eddy.cancel();
-      super.interrupt();
+      _canceled = true;
+      if (softInterrupts) {
+        log("soft interrupting " + this.getName());
+      } else {
+        log("interrupting " + this.getName());
+        super.interrupt();
+      }
     }
 
     @Override
@@ -132,7 +169,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
           }
         });
       } catch (RuntimeInterruptedException e) {
-        // interrupted while sleeping, rethrown by DumbService, ignore
+        // interrupted while sleeping inside DumbService, ignore
       }
     }
 
