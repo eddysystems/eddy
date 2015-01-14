@@ -189,7 +189,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
-    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, lastedit);
+    placeInfo = new PlaceInfo(placeItem, this.place.place, inside_breakable, inside_continuable, lastedit);
   }
 
   @Override

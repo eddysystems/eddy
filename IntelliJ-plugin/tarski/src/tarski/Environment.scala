@@ -2,6 +2,7 @@ package tarski
 
 import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 
+import com.intellij.psi.PsiElement
 import utility.Utility._
 import utility.Locations._
 import tarski.JavaItems._
@@ -20,7 +21,7 @@ object Environment {
   // Information about where we are
   // TODO: add information about static scope
   // TODO: add information about whether we're in a spot where we can delegate constructor calls
-  case class PlaceInfo(place: ParentItem,
+  case class PlaceInfo(place: ParentItem, exactPlace: PsiElement = null,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
                        lastEdit: SLoc = SLoc.unknown) extends RefEq {

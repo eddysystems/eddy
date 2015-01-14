@@ -125,11 +125,6 @@ class Place {
     return epkg == pkg;
   }
 
-  // true if this place is lexicographically inside the given element (PsiClass or PsiMethod)
-  boolean isInside(PsiElement element) {
-    return PsiTreeUtil.isAncestor(element, place, false);
-  }
-
   // true if the element cannot be accessed from this place because it is inside an inaccessible element, because
   // it is private (and this is not inside the containing class), or because it is protected or package-local and
   // this is not within an inheriting class or the same package.

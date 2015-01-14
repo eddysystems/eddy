@@ -525,7 +525,7 @@ class Converter {
          _place = info.place();
          if (info.place() instanceof PsiEquivalent && p.getOwner() != null) {
            // Type variables are visible exactly if we are inside their owner
-           _accessible = new Place(env.project, ((PsiEquivalent) _place).psi()).isInside(p.getOwner());
+           _accessible =  PsiTreeUtil.isAncestor(p.getOwner(), ((PsiEquivalent) _place).psi(), false);
          } else {
            log("can't determine whether " + this + " is accessible from " + info.place());
            _accessible = false;
@@ -1248,29 +1248,23 @@ class Converter {
       return var;
     }
 
-    Items.ParentItem _place = null;
+    PsiElement _place = null;
     boolean _accessible = false;
     @Override
     public boolean accessible(Environment.PlaceInfo info) {
-      if (info.place() != _place) {
-        _place = info.place();
-        if (info.place() instanceof PsiEquivalent) {
-          if (_isParameter) {
-            _accessible = new Place(env.project, ((PsiEquivalent) _place).psi()).isInside(((PsiParameter)psi()).getDeclarationScope());
-          } else {
-            // find code block, check if place is inside code block, and after our declaration
-            PsiCodeBlock cb = PsiTreeUtil.getParentOfType(psi(), PsiCodeBlock.class, true);
-            PsiElement pelem = ((PsiEquivalent) _place).psi();
-            if (PsiTreeUtil.isAncestor(cb, pelem, false)) {
-              // we're accessible if this is declared before (the end of) pelem
-              _accessible = pelem.getTextOffset() + pelem.getTextLength() > psi().getTextOffset() + psi().getTextLength();
-            } else {
-              _accessible = false;
-            }
-          }
+      if (info.exactPlace() != _place) {
+        _place = info.exactPlace();
+        if (_isParameter) {
+          _accessible = PsiTreeUtil.isAncestor(((PsiParameter)psi()).getDeclarationScope(), _place, false);
         } else {
-          log("can't determine whether " + this + " is accessible from " + info.place());
-          _accessible = false;
+          // find code block, check if place is inside code block, and after our declaration
+          PsiCodeBlock cb = PsiTreeUtil.getParentOfType(psi(), PsiCodeBlock.class, true);
+          if (PsiTreeUtil.isAncestor(cb, _place, false)) {
+            // we're accessible if this is declared before (the end of) _place
+            _accessible = _place.getTextRange().getEndOffset() >= var.getTextRange().getEndOffset();
+          } else {
+            _accessible = false;
+          }
         }
       }
       return _accessible;
