@@ -415,24 +415,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertContainsElements(jenv.localItems.values(), P2);
     log("in scope: ");
     log(env.scope());
-    // make from inside P1, we can see A1, but not A2
-    log("Local1 query: ");
-    log(env.exactQuery("Local1"));
+    // make from inside P1, we can see Local1, but not Local2
+    log("Local1 query: " + env.exactQuery("Local1"));
     assertEquals(1, env.exactQuery("Local1").length());
-    log("Local2 query: ");
+    log("Local2 query: " + env.exactQuery("Local2"));
+    assertEquals(0, env.exactQuery("Local2").length());
 
-    log(env.exactQuery("Local2"));
-    assertEquals(1, env.exactQuery("Local2").length());
-
-    Items.Item l1 = env.exactQuery("Local1").apply(0);
-    PsiElement pl1 = ((Converter.PsiEquivalent)l1).psi();
-    Items.Item l2 = env.exactQuery("Local2").apply(0);
-    PsiElement pl2 = ((Converter.PsiEquivalent)l2).psi();
-
-    log("Local 1 file package: " + ((PsiJavaFile)pl1.getContainingFile()).getPackageName() + " => " + Place.containing(pl1, getProject()));
-    log("Local 2 file package: " + ((PsiJavaFile)pl2.getContainingFile()).getPackageName() + " => " + Place.containing(pl2, getProject()));
-
-    assertFalse(env.exactQuery("Local2").apply(0).accessible(env.place()));
     Item L1 = env.exactQuery("Local1").head();
     assertTrue(env.scope().contains(L1));
 
