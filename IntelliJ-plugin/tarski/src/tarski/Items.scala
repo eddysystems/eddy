@@ -300,11 +300,12 @@ object Items {
       def isFinal: Boolean
     }
     abstract class Local extends Value {
-      override def toString = "local:" + name
+      override def toString = (if (isParameter) "param:" else "local:") + name
       def ty: Type
       def item = ty.item
+      def isParameter: Boolean // true if parameter, false if local variable
     }
-    case class NormalLocal(name: Name, ty: Type, isFinal: Boolean = true) extends Local {}
+    case class NormalLocal(name: Name, ty: Type, isParameter: Boolean, isFinal: Boolean) extends Local {}
     case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
       def name = "this"
       def item = self
