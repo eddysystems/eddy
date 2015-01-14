@@ -536,12 +536,6 @@ class Converter {
 
      // Necessary only due to screwy Java/Scala interop
      public Some safe() { return new Some<RefType>(this); }
-     public scala.collection.immutable.List<tarski.Denotations.Stmt> discards() { return _discards; }
-
-     // For use above
-     static scala.collection.immutable.List<tarski.Denotations.Stmt> _discards =
-       JavaConversions.asScalaBuffer(new ArrayList<tarski.Denotations.Stmt>()).toList();
-
    }
 
    private TypeVar addTypeParam(PsiTypeParameter p) {
@@ -935,11 +929,6 @@ class Converter {
        }
        return _accessible;
      }
-
-     // Necessary only due to screwy Java/Scala interop
-     //public Parent simple() { throw new RuntimeException("For LazyConstructor, only inside is valid, not simple"); }
-     //public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
-     //public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
    }
 
    protected static class LazyMethod extends MethodItem implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableStaticItem, CachedTypeParametersItem, CachedParametersItem, CachedReturnTypeItem {
@@ -1060,11 +1049,6 @@ class Converter {
        }
        return _accessible;
      }
-
-     // Necessary only due to screwy Java/Scala interop
-     //public Parent simple() { throw new RuntimeException("For LazyMethod, only inside is valid, not simple"); }
-     //public Option<Parent> safe() { return new Some<Parent>((Parent)this); }
-     //public scala.collection.immutable.Map<TypeVar,Option<RefType>> env() { return Map$.MODULE$.empty(); }
    }
 
    CallableItem addMethod(PsiMethod method) {
