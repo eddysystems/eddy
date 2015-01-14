@@ -149,10 +149,19 @@ object Environment {
     // Convenience aliases taking String
     @inline final def exactQuery(typed: String): List[Item] = _exactQuery(typed.toCharArray)
     @inline final def typoQuery(typed: String): List[Alt[Item]] = _typoQuery(typed.toCharArray)
-    @inline final def collect[A](typed: String, error: => String, filter: PartialFunction[Item,A]): Scored[A] =
+
+    @inline final def collect[A](typed: String, error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
+      // make sure an interrupted thread dies quickly
+      if (Thread.currentThread().isInterrupted)
+        throw new ThreadDeath
       _collect(typed.toCharArray,error,filter)
-    @inline final def flatMap[A](typed: String, error: => String, f: Item => Scored[A]): Scored[A] =
+    }
+    @inline final def flatMap[A](typed: String, error: => String, f: Item => Scored[A]): Scored[A] = {
+      // make sure an interrupted thread dies quickly
+      if (Thread.currentThread().isInterrupted)
+        throw new ThreadDeath
       _flatMap(typed.toCharArray,error,f)
+    }
 
     // Lookup by type.item
     def byItem(t: TypeItem): Scored[Value]

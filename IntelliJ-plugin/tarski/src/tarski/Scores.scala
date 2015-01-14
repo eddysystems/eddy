@@ -35,10 +35,6 @@ object Scores {
 
   sealed abstract class Scored[+A] extends HasProb {
 
-    // make sure an interrupted thread dies quickly
-    if (Thread.currentThread().isInterrupted)
-      throw new ThreadDeath
-
     // Invariant: p >= probability of any option
     def p: Double
 
