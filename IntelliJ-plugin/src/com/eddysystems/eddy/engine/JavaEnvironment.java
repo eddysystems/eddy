@@ -16,9 +16,9 @@ import tarski.*;
 
 import java.util.*;
 
+import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
-import static com.eddysystems.eddy.engine.Utility.log;
 
 // a class storing information about the environment.
 public class JavaEnvironment {
@@ -38,15 +38,43 @@ public class JavaEnvironment {
     final GlobalSearchScope scope;
     final PsiShortNamesCache psicache;
     final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
-    final Place place;
     final Converter converter;
     final List<Items.Item> results = new ArrayList<Items.Item>();
+
+    // true if there's a chance that element is visible from outside its file. Only elements that are private or
+    // inside private or anonymous elements or that are local are not potentially visible.
+    boolean possiblyVisible(PsiModifierListOwner element) {
+      PsiElement container = null;
+      try {
+        container = Place.containing(element, project);
+      } catch (Place.UnexpectedContainerError e) {
+        log(e.getMessage());
+        return false;
+      }
+
+      // anything toplevel in a package is at most protected
+      if (container instanceof PsiPackage) {
+        return true;
+      }
+
+      // anything private is out
+      if (element.hasModifierProperty(PsiModifier.PRIVATE)) {
+        return false;
+      }
+
+      // everything else, depends on the container
+      if (container instanceof PsiModifierListOwner) {
+        return possiblyVisible((PsiModifierListOwner)container);
+      } else
+        return false;
+    }
 
     final Processor<PsiClass> classProc = new Processor<PsiClass>() {
       @Override
       public boolean process(PsiClass cls) {
-        if (!place.isInaccessible(cls, true))
-          results.add(converter.addClass(cls, false, true));
+        // TODO: classes that are never visible outside this file don't have to be added here (private or inside private)
+        if (possiblyVisible(cls))
+          results.add(converter.addClass(cls, false));
         return true;
       }
     };
@@ -54,7 +82,8 @@ public class JavaEnvironment {
     final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
       @Override
       public boolean process(PsiMethod method) {
-        if (!place.isInaccessible(method, true) && !Converter.isConstructor(method))
+        // TODO: methods that are never visible outside this file don't have to be added here (private or inside private)
+        if (possiblyVisible(method) && !Converter.isConstructor(method))
           results.add(converter.addMethod(method));
         return true;
       }
@@ -63,7 +92,8 @@ public class JavaEnvironment {
     final Processor<PsiField> fieldProc = new Processor<PsiField>() {
       @Override
       public boolean process(PsiField fld) {
-        if (!place.isInaccessible(fld, true))
+        // TODO: fields that are never visible outside this file don't have to be added here (private or inside private)
+        if (possiblyVisible(fld))
           results.add(converter.addField(fld));
         return true;
       }
@@ -73,7 +103,6 @@ public class JavaEnvironment {
       this.project = project;
       this.scope = scope;
       psicache = PsiShortNamesCache.getInstance(project);
-      place = new Place(project, null);
       converter = conv;
     }
 
@@ -114,6 +143,11 @@ public class JavaEnvironment {
     return _initialized;
   }
 
+  // all these are possibly accessed by several threads. Modifying or non-atomic read access requiring consistency to any
+  // of items, localItems, addedItems has to be synchronized(this). If the caller is inside an IntelliJ write action
+  // (such as anything called from the PsiListener), synchronization is not necessary because all other accessing threads
+  // are inside IntelliJ read actions, and will not run during a write action)
+
   // global (library) environment. Only added to, never deleted from or changed. All public items not in project files go in here
   Map<PsiElement, Items.Item> items = new HashMap<PsiElement, Items.Item>();
 
@@ -125,6 +159,7 @@ public class JavaEnvironment {
   int nDeletions;
 
   // items found in scope by the EnvironmentProcessor
+  // TODO: replace this with an LRUCache or at least, randomly cut it down once in a while. Currently, this is never cleaned out
   Map<PsiElement, Items.Item> scopeItems = new HashMap<PsiElement, Items.Item>();
 
   // pre-computed data structures to enable fast creation of appropriate scala Env instances
@@ -132,7 +167,7 @@ public class JavaEnvironment {
   // when a local env is created, it contains: A global lookup object (created from the global list of all names and a generator object
   // able to translate a name into a list of items), a trie storing Local items, a byItem map for local items, and a trie and byItem map
   // containing items added to locals (but not in the trie yet), and the locals found by the EnvironmentProcessor.
-  Tries.LazyTrie<Items.Item> sTrie = null;
+  Tries.LazyTrie<Items.Item> sTrie = null; // can't be final because initialized in initialize, but never changed after
   Tries.DTrie<Items.Item> dTrie = null;
   Map<Items.TypeItem, Items.Value[]> dByItem = null;
 
@@ -141,10 +176,10 @@ public class JavaEnvironment {
 
   public JavaEnvironment(@NotNull Project project) {
     this.project = project;
-    converter = new Converter(new Place(project, null), this, items, localItems, addedItems);
+    converter = new Converter(this, items, localItems, addedItems);
   }
 
-  public void initialize() {
+  synchronized public void initialize() {
     pushScope("make base environment");
     try {
       // add base items
@@ -179,26 +214,39 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  boolean knows(PsiElement elem) {
+  synchronized boolean knows(PsiElement elem) {
     return items.containsKey(elem) || localItems.containsKey(elem) || scopeItems.containsKey(elem);
   }
 
   @Nullable
-  Items.Item lookup(PsiElement elem) {
+  synchronized Items.Item lookup(PsiElement elem, boolean checkLocal) {
     // everything in addedItems is also in localItems.
     Items.Item i = items.get(elem);
     if (i == null)
-      i = localItems.get(elem);
-    if (i == null)
+         i = localItems.get(elem);
+    if (i == null    && checkLocal)
       i = scopeItems.get(elem);
     return i;
+  }
+
+  // find an element. If it was found in the local part of the environment, move it to the global part
+  @Nullable
+  synchronized Items.Item lookupAndMove (PsiElement e) {
+    Items.Item it = lookup(e, false);
+    if (it == null) {
+      it = scopeItems.get(e);
+      if (it != null) {
+        converter.put(e,it);
+        scopeItems.remove(e);
+      }
+    }
+    return it;
   }
 
   private void addBase() {
     pushScope("add base");
     try {
       final GlobalSearchScope scope = ProjectScope.getAllScope(project);
-      final boolean noProtected = true;
 
       // Extra things don't correspond to PsiElements
       final Set<Items.Item> extra =  new HashSet<Items.Item>();
@@ -232,7 +280,7 @@ public class JavaEnvironment {
         assert cls != null;
         final PsiMethod[] cons = cls.getConstructors();
         if (cons.length != 1)
-          log("found " + cons.length + " constructors for Object " + cls);
+          log("found " + cons.length + " constructors for object " + cls);
         converter.put(cons[0],item);
       }
 
@@ -241,8 +289,8 @@ public class JavaEnvironment {
         if (extra.contains(item) || !(item instanceof Items.ClassItem))
           continue;
         final String name = item.qualified();
-        converter.addClassMembers(facade.findClass(name, scope), (Items.ClassItem) item, noProtected);
-      }
+        converter.addClassMembers(facade.findClass(name, scope), (Items.ClassItem) item);
+       }
     } finally { popScope(); }
   }
 
@@ -269,32 +317,29 @@ public class JavaEnvironment {
     return t;
   }
 
-  // store all classes and their member in the given scope
   private void storeProjectClassInfo(List<String> classNames) {
     pushScope("store project classes");
     try {
       final GlobalSearchScope scope = ProjectScope.getContentScope(project);
       final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
-      final Place place = new Place(project, null);
       final IdFilter filter = IdFilter.getProjectIdFilter(project, false);
       final Processor<PsiClass> proc = new Processor<PsiClass>() {
         @Override
         public boolean process(final PsiClass cls) {
-          if (!place.isInaccessible(cls, true))
-            converter.addClass(cls, true, true);
+          converter.addClass(cls, true);
           return true;
-          }
+        }
       };
 
       for (final String s : classNames) {
         DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() { @Override public void run() {
-            cache.processClassesWithName(s, proc, scope, filter);
+          cache.processClassesWithName(s, proc, scope, filter);
         }});
       }
     } finally { popScope(); }
   }
 
-  List<Items.Item> removeConstructors(Collection<Items.Item> items) {
+  private static List<Items.Item> removeConstructors(Collection<Items.Item> items) {
     List<Items.Item> newitems = new ArrayList<Items.Item>(items.size());
     for (Items.Item i : items)
       if (!(i instanceof Items.ConstructorItem))
@@ -302,11 +347,12 @@ public class JavaEnvironment {
     return newitems;
   }
 
-  void buildDynamicEnv() {
+  private void buildDynamicEnv() {
     pushScope("building project trie");
     try {
       final List<Items.Item> items = removeConstructors(localItems.values());
       items.addAll(Arrays.asList(Base.extraEnv().allItems())); // Add int, false, null, etc.
+
       dTrie = Tarski.makeDTrie(items);
       dByItem = JavaItems.valuesByItem(dTrie.values());
 
@@ -316,7 +362,7 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  boolean localEnvNeedsRebuild() {
+  private boolean localEnvNeedsRebuild() {
     int changes = Math.max(nDeletions, addedItems.size());
     if (changes < rebuildMinChanges)
       return false;
@@ -325,41 +371,47 @@ public class JavaEnvironment {
   }
 
   // get a combined environment at the given place
-  Environment.Env getLocalEnvironment(PsiElement place, final int lastEdit) {
-    if (localEnvNeedsRebuild()) {
-      buildDynamicEnv();
-    } else if (byItemNeedsRebuild) {
-      dByItem = JavaItems.valuesByItem(dTrie.values());
+  Environment.Env getLocalEnvironment(@NotNull PsiElement place, final int lastEdit) {
+    synchronized(this) {
+      if (localEnvNeedsRebuild())
+        buildDynamicEnv();
+      else if (byItemNeedsRebuild)
+        dByItem = JavaItems.valuesByItem(dTrie.values());
     }
 
     // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
     EnvironmentProcessor ep = new EnvironmentProcessor(project, this, scopeItems, place, lastEdit, true);
 
     List<Items.Item> newitems = removeConstructors(ep.localItems);
-    newitems.addAll(addedItems.values()); // addedItems never contains constructors (see Converter.put() and changeItemName())
+
+    Tries.DTrie<Items.Item> dt;
+    Map<Items.TypeItem, Items.Value[]> dbi;
+
+    // need sync on this to make addedItems.values() safe and in sync with dTrie
+    synchronized (this) {
+      // addedItems never contains constructors (see Converter.put() and changeItemName())
+      newitems.addAll(addedItems.values());
+      dt = dTrie;
+      dbi = dByItem;
+    }
 
     final Items.Item[] newArray = newitems.toArray(new Items.Item[newitems.size()]);
-    return Tarski.environment(sTrie, dTrie, Tarski.makeTrie(newArray), dByItem, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
+    return Tarski.environment(sTrie, dt, Tarski.makeTrie(newArray), dbi, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
   }
 
-
-  void addLocalItem(PsiElement elem) {
+  synchronized void addItem(PsiElement elem) {
     // the handler calls this for each interesting element that is added, there is no need for Psi tree
     // traversal in here
 
-    // add to localItems and addedItems
-    assert lookup(elem) == null;
-
-    // don't add inaccessible things
-    if (converter.place.isInaccessible((PsiModifierListOwner)elem, true))
-      return;
+    // add to localItems and addedItems, make sure it's not known already
+    assert !knows(elem);
 
     // this adds to localItems and possibly addedItems
     Items.Item it = converter.addItem(elem);
 
     // save a copy in addedItems (constructors don't go there)
     if (it instanceof Items.ConstructorItem) {
-     ((Items.CachedConstructorsItem)((Items.ConstructorItem) it).parent()).invalidateConstructors();
+      ((Items.CachedConstructorsItem)((Items.ConstructorItem) it).parent()).invalidateConstructors();
     }
 
     // if we added a class, check if we can fill in some of the undefined references
@@ -372,7 +424,7 @@ public class JavaEnvironment {
     }
   }
 
-  void deleteItem(PsiElement elem) {
+  synchronized void deleteItem(PsiElement elem) {
 
     // this is called from beforeDelete, so elem is still valid
 
@@ -381,7 +433,7 @@ public class JavaEnvironment {
 
     // any elements in the psi tree below this element have been deleted already, if they needed to be deleted
 
-    Items.Item it = lookup(elem);
+    Items.Item it = lookup(elem, false);
 
     // do we even care?
     if (it == null)
@@ -416,9 +468,9 @@ public class JavaEnvironment {
     }
   }
 
-  void changeModifiers(PsiModifierListOwner elem) {
+  synchronized void changeModifiers(PsiModifierListOwner elem) {
     // find the item
-    Items.Item it = lookup(elem);
+    Items.Item it = lookup(elem, false);
     if (it == null)
       return;
 
@@ -436,8 +488,8 @@ public class JavaEnvironment {
       log("  can't set static modifier on " + it);
   }
 
-  void changeTypeParameters(PsiTypeParameterListOwner elem) {
-    Items.Item it = lookup(elem);
+  synchronized void changeTypeParameters(PsiTypeParameterListOwner elem) {
+    Items.Item it = lookup(elem, false);
     if (it == null)
       return;
 
@@ -446,8 +498,8 @@ public class JavaEnvironment {
     ((Items.CachedTypeParametersItem)it).invalidateTypeParameters();
   }
 
-  void changeBase(PsiClass elem) {
-    Items.Item it = lookup(elem);
+  synchronized void changeBase(PsiClass elem) {
+    Items.Item it = lookup(elem, false);
     if (it == null)
       return;
 
@@ -459,8 +511,8 @@ public class JavaEnvironment {
     byItemNeedsRebuild = true;
   }
 
-  void changeImplements(PsiClass elem) {
-    Items.Item it = lookup(elem);
+  synchronized void changeImplements(PsiClass elem) {
+    Items.Item it = lookup(elem, false);
     if (it == null)
       return;
 
@@ -470,8 +522,8 @@ public class JavaEnvironment {
     byItemNeedsRebuild = true;
   }
 
-  void changeParameters(PsiMethod elem) {
-    Items.Item it = lookup(elem);
+  synchronized void changeParameters(PsiMethod elem) {
+    Items.Item it = lookup(elem, false);
     if (it == null)
       return;
 
@@ -480,8 +532,8 @@ public class JavaEnvironment {
     ((Items.CachedParametersItem)it).invalidateParameters();
   }
 
-  void changeReturnType(PsiMethod elem) {
-    Items.Item it = lookup(elem);
+  synchronized void changeReturnType(PsiMethod elem) {
+    Items.Item it = lookup(elem, false);
 
     if (it == null)
       return;
@@ -493,10 +545,10 @@ public class JavaEnvironment {
       assert !Converter.isConstructor(elem);
       // add as a method
       deleteItem(elem);
-      addLocalItem(elem);
+      addItem(elem);
     } else if (Converter.isConstructor(elem)) { // or we just made a constructor by deleting the return type of a method with the same name as its class
       deleteItem(elem);
-      addLocalItem(elem);
+      addItem(elem);
     } else {
       ((Items.CachedReturnTypeItem)it).invalidateReturnType();
     }
@@ -504,9 +556,9 @@ public class JavaEnvironment {
   }
 
   // the name of this item has changed, but references to it remain valid (must be re-inserted into the trie, but no other action necessary)
-  void changeItemName(PsiNamedElement elem) {
+  synchronized void changeItemName(PsiNamedElement elem) {
     // find the item
-    Items.Item it = lookup(elem);
+    Items.Item it = lookup(elem, false);
 
     if (it == null)
       return;
@@ -520,14 +572,18 @@ public class JavaEnvironment {
       // there may be inner classes of it, but those should only be added in scope scanning
 
       deleteItem(elem);
-      addLocalItem(elem);
+      addItem(elem);
     } else {
       // regular name change
 
       // delete from trie (by overwriting the corresponding stored item with a deleted dummy) and add to addedItems
-      Items.Item dummy = new Items.SimpleTypeVar(it.name());
-      dummy.delete();
-      dTrie.overwrite(it, dummy);
+
+      // only delete it from the trie if it's already in there
+      if (!addedItems.containsKey(elem)) {
+        Items.Item dummy = new Items.SimpleTypeVar(it.name());
+        dummy.delete();
+        dTrie.overwrite(it, dummy);
+      }
 
       ((Items.CachedNameItem)it).refreshName();
 

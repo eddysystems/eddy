@@ -160,7 +160,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
       return;
 
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
-      env.addLocalItem(elem);
+      env.addItem(elem);
       return;
     }
 
@@ -218,7 +218,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // whole items, translate to delete/add pair
     PsiElement elem = event.getNewChild();
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
-      env.addLocalItem(elem);
+      env.addItem(elem);
       return;
     }
 

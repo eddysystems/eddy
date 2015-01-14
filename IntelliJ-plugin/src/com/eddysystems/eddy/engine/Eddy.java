@@ -1,6 +1,5 @@
 package com.eddysystems.eddy.engine;
 
-import utility.Locations.Located;
 import com.eddysystems.eddy.EddyPlugin;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
@@ -20,9 +19,9 @@ import org.jetbrains.annotations.Nullable;
 import scala.collection.immutable.Map;
 import tarski.Environment;
 import tarski.Scores;
-import tarski.JavaScores.*;
 import tarski.Tarski;
 import tarski.Tokens;
+import utility.Locations.Located;
 
 import java.util.List;
 
@@ -112,7 +111,7 @@ public class Eddy {
     canceled = true;
   }
 
-  public void process(@NotNull Editor editor, int lastedit, final @Nullable String special) {
+  void processInternal(@NotNull Editor editor, int lastedit, final @Nullable String special) {
     log("processing eddy@" + hashCode() + "...");
     assert project == editor.getProject();
 
@@ -270,6 +269,16 @@ public class Eddy {
     };
     results = Tarski.fixJava(tokens,env,enough);
     resultStrings = reformat(results, before_text);
+  }
+
+  public void process(@NotNull Editor editor, int lastedit, final @Nullable String special) {
+    try {
+      processInternal(editor, lastedit, special);
+    } catch (Exception e) {
+      log("exception " + e + " in process(): " + e.getMessage());
+      log("trace: ");
+      log(e.getStackTrace());
+    }
   }
 
   private List<String> reformat(List<Scores.Alt<List<String>>> results, String before_text) {

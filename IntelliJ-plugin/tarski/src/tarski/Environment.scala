@@ -2,6 +2,7 @@ package tarski
 
 import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 
+import com.intellij.psi.PsiElement
 import utility.Utility._
 import utility.Locations._
 import tarski.JavaItems._
@@ -20,10 +21,10 @@ object Environment {
   // Information about where we are
   // TODO: add information about static scope
   // TODO: add information about whether we're in a spot where we can delegate constructor calls
-  case class PlaceInfo(place: ParentItem,
+  case class PlaceInfo(place: ParentItem, exactPlace: PsiElement = null,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
-                       lastEdit: SLoc = SLoc.unknown) {
+                       lastEdit: SLoc = SLoc.unknown) extends RefEq {
     // Can we forward to a constructor of class c?
     // TODO: Restrict to first statement of the constructor
     def forwardThisPossible(c: ClassItem): Boolean = place match {
@@ -85,7 +86,7 @@ object Environment {
             @tailrec def loop(as: List[A], env: Env, ns: List[String], ts: List[Type], fs: List[(Env,Local) => A]): (Env,List[A]) = (ns,ts,fs) match {
               case (Nil,Nil,Nil) => (env,as.reverse)
               case (n::ns,t::ts,f::fs) =>
-                val x = Local(n,t,isFinal)
+                val x = NormalLocal(n,t,isFinal)
                 val e = env.extend(Array(x),Map(x->0))
                 loop(f(env,x)::as,e,ns,ts,fs)
               case _ => impossible
@@ -198,7 +199,7 @@ object Environment {
       val v1r = if (v1 == null) emptyValues else v1 filter (!_.deleted)
       val v2 = vByItem.get(t)
       val v2r = if (v2 == null) emptyValues else v2
-      uniform(Pr.objectOfItem, v1r ++ v2r, s"Value of item ${show(t)} not found")
+      uniform(Pr.objectOfItem, (v1r ++ v2r) filter (_.accessible(place)), s"Value of item ${show(t)} not found")
     }
 
     // Add more objects
@@ -211,7 +212,7 @@ object Environment {
     // Fragile or slow, only use for tests
     override def exactLocal(name: String): Local = {
       val query = name.toCharArray
-      def options(t: Queriable[Item]) = t exact query collect { case x:Local => x }
+      def options(t: Queriable[Item]) = t exact query collect { case x:Local if x.accessible(place) => x }
       options(sTrie)++options(dTrie)++options(vTrie) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
@@ -220,11 +221,11 @@ object Environment {
     }
 
     override def _exactQuery(typed: Array[Char]): List[Item] =
-      sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)
+      (sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)) filter (_.accessible(place))
 
     // Get exact and typo probabilities for string queries
     override def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
-      sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)
+      (sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)) filter (_.x.accessible(place))
   }
 
   // Store two tries and two byItems: one large one for globals, one small one for locals.
@@ -251,7 +252,7 @@ object Environment {
     // Fragile, only use for tests
     def exactLocal(name: String): Local = {
       val query = name.toCharArray
-      def options(t: Trie[Item]) = t exact query collect { case x: Local => x }
+      def options(t: Trie[Item]) = t exact query collect { case x: Local if x.accessible(place) => x }
       options(trie0)++options(trie1) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
@@ -274,10 +275,10 @@ object Environment {
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly (requires word database?)
     def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
-      trie1.typoQuery(typed)++trie0.typoQuery(typed)
+      (trie1.typoQuery(typed)++trie0.typoQuery(typed)) filter (_.x.accessible(place))
 
     def _exactQuery(typed: Array[Char]): List[Item] =
-      trie1.exact(typed) ++ trie0.exact(typed)
+      (trie1.exact(typed) ++ trie0.exact(typed)) filter (_.accessible(place))
 
     def byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
@@ -286,7 +287,7 @@ object Environment {
       val v = if      ((v0 eq null) || v0.isEmpty) v1
               else if ((v1 eq null) || v1.isEmpty) v0
               else v1++v0
-      uniform(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
+      uniform(Pr.objectOfItem,v filter (_.accessible(place)),s"Value of item ${show(t)} not found")
     }
   }
 

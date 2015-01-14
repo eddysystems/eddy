@@ -1,6 +1,5 @@
 package com.eddysystems.eddy.engine;
 
-import utility.Locations;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.scope.BaseScopeProcessor;
@@ -9,12 +8,9 @@ import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-import scala.collection.JavaConversions;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
-import tarski.Tarski;
 import tarski.Types.ClassType;
-import tarski.Types.Type;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,47 +52,48 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   public final List<Item> localItems = new ArrayList<Item>();
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
   final Map<PsiElement,Item> locals;
+  final JavaEnvironment jenv;
 
-  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, PsiElement place, int lastedit, boolean honorPrivate) {
+  // add to locals what you find in scope. There may be several threads writing to locals at the same time.
+  public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, @NotNull PsiElement place, int lastedit, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
     this.locals = locals;
-    locals.clear();
+    this.jenv = jenv;
 
     // this is set to null when we go to java.lang
     this.currentFileContext = place;
 
     // this walks up the PSI tree, but also processes import statements
     PsiScopesUtil.treeWalkUp(this, place, place.getContainingFile());
-    fillLocalInfo(jenv, lastedit);
+    fillLocalInfo(lastedit);
   }
 
   /**
    * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names, using jenv as a base
    */
-  private void fillLocalInfo(JavaEnvironment jenv, int lastedit) {
+  private void fillLocalInfo(int lastedit) {
 
     // local variables, parameters, type parameters, as well as protected/private things in scope
-    final Converter env = new Converter(place,jenv,locals);
+    final Converter env = new Converter(jenv,locals);
 
     log("getting local items...");
 
-    // register locally visible items
+    // register locally visible packages
     for (ShadowElement<PsiPackage> spkg : packages) {
       final PsiPackage pkg = spkg.e;
       final Item ipkg = env.addContainer(pkg);
       scopeItems.put(ipkg,spkg.shadowingPriority);
     }
 
-    // then, register classes (we need those as containing elements in the other things)
-    // classes may be contained in classes, so partial-order the list first
+    // register classes
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
-      final Item icls = env.addClass(cls, true, false);
+      final Item icls = env.addClass(cls, true);
       scopeItems.put(icls,scls.shadowingPriority);
     }
 
-    // register methods (also register types used in this method)
+    // register methods
     for (ShadowElement<PsiMethod> smethod : methods) {
       final PsiMethod method = smethod.e;
       final Item imethod = env.addMethod(method);
@@ -105,27 +102,25 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
       }
     }
 
-    // then, register objects which have types (enum constants, variables, parameters, fields), and their types
+    // then, register values
     for (ShadowElement<PsiVariable> svar : variables) {
       final PsiVariable var = svar.e;
       if (var instanceof PsiField) {
         final Item ivar = env.addField((PsiField) var);
         scopeItems.put(ivar,svar.shadowingPriority);
       } else {
-        assert !jenv.knows(var);
-        final Type t = env.convertType(var.getType());
-        final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
-        final Item i = new Local(var.getName(),t,isFinal);
-
-        // Actually add to locals
-        locals.put(var, i);
+        // true local variables (parameters or local variables)
+        final Item i = env.addLocal(var);
         scopeItems.put(i,svar.shadowingPriority);
       }
     }
 
     log("added " + locals.size() + " locals");
 
-    localItems.addAll(locals.values());
+    synchronized(jenv) {
+      // .values is undefined if it is modified during iteration.
+      localItems.addAll(locals.values());
+    }
 
     // find out which element we are inside (method, class or interface, or package)
     ParentItem placeItem = null;
@@ -155,7 +150,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         assert jenv.knows(place);
-        final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false, false);
+        final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
         assert scopeItems.containsKey(c);
         final int p = scopeItems.get(c);
         final ThisItem ti = new ThisItem(c);
@@ -171,13 +166,11 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
-          if (jenv.knows(place))
-            placeItem = (ParentItem)jenv.lookup(place);
-          else
-            assert false: "cannot find placeItem " + place + ", possibly in anonymous local class";
+          placeItem = (ParentItem)jenv.lookup(place, true);
+          assert placeItem != null : "cannot find placeItem " + place + ", possibly in anonymous local class";
         }
       } else if (place instanceof PsiJavaFile) {
-        final PsiPackage pkg = this.place.getPackage((PsiJavaFile) place);
+        final PsiPackage pkg = Place.getPackage((PsiJavaFile) place, env.project);
         if (pkg == null) {
           // probably we're top-level in a file without package statement, use LocalPackageItem
           if (placeItem == null)
@@ -196,7 +189,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
-    placeInfo = new PlaceInfo(placeItem, inside_breakable, inside_continuable, lastedit);
+    placeInfo = new PlaceInfo(placeItem, this.place.place, inside_breakable, inside_continuable, lastedit);
   }
 
   @Override
@@ -220,7 +213,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
         return true;
     }
 
-    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element, false)) {
+    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element)) {
       //log("rejecting " + element + " because it is inaccessible");
       return true;
     }

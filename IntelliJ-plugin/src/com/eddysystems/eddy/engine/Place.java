@@ -17,30 +17,36 @@ class Place {
   public final @Nullable PsiClass placeClass;
   public final @Nullable PsiPackage pkg;
 
-  Place(@NotNull Project project, @Nullable PsiElement place) {
+  Place(@NotNull Project project, @NotNull PsiElement place) {
     this.project = project;
     this.place = place;
     file = PsiTreeUtil.getParentOfType(place, PsiJavaFile.class, false);
     placeClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
-    pkg = getPackage(file);
+    pkg = getPackage(file, project);
 
     //System.out.println("Place at: " + place + " in class " + placeClass + " in package " + pkg + " in file " + file + " in project " + project);
   }
 
-  class UnexpectedContainerError extends RuntimeException {
+  static class UnexpectedContainerError extends RuntimeException {
     UnexpectedContainerError(PsiElement elem) {
       super("unexpected container of " + elem + ": " + elem.getParent() + " in file " + elem.getContainingFile());
     }
   }
 
-  class UnknownPackageError extends RuntimeException {
+  static class UnknownPackageError extends RuntimeException {
     UnknownPackageError(PsiElement elem) {
       super("can't determine package of " + elem + " with parent " + elem.getParent() + " in file " + elem.getContainingFile());
     }
   }
 
-  @Nullable PsiPackage getPackage(PsiClassOwner file) {
-    return file == null ? null : JavaPsiFacade.getInstance(project).findPackage(file.getPackageName());
+  @Nullable static PsiPackage getPackage(PsiClassOwner file, @NotNull Project project) {
+    if (file == null)
+      return null;
+    String pkgname = file.getPackageName();
+
+    // TODO: this only works if the directory structure corresponds to packages. Can we do better?
+    PsiPackage pkg = JavaPsiFacade.getInstance(project).findPackage(pkgname);
+    return pkg;
   }
 
   static @Nullable VirtualFile getElementFile(@NotNull PsiElement elem) {
@@ -57,24 +63,24 @@ class Place {
     }
   }
 
-  PsiPackage getElementPackage(@NotNull PsiElement elem) {
+  static PsiPackage getElementPackage(@NotNull PsiElement elem, @NotNull Project project) {
     assert (elem instanceof DummyHolder) || !(elem instanceof PsiDirectory) && !(elem instanceof PsiPackage) && !(elem instanceof PsiFile);
     if (elem.getContainingFile() instanceof PsiClassOwner) {
       return JavaPsiFacade.getInstance(project).findPackage(((PsiClassOwner)(elem.getContainingFile())).getPackageName());
     } else if (elem.getContext() != null)
       // synthetic elements don't believe that they're in a file. Usually though, their parent (or context) knows.
-      return getElementPackage(elem.getContext());
+      return getElementPackage(elem.getContext(), project);
 
     throw new UnknownPackageError(elem);
   }
 
-  PsiElement containing(PsiElement elem) {
+  static PsiElement containing(PsiElement elem, Project project) {
 
     PsiElement parent = elem.getParent();
     if (parent instanceof PsiPackage) {
       return parent;
     } else if (parent instanceof PsiClassOwner) { // more general than PsiJavaFile, also works for ScalaFile
-      return getPackage((PsiClassOwner)parent);
+      return getPackage((PsiClassOwner)parent, project);
     } else if (parent instanceof PsiClass) {
       return parent;
     } else if (parent instanceof PsiDeclarationStatement || // local variable
@@ -115,23 +121,22 @@ class Place {
 
   boolean samePackage(PsiElement element) {
     PsiJavaFile file = PsiTreeUtil.getParentOfType(element, PsiJavaFile.class, false);
-    PsiPackage epkg = getPackage(file);
+    PsiPackage epkg = getPackage(file, project);
     return epkg == pkg;
   }
 
-  /**
-   * Check if a thing (member or class) is private or protected and therefore not accessible
-   * @param element The thing to check whether it's inaccessible because it may be private or protected
-   * @param noProtected Consider all protected, private, or package local items inaccessible
-   * @return whether the element is not accessible
-   */
-  boolean isInaccessible(PsiModifierListOwner element, boolean noProtected) {
+  // true if the element cannot be accessed from this place because it is inside an inaccessible element, because
+  // it is private (and this is not inside the containing class), or because it is protected or package-local and
+  // this is not within an inheriting class or the same package.
+  boolean isInaccessible(PsiModifierListOwner element) {
     // TODO: this does not fully take into account the crazier access rules for protected members (6.6.1/6.6.2)
     // TODO: this deserves some unit tests, must be multi-package
 
-    PsiElement container = null;
+    // if place is null, and noPrivate is true, then we check whether we
+
+    PsiElement container;
     try {
-      container = containing(element);
+      container = containing(element, project);
     } catch (UnexpectedContainerError e) {
       log(e.getMessage());
       return true;
@@ -141,11 +146,6 @@ class Place {
       if (element.hasModifierProperty(PsiModifier.PUBLIC)) {
         return false;
       } else {
-        if (noProtected) {
-          //log(element + " is not public inside package " + container);
-          return true;
-        }
-
         if (file != null && container != pkg) {
           //log(element + " is inaccessible because it is package-local in package " + container);
           return true;
@@ -156,11 +156,6 @@ class Place {
     }
 
     if (element.hasModifierProperty(PsiModifier.PRIVATE)) {
-      if (noProtected) {
-        //log(element + " is private inside " + container);
-        return true;
-      }
-
       if (container instanceof PsiClass) {
         // if the member is private we can only see it if place is contained in a class in which member is declared.
         PsiClass containingPlaceClass = placeClass;
@@ -176,11 +171,6 @@ class Place {
         }
       }
     } else if (element.hasModifierProperty(PsiModifier.PROTECTED)) {
-      if (noProtected) {
-        //log(element + " is protected inside " + container);
-        return true;
-      }
-
       // if the member is protected we can only see it if place is contained in a subclass of the containingClass (or we're in the same package)
       if (container instanceof PsiClass) {
         PsiClass containingPlaceClass = placeClass;
@@ -198,12 +188,6 @@ class Place {
         }
       }
     } else if (!element.hasModifierProperty(PsiModifier.PUBLIC)) {
-      // package access, only allowed if we're in the same package
-      if (noProtected) {
-        //log(element + " is not public inside " + container);
-        return true;
-      }
-
       if (!samePackage(container)) {
         //log(element + " is inaccessible because it is package-local inside " + getPackage(file));
         return true;
@@ -212,7 +196,7 @@ class Place {
     }
 
     if (container instanceof PsiModifierListOwner) {
-      boolean ii = isInaccessible((PsiModifierListOwner)container, noProtected);
+      boolean ii = isInaccessible((PsiModifierListOwner)container);
       //if (ii) log("  " + element + " is inaccessible because its container " + container + " is inaccessible");
       return ii;
     } else

@@ -19,25 +19,22 @@ import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
+import com.intellij.psi.*;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import scala.collection.JavaConversions;
 import tarski.*;
 import tarski.Items.Item;
 import tarski.Scores.Alt;
 
 import java.util.List;
 
+import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
-import static com.eddysystems.eddy.engine.Utility.log;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 
@@ -96,7 +93,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     if (lastEdit == -1) {
       lastEdit = myFixture.getEditor().getCaretModel().getOffset();
     }
-    eddy.process(myFixture.getEditor(),lastEdit,special);
+    eddy.processInternal(myFixture.getEditor(),lastEdit,special);
 
     /*
     for (Map.Entry<PsiElement,Item> it : EddyPlugin.getInstance(myFixture.getProject()).getEnv().items.entrySet()) {
@@ -258,15 +255,15 @@ public class Tests extends LightCodeInsightFixtureTestCase {
         continue;
       if (i.name().equals("A") || i.name().equals("B") || i.name().equals("C"))
         log("found class " + i.name() + " (" + i.qualified() + ")");
-      if (i.name().equals("A"))
-        assertEquals("found constructor for " + i + " which should be private and inAccessible", ((Items.ClassItem) i).constructors().length, 0);
-      if (i.name().equals("B")) {
+      if (i.name().equals("A")) {
+        assertEquals("found not exactly one constructor for " + i, 1, ((Items.ClassItem) i).constructors().length);
+        assertFalse("constructor of A is private, should be inaccessible", ((Items.ClassItem)i).constructors()[0].accessible(eddy.getEnv().place()));
+      } else if (i.name().equals("B")) {
         Items.ConstructorItem cons[] = ((Items.ClassItem)i).constructors();
         assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
         assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 1);
         assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().head(), Types.IntType$.MODULE$);
-      }
-      if (i.name().equals("C")) {
+      } else if (i.name().equals("C")) {
         Items.ConstructorItem cons[] = ((Items.ClassItem)i).constructors();
         assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
         assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 0);
@@ -284,7 +281,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testPartialEditTypeConflictPriority() {
     testPriority("partialEditTypeConflict.java", "List<NewNewNewType> xs = new ArrayList<NewNewNewType>();",
-                 "List<OldOldOldType> xs = new ArrayList<OldOldOldType>();");
+      "List<OldOldOldType> xs = new ArrayList<OldOldOldType>();");
   }
 
   public void testFizz() {
@@ -315,19 +312,19 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
       log("found local item " + it);
 
-      if (it.name().equals("sub")) {
+      if (it.name().equals("sub") && it instanceof Items.FieldItem) {
         ssub = (Items.FieldItem)it;
       }
-      if (it.name().equals("sup")) {
+      if (it.name().equals("sup") && it instanceof Items.FieldItem) {
         ssup = (Items.FieldItem)it;
       }
-      if (it.name().equals("Sub")) {
+      if (it.name().equals("Sub") && it instanceof Items.ClassItem) {
         sSub = (Items.ClassItem)it;
       }
-      if (it.name().equals("Super")) {
+      if (it.name().equals("Super") && it instanceof Items.ClassItem) {
         sSuper = (Items.ClassItem)it;
       }
-      if (it.name().equals("Interface")) {
+      if (it.name().equals("Interface") && it instanceof Items.ClassItem) {
         sInterface = (Items.ClassItem)it;
       }
     }
@@ -399,7 +396,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
   
   public void testVisibility() {
-    Eddy eddy = setupEddy(null, "scopes1.java", "scopes2.java");
+    // package resolution only works if directory structure is consistent
+    Eddy eddy = setupEddy(null, "scope1/scopes1.java", "scope2/scopes2.java");
     Environment.Env env = eddy.getEnv();
     JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
     log("local items: ");
@@ -417,13 +415,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertContainsElements(jenv.localItems.values(), P2);
     log("in scope: ");
     log(env.scope());
-    // make from inside P1, we can see A1, but not A2
-    log("Local1 query: ");
-    log(env.exactQuery("Local1"));
+    // make from inside P1, we can see Local1, but not Local2
+    log("Local1 query: " + env.exactQuery("Local1"));
     assertEquals(1, env.exactQuery("Local1").length());
-    log("Local2 query: ");
-    log(env.exactQuery("Local2"));
-    assertEmpty(JavaConversions.asJavaCollection(env.exactQuery("Local2")));
+    log("Local2 query: " + env.exactQuery("Local2"));
+    assertEquals(0, env.exactQuery("Local2").length());
+
     Item L1 = env.exactQuery("Local1").head();
     assertTrue(env.scope().contains(L1));
 
@@ -447,27 +444,27 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testExtraCode() {
-    testMargin("extraCode.java", "return false;",.9);
+    testMargin("extraCode.java", "return false;", .9);
   }
 
   public void testLiteralFalse() {
-    testMargin("literalFalse.java", "return false;",.9);
+    testMargin("literalFalse.java", "return false;", .9);
   }
 
   public void testImport() {
-    testMargin("importScope.java", "List<X> x;",.9);
+    testMargin("importScope.java", "List<X> x;", .9);
   }
 
   public void testStaticImport() {
-    testMargin("staticImport.java", "out.println(\"test\");",.9);
+    testMargin("staticImport.java", "out.println(\"test\");", .9);
   }
 
   public void testWildcardImport() {
-    testMargin("wildcardImport.java", "getRuntime().gc();",.9);
+    testMargin("wildcardImport.java", "getRuntime().gc();", .9);
   }
 
   public void testOverloadedScope() {
-    testMargin("overloadedScope.java", "fill(a, binarySearch(a, 5));",.9);
+    testMargin("overloadedScope.java", "fill(a, binarySearch(a, 5));", .9);
   }
 
   public void testIllegalExtends() {

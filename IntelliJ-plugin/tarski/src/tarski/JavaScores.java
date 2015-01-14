@@ -8,7 +8,7 @@ import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
-import java.util.ArrayList;
+
 import java.util.PriorityQueue;
 
 import static java.lang.Math.max;

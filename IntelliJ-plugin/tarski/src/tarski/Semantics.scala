@@ -395,8 +395,8 @@ object Semantics {
       if (!typeAccessible(t)) fail(s"${show(t)} is inaccessible")
       else {
         val s = if (!m.callExp) fail("Not in call mode") else t match {
-          case t:ClassItem if t.constructors.length==0 => fail(s"$t has no constructors")
-          case t:ClassItem => fixCall(m,expects,uniformGood(Pr.constructor,t.constructors) map (NewDen(None,_)))
+          case t:ClassItem if t.constructors(env.place).length == 0 => fail(s"$t has no accessible constructors")
+          case t:ClassItem => fixCall(m,expects,uniformGood(Pr.constructor,t.constructors(env.place)) map (NewDen(None,_)))
           case _ => fail(s"$t is not a class, and therefore has no constructors")
         }
         if (m.ty) knownThen(TypeDen(Nil,t.raw),s) else s
@@ -406,13 +406,13 @@ object Semantics {
       case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i))
       case i:MethodItem => biasedNotNew(m,denoteMethod(i,0))
       case ThisItem(c) if env.place.forwardThisPossible(c) =>
-        biasedNotNew(m,uniformGood(Pr.forwardThis,c.constructors) flatMap {
+        biasedNotNew(m,uniformGood(Pr.forwardThis,c.constructors(env.place)) flatMap {
           case cons if cons == env.place.place => fail("Can't forward to current constructor")
           case cons => known(ForwardDen(Some(c.inside),cons))
         })
       case SuperItem(c) if env.place.forwardSuperPossible(c.item) => biasedNotNew(m,{
         val tenv = c.env
-        uniformGood(Pr.forwardSuper,c.item.constructors) map (ForwardDen(Some(c),_))
+        uniformGood(Pr.forwardSuper,c.item.constructors(env.place)) map (ForwardDen(Some(c),_))
       })
       case _ => fail(s"Unusable callable $c")
     })
@@ -463,8 +463,8 @@ object Semantics {
                           else single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
           }
           val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
-            case f:ClassItem if f.constructors.length>0 =>
-              val cons = uniformGood(Pr.constructor,f.constructors)
+            case f:ClassItem if f.constructors(env.place).length>0 =>
+              val cons = uniformGood(Pr.constructor,f.constructors(env.place))
               fixCall(mc,expects,x match {
                 // TODO: Also try applying the type arguments to the class (not the constructor)
                 // Only Classes have constructors, so t or x.ty below must be a ClassType
