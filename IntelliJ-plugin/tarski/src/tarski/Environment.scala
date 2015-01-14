@@ -198,7 +198,7 @@ object Environment {
       val v1r = if (v1 == null) emptyValues else v1 filter (!_.deleted)
       val v2 = vByItem.get(t)
       val v2r = if (v2 == null) emptyValues else v2
-      uniform(Pr.objectOfItem, v1r ++ v2r, s"Value of item ${show(t)} not found")
+      uniform(Pr.objectOfItem, (v1r ++ v2r) filter (_.accessible(place)), s"Value of item ${show(t)} not found")
     }
 
     // Add more objects
@@ -211,7 +211,7 @@ object Environment {
     // Fragile or slow, only use for tests
     override def exactLocal(name: String): Local = {
       val query = name.toCharArray
-      def options(t: Queriable[Item]) = t exact query collect { case x:Local => x }
+      def options(t: Queriable[Item]) = t exact query collect { case x:Local if x.accessible(place) => x }
       options(sTrie)++options(dTrie)++options(vTrie) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
@@ -220,11 +220,11 @@ object Environment {
     }
 
     override def _exactQuery(typed: Array[Char]): List[Item] =
-      sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)
+      (sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)) filter (_.accessible(place))
 
     // Get exact and typo probabilities for string queries
     override def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
-      sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)
+      (sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)) filter (_.x.accessible(place))
   }
 
   // Store two tries and two byItems: one large one for globals, one small one for locals.
@@ -251,7 +251,7 @@ object Environment {
     // Fragile, only use for tests
     def exactLocal(name: String): Local = {
       val query = name.toCharArray
-      def options(t: Trie[Item]) = t exact query collect { case x: Local => x }
+      def options(t: Trie[Item]) = t exact query collect { case x: Local if x.accessible(place) => x }
       options(trie0)++options(trie1) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
@@ -274,10 +274,10 @@ object Environment {
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly (requires word database?)
     def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
-      trie1.typoQuery(typed)++trie0.typoQuery(typed)
+      (trie1.typoQuery(typed)++trie0.typoQuery(typed)) filter (_.x.accessible(place))
 
     def _exactQuery(typed: Array[Char]): List[Item] =
-      trie1.exact(typed) ++ trie0.exact(typed)
+      (trie1.exact(typed) ++ trie0.exact(typed)) filter (_.accessible(place))
 
     def byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
@@ -286,7 +286,7 @@ object Environment {
       val v = if      ((v0 eq null) || v0.isEmpty) v1
               else if ((v1 eq null) || v1.isEmpty) v0
               else v1++v0
-      uniform(Pr.objectOfItem,v,s"Value of item ${show(t)} not found")
+      uniform(Pr.objectOfItem,v filter (_.accessible(place)),s"Value of item ${show(t)} not found")
     }
   }
 

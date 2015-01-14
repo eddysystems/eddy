@@ -193,56 +193,56 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   }
 
   @Override
-     public boolean shouldProcess(DeclarationKind kind) {
-       return
-         kind == DeclarationKind.CLASS ||
-         kind == DeclarationKind.FIELD ||
-         kind == DeclarationKind.METHOD ||
-         kind == DeclarationKind.VARIABLE ||
-         kind == DeclarationKind.PACKAGE ||
-         kind == DeclarationKind.ENUM_CONST;
-     }
+  public boolean shouldProcess(DeclarationKind kind) {
+    return
+      kind == DeclarationKind.CLASS ||
+      kind == DeclarationKind.FIELD ||
+      kind == DeclarationKind.METHOD ||
+      kind == DeclarationKind.VARIABLE ||
+      kind == DeclarationKind.PACKAGE ||
+      kind == DeclarationKind.ENUM_CONST;
+  }
 
   @Override
-     public boolean execute(@NotNull PsiElement element, ResolveState state) {
+  public boolean execute(@NotNull PsiElement element, ResolveState state) {
 
-       // if we are in static scope, a class member has to be declared static for us to see it
-       // TODO: we should add these either way, and let the semantics logic take care of static scoping
-       if (element instanceof PsiField || element instanceof PsiMethod) {
-         if (inStaticScope && !((PsiMember)element).hasModifierProperty(PsiModifier.STATIC))
-           return true;
-       }
+    // if we are in static scope, a class member has to be declared static for us to see it
+    // TODO: we should add these either way, and let the semantics logic take care of static scoping
+    if (element instanceof PsiField || element instanceof PsiMethod) {
+      if (inStaticScope && !((PsiMember)element).hasModifierProperty(PsiModifier.STATIC))
+        return true;
+    }
 
-       if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element)) {
-         //log("rejecting " + element + " because it is inaccessible");
-         return true;
-       }
+    if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element)) {
+      //log("rejecting " + element + " because it is inaccessible");
+      return true;
+    }
 
-       //log("found element " + element + " at level " + currentLevel);
+    //log("found element " + element + " at level " + currentLevel);
 
-       if (element instanceof PsiClass) {
-         classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
-       } else if (element instanceof PsiVariable) {
-         variables.add(new ShadowElement<PsiVariable>((PsiVariable)element, currentLevel));
-       } else if (element instanceof PsiMethod) {
-         methods.add(new ShadowElement<PsiMethod>((PsiMethod)element, currentLevel));
-       } else if (element instanceof PsiPackage) {
-         packages.add(new ShadowElement<PsiPackage>((PsiPackage)element, currentLevel));
-       }
-       return true;
-     }
+    if (element instanceof PsiClass) {
+      classes.add(new ShadowElement<PsiClass>((PsiClass)element, currentLevel));
+    } else if (element instanceof PsiVariable) {
+      variables.add(new ShadowElement<PsiVariable>((PsiVariable)element, currentLevel));
+    } else if (element instanceof PsiMethod) {
+      methods.add(new ShadowElement<PsiMethod>((PsiMethod)element, currentLevel));
+    } else if (element instanceof PsiPackage) {
+      packages.add(new ShadowElement<PsiPackage>((PsiPackage)element, currentLevel));
+    }
+    return true;
+  }
 
   @Override
-     public final void handleEvent(@NotNull Event event, Object associated){
-       if (event == JavaScopeProcessorEvent.START_STATIC) {
-         log("starting static scope");
-         inStaticScope = true;
-       } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
-         currentFileContext = (PsiElement)associated;
-         log("switching file context: " + currentFileContext);
-       } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
-         currentLevel++;
-         log("change level to " + currentLevel);
-       }
-     }
+  public final void handleEvent(@NotNull Event event, Object associated){
+    if (event == JavaScopeProcessorEvent.START_STATIC) {
+      log("starting static scope");
+      inStaticScope = true;
+    } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
+      currentFileContext = (PsiElement)associated;
+      log("switching file context: " + currentFileContext);
+    } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
+      currentLevel++;
+      log("change level to " + currentLevel);
+    }
+  }
 }

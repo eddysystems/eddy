@@ -1,6 +1,5 @@
 package com.eddysystems.eddy.engine;
 
-import com.intellij.lang.Language;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
@@ -426,9 +425,9 @@ class Converter {
         return false;
       }
 
-     public ConstructorItem[] constructors() {
-        return noConstructors;
-      }
+     public ConstructorItem[] constructors() { return noConstructors; }
+
+     public ConstructorItem[] constructors(Environment.PlaceInfo place) { return noConstructors; }
 
      public void refreshName() { /* not caching */ }
 
@@ -660,6 +659,19 @@ class Converter {
      public boolean declaresField(String kid) {
         return cls.findFieldByName(kid, false) != null;
       }
+
+     public ConstructorItem[] constructors(Environment.PlaceInfo place) {
+       int n = 0;
+       for (ConstructorItem c : constructors())
+         if (c.accessible(place))
+           n++;
+       ConstructorItem[] cons = new ConstructorItem[n];
+       n = 0;
+       for (ConstructorItem c : constructors())
+         if (c.accessible(place))
+           cons[n++] = c;
+       return cons;
+     }
 
      public ConstructorItem[] constructors() {
        if (_constructors == null) {
