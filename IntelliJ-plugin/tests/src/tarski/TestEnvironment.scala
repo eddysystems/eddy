@@ -19,7 +19,7 @@ class TestEnvironment {
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val yf = NormalStaticFieldItem("y",FloatType,main,true)
     val f = NormalMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)),true)
-    val y = Local("y",ArrayType(DoubleType),true)
+    val y = NormalLocal("y",ArrayType(DoubleType),true)
     val scope = Map[Item,Int]((LocalPkg,4),(main,3),(yf,2),(f,2),(y,1))
     implicit val env = Env(Array(main,f),scope)
     assertEquals(tokens(y), List(IdentTok("y")))

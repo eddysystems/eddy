@@ -126,7 +126,7 @@ class Place {
   }
 
   // true if this place is lexicographically inside the given element (PsiClass or PsiMethod)
-  boolean isInside(PsiTypeParameterListOwner element) {
+  boolean isInside(PsiElement element) {
     return PsiTreeUtil.isAncestor(element, place, false);
   }
 

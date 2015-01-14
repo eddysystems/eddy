@@ -84,28 +84,28 @@ class TestDen {
 
   @Test
   def assignExp(): Unit = {
-    val x = Local("x",IntType,false)
+    val x = NormalLocal("x",IntType,false)
     implicit val env = localEnv(x)
     test("x = 1", AssignExp(None,x,1))
   }
 
   @Test
   def assignExpFinal(): Unit = {
-    val x = Local("x",IntType,true)
+    val x = NormalLocal("x",IntType,true)
     implicit val env = localEnv(x)
     testFail("x = 1")
   }
 
   @Test
   def longLit() = {
-    val x = Local("x",LongType,false)
+    val x = NormalLocal("x",LongType,false)
     implicit val env = localEnv(x)
     test("x = 2l", AssignExp(None,x,LongLit(2,"2l")))
   }
 
   @Test
   def bigIntLit() = {
-    val x = Local("x",LongType,false)
+    val x = NormalLocal("x",LongType,false)
     implicit val env = localEnv(x)
     val big = 1099511627776L
     test(s"x = $big", AssignExp(None,x,LongLit(big,s"${big}L")))
@@ -133,7 +133,7 @@ class TestDen {
 
   @Test
   def arrayLiteralAssign(): Unit = {
-    val x = Local("x",ArrayType(IntType),isFinal=false)
+    val x = NormalLocal("x",ArrayType(IntType),isFinal=false)
     implicit val env = localEnv(x)
     test("x = {1,2,3}", AssignExp(None,x,ArrayExp(IntType,List(1,2,3))))
   }
@@ -161,42 +161,42 @@ class TestDen {
 
   @Test
   def indexExp(): Unit = {
-    val x = Local("x",ArrayType(CharType),isFinal=true)
+    val x = NormalLocal("x",ArrayType(CharType),isFinal=true)
     implicit val env = localEnv(x)
     test("""x[4] = '\n'""", AssignExp(None,IndexExp(x,4),'\n'))
   }
 
   @Test
   def nestedIndexExpBrack(): Unit = {
-    val x = new Local("x",ArrayType(ArrayType(CharType)),isFinal=true)
+    val x = NormalLocal("x",ArrayType(ArrayType(CharType)),isFinal=true)
     implicit val env = localEnv(x)
     test("""x[4,5] = x[2][5]""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def nestedIndexExpJuxt(): Unit = {
-    val x = new Local("x",ArrayType(ArrayType(CharType)),isFinal=true)
+    val x = NormalLocal("x",ArrayType(ArrayType(CharType)),isFinal=true)
     implicit val env = localEnv(x)
     test("""x 4 5 = x 2 5""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def nestedIndexExpMixed(): Unit = {
-    val x = new Local("x",ArrayType(ArrayType(CharType)),isFinal=true)
+    val x = NormalLocal("x",ArrayType(ArrayType(CharType)),isFinal=true)
     implicit val env = Env(Array(x), Map((x,1)))
     test("""x{4,5} = x{2}[5]""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def nestedIndexExpParen(): Unit = {
-    val x = new Local("x",ArrayType(ArrayType(CharType)),isFinal=true)
+    val x = NormalLocal("x",ArrayType(ArrayType(CharType)),isFinal=true)
     implicit val env = localEnv(x)
     test("""x(4,5) = x(2)(5)""", AssignExp(None, IndexExp(IndexExp(x,4),5), IndexExp(IndexExp(x,2),5)))
   }
 
   @Test
   def indexOpExp(): Unit = {
-    val x = Local("x",ArrayType(CharType),isFinal=true)
+    val x = NormalLocal("x",ArrayType(CharType),isFinal=true)
     implicit val env = localEnv(x)
     test("""x[4] *= '\n'""", AssignExp(Some(MulOp), IndexExp(x,4), '\n'))
   }
@@ -205,8 +205,8 @@ class TestDen {
   def mapExp(): Unit = {
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = NormalMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)),isStatic=true)
-    val x = Local("x",ArrayType(DoubleType),isFinal=true)
-    val y = Local("y",ArrayType(DoubleType),isFinal=false)
+    val x = NormalLocal("x",ArrayType(DoubleType),isFinal=true)
+    val y = NormalLocal("y",ArrayType(DoubleType),isFinal=false)
     implicit val env = Env(Array(main,f,x,y), Map((main,2),(f,2),(x,1),(y,1)),PlaceInfo(f))
     test("y = f(x)", Nil)
     notImplemented
@@ -271,7 +271,7 @@ class TestDen {
 
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
     val m = NormalMethodItem("m", Z, Nil, VoidType, List(Q.simple), false)
-    val y = Local("y",Y.simple,true)
+    val y = NormalLocal("y",Y.simple,true)
     implicit val env = Env(Array(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
 
     test("m(f)", ApplyExp(LocalMethodDen(m),List(FieldExp(CastExp(X.simple,y),Xf))))
@@ -315,7 +315,7 @@ class TestDen {
   def thisExp(): Unit = {
     val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil)
     val Xx = NormalFieldItem("x",IntType,X,false)
-    val x = Local("x",StringType,false)
+    val x = NormalLocal("x",StringType,false)
     val t = ThisItem(X)
     implicit val env = Env(Array(X,Xx,x,t), Map((x,1),(X,2),(t,2),(Xx,2)))
 
@@ -361,7 +361,7 @@ class TestDen {
   val e = EmptyStmt
   val h = HoleStmt
   def testX(input: String, best: (Stmt,Stmt) => Stmt) = {
-    val x = Local("x",IntType,false)
+    val x = NormalLocal("x",IntType,false)
     implicit val env = extraEnv.extendLocal(Array(x))
     test(input,best(AssignExp(None,x,1),AssignExp(None,x,2)))
   }
@@ -419,13 +419,13 @@ class TestDen {
   }
 
   @Test def sideEffectsFail() = {
-    val x = Local("x",IntType,true)
+    val x = NormalLocal("x",IntType,true)
     implicit val env = localEnv(x)
     testFail("x")
   }
 
   @Test def sideEffectsSplit() = {
-    val x = Local("x",IntType,false)
+    val x = NormalLocal("x",IntType,false)
     implicit val env = extraEnv.extendLocal(Array(x))
     test("true ? x = 1 : (x = 2)", IfElseStmt(true,AssignExp(None,x,1),AssignExp(None,x,2)))
   }
@@ -441,7 +441,7 @@ class TestDen {
   // inserting a cast to bool
   @Test def insertIntComparison() = test("if 1 then;", IfStmt(BinaryExp(NeOp,1,0), e))
   @Test def insertRefTypeComparison() = {
-    val o = Local("o",ObjectType,isFinal=true)
+    val o = NormalLocal("o",ObjectType,isFinal=true)
     implicit val env = localEnvWithBase(o)
     test("if o then;", IfStmt(BinaryExp(NeOp,o,NullLit), e))
   }
@@ -449,10 +449,10 @@ class TestDen {
   @Test def shuffleArgs() = {
     val X = NormalClassItem("X")
     val f = NormalMethodItem("f",X,Nil,VoidType,List(X.simple,DoubleType,StringType,BooleanType),isStatic=true)
-    val x = Local("x",X.simple,isFinal=true)
-    val d = Local("d",DoubleType,isFinal=true)
-    val s = Local("s",StringType,isFinal=true)
-    val b = Local("b",BooleanType,isFinal=true)
+    val x = NormalLocal("x",X.simple,isFinal=true)
+    val d = NormalLocal("d",DoubleType,isFinal=true)
+    val s = NormalLocal("s",StringType,isFinal=true)
+    val b = NormalLocal("b",BooleanType,isFinal=true)
     implicit val env = Env(Array(X,f),Map((X,3),(f,2)),PlaceInfo(f)).extendLocal(Array(x,d,s,b))
     test("f(s,b,d,x)", ApplyExp(f,List(x,d,s,b)))
   }
@@ -466,7 +466,7 @@ class TestDen {
     val Yx = NormalStaticFieldItem("x", BooleanType, Y, isFinal=false)
     val Xx = NormalStaticFieldItem("x", BooleanType, X, isFinal=false)
     val f = NormalMethodItem("f", X, Nil, VoidType, Nil, isStatic=true)
-    val x = Local("x", BooleanType, isFinal=false)
+    val x = NormalLocal("x", BooleanType, isFinal=false)
     implicit val env = baseEnv.extend(Array(P,Z,Zx,Y,Yx,X,Xx,f,x),Map((Y,3),(X,3),(Xx,2),(f,2),(x,1))).move(PlaceInfo(f))
     val fixes = fix(lex("x = true"))
     // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
@@ -494,7 +494,7 @@ class TestDen {
     val f = NormalMethodItem("f",F,List(S),VoidType,List(S),isStatic=true)
     for (w <- List(WildSub(),WildSub(B),WildSuper(B))) {
       val t = A.generic(List(w))
-      val x = Local("x",t,isFinal=true)
+      val x = NormalLocal("x",t,isFinal=true)
       implicit val env = localEnv(A,x,F,f)
       test("f(x) // "+w,ApplyExp(TypeApply(f,List(t),hide=true),List(x)))
     }
@@ -662,8 +662,8 @@ class TestDen {
   @Test def fizz() = {
     val A = NormalClassItem("A",LocalPkg)
     val fizz = NormalMethodItem("fizz",A,Nil,IntType,List(StringType,IntType.box,DoubleType.box),isStatic=true)
-    val x = Local("x",IntType,true)
-    val q = Local("q",DoubleType,true)
+    val x = NormalLocal("x",IntType,true)
+    val q = NormalLocal("q",DoubleType,true)
     implicit val env = baseEnv.extend(Array(A,fizz,x,q),Map(A->1,fizz->1,x->1,q->1)).move(PlaceInfo(fizz))
     test("""fizz "s" x q""",ApplyExp(fizz,List(StringLit("s","\"s\""),x,q)))
   }
@@ -673,8 +673,8 @@ class TestDen {
     val B = NormalClassItem("B",LocalPkg)
     val C = NormalClassItem("C",LocalPkg)
     val f = NormalMethodItem("f",A,Nil,VoidType,List(B),isStatic=true)
-    val bx = Local("x",B,true)
-    val cx = Local("x",C,true)
+    val bx = NormalLocal("x",B,true)
+    val cx = NormalLocal("x",C,true)
     def env(bs: Int, cs: Int) = baseEnv.extend(Array(A,B,C,f,bx,cx),Map(bx->bs,cx->cs)).move(PlaceInfo(f))
     def unit(x: Unit) = x
     unit({ implicit val bad = env(bs=2,cs=1); testFail("f x") })
@@ -684,7 +684,7 @@ class TestDen {
   @Test def memberToInfix() = {
     val A = NormalClassItem("A")
     val f = NormalMethodItem("f",A,Nil,A,List(A),isStatic=false)
-    val a = Local("a",A,isFinal=true)
+    val a = NormalLocal("a",A,isFinal=true)
     implicit val env = baseEnv.extend(Array(f,a),Map(f->2,a->1)).move(PlaceInfo(f))
     def fa(x: Exp) = ApplyExp(MethodDen(x,f),List(a))
     test("a f a",fa(a))
@@ -694,8 +694,8 @@ class TestDen {
   @Test def postfix() = {
     val A = NormalClassItem("A")
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
-    def M(c: ClassItem): Local = Local(c.name.toLowerCase,c,isFinal=true)
-    val a = Local("a",A,isFinal=true)
+    def M(c: ClassItem): Local = NormalLocal(c.name.toLowerCase,c,isFinal=true)
+    val a = NormalLocal("a",A,isFinal=true)
     implicit val env = baseEnv.extendLocal(Array(a,f)).move(PlaceInfo(f))
     test("a f",ApplyExp(MethodDen(a,f),Nil))
   }
@@ -710,7 +710,7 @@ class TestDen {
     val f = NormalMethodItem("f",A,Nil,B,List(X,Y),isStatic=false)
     val g = NormalFieldItem("g",C,B,isFinal=true)
     val h = NormalMethodItem("h",C,Nil,D,Nil,isStatic=false)
-    def M(c: ClassItem): Local = Local(c.name.toLowerCase,c,isFinal=true)
+    def M(c: ClassItem): Local = NormalLocal(c.name.toLowerCase,c,isFinal=true)
     val a = M(A)
     val x = M(X)
     val y = M(Y)
@@ -721,7 +721,7 @@ class TestDen {
   @Test def javascriptStyleMember() = {
     val A = NormalClassItem("A")
     val f = NormalFieldItem("f",A,A,isFinal=false)
-    val a = Local("a",A,isFinal=true)
+    val a = NormalLocal("a",A,isFinal=true)
     implicit val env = baseEnv.extend(Array(A,f,a), Map(A->2,f->2,a->1))
     for (s <- List("a[f] = a","a f = a","""a["f"] = a"""))
       test(s,AssignExp(None,FieldExp(a,f),a))
@@ -761,7 +761,7 @@ class TestDen {
   @Test def fieldAccess() = {
     val T = NormalClassItem("T", LocalPkg)
     val x = NormalFieldItem("x", IntType, T, isFinal=false)
-    val t = Local("t", T.simple, isFinal=true)
+    val t = NormalLocal("t", T.simple, isFinal=true)
     implicit val env = localEnv().extendLocal(Array(T,x), 3).extendLocal(Array(t), 1)
     test("t.x = 1",AssignExp(None, FieldExp(t, x), 1))
   }
@@ -813,7 +813,7 @@ class TestDen {
     lazy val C: ClassItem = NormalClassItem("C",tparams=List(U),base=A.generic(List(U)),constructors=Array(consC))
     lazy val consB = DefaultConstructorItem(B)
     lazy val consC = DefaultConstructorItem(C)
-    val f = Local("f",BooleanType,isFinal=true)
+    val f = NormalLocal("f",BooleanType,isFinal=true)
     implicit val env = localEnvWithBase().extendLocal(Array(f,A,B,C))
     test("A<Integer> x = f ? new B : (new C)","x",x => {
       val is = List(IntType.box)
@@ -833,7 +833,7 @@ class TestDen {
 
   @Test def autoReturn() = {
     val A = NormalClassItem("A")
-    val x = Local("x",A,isFinal=true)
+    val x = NormalLocal("x",A,isFinal=true)
     val f = NormalMethodItem("f",NormalClassItem("F"),Nil,A,Nil,isStatic=true)
     implicit val env = Env(Array(A,x),Map(A->2,x->1),PlaceInfo(f))
     test("return",ReturnStmt(x))
@@ -864,7 +864,7 @@ class TestDen {
   }
 
   @Test def ifNull() = {
-    val x = Local("x",ObjectType,isFinal=true)
+    val x = NormalLocal("x",ObjectType,isFinal=true)
     implicit val env = localEnvWithBase(x)
     test("if (x == null)",IfStmt(BinaryExp(EqOp,x,NullLit),HoleStmt))
   }
@@ -874,7 +874,7 @@ class TestDen {
     val T = SimpleTypeVar("T")
     val f = NormalMethodItem("f",A,List(T),VoidType,List(T),isStatic=true)
     val Y = NormalClassItem("Y")
-    val y = Local("y",Y)
+    val y = NormalLocal("y",Y)
     implicit val env = localEnvWithBase().extend(Array(A,f,y),Map(A->2,y->1))
     test("A.f(y)",ApplyExp(TypeApply(MethodDen(None,f),List(Y),hide=true),List(y)))
   }

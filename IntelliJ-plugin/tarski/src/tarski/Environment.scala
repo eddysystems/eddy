@@ -85,7 +85,7 @@ object Environment {
             @tailrec def loop(as: List[A], env: Env, ns: List[String], ts: List[Type], fs: List[(Env,Local) => A]): (Env,List[A]) = (ns,ts,fs) match {
               case (Nil,Nil,Nil) => (env,as.reverse)
               case (n::ns,t::ts,f::fs) =>
-                val x = Local(n,t,isFinal)
+                val x = NormalLocal(n,t,isFinal)
                 val e = env.extend(Array(x),Map(x->0))
                 loop(f(env,x)::as,e,ns,ts,fs)
               case _ => impossible

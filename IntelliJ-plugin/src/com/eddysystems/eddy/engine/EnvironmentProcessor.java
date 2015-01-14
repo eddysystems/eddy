@@ -57,12 +57,12 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
   final Map<PsiElement,Item> locals;
 
-  // Because it operates on a thread-local environment (locals), which will be discarded, the environment processor
-  // is only allowed to add elements which can safely be thrown out after it is done.
+  // add to locals what you find in scope. There may be several threads writing to locals at the same time.
   public EnvironmentProcessor(@NotNull Project project, @NotNull JavaEnvironment jenv, Map<PsiElement,Item> locals, @NotNull PsiElement place, int lastedit, boolean honorPrivate) {
     this.place = new Place(project,place);
     this.honorPrivate = honorPrivate;
     this.locals = locals;
+    // TODO: don't clear locals once local items know about accessibility
     locals.clear();
 
     // this is set to null when we go to java.lang
@@ -83,22 +83,21 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     log("getting local items...");
 
-    // register locally visible items
+    // register locally visible packages
     for (ShadowElement<PsiPackage> spkg : packages) {
       final PsiPackage pkg = spkg.e;
       final Item ipkg = env.addContainer(pkg);
       scopeItems.put(ipkg,spkg.shadowingPriority);
     }
 
-    // then, register classes (we need those as containing elements in the other things)
-    // classes may be contained in classes, so partial-order the list first
+    // register classes
     for (ShadowElement<PsiClass> scls : classes) {
       final PsiClass cls = scls.e;
       final Item icls = env.addClass(cls, true);
       scopeItems.put(icls,scls.shadowingPriority);
     }
 
-    // register methods (also register types used in this method)
+    // register methods
     for (ShadowElement<PsiMethod> smethod : methods) {
       final PsiMethod method = smethod.e;
       final Item imethod = env.addMethod(method);
@@ -107,20 +106,15 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
       }
     }
 
-    // then, register objects which have types (enum constants, variables, parameters, fields), and their types
+    // then, register values
     for (ShadowElement<PsiVariable> svar : variables) {
       final PsiVariable var = svar.e;
       if (var instanceof PsiField) {
         final Item ivar = env.addField((PsiField) var);
         scopeItems.put(ivar,svar.shadowingPriority);
       } else {
-        assert !jenv.knows(var);
-        final Type t = env.convertType(var.getType());
-        final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
-        final Item i = new Local(var.getName(),t,isFinal);
-
-        // Actually add to locals
-        locals.put(var, i);
+        // true local variables (parameters or local variables)
+        final Item i = env.addLocal(var);
         scopeItems.put(i,svar.shadowingPriority);
       }
     }
