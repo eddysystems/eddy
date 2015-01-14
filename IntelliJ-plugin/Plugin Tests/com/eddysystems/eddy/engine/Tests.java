@@ -93,7 +93,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     if (lastEdit == -1) {
       lastEdit = myFixture.getEditor().getCaretModel().getOffset();
     }
-    eddy.process(myFixture.getEditor(),lastEdit,special);
+    eddy.processInternal(myFixture.getEditor(),lastEdit,special);
 
     /*
     for (Map.Entry<PsiElement,Item> it : EddyPlugin.getInstance(myFixture.getProject()).getEnv().items.entrySet()) {

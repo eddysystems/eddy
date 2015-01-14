@@ -118,26 +118,21 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
               try {
                 EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
+
                 eddy.process(owner.editor,owner.getLastEditLocation(),null);
-              } catch (Exception e) {
-                log("exception in eddy thread: " + e.getMessage());
-                log("trace: ");
-                log(e.getStackTrace());
+                if (isInterrupted() || !eddy.foundSomethingUseful())
+                  return;
+                showHint();
               } finally {
                 EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
               }
-
-              if (!eddy.foundSomethingUseful() || isInterrupted())
-                return;
-
-              showHint();
             } catch (InterruptedException e) {
-              // ignore
+              // interrupted while sleeping, ignore
             }
           }
         });
       } catch (RuntimeInterruptedException e) {
-        // ignore
+        // interrupted while sleeping, rethrown by DumbService, ignore
       }
     }
 
