@@ -52,7 +52,7 @@ public class EddyAction implements QuestionAction {
             }
 
             if (finalChoice) {
-              Eddy.apply(selectedValue, editor, replace_range);
+              eddy.apply(selectedValue, editor, replace_range);
               return FINAL_CHOICE;
             }
 

@@ -1,5 +1,6 @@
 package com.eddysystems.eddy.engine;
 
+import com.intellij.ide.util.PropertiesComponent;
 import com.eddysystems.eddy.EddyPlugin;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
@@ -17,31 +18,37 @@ import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.collection.immutable.Map;
+import tarski.Memory;
 import tarski.Environment;
 import tarski.Scores;
+import tarski.Scores.Alt;
 import tarski.Tarski;
 import tarski.Tokens;
+import tarski.Tokens.Token;
 import utility.Locations.Located;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class Eddy {
   final private Project project;
+  final private Memory.Info base;
 
   private boolean canceled;
 
   // all these are filled in process()
   // the range to be replaced
   private TextRange tokens_range;
+  private List<Located<Token>> input;
 
   private Editor editor = null;
   private PsiElement place = null;
 
   // the results of the interpretation
   private Environment.Env env = null;
-  private List<Scores.Alt<List<String>>> results;
+  private List<Alt<List<String>>> results;
   private List<String> resultStrings;
   private boolean found_existing;
 
@@ -51,6 +58,19 @@ public class Eddy {
 
   public Eddy(@NotNull final Project project) {
     this.project = project;
+    this.base = Memory.basics(installKey(), "0.1", project.getName()); // TODO: Real version
+  }
+
+  // Find our "install" key, or create it if necessary
+  static private String installKey() {
+    final PropertiesComponent props = PropertiesComponent.getInstance();
+    final String name = "com.eddysystems.Props.install";
+    String install = props.getValue(name);
+    if (install == null) {
+      install = tarski.Crypto.randomKey();
+      props.setValue(name,install);
+    }
+    return install;
   }
 
   // applies a result in the editor
@@ -58,9 +78,9 @@ public class Eddy {
     apply(code(i), editor, tokens_range);
   }
 
-  static public void apply(final @NotNull String code,
-                           final @NotNull Editor editor,
-                           final @NotNull TextRange replace_range) {
+  public void apply(final @NotNull String code,
+                    final @NotNull Editor editor,
+                    final @NotNull TextRange replace_range) {
     ApplicationManager.getApplication().runWriteAction(new Runnable() {
       @Override
       public void run() {
@@ -81,6 +101,7 @@ public class Eddy {
         }.execute();
       }
     });
+    Memory.log(Memory.eddyApply(base,input,results,code));
   }
 
   public void applyBest() {
@@ -95,7 +116,7 @@ public class Eddy {
 
   public List<String> getResultStrings() { return resultStrings; }
 
-  public List<Scores.Alt<List<String>>> getResults() { return results; }
+  public List<Alt<List<String>>> getResults() { return results; }
 
   public Environment.Env getEnv() {
     assert env != null;
@@ -120,6 +141,7 @@ public class Eddy {
     // reset object variables
     this.editor = editor;
     found_existing = false;
+    input = null;
     results = null;
     resultStrings = new SmartList<String>();
 
@@ -189,7 +211,7 @@ public class Eddy {
     // get token stream for this node
     assert node instanceof TreeElement;
 
-    final List<Located<Tokens.Token>> vtokens = new SmartList<Located<Tokens.Token>>();
+    final List<Located<Token>> vtokens = new SmartList<Located<Token>>();
     final List<TextRange> vtokens_ranges = new SmartList<TextRange>();
 
     ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
@@ -223,7 +245,7 @@ public class Eddy {
       }
     });
 
-    List<Located<Tokens.Token>> tokens = vtokens;
+    List<Located<Token>> tokens = vtokens;
     List<TextRange> tokens_ranges = vtokens_ranges;
 
     // Remove leading and trailing whitespace
@@ -267,23 +289,28 @@ public class Eddy {
         return false;
       }
     };
+    this.input = tokens;
     results = Tarski.fixJava(tokens,env,enough);
     resultStrings = reformat(results, before_text);
   }
 
   public void process(@NotNull Editor editor, int lastedit, final @Nullable String special) {
+    final double start = Memory.now();
     try {
       processInternal(editor, lastedit, special);
+      Memory.log(Memory.eddyProcess(base,start,input,results));
     } catch (Exception e) {
       log("exception " + e + " in process(): " + e.getMessage());
       log("trace: ");
-      log(e.getStackTrace());
+      final StackTraceElement[] stack = e.getStackTrace();
+      log(stack);
+      Memory.log(Memory.eddyProcess(base,start,input,results).error(e,stack));
     }
   }
 
-  private List<String> reformat(List<Scores.Alt<List<String>>> results, String before_text) {
+  private List<String> reformat(List<Alt<List<String>>> results, String before_text) {
     List<String> resultStrings = new SmartList<String>();
-    for (Scores.Alt<List<String>> interpretation : results) {
+    for (Alt<List<String>> interpretation : results) {
       final String s = reformat(interpretation.x());
       resultStrings.add(s);
       log("eddy result: '" + s + "' existing '" + before_text + "'");

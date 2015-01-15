@@ -43,3 +43,5 @@ IMPORTANT: The credentials for eddy-public are checked into the code and
 distributed along with the plugin.  This is safe because the access is
 write-only.  Since the "install" key is random, a malicious user can only stomp
 on their own data, which is harmless.
+
+IAM login link: https://909287615191.signin.aws.amazon.com/console
