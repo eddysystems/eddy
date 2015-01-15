@@ -22,6 +22,9 @@ class EddyWidget implements StatusBarWidget {
   private Icon eddyIcon;
   private Icon eddyIconGray;
 
+  public Icon getIcon() { return eddyIcon; }
+  public Icon getIconGray() { return eddyIconGray; }
+
   class EddyPresentation implements WidgetPresentation {
     private boolean _busy = false;
     public boolean busy() {

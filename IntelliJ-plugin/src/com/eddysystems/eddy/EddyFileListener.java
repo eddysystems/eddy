@@ -3,8 +3,7 @@ package com.eddysystems.eddy;
 import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.HintManager;
-import com.intellij.openapi.actionSystem.ActionManager;
-import com.intellij.openapi.actionSystem.IdeActions;
+import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Document;
@@ -15,11 +14,11 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.TextEditor;
-import com.intellij.openapi.keymap.KeymapUtil;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.ui.LightweightHint;
 import org.jetbrains.annotations.NotNull;
 
 import static com.eddysystems.eddy.engine.Utility.log;
@@ -175,15 +174,14 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
     protected void showHint() {
       final int offset = owner.editor.getCaretModel().getOffset();
-      final String text = eddy.bestText() + (eddy.single() ? " " : " (multiple options...) ");
-      final String hintText = text + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
+      final LightweightHint hint = EddyHintLabel.makeHint(eddy);
 
       // we can only show hints from the UI thread, so schedule that
       ApplicationManager.getApplication().invokeLater(new Runnable() {
         @Override public void run() {
           // whoever showed the hint last is it
           synchronized (active_lock) {
-            HintManager.getInstance().showQuestionHint(owner.editor, hintText, offset, offset + 1, new EddyAction(eddy));
+            HintManagerImpl.getInstanceImpl().showQuestionHint(owner.editor, offset, offset + 1, hint, new EddyAction(eddy), HintManager.ABOVE);
             active_instance = owner;
           }
         }
@@ -260,4 +258,5 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     lastEditLocation = event.getOffset();
     process();
   }
+
 }

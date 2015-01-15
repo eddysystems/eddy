@@ -16,7 +16,7 @@ public class Test {
         int a = 1;
         float x = 0.;
         f(a, x);
-        f(a);
+        fun(a);
         Q q = fun(new Object());
     }
 }
