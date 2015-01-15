@@ -33,7 +33,7 @@ class TestMemory {
   @Test def error() = {
     try throw new AssertionError("an assertion")
     catch { case e:Throwable =>
-      val log = Memory.log(base.add("kind","TestMemory.error").error(e,e.getStackTrace))
+      val log = Memory.log(base.add("kind","TestMemory.error").error(e))
       Await.result(log,10.second)
     }
   }
