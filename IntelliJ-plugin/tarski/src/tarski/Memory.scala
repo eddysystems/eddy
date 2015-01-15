@@ -19,7 +19,7 @@ object Memory {
     new BasicAWSCredentials(accessKeyId,secretAccessKey)
   }
 
-  // Grab table.  TODO: Refresh when temporary credentials expire?
+  // Grab table.  This doesn't touch the network, but we still wrap it in a Future to reduce user error.
   val table = Future { new DynamoDB(new AmazonDynamoDBClient(cred)).getTable("eddy-log") }
 
   def now(): Double = 1e-3*System.currentTimeMillis()
