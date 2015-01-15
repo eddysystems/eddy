@@ -43,7 +43,7 @@ object Memory {
   implicit def safeLocated[A](x: Located[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"lo"->safe(x.r.lo),"hi"->safe(x.r.hi)).asJava)
   implicit def safeAlt[A](x: Alt[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"p"->safe(x.p)).asJava)
   implicit def safeToken(x: Token) = S(Map("c"->x.getClass.getName,"s"->show(x)).asJava)
-  implicit def safeException(x: Exception) = S(Map("c"->x.getClass.getName,"s"->x.getMessage).asJava)
+  implicit def safeException(x: Throwable) = S(Map("c"->x.getClass.getName,"s"->x.getMessage).asJava)
   implicit def safeStack(x: StackTraceElement) = S(x.toString)
 
   case class Info(install: String, fs: List[Item => Item]) {
@@ -52,7 +52,7 @@ object Memory {
       val s = safe(v)
       Info(install,((i:Item) => i.`with`(k,s)) :: fs)
     }
-    def error(e: Exception, s: Array[StackTraceElement]): Info = add("error",e).add("stack",s)
+    def error(e: Throwable, s: Array[StackTraceElement]): Info = add("error",e).add("stack",s)
   }
 
   // Basic information about an install and a project
