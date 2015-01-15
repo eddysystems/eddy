@@ -11,6 +11,7 @@
       <element id="extracted-dir" path="$APPLICATION_HOME_DIR$/plugins/testng/lib/testng.jar" path-in-jar="/" />
       <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-compiler.jar" path-in-jar="/" />
       <element id="extracted-dir" path="$MAVEN_REPOSITORY$/net/sf/trove4j/trove4j/3.0.3/trove4j-3.0.3.jar" path-in-jar="/" />
+      <element id="module-output" name="utility" />
     </root>
   </artifact>
 </component>
