@@ -34,6 +34,7 @@ object Memory {
 
   implicit def safeString(x: String) = S(x)
   implicit def safeDouble(x: Double) = S(x:java.lang.Double)
+  implicit def safeSeq[A](x: Seq[A])(implicit s: Safe[A]) = S(x.map(safe(_)).asJava : java.util.List[Object])
   implicit def safeList[A](x: JList[A])(implicit s: Safe[A]) = S(x.asScala.map(safe(_)).asJava)
   implicit def safeArray[A](x: Array[A])(implicit s: Safe[A]) = {
     val y = new java.util.ArrayList[Object]
@@ -63,8 +64,8 @@ object Memory {
 
   // Specific kinds of messages
   def eddyApply(base: Info, input: JList[Located[Token]], results: JList[Alt[JList[(Stmt,String)]]], formatted: JList[String], choice: String) = {
-    val denotations = results.asScala.map(_.x.asScala.map(_._1.toString).asJava).asJava
-    val tokens = results.asScala.map( x => { new Alt(x.p,x.x.asScala.map(_._2).asJava) }).asJava
+    val denotations = results.asScala.map(_.x.asScala.map(_._1.toString))
+    val tokens = results.asScala.map( x => { new Alt(x.p,x.x.asScala.map(_._2)) })
     base.add("kind","Eddy.apply")
         .add("input",input)
         .add("results",tokens)
@@ -74,8 +75,8 @@ object Memory {
   }
 
   def eddyProcess(base: Info, start: Double, input: JList[Located[Token]], results: JList[Alt[JList[(Stmt,String)]]], formatted: JList[String]) = {
-    val denotations = results.asScala.map(_.x.asScala.map(_._1.toString).asJava).asJava
-    val tokens = results.asScala.map( x => { new Alt(x.p,x.x.asScala.map(_._2).asJava) }).asJava
+    val denotations = results.asScala.map(_.x.asScala.map(_._1.toString))
+    val tokens = results.asScala.map(x => Alt(x.p,x.x.asScala.map(_._2)))
     base.add("kind","Eddy.process")
         .add("start",start)
         .add("input",input)
