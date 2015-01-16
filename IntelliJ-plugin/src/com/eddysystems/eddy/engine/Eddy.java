@@ -343,7 +343,9 @@ public class Eddy {
   }
 
   // The string should be a single syntactically valid statement
-  private String reformat(@NotNull String in) {
+  private String reformat(@NotNull Denotations.Stmt s, @NotNull String in) {
+    if (s instanceof Denotations.CommentStmt)
+      return ((Denotations.CommentStmt)s).c().content();
     PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(in, place);
     CodeStyleManager.getInstance(project).reformat(elem, true);
     return elem.getText();
@@ -353,10 +355,9 @@ public class Eddy {
     String r = "";
     boolean first = true;
     for (final Tuple2<Denotations.Stmt,String> ss : in) {
-      final String s = ss._2();
       if (first) first = false;
       else r += " ";
-      r += reformat(s);
+      r += reformat(ss._1(),ss._2());
     }
     return r;
   }

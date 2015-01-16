@@ -6,6 +6,7 @@ import tarski.AST._
 import tarski.Lexer._
 import tarski.Operators._
 import tarski.Scores._
+import tarski.JavaScores.pp
 import tarski.TestUtils._
 import tarski.Tokens._
 import tarski.Types._
@@ -38,7 +39,7 @@ class TestParse {
 
     // We lex >> into GtTok RShiftSepTok GtTok.  Make sure we don't screw it up.
     def prep(s: String, ts: Token*) =
-      assertEquals(ts.toList,prepare(lex(s)) map (_.x))
+      assertEquals(ts.toList,prepare(lex(s)).stream.head.x._1 map (_.x))
     prep(">",GtTok)
     prep(">>",GtTok,RShiftSepTok,GtTok)
     prep(">>>",GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
@@ -61,8 +62,16 @@ class TestParse {
     check("(1 + 2) * 3", mul(add(1,2),3))
   }
 
+  def prep(s: String): List[Located[Token]] = prepare(lex(s) map noLoc).all match {
+    case Left(_) => throw new RuntimeException("prepare failed")
+    case Right(ss) => ss.toList match {
+      case List(Alt(p,(ts,None))) if pp(p)==1 => ts
+      case _ => throw new RuntimeException("prepare failed")
+    }
+  }
+
   def testAST(s: String, ss: List[AStmt]*): Unit = {
-    val tokens = prepare(lex(s) map noLoc)
+    val tokens = prep(s)
     println(s"tokens = $tokens")
     val asts = ParseEddy.parse(tokens)
     for (e <- ss if !asts.contains(e)) {
@@ -72,15 +81,15 @@ class TestParse {
   }
 
   def testASTPossible(s: String, ss: List[AStmt]): Unit = {
-    val tokens = prepare(lex(s) map noLoc)
+    val tokens = prep(s)
     println(s"tokens = $tokens")
     val asts = ParseEddy.parse(tokens)
     assertIn(ss,asts.toSet)
   }
 
   def testBest(s: String, ss: List[AStmt]): Unit = {
-    val clean = prepare(lex(s) map noLoc)
-    val asts = Mismatch.repair(clean) flatMap (ts => uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed"))
+    val tokens = prep(s)
+    val asts = Mismatch.repair(tokens) flatMap (ts => uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed"))
     asts.best match {
       case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
       case Right(ast) => assertEquals(ss,ast)

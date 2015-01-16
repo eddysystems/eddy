@@ -1,6 +1,7 @@
 package tarski
 
 import tarski.Pretty._
+import tarski.Scores._
 import utility.Locations._
 
 object Tokens {
@@ -16,10 +17,13 @@ object Tokens {
   case class IdentTok(name: String) extends Token
 
   // Whitespace
-  sealed abstract class SpaceTok extends Token
+  sealed abstract class SpaceTok extends Token {
+    def content: String
+  }
+  sealed abstract class CommentTok extends SpaceTok
   case class WhitespaceTok(content: String) extends SpaceTok
-  case class EOLCommentTok(content: String) extends SpaceTok
-  case class CCommentTok(content: String) extends SpaceTok
+  case class EOLCommentTok(content: String) extends CommentTok
+  case class CCommentTok(content: String) extends CommentTok
 
   // Keywords: 3.9
   case object AbstractTok extends FixedToken
@@ -314,17 +318,27 @@ object Tokens {
   // 2. Turn some keywords into identifiers.
   // 3. Split >> and >>> into >'s and separators.
   // 4. Strip whitespace.
-  def prepare(ts: List[Located[Token]]): List[Located[Token]] = ts flatMap { case Located(t,r) => (t match {
-    case _:SpaceTok => Nil
-    case t@IdentTok(s) => List(s match {
-      case "then" => ThenTok
-      case "until" => UntilTok
-      case "in" => InTok
-      case _ => t
-    })
-    case t:ToIdentToken => List(IdentTok(show(t)))
-    case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
-    case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
-    case t => List(t)
-  }) map (Located(_,r))}
+  // 5. Separate out comments to be added back at the end.
+  def prepare(ts: List[Located[Token]]): Scored[(List[Located[Token]],Option[EOLCommentTok])] = {
+    def expand(ts: List[Located[Token]]): List[Located[Token]] = ts flatMap { case Located(t,r) => (t match {
+      case _:SpaceTok => Nil
+      case t@IdentTok(s) => List(s match {
+        case "then" => ThenTok
+        case "until" => UntilTok
+        case "in" => InTok
+        case _ => t
+      })
+      case t:ToIdentToken => List(IdentTok(show(t)))
+      case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
+      case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
+      case t => List(t)
+    }) map (Located(_,r))}
+    def interior(ts: List[Located[Token]]): Scored[List[Located[Token]]] =
+      if (ts exists (_.x.isInstanceOf[CommentTok])) fail("Token stream contains interior comments")
+      else known(expand(ts.reverse))
+    ts.reverse match {
+      case (Located(c:EOLCommentTok,_)) :: s => interior(s) map ((_,Some(c)))
+      case s => interior(s) map ((_,None))
+    }
+  }
 }

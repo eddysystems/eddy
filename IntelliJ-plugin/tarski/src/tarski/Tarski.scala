@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Denotations.Stmt
+import tarski.Denotations.{CommentStmt, Stmt}
 import tarski.Environment.{ThreeEnv, PlaceInfo, Env}
 import tarski.Items.{Value, TypeItem, Item, Package}
 import tarski.Scores._
@@ -75,12 +75,14 @@ object Tarski {
   }
 
   def fix(tokens: List[Located[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
-    val asts = Mismatch.repair(prepare(tokens)) flatMap (ts => {
-      val asts = ParseEddy.parse(ts)
-      for (a <- asts; n = asts.count(a==_); if n > 1)
-        throw new RuntimeException(s"AST duplicated $n times: $a")
-      uniform(Pr.parse,asts,"Parse failed")
-    })
-    asts flatMap (denoteStmts(_)(env))
+    prepare(tokens) flatMap { case (ts,c) =>
+      val asts = Mismatch.repair(ts) flatMap (ts => {
+        val asts = ParseEddy.parse(ts)
+        for (a <- asts; n = asts.count(a==_); if n > 1)
+          throw new RuntimeException(s"AST duplicated $n times: $a")
+        uniform(Pr.parse,asts,"Parse failed")
+      })
+      asts flatMap (denoteStmts(_)(env)) map {case (env,ss) => (env,ss ::: c.toList.map(CommentStmt))}
+    }
   }
 }
