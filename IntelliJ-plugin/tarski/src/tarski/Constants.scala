@@ -3,6 +3,7 @@ package tarski
 import tarski.Denotations._
 import tarski.Operators._
 import tarski.Types._
+import tarski.Base._
 
 object Constants {
   sealed abstract class OptionCon

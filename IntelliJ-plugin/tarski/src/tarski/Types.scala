@@ -283,11 +283,6 @@ object Types {
   // None means the type variable is "raw" and therefore unknown.
   type Tenv = Map[TypeVar,Option[RefType]]
 
-  // Basic reference types
-  val StringType       = StringItem.simple
-  val CloneableType    = CloneableItem.simple
-  val SerializableType = SerializableItem.simple
-
   // Unary and binary numeric promotion (without unboxing logic)
   def promote(t: NumType): NumType = t match {
     case ByteType|ShortType|CharType => IntType

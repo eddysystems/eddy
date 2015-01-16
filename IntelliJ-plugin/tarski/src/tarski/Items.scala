@@ -227,7 +227,7 @@ object Items {
       }
     }
     object NormalInterfaceItem {
-      def apply(name: Name, parent: ParentItem, tparams: List[TypeVar] = Nil,
+      def apply(name: Name, parent: ParentItem = LocalPkg, tparams: List[TypeVar] = Nil,
                 interfaces: List[ClassType] = Nil, fields: Set[String] = Set(),
                 constructors: => Array[ConstructorItem] = noConstructors): ClassItem =
         new NormalInterfaceItem(name,parent,tparams,interfaces,fields,constructors)
@@ -305,7 +305,7 @@ object Items {
       def item = ty.item
       def isParameter: Boolean // true if parameter, false if local variable
     }
-    case class NormalLocal(name: Name, ty: Type, isParameter: Boolean, isFinal: Boolean) extends Local {}
+    case class NormalLocal(name: Name, ty: Type, isParameter: Boolean = false, isFinal: Boolean = true) extends Local {}
     case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
       def name = "this"
       def item = self
