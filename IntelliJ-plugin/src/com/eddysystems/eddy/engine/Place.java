@@ -75,7 +75,6 @@ class Place {
   }
 
   static PsiElement containing(PsiElement elem, Project project) {
-
     PsiElement parent = elem.getParent();
     if (parent instanceof PsiPackage) {
       return parent;
@@ -93,23 +92,7 @@ class Place {
       assert elem instanceof PsiTypeParameter;
       return ((PsiTypeParameter)elem).getOwner();
     } else if (elem instanceof PsiClass) {
-      // maybe it's a class
-      parent = ((PsiClass) elem).getContainingClass();
-      if (parent != null) {
-        return parent;
-      }
-      // maybe we can deduce the proper parent from the qualified name
-      String qname = ((PsiClass) elem).getQualifiedName();
-      if (qname != null) {
-        int idx = qname.lastIndexOf('.');
-        if (idx >= 0) {
-          qname = qname.substring(0, idx);
-          parent = JavaPsiFacade.getInstance(project).findPackage(qname);
-          if (parent != null)
-            return parent;
-        }
-      }
-      // Otherwise, we're local, and if we can't figure out what we're local to, we might as well give up.
+      return ((PsiClass)elem).getScope();
     } else if (elem instanceof PsiMember) {
       parent = ((PsiMember) elem).getContainingClass();
       if (parent != null)

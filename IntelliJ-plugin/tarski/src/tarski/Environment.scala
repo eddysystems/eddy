@@ -40,6 +40,9 @@ object Environment {
     def lastEditIn(r: SRange): Boolean = r contains lastEdit
   }
   val localPlace = PlaceInfo(LocalPkg)
+  def PlaceInfoJava(place: ParentItem, exactPlace: PsiElement,
+                    breakable: Boolean, continuable: Boolean, lastEdit: Int): PlaceInfo =
+    PlaceInfo(place,exactPlace,breakable,continuable,SLoc(lastEdit))
 
   // An environment for name resolution
   abstract class Env {

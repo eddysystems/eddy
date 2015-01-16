@@ -209,7 +209,7 @@ object Items {
                               val interfaces: List[ClassType] = Nil, val fields: Set[String] = Set(),
                               _constructors: => Array[ConstructorItem] = noConstructors) extends ClassItem {
       def base = ObjectType
-      def supers = base :: interfaces
+      def supers = if (interfaces.isEmpty) base :: interfaces else interfaces
       def superItems = supers map (_.item)
       def isClass = false
       def isEnum = false

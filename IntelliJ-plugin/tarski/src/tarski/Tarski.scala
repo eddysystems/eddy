@@ -60,16 +60,17 @@ object Tarski {
       }
 
     (r.map { case (env,s) => {
-        implicit val e = env;
-        println(s"$s => ${s.map(show(_))}")
-        s.map(show(_)).asJava
+      implicit val e = env;
+      println(s"$s => ${s.map(show(_))}")
+      s.map(show(_)).asJava
     }}.all match {
-      case Left(error) => Nil
-      case Right(all) => {
+      case Left(error) =>
+        if (trackErrors) println("fixJava failed:\n"+error.prefixed("error: "))
+        Nil
+      case Right(all) =>
         val rs = mergeTake(all)(Map.empty)
         rs foreach {case Alt(p,r) => println(s"$p: $r")}
         rs
-      }
     }).asJava
   }
 

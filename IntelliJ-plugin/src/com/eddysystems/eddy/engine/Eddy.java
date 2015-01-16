@@ -20,9 +20,9 @@ import org.jetbrains.annotations.Nullable;
 import scala.collection.immutable.Map;
 import tarski.Environment;
 import tarski.Memory;
+import tarski.*;
+import tarski.Items.Item;
 import tarski.Scores.Alt;
-import tarski.Tarski;
-import tarski.Tokens;
 import tarski.Tokens.Token;
 import utility.Locations.Located;
 

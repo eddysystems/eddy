@@ -81,4 +81,6 @@ class TestPretty {
     test("a.f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(Some(LocalExp(a)),f),Nil,auto=false)),f),Nil,auto=false))
     test("f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(None,f),Nil,auto=false)),f),Nil,auto=false))
   }
+
+  @Test def cond() = test("true ? 1 : 0",CondExp(true,1,0,IntType))
 }

@@ -47,6 +47,8 @@ class TestDen {
                                    s"\nbest: ${sh(b)}\nnext: ${sh(n.x._2)}" +
                                    s"\nbest p = ${fp(p)}" +
                                    s"\nnext p = ${fp(n.dp)}")
+        } else { // Make sure pretty printing works
+          sh(b); ()
         }
     }
   }
