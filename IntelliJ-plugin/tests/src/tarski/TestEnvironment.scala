@@ -132,12 +132,18 @@ class TestEnvironment {
   @Test def noExactOnly(): Unit = assertEquals(false,exactOnly)
 
   @Test def valuesByItemTest(): Unit = {
+    // One diamond
     val A = NormalInterfaceItem("A")
     val B = NormalInterfaceItem("B")
-    val C = NormalInterfaceItem("C",interfaces=List(A.simple,B.simple))
-    val D = NormalInterfaceItem("D",interfaces=List(B.simple))
-    val E = NormalInterfaceItem("E",interfaces=List(D.simple))
-    val types = Array(A,B,C,D,E)
+    val C = NormalInterfaceItem("C",interfaces=List(A,B))
+    // An extra run of two
+    val D = NormalInterfaceItem("D",interfaces=List(B))
+    val E = NormalInterfaceItem("E",interfaces=List(D))
+    // Another diamond
+    val F = NormalInterfaceItem("F",interfaces=List(C))
+    val G = NormalInterfaceItem("G",interfaces=List(C))
+    val H = NormalInterfaceItem("H",interfaces=List(F,G))
+    val types = Array(A,B,C,D,E,F,G,H)
     val random = new Random(17311)
     for (i <- 0 until 100; n <- 0 until 100) {
       def randomItem(k: Int): Item = {
@@ -156,7 +162,7 @@ class TestEnvironment {
         vs foreach (v => assert(isSubitem(v.item,i)))
       }
       // Every super of a value should be included, except for Object
-      values foreach (v => v.item.superItems foreach (i => if (i != ObjectItem) assert(by(i) contains v)))
+      values foreach (v => superItems(v.item) foreach (i => if (i != ObjectItem) assert(by(i) contains v)))
     }
   }
 }

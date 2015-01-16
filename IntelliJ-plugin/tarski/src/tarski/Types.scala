@@ -512,6 +512,10 @@ object Types {
     }
     t.superItems.foldLeft(Set(t))(loop)
   }
+  def superItems(t: TypeItem): Set[RefTypeItem] = t match {
+    case t:RefTypeItem => superItems(t)
+    case _ => Set()
+  }
 
   // Least upper bounds: 4.10.4
   // TODO: Handle generics
