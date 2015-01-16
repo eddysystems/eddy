@@ -335,7 +335,17 @@ public class JavaEnvironment {
       final Processor<PsiClass> proc = new Processor<PsiClass>() {
         @Override
         public boolean process(final PsiClass cls) {
-          converter.addClass(cls, true);
+          try {
+            converter.addClass(cls, true);
+          } catch (AssertionError e) {
+            // If we're in the Scala plugin, log and squash the error
+            if (utility.Utility.fromScalaPlugin(e)) {
+              log("exception " + e + " in storeProjectClassInfo(): " + e.getMessage());
+              log("trace: ");
+              log(e.getStackTrace());
+            } else // Otherwise, rethrow
+              throw e;
+          }
           return true;
         }
       };
