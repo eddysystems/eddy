@@ -30,26 +30,26 @@ class EddyInjector implements FileEditorManagerListener {
 
   private void inject(final FileEditor editor) {
     if (this.injected.containsKey(editor)) {
-      log("not injecting into already injected editor");
+      //log("not injecting into already injected editor");
       return;
     }
 
     if(!(editor instanceof TextEditor)) {
       this.injected.put(editor, null);
-      log("not injecting into non-text editor");
+      //log("not injecting into non-text editor");
       return;
     }
 
     // make sure we have a Psi aware editor here
     PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(((TextEditor) editor).getEditor().getDocument());
     if (psifile == null) {
-      log("not injecting into non-psi editor");
+      //log("not injecting into non-psi editor");
       return;
     }
 
     // we can only deal with Java files
     if (!(psifile.getFileType() instanceof JavaFileType)) {
-      log("not injecting into non-java editor");
+      //log("not injecting into non-java editor");
       return;
     }
 

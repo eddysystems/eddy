@@ -235,16 +235,16 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
   @Override
   public final void handleEvent(@NotNull Event event, Object associated){
     if (event == JavaScopeProcessorEvent.START_STATIC) {
-      log("starting static scope");
+      //log("starting static scope");
       inStaticScope = true;
     } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
       currentFileContext = (PsiElement)associated;
       if (associated instanceof PsiAnonymousClass)
         classes.add(new ShadowElement<PsiClass>((PsiClass)associated,currentLevel));
-      log("switching context: " + currentFileContext);
+      //log("switching context: " + currentFileContext);
     } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
       currentLevel++;
-      log("change level to " + currentLevel + ", associated " + associated);
+      //log("change level to " + currentLevel + ", associated " + associated);
     }
   }
 }

@@ -146,6 +146,8 @@ public class EddyFileListener implements CaretListener, DocumentListener, Applic
     }
 
     public synchronized void interrupt() {
+      if (_canceled)
+        return;
       eddy.cancel();
       _canceled = true;
       if (softInterrupts) {

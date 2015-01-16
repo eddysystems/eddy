@@ -526,7 +526,7 @@ class Converter {
            // Type variables are visible exactly if we are inside their owner
            _accessible =  PsiTreeUtil.isAncestor(p.getOwner(), ((PsiEquivalent) _place).psi(), false);
          } else {
-           log("can't determine whether " + this + " is accessible from " + info.place());
+           //log("can't determine whether " + this + " is accessible from " + info.place());
            _accessible = false;
          }
        }
