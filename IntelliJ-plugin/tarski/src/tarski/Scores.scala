@@ -31,6 +31,7 @@ object Scores {
   // Probabilities
   case class Alt[+A](dp: Prob, x: A) extends HasProb { // Explicit class to avoid boxing the probability
     def p = pp(dp)
+    def map[B](f: A => B): Alt[B] = Alt(dp,f(x))
   }
 
   sealed abstract class Scored[+A] extends HasProb {
