@@ -76,10 +76,10 @@ public class Eddy {
         new WriteCommandAction(project, psifile) {
           @Override
           public void run(@NotNull Result result) {
-            int newoffset = replace_range.getEndOffset() - replace_range.getLength() + code.length();
+            final int newOffset = replace_range.getEndOffset() - replace_range.getLength() + code.length();
             System.out.println("replacing '" + document.getText(replace_range) + "' with '" + code + "'");
             document.replaceString(replace_range.getStartOffset(), replace_range.getEndOffset(), code);
-            editor.getCaretModel().moveToOffset(newoffset);
+            editor.getCaretModel().moveToOffset(newOffset);
             PsiDocumentManager.getInstance(project).commitDocument(document);
           }
         }.execute();

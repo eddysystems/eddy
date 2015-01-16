@@ -9,6 +9,7 @@ import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import tarski.Environment.PlaceInfo;
+import tarski.Environment;
 import tarski.Items.*;
 import tarski.Types.ClassType;
 
@@ -149,7 +150,6 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
-        assert jenv.knows(place);
         final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
         assert scopeItems.containsKey(c);
         final int p = scopeItems.get(c);
@@ -189,7 +189,7 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
 
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
-    placeInfo = new PlaceInfo(placeItem, this.place.place, inside_breakable, inside_continuable, lastedit);
+    placeInfo = Environment.PlaceInfoJava(placeItem, this.place.place, inside_breakable, inside_continuable, lastedit);
   }
 
   @Override
@@ -239,10 +239,12 @@ class EnvironmentProcessor extends BaseScopeProcessor implements ElementClassHin
       inStaticScope = true;
     } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
       currentFileContext = (PsiElement)associated;
-      log("switching file context: " + currentFileContext);
+      if (associated instanceof PsiAnonymousClass)
+        classes.add(new ShadowElement<PsiClass>((PsiClass)associated,currentLevel));
+      log("switching context: " + currentFileContext);
     } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
       currentLevel++;
-      log("change level to " + currentLevel);
+      log("change level to " + currentLevel + ", associated " + associated);
     }
   }
 }

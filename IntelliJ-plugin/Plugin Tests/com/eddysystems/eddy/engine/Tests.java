@@ -482,8 +482,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("inheritedVisibility.java", "removeRange(0, 1);", .9);
   }
 
-  public void testLocalClass() {
-    testMargin("localClass.java", "test();", .9);
+  public void testAnonymousClass() {
+    testMargin("anonymousClass.java", "if (true) test();\nelse this.test();", .9);
+  }
+
+  public void testAnonymousClassSuper() {
+    testMargin("anonymousClassSuper.java", "super.foo();", .9);
   }
 
   public void testPrivateCons() {

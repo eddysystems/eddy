@@ -390,6 +390,7 @@ object Pretty {
       }
       (ApplyFix, NewTok :: outer(t,is,Nil))
     }
+    case CondExp(c,x,y,_) => fix(CondFix, s => left(s,c) ::: QuestionTok :: tokens(x) ::: ColonTok :: right(s,y))
   }
   implicit def prettyCallable(f: Callable)(implicit env: Env): (Fixity,Tokens) = {
     def method(x: Exp, ts: List[TypeArg], f: Item): (Fixity,Tokens) =

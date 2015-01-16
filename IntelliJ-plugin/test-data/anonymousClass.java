@@ -2,11 +2,10 @@ class Test {
   void f(Runnable R) {}
   void g() {
     f(new Runnable() {
-      public void test() {
-      }
+      public void test() {}
 
       @Override public void run() {
-         test()<caret>
+        true ? test() : this.test() <caret>
       }
     });
   }

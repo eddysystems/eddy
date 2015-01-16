@@ -70,6 +70,13 @@ object Scores {
       case s:LazyScored[A] => s.force(q).below(q)
       case _ => false
     })
+    final def slowSize: Int = {
+      @tailrec def loop(s: Scored[A], n: Int): Int = s.strict match {
+        case Best(_,_,s) => loop(s,n+1)
+        case _:EmptyOrBad => n
+      }
+      loop(this,0)
+    }
 
     // Multiply all probabilities by p.  For internal use only: users should call biased(p,s).
     def _bias(p: Prob): Scored[A]

@@ -312,10 +312,10 @@ object Types {
     case LShiftOp|RShiftOp|UnsignedRShiftOp => for (n0 <- t0.unboxIntegral; _ <- t1.unboxIntegral) yield promote(n0)
     case LtOp|GtOp|LeOp|GeOp => for (n0 <- t0.unboxNumeric; n1 <- t1.unboxNumeric) yield BooleanType
     case EqOp|NeOp => ((t0,t1) match {
-        case (BooleanType,_) if t1.unboxesToBoolean => true
-        case (_,BooleanType) if t0.unboxesToBoolean => true
-        case (_:PrimType,_) if t1.unboxesToNumeric => true
-        case (_,_:PrimType) if t0.unboxesToNumeric => true
+        case (BooleanType,_) => t1.unboxesToBoolean
+        case (_,BooleanType) => t0.unboxesToBoolean
+        case (_:PrimType,_)  => t1.unboxesToNumeric
+        case (_,_:PrimType)  => t0.unboxesToNumeric
         case _ => castsTo(t0,t1) || castsTo(t1,t0)
       }) match {
         case true => Some(BooleanType)

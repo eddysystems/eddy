@@ -17,6 +17,7 @@ import tarski.Environment;
 import tarski.Items;
 import tarski.Items.*;
 import tarski.Types.*;
+import utility.JavaUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -343,8 +344,8 @@ class Converter {
 
      @Override
      public String name() {
-        return elem.getText();
-      }
+       return elem.getText();
+     }
 
      @Override
      public PsiElement psi() {
@@ -453,8 +454,8 @@ class Converter {
      }
 
      public String name() {
-        return p.getName();
-      }
+       return p.getName();
+     }
 
      public RefType lo() {
         return NullType$.MODULE$;
@@ -575,8 +576,8 @@ class Converter {
      public String toString() { return "LazyClass:" + _name; }
 
      public String name() {
-        return _name;
-      }
+       return _name;
+     }
 
      public scala.collection.immutable.List<TypeVar> tparams() {
        if (_tparams == null)
@@ -608,32 +609,40 @@ class Converter {
 
      public scala.collection.immutable.List<RefType> supers() {
        if (_supers == null) {
-         ArrayList<RefType> supers = new ArrayList<RefType>();
-         for (PsiClassType stype : cls.getSuperTypes()) {
-           ClassType sc = (ClassType)env.convertType(stype);
-           PsiClass stypeClass = stype.resolve();
+         if (cls instanceof PsiAnonymousClass) {
+           // Anonymous classes must be handled specially
+           final PsiAnonymousClass anon = (PsiAnonymousClass)cls;
+           final ClassType sup = (ClassType)env.convertType(anon.getBaseClassType());
+           _base = sup.item().isClass() ? sup : ObjectType$.MODULE$;
+           _supers = JavaUtils.<RefType>scalaList(sup);
+         } else {
+           ArrayList<RefType> supers = new ArrayList<RefType>();
+           for (PsiClassType stype : cls.getSuperTypes()) {
+             ClassType sc = (ClassType)env.convertType(stype);
+             PsiClass stypeClass = stype.resolve();
 
-           // if the code illegally uses an interface in the extends clause, we assume it meant to use that interface in
-           // the implements clause. If more than one class are inherited from, use the first one mentioned as base.
-           if (stypeClass != null && !stypeClass.isInterface())
-             if (_base == null) // first non-interface in supers is base.
-               _base = sc;
-             else // other non-interfaces in supers
-               log("multiple class inheritance in " + this + ": at least " + _base + " and " + stypeClass);
-           supers.add(sc);
-         }
-         if (_base == null) {
-           PsiClass base = cls.getSuperClass();
-           if (base != null && !base.isInterface())
-             _base = ((ClassItem)env.addClass(base,false)).inside();
-           else {
-             if (base != null)
-               log("class " + this + " extends interface: " + base);
-             // base can be null if JDK is not defined, for Object (should be impossible), and for scala traits
-             _base = ObjectType$.MODULE$;
+             // if the code illegally uses an interface in the extends clause, we assume it meant to use that interface in
+             // the implements clause. If more than one class are inherited from, use the first one mentioned as base.
+             if (stypeClass != null && !stypeClass.isInterface())
+               if (_base == null) // first non-interface in supers is base.
+                 _base = sc;
+               else // other non-interfaces in supers
+                 log("multiple class inheritance in " + this + ": at least " + _base + " and " + stypeClass);
+             supers.add(sc);
            }
+           if (_base == null) {
+             PsiClass base = cls.getSuperClass();
+             if (base != null && !base.isInterface())
+               _base = ((ClassItem)env.addClass(base,false)).inside();
+             else {
+               if (base != null)
+                 log("class " + this + " extends interface: " + base);
+               // base can be null if JDK is not defined, for Object (should be impossible), and for scala traits
+               _base = ObjectType$.MODULE$;
+             }
+           }
+           _supers = JavaConversions.asScalaBuffer(supers).toList();
          }
-         _supers = JavaConversions.asScalaBuffer(supers).toList();
        }
        return _supers;
      }
@@ -952,8 +961,8 @@ class Converter {
 
      // Core interface
      public String name() {
-            return _name;
-          }
+       return _name;
+     }
      public boolean isStatic() {
             return _isStatic;
           }
@@ -1091,8 +1100,8 @@ class Converter {
      public String toString() { return "LazyField:" + _name; }
 
      public String name() {
-            return _name;
-          }
+       return _name;
+     }
      public boolean isFinal() {
             return _isFinal;
           }

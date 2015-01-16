@@ -337,10 +337,23 @@ object Semantics {
       case x => fail(s"${show(e)}: invalid unary ${show(token(op))} on type ${show(x.ty)}")
     }
 
-    case BinaryAExp(op,x,y,_) if m.exp => product(denoteExp(x),denoteExp(y)) flatMap {case (x,y) => {
+    case BinaryAExp(op,ax,ay,_) if m.exp => product(denoteExp(ax),denoteExp(ay)) flatMap {case (x,y) => {
       val tx = x.ty
       val ty = y.ty
-      if (binaryLegal(op,tx,ty)) single(BinaryExp(op,x,y), Pr.binaryExp)
+      @tailrec def isZero(e: AExp): Boolean = e match {
+        case IntALit("0",_) => true
+        case ParenAExp(x,_,_) => isZero(x)
+        case _ => false
+      }
+      def castZero(t: Type): Exp = t match {
+        case BooleanType => BooleanLit(false)
+        case _:RefType => NullLit
+        case _:NumType => IntLit(0,"0")
+        case VoidType => impossible
+      }
+      if (binaryLegal(op,tx,ty)) known(BinaryExp(op,x,y))
+      else if (isZero(ax) && ty!=VoidType) single(BinaryExp(op,castZero(ty),y),Pr.binaryExpCastZero)
+      else if (isZero(ay) && tx!=VoidType) single(BinaryExp(op,x,castZero(tx)),Pr.binaryExpCastZero)
       else fail(s"${show(e)}: invalid binary op ${show(tx)} ${show(op)} ${show(ty)}")
     }}
 

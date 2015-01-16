@@ -229,11 +229,11 @@ public class JavaEnvironment {
 
   @Nullable
   synchronized Items.Item lookup(PsiElement elem, boolean checkLocal) {
-    // everything in addedItems is also in localItems.
+    // Everything in addedItems is also in localItems.
     Items.Item i = items.get(elem);
     if (i == null)
-         i = localItems.get(elem);
-    if (i == null    && checkLocal)
+      i = localItems.get(elem);
+    if (i == null && checkLocal)
       i = scopeItems.get(elem);
     return i;
   }
@@ -348,18 +348,18 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  private static List<Items.Item> removeConstructors(Collection<Items.Item> items) {
-    List<Items.Item> newitems = new ArrayList<Items.Item>(items.size());
-    for (Items.Item i : items)
-      if (!(i instanceof Items.ConstructorItem))
-        newitems.add(i);
-    return newitems;
+  private static List<Items.Item> pruneItems(Collection<Items.Item> items) {
+    List<Items.Item> pruned = new ArrayList<Items.Item>(items.size());
+    for (final Items.Item i : items)
+      if (i.name() != null && !(i instanceof Items.ConstructorItem))
+        pruned.add(i);
+    return pruned;
   }
 
   private void buildDynamicEnv() {
     pushScope("building project trie");
     try {
-      final List<Items.Item> items = removeConstructors(localItems.values());
+      final List<Items.Item> items = pruneItems(localItems.values());
       items.addAll(Arrays.asList(Base.extraEnv().allItems())); // Add int, false, null, etc.
 
       dTrie = Tarski.makeDTrie(items);
@@ -391,7 +391,7 @@ public class JavaEnvironment {
     // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
     EnvironmentProcessor ep = new EnvironmentProcessor(project, this, scopeItems, place, lastEdit, true);
 
-    List<Items.Item> newitems = removeConstructors(ep.localItems);
+    final List<Items.Item> pruned = pruneItems(ep.localItems);
 
     Tries.DTrie<Items.Item> dt;
     Map<Items.TypeItem, Items.Value[]> dbi;
@@ -399,12 +399,12 @@ public class JavaEnvironment {
     // need sync on this to make addedItems.values() safe and in sync with dTrie
     synchronized (this) {
       // addedItems never contains constructors (see Converter.put() and changeItemName())
-      newitems.addAll(addedItems.values());
+      pruned.addAll(addedItems.values());
       dt = dTrie;
       dbi = dByItem;
     }
 
-    final Items.Item[] newArray = newitems.toArray(new Items.Item[newitems.size()]);
+    final Items.Item[] newArray = pruned.toArray(new Items.Item[pruned.size()]);
     return Tarski.environment(sTrie, dt, Tarski.makeTrie(newArray), dbi, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
   }
 
