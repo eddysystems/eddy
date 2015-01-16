@@ -58,6 +58,9 @@ object Utility {
     case x::xs => x :: s :: intersperse(s,xs)
   }
 
+  def silenceNulls[A >: Null](f: => A): A =
+    try f catch { case _:NullPointerException => null }
+
   @tailrec
   def revAppend[A](xs: List[A], ys: List[A]): List[A] = xs match {
     case Nil => ys

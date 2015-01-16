@@ -3,6 +3,7 @@ package tarski
 import tarski.Denotations.Stmt
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,show}
+import utility.Utility.silenceNulls
 import utility.Locations.{SLoc, Located}
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -64,8 +65,9 @@ object Memory {
 
   // Specific kinds of messages
   def eddyApply(base: Info, input: JList[Located[Token]], results: JList[Alt[JList[(Stmt,String)]]], formatted: JList[String], choice: String) = {
-    val denotations: Seq[Seq[String]] = results.asScala.map(_.x.asScala.map(_._1.toString))
-    val tokens: Seq[Alt[Seq[String]]] = results.asScala.map(_ map (_.asScala.map(_._2)))
+    // Use explicit types to enforce the format of the database
+    val denotations: Seq[Seq[String]] = silenceNulls(results.asScala.map(_.x.asScala.map(_._1.toString)))
+    val tokens: Seq[Alt[Seq[String]]] = silenceNulls(results.asScala.map(_ map (_.asScala.map(_._2))))
     base.add("kind","Eddy.apply")
         .add("input",input)
         .add("results",tokens)
@@ -75,8 +77,9 @@ object Memory {
   }
 
   def eddyProcess(base: Info, start: Double, input: JList[Located[Token]], results: JList[Alt[JList[(Stmt,String)]]], formatted: JList[String]) = {
-    val denotations: Seq[Seq[String]] = results.asScala.map(_.x.asScala.map(_._1.toString))
-    val tokens: Seq[Alt[Seq[String]]] = results.asScala.map(_ map (_.asScala.map(_._2)))
+    // Use explicit types to enforce the format of the database
+    val denotations: Seq[Seq[String]] = silenceNulls(results.asScala.map(_.x.asScala.map(_._1.toString)))
+    val tokens: Seq[Alt[Seq[String]]] = silenceNulls(results.asScala.map(_ map (_.asScala.map(_._2))))
     base.add("kind","Eddy.process")
         .add("start",start)
         .add("input",input)
