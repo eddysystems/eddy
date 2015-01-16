@@ -17,12 +17,11 @@ import com.intellij.psi.impl.source.tree.java.MethodElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.Tuple2;
+import scala.collection.Iterator;
 import scala.collection.immutable.Map;
-import tarski.Environment;
-import tarski.Memory;
+import tarski.*;
 import tarski.Scores.Alt;
-import tarski.Tarski;
-import tarski.Tokens;
 import tarski.Tokens.Token;
 import utility.Locations.Located;
 
@@ -46,7 +45,7 @@ public class Eddy {
 
   // the results of the interpretation
   private Environment.Env env = null;
-  private List<Alt<List<String>>> results;
+  private List<Alt<List<Tuple2<Denotations.Stmt, String>>>> results;
   private List<String> resultStrings;
   private boolean found_existing;
 
@@ -102,7 +101,7 @@ public class Eddy {
         }.execute();
       }
     });
-    Memory.log(Memory.eddyApply(base,input,results,code));
+    Memory.log(Memory.eddyApply(base, input, results, resultStrings, code));
   }
 
   public void applyBest() {
@@ -117,7 +116,7 @@ public class Eddy {
 
   public List<String> getResultStrings() { return resultStrings; }
 
-  public List<Alt<List<String>>> getResults() { return results; }
+  public List<Alt<List<Tuple2<Denotations.Stmt, String>>>> getResults() { return results; }
 
   public Environment.Env getEnv() {
     assert env != null;
@@ -278,12 +277,12 @@ public class Eddy {
 
     env = EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(place, lastedit);
     final Tarski.Enough enough = new Tarski.Enough() { @Override
-      public boolean enough(Map<List<String>,Object> m) {
+      public boolean enough(Map<List<Tuple2<Denotations.Stmt,String>>,Object> m) {
         if (m.size() < 4) return false;
         if (special == null) return true;
-        final scala.collection.Iterator<List<String>> i =  m.keysIterator();
+        final Iterator<List<Tuple2<Denotations.Stmt, String>>> i =  m.keysIterator();
         while (i.hasNext()) {
-          final List<String> x = i.next();
+          final List<Tuple2<Denotations.Stmt, String>> x = i.next();
           if (reformat(x).equals(special))
             return true;
         }
@@ -299,14 +298,14 @@ public class Eddy {
     final double start = Memory.now();
     try {
       processInternal(editor, lastEdit, special);
-      Memory.log(Memory.eddyProcess(base,start,input,results));
+      Memory.log(Memory.eddyProcess(base, start, input, results, resultStrings));
     } catch (Throwable e) {
       // Log everything except for ThreadDeath, which happens all the time.
       if (!(e instanceof ThreadDeath)) {
         log("exception " + e + " in process(): " + e.getMessage());
         log("trace: ");
         log(e.getStackTrace());
-        Memory.log(Memory.eddyProcess(base,start,input,results).error(e));
+        Memory.log(Memory.eddyProcess(base,start,input,results, resultStrings).error(e));
       }
       // Rethrow most kinds of Errors
       if (e instanceof Error && !(e instanceof AssertionError))
@@ -314,9 +313,9 @@ public class Eddy {
     }
   }
 
-  private List<String> reformat(List<Alt<List<String>>> results, String before_text) {
+  private List<String> reformat(List<Alt<List<Tuple2<Denotations.Stmt,String>>>> results, String before_text) {
     List<String> resultStrings = new SmartList<String>();
-    for (Alt<List<String>> interpretation : results) {
+    for (Alt<List<Tuple2<Denotations.Stmt,String>>> interpretation : results) {
       final String s = reformat(interpretation.x());
       resultStrings.add(s);
       log("eddy result: '" + s + "' existing '" + before_text + "'");
@@ -369,10 +368,11 @@ public class Eddy {
     return elem.getText();
   }
 
-  private String reformat(@NotNull List<String> in) {
+  private String reformat(@NotNull List<Tuple2<Denotations.Stmt,String>> in) {
     String r = "";
     boolean first = true;
-    for (final String s : in) {
+    for (final Tuple2<Denotations.Stmt,String> ss : in) {
+      final String s = ss._2();
       if (first) first = false;
       else r += " ";
       r += reformat(s);

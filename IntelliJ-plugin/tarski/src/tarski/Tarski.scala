@@ -39,7 +39,7 @@ object Tarski {
     }
   }
 
-  type Result = java.util.List[String]
+  type Result = java.util.List[(Denotations.Stmt,String)]
   abstract class Enough {
     def enough(m: Map[Result,Prob]): Boolean
   }
@@ -62,7 +62,7 @@ object Tarski {
     (r.map { case (env,s) => {
         implicit val e = env;
         println(s"$s => ${s.map(show(_))}")
-        s.map(show(_)).asJava
+        s.map( x => (x,show(x)) ).asJava
     }}.all match {
       case Left(error) => Nil
       case Right(all) => {

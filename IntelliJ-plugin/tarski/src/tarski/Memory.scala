@@ -1,5 +1,6 @@
 package tarski
 
+import tarski.Denotations.Stmt
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,show}
 import utility.Locations.{SLoc, Located}
@@ -61,17 +62,27 @@ object Memory {
                      .add("project",project)
 
   // Specific kinds of messages
-  def eddyApply(base: Info, input: JList[Located[Token]], results: JList[Alt[JList[String]]], choice: String) =
+  def eddyApply(base: Info, input: JList[Located[Token]], results: JList[Alt[JList[(Stmt,String)]]], formatted: JList[String], choice: String) = {
+    val denotations = results.asScala.map(_.x.asScala.map(_._1.toString).asJava).asJava
+    val tokens = results.asScala.map( x => { new Alt(x.p,x.x.asScala.map(_._2).asJava) }).asJava
     base.add("kind","Eddy.apply")
         .add("input",input)
-        .add("results",results)
+        .add("results",tokens)
+        .add("denotations",denotations) // same order as results
+        .add("formatted",formatted) // same order as results
         .add("choice",choice)
+  }
 
-  def eddyProcess(base: Info, start: Double, input: JList[Located[Token]], results: JList[Alt[JList[String]]]) =
+  def eddyProcess(base: Info, start: Double, input: JList[Located[Token]], results: JList[Alt[JList[(Stmt,String)]]], formatted: JList[String]) = {
+    val denotations = results.asScala.map(_.x.asScala.map(_._1.toString).asJava).asJava
+    val tokens = results.asScala.map( x => { new Alt(x.p,x.x.asScala.map(_._2).asJava) }).asJava
     base.add("kind","Eddy.process")
         .add("start",start)
         .add("input",input)
-        .add("results",results)
+        .add("results",tokens)
+        .add("denotations",denotations) // same order as results
+        .add("formatted",formatted) // same order as results
+  }
 
   // Log to DynamoDB
   //   PutItem: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/JavaDocumentAPIItemCRUD.html#PutDocumentAPIJava

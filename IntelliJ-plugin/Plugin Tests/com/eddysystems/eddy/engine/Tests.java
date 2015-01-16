@@ -19,13 +19,16 @@ import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
-import com.intellij.psi.*;
+import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.Tuple2;
 import tarski.*;
 import tarski.Items.Item;
 import tarski.Scores.Alt;
@@ -129,7 +132,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private void dumpResults(final Eddy eddy, final String special) {
-    final List<Alt<List<String>>> results = eddy.getResults();
+    final List<Alt<List<Tuple2<Denotations.Stmt, String>>>> results = eddy.getResults();
     if (results == null) {
       log("nothing found.");
       return;
@@ -138,7 +141,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     final String sep = "  -------------------------------";
     log("results:");
     for (int i=0;i<results.size();i++) {
-      final Alt<List<String>> r = results.get(i);
+      final Alt<List<Tuple2<Denotations.Stmt, String>>> r = results.get(i);
       final String s = strings.get(i);
       if (i >= 4 && (special==null || !special.equals(s))) continue;
       if (i > 0) log(sep);
@@ -184,7 +187,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
-      final List<Alt<List<String>>> rs = eddy.getResults();
+      final List<Alt<List<Tuple2<Denotations.Stmt,String>>>> rs = eddy.getResults();
       final double p0 = rs.get(0).p(),
                    p1 = rs.get(1).p();
       final String m = "wanted margin "+margin+", got "+p1+" / "+p0+" = "+p1/p0;
@@ -229,7 +232,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testProbLE1() {
     Eddy eddy = setupEddy(null,"denote_x.java");
-    for (Scores.Alt<List<String>> result : eddy.getResults())
+    for (Alt<List<Tuple2<Denotations.Stmt, String>>> result : eddy.getResults())
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 
