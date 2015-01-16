@@ -295,17 +295,22 @@ public class Eddy {
     resultStrings = reformat(results, before_text);
   }
 
-  public void process(@NotNull Editor editor, int lastedit, final @Nullable String special) {
+  public void process(@NotNull Editor editor, int lastEdit, final @Nullable String special) {
     final double start = Memory.now();
     try {
-      processInternal(editor, lastedit, special);
+      processInternal(editor, lastEdit, special);
       Memory.log(Memory.eddyProcess(base,start,input,results));
-    } catch (Exception e) {
-      log("exception " + e + " in process(): " + e.getMessage());
-      log("trace: ");
-      final StackTraceElement[] stack = e.getStackTrace();
-      log(stack);
-      Memory.log(Memory.eddyProcess(base,start,input,results).error(e,stack));
+    } catch (Throwable e) {
+      // Log everything except for ThreadDeath, which happens all the time.
+      if (!(e instanceof ThreadDeath)) {
+        log("exception " + e + " in process(): " + e.getMessage());
+        log("trace: ");
+        log(e.getStackTrace());
+        Memory.log(Memory.eddyProcess(base,start,input,results).error(e));
+      }
+      // Rethrow most kinds of Errors
+      if (e instanceof Error && !(e instanceof AssertionError))
+        throw (Error)e;
     }
   }
 

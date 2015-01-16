@@ -29,4 +29,12 @@ class TestMemory {
         assert(e.getErrorMessage contains "eddy-public is not authorized to perform: dynamodb:GetItem", e.getErrorMessage)
     }
   }
+
+  @Test def error() = {
+    try throw new AssertionError("an assertion")
+    catch { case e:Throwable =>
+      val log = Memory.log(base.add("kind","TestMemory.error").error(e))
+      Await.result(log,10.second)
+    }
+  }
 }
