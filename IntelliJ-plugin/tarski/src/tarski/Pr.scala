@@ -135,7 +135,7 @@ object Pr {
     else if (around == AST.BrackAround) Prob(s"multiple index call ${list.list.size}",.6)
     else Prob(s"weird index call ${list.list.size} $around",.5)
   val unaryExp = base // should be a function of operator and types
-  val binaryExp = base // should be a function of operator and types
+  val binaryExpCastZero = Prob("binary cast zero",.1) // Replace x == 0 with x == null or x == false
   val castExp = base // should be a function of from/to types
   val condExp = base // should be a function of inside types
   val arrayExp = Prob("array",.8) // {1,2,3}, should be a function of around, types, number of things inside

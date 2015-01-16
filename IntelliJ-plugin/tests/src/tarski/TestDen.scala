@@ -926,7 +926,11 @@ class TestDen {
 
   @Test def if0() = {
     val x = NormalLocal("x",ObjectType,isParameter=false,isFinal=true)
-    implicit val env = localEnvWithBase(x)
+    val b = NormalLocal("b",BooleanType,isParameter=false,isFinal=true)
+    implicit val env = localEnvWithBase(x,b)
     test("if (x == 0)",IfStmt(BinaryExp(EqOp,x,NullLit),HoleStmt))
+    test("if (0 != x)",IfStmt(BinaryExp(NeOp,NullLit,x),HoleStmt))
+    test("if (b != 0)",IfStmt(BinaryExp(NeOp,b,false),HoleStmt))
+    test("if (0 == b)",IfStmt(BinaryExp(EqOp,false,b),HoleStmt))
   }
 }
