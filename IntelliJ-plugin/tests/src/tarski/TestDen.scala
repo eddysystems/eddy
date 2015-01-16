@@ -921,4 +921,10 @@ class TestDen {
       assertEquals(parameter, !fixes.strict.isInstanceOf[EmptyOrBad])
     }
   }
+
+  @Test def if0() = {
+    val x = NormalLocal("x",ObjectType,isParameter=false,isFinal=true)
+    implicit val env = localEnvWithBase(x)
+    test("if (x == 0)",IfStmt(BinaryExp(EqOp,x,NullLit),HoleStmt))
+  }
 }
