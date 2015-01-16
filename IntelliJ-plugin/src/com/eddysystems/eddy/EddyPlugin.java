@@ -2,6 +2,7 @@ package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.EddyPsiListener;
 import com.eddysystems.eddy.engine.JavaEnvironment;
+import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ProjectComponent;
@@ -30,6 +31,22 @@ import static utility.JavaUtils.pushScope;
 public class EddyPlugin implements ProjectComponent {
   @NotNull final private Application app;
   private Project project;
+
+  // Find our "install" key, or create it if necessary
+  static private String _install = null;
+  public static String installKey() {
+    if (_install == null) {
+      final PropertiesComponent props = PropertiesComponent.getInstance();
+      final String name = "com.eddysystems.Props.install";
+      _install = props.getValue(name);
+      if (_install == null) {
+        _install = tarski.Crypto.randomKey();
+        props.setValue(name,_install);
+      }
+    }
+    return _install;
+  }
+
   public Project getProject() { return project; }
   private EddyInjector injector;
   private EddyWidget widget = new EddyWidget(this);
@@ -162,6 +179,8 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void initComponent() {
+    log("eddy starting: installation " + installKey());
+
     // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
 

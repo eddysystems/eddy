@@ -1,7 +1,6 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
-import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
@@ -55,22 +54,7 @@ public class Eddy {
 
   public Eddy(@NotNull final Project project) {
     this.project = project;
-    this.base = Memory.basics(installKey(), "0.1", project.getName()); // TODO: Real version
-  }
-
-  // Find our "install" key, or create it if necessary
-  static private String _install = null;
-  static private String installKey() {
-    if (_install == null) {
-      final PropertiesComponent props = PropertiesComponent.getInstance();
-      final String name = "com.eddysystems.Props.install";
-      _install = props.getValue(name);
-      if (_install == null) {
-        _install = tarski.Crypto.randomKey();
-        props.setValue(name,_install);
-      }
-    }
-    return _install;
+    this.base = Memory.basics(EddyPlugin.installKey(), "0.1", project.getName()); // TODO: Real version
   }
 
   // applies a result in the editor
