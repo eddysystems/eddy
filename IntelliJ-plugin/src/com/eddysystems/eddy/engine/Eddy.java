@@ -23,10 +23,8 @@ import tarski.*;
 import tarski.Scores.Alt;
 import tarski.Tokens.Token;
 import utility.Locations.Located;
-
 import java.util.List;
-
-import static com.eddysystems.eddy.engine.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.*;
 
 public class Eddy {
   final private Project project;
@@ -59,7 +57,7 @@ public class Eddy {
 
   // applies a result in the editor
   public void apply(int i) {
-    apply(code(i), editor, tokens_range);
+    apply(resultStrings.get(i), editor, tokens_range);
   }
 
   public void apply(final @NotNull String code,
@@ -280,20 +278,23 @@ public class Eddy {
 
   public void process(@NotNull Editor editor, int lastEdit, final @Nullable String special) {
     final double start = Memory.now();
-    try {
-      processInternal(editor, lastEdit, special);
-      Memory.log(Memory.eddyProcess(base, start, input, results, resultStrings));
-    } catch (Throwable e) {
-      // Log everything except for ThreadDeath, which happens all the time.
-      if (!(e instanceof ThreadDeath)) {
-        log("exception " + e + " in process(): " + e.getMessage());
-        log("trace: ");
-        log(e.getStackTrace());
-        Memory.log(Memory.eddyProcess(base,start,input,results, resultStrings).error(e));
+    if (isDebug()) { // Run outside try so that we can see inside exceptions
+      processInternal(editor,lastEdit,special);
+      Memory.log(Memory.eddyProcess(base,start,input,results,resultStrings));
+    } else {
+      try {
+        processInternal(editor,lastEdit,special);
+        Memory.log(Memory.eddyProcess(base,start,input,results,resultStrings));
+      } catch (Throwable e) {
+        // Log everything except for ThreadDeath, which happens all the time.
+        if (!(e instanceof ThreadDeath)) {
+          logError("process()",e);
+          Memory.log(Memory.eddyProcess(base,start,input,results,resultStrings).error(e));
+        }
+        // Rethrow most kinds of Errors
+        if (e instanceof Error && !(e instanceof AssertionError))
+          throw (Error)e;
       }
-      // Rethrow most kinds of Errors
-      if (e instanceof Error && !(e instanceof AssertionError))
-        throw (Error)e;
     }
   }
 
@@ -341,10 +342,6 @@ public class Eddy {
     return false;
   }
 
-  private String code(int i) {
-    return resultStrings.get(i);
-  }
-
   // The string should be a single syntactically valid statement
   private String reformat(@NotNull String in) {
     PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(in, place);
@@ -366,6 +363,6 @@ public class Eddy {
 
   public String bestText() {
     assert foundSomethingUseful();
-    return code(resultOffset);
+    return resultStrings.get(resultOffset);
   }
 }
