@@ -9,7 +9,7 @@ import static com.eddysystems.eddy.engine.Utility.log;
 public class NextSuggestion extends AnAction {
   public void actionPerformed(AnActionEvent e) {
     log("next action: " + e);
-    if (EddyFileListener.activeInstance() != null)
-      EddyFileListener.activeInstance().nextResult();
+    if (EddyFileListener.activeHintInstance() != null)
+      EddyFileListener.activeHintInstance().nextResult();
   }
 }

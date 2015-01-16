@@ -9,7 +9,7 @@ import static com.eddysystems.eddy.engine.Utility.log;
 public class PrevSuggestion extends AnAction {
   public void actionPerformed(AnActionEvent e) {
     log("prev action: " + e);
-    if (EddyFileListener.activeInstance() != null)
-      EddyFileListener.activeInstance().prevResult();
+    if (EddyFileListener.activeHintInstance() != null)
+      EddyFileListener.activeHintInstance().prevResult();
   }
 }

@@ -55,7 +55,7 @@ public class EddyAnnotator implements Annotator {
       TextRange lineRange = new TextRange(lineStart, lineEnd);
 
       Annotation ann = holder.createErrorAnnotation(lineRange, null /* we don't want a message here */);
-      ann.registerFix(new EddyQuickFix(project));
+      ann.registerFix(new EddyIntention());
       // make invisible, except for maybe gutter icon. The annotation is irrelevant -- we only care about the fix that's attached
       ann.setHighlightType(ProblemHighlightType.INFORMATION);
       //ann.setGutterIconRenderer(...);

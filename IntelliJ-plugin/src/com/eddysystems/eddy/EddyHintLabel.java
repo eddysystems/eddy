@@ -100,7 +100,7 @@ class EddyHintLabel extends JPanel {
 
     final EddyHintLabel label = new EddyHintLabel();
     label.setText(hintText, hintHint);
-    label.setIcon(EddyPlugin.getInstance(eddy.getEditor().getProject()).getIcon());
+    label.setIcon(EddyWidget.getIcon());
 
     return new LightweightHint(label);
   }

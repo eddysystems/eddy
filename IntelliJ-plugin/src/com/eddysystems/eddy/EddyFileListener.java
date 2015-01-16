@@ -29,10 +29,27 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Document document;
 
   private static final @NotNull Object active_lock = new Object();
-  private static EddyFileListener active_instance = null;
 
-  public static EddyFileListener activeInstance() {
-    return active_instance;
+  // if the eddy instance in a file listener is associated with an active hint, this is it
+  private static EddyFileListener active_hint_instance = null;
+
+  // an action that shows up as an intention action (lives longer than the hint)
+  private static EddyFileListener active_instance = null;
+  private static EddyAction active_action = null;
+  private static int active_line = -1;
+
+  // to keymapped actions that should affect the file listener that showed the last hint
+  public static EddyFileListener activeHintInstance() {
+    return active_hint_instance;
+  }
+
+  public static EddyAction getActionFor(Editor editor) {
+    synchronized (active_lock) {
+      if (active_instance == null || editor != active_instance.editor ||
+          editor.getCaretModel().getCurrentCaret().getLogicalPosition().line != active_line)
+        return null;
+      return active_action;
+    }
   }
 
   private boolean inChange = false;
@@ -156,7 +173,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
                 EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
 
                 eddy.process(owner.editor,owner.getLastEditLocation(),null);
-                if (isInterrupted() || !eddy.foundSomethingUseful())
+                if (isInterrupted())
                   return;
                 showHint();
               } finally {
@@ -173,19 +190,30 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     }
 
     protected void showHint() {
-      final int offset = owner.editor.getCaretModel().getOffset();
-      final LightweightHint hint = EddyHintLabel.makeHint(eddy);
+      final int line = owner.editor.getCaretModel().getLogicalPosition().line;
+      final EddyAction action = new EddyAction(eddy);
+      synchronized (active_lock) {
+        active_instance = owner;
+        active_line = line;
+        active_action = action;
+        active_hint_instance = null;
+        // show hint
+        if (eddy.foundSomethingUseful()) {
+          final int offset = owner.editor.getCaretModel().getOffset();
+          final LightweightHint hint = EddyHintLabel.makeHint(eddy);
 
-      // we can only show hints from the UI thread, so schedule that
-      ApplicationManager.getApplication().invokeLater(new Runnable() {
-        @Override public void run() {
-          // whoever showed the hint last is it
-          synchronized (active_lock) {
-            HintManagerImpl.getInstanceImpl().showQuestionHint(owner.editor, offset, offset + 1, hint, new EddyAction(eddy), HintManager.ABOVE);
-            active_instance = owner;
-          }
+          // we can only show hints from the UI thread, so schedule that
+          ApplicationManager.getApplication().invokeLater(new Runnable() {
+            @Override public void run() {
+              // whoever showed the hint last is it
+              // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
+              // no synchronization is needed in here
+              active_hint_instance = owner;
+              HintManagerImpl.getInstanceImpl().showQuestionHint(owner.editor, offset, offset + 1, hint, action, HintManager.ABOVE);
+            }
+          });
         }
-      });
+      }
     }
   }
 
@@ -236,7 +264,10 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   public void caretPositionChanged(CaretEvent e) {
     if (inChange)
       return;
-    process();
+
+    // only process on position change if we switched lines
+    if (e.getNewPosition().line != e.getOldPosition().line)
+      process();
   }
 
   @Override

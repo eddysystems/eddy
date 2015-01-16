@@ -4,10 +4,10 @@
 
 ### Keep a few things
 
--keep class com.eddysystems.eddy.EddyPlugin { 
+-keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention {
   <init>(...);
 }
--keep class com.eddysystems.eddy.actions.DumpEnvironment,com.eddysystems.eddy.actions.NextSuggestion,com.eddysystems.eddy.actions.PrevSuggestion,com.eddysystems.eddy.actions.Reinit {
+-keep class com.eddysystems.eddy.actions.NextSuggestion,com.eddysystems.eddy.actions.PrevSuggestion,com.eddysystems.eddy.actions.Reinit {
   <init>(...);
 }
 

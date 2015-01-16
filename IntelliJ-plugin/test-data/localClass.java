@@ -3,7 +3,6 @@ class Test {
   void g() {
     f(new Runnable() {
       public void test() {
-
       }
 
       @Override public void run() {

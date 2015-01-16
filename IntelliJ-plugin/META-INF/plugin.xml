@@ -25,13 +25,12 @@
     <!--
     <annotator language="JAVA" implementationClass="com.eddysystems.eddy.EddyAnnotator"/>
      -->
-    <!--
+
     <intentionAction>
-        <className>com.eddysystems.eddy.EddyQuickFix</className>
+        <className>com.eddysystems.eddy.EddyIntention</className>
         <category>Other</category>
         <descriptionDirectoryName>Eddy</descriptionDirectoryName>
     </intentionAction>
-    -->
   </extensions>
 
   <application-components>
@@ -45,7 +44,7 @@
       </component>
       <!--
       <component>
-          <implementation-class>com.eddysystems.eddy.EddyQuickFix</implementation-class>
+          <implementation-class>com.eddysystems.eddy.EddyIntention</implementation-class>
       </component>
       -->
   </project-components>
@@ -64,10 +63,12 @@
               description="Reinitialize eddy's environment scan">
           <add-to-group group-id="CodeMenu" anchor="last"/>
       </action>
+<!--
       <action id="EddyDumpEnvironmentAction" class="com.eddysystems.eddy.actions.DumpEnvironment" text="Dump environment"
               description="Dump the environment at the cursor to ~/dump.jenv">
           <add-to-group group-id="CodeMenu" anchor="last"/>
       </action>
+-->
   </actions>
 
 </idea-plugin>

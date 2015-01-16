@@ -11,7 +11,7 @@ public class DumpEnvironment extends AnAction {
   public void actionPerformed(AnActionEvent e) {
     Project project = e.getProject();
     Editor editor = FileEditorManager.getInstance(project).getSelectedTextEditor();
-    EddyFileListener eddylistener = EddyFileListener.activeInstance();
+    EddyFileListener eddylistener = EddyFileListener.activeHintInstance();
     if (eddylistener == null)
       return;
 

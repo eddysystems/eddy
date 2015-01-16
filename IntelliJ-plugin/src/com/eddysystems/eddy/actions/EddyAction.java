@@ -2,6 +2,8 @@ package com.eddysystems.eddy.actions;
 
 import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.QuestionAction;
+import com.intellij.codeInsight.intention.IntentionAction;
+import com.intellij.ide.DataManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.PopupStep;
@@ -15,7 +17,7 @@ import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyAction implements QuestionAction {
 
-  private Eddy eddy;
+  private final @NotNull Eddy eddy;
   private final @NotNull Editor editor;
   private final @NotNull TextRange replace_range;
 
@@ -23,6 +25,16 @@ public class EddyAction implements QuestionAction {
     this.eddy = eddy;
     this.editor = eddy.getEditor();
     this.replace_range = eddy.getRange();
+  }
+
+  public String getText() {
+    if (eddy.getResultStrings() == null || eddy.getResultStrings().isEmpty())
+      return "eddy knows nothing.";
+    if (eddy.getResultStrings().size() == 1) {
+      return "eddy says: " + eddy.bestText();
+    } else {
+      return "eddy thinks...";
+    }
   }
 
   @Override
@@ -75,7 +87,9 @@ public class EddyAction implements QuestionAction {
             return null;
           }
         };
-      JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(eddy.getEditor());
+      DataManager.getInstance().getDataContextFromFocus().doWhenDone(new Runnable() { @Override public void run() {
+        JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(eddy.getEditor());
+      }});
     }
     return true;
   }

@@ -1,7 +1,7 @@
 package com.eddysystems.eddy.engine;
 
-import com.intellij.ide.util.PropertiesComponent;
 import com.eddysystems.eddy.EddyPlugin;
+import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
@@ -18,16 +18,14 @@ import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.collection.immutable.Map;
-import tarski.Memory;
 import tarski.Environment;
-import tarski.Scores;
+import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
 import tarski.Tokens;
 import tarski.Tokens.Token;
 import utility.Locations.Located;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.log;
@@ -62,15 +60,18 @@ public class Eddy {
   }
 
   // Find our "install" key, or create it if necessary
+  static private String _install = null;
   static private String installKey() {
-    final PropertiesComponent props = PropertiesComponent.getInstance();
-    final String name = "com.eddysystems.Props.install";
-    String install = props.getValue(name);
-    if (install == null) {
-      install = tarski.Crypto.randomKey();
-      props.setValue(name,install);
+    if (_install == null) {
+      final PropertiesComponent props = PropertiesComponent.getInstance();
+      final String name = "com.eddysystems.Props.install";
+      _install = props.getValue(name);
+      if (_install == null) {
+        _install = tarski.Crypto.randomKey();
+        props.setValue(name,_install);
+      }
     }
-    return install;
+    return _install;
   }
 
   // applies a result in the editor

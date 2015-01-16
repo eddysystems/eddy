@@ -20,7 +20,6 @@ import com.intellij.psi.PsiTreeChangeListener;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,9 +33,6 @@ public class EddyPlugin implements ProjectComponent {
   public Project getProject() { return project; }
   private EddyInjector injector;
   private EddyWidget widget = new EddyWidget(this);
-
-  public Icon getIcon() { return widget.getIcon(); }
-  public Icon getIconGray() { return widget.getIconGray(); }
 
   private static Map<Project,EddyPlugin> projectMap = new HashMap<Project, EddyPlugin>();
   public static EddyPlugin getInstance(Project project) {

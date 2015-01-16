@@ -19,11 +19,37 @@ import static com.eddysystems.eddy.engine.Utility.log;
 
 class EddyWidget implements StatusBarWidget {
 
-  private Icon eddyIcon;
-  private Icon eddyIconGray;
+  static private Icon eddyIcon;
+  static private Icon eddyIconGray;
 
-  public Icon getIcon() { return eddyIcon; }
-  public Icon getIconGray() { return eddyIconGray; }
+  static public Icon getIcon() {
+    if (eddyIcon == null) {
+      makeIcons();
+    }
+    return eddyIcon;
+  }
+  static public Icon getIconGray() {
+    if (eddyIconGray== null) {
+      makeIcons();
+    }
+    return eddyIconGray;
+  }
+
+  static private void makeIcons() {
+    String pathname = PathUtil.getJarPathForClass(EddyWidget.class);
+    File path = new File(pathname);
+
+    if (path.isDirectory()) {
+      log("looking for resources in directory: " + pathname);
+      eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
+      eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
+    } else {
+      URL colorurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16.png");
+      URL greyurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-gray.png");
+      eddyIcon = new ImageIcon(colorurl);
+      eddyIconGray = new ImageIcon(greyurl);
+    }
+  }
 
   class EddyPresentation implements WidgetPresentation {
     private boolean _busy = false;
@@ -60,34 +86,23 @@ class EddyWidget implements StatusBarWidget {
     @Override
     public Icon getIcon() {
       if (busy())
-        return eddyIcon;
+        return EddyWidget.getIcon();
       else
-        return eddyIconGray;
+        return EddyWidget.getIconGray();
     }
   }
 
-  private final @NotNull EddyPlugin plugin;
+  private final EddyPlugin plugin;
   private StatusBar statusBar = null;
   int users = 0;
   EddyPresentation presentation = null;
 
+  private EddyWidget() {
+    this.plugin = null;
+  }
+
   public EddyWidget(final @NotNull EddyPlugin plugin) {
     this.plugin = plugin;
-
-    String pathname = PathUtil.getJarPathForClass(this.getClass());
-    File path = new File(pathname);
-
-    if (path.isDirectory()) {
-      log("looking for resources in directory: " + pathname);
-      eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
-      eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
-    } else {
-      URL colorurl = ResourceUtil.getResource(this.getClass(), "", "eddy-icon-16.png");
-      URL greyurl = ResourceUtil.getResource(this.getClass(), "", "eddy-icon-16-gray.png");
-      eddyIcon = new ImageIcon(colorurl);
-      eddyIconGray = new ImageIcon(greyurl);
-    }
-
     presentation = new FancyPresentation();
   }
 
