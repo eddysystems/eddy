@@ -254,7 +254,7 @@ public class JavaTrie {
   private static float[][] d = new float[10][10];
   public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
     // make sure we have enough space
-    if (typed_length+1 > d.length || meant_length+1 > d[0].length)
+    if (meant_length+1 > d.length || typed_length+1 > d[0].length)
       d = new float[Math.max(meant_length+1,d.length)][Math.max(typed_length+1,d[0].length)];
 
     // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
