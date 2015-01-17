@@ -547,8 +547,8 @@ class TestDen {
     implicit val env = Env(Array(Y,Yc,X,Xc,This,Super),
                            Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2)),
                            PlaceInfo(Xc2))
-    test("this()", ApplyExp(ForwardDen(Some(X.simple),Xc),Nil,auto=false))
-    test("super()", ApplyExp(ForwardDen(Some(Y.simple),Yc),Nil,auto=false))
+    test("this()", ApplyExp(ForwardDen(This,Xc),Nil,auto=false))
+    test("super()", ApplyExp(ForwardDen(Super,Yc),Nil,auto=false))
     // TODO: This should only work as the first statement of a different constructor, which is not tracked by the PlaceInfo right now
   }
 

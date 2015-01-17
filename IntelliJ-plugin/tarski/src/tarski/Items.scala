@@ -306,16 +306,17 @@ object Items {
       def isParameter: Boolean // true if parameter, false if local variable
     }
     case class NormalLocal(name: Name, ty: Type, isParameter: Boolean = false, isFinal: Boolean = true) extends Local {}
-    case class ThisItem(self: ClassItem) extends Value with PseudoCallableItem {
+    sealed abstract class ThisOrSuper extends Value with PseudoCallableItem {
+      def ty: ClassType
+    }
+    case class ThisItem(item: ClassItem) extends ThisOrSuper {
       def name = "this"
-      def item = self
-      def inside = self.inside
+      def ty = item.inside
       def isFinal = true
     }
-    case class SuperItem(self: ClassType) extends Value with PseudoCallableItem {
+    case class SuperItem(ty: ClassType) extends ThisOrSuper {
       def name = "super"
-      def item = self.item
-      def inside = self
+      def item = ty.item
       def isFinal = true
     }
     abstract class FieldItem extends Value with ClassMember {

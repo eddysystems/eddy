@@ -3,7 +3,7 @@ package tarski
 import tarski.AST._
 import tarski.Mods._
 import tarski.Denotations._
-import tarski.Environment.Env
+//import tarski.Environment.Env
 import tarski.Items._
 import tarski.Operators._
 import tarski.Tokens._
@@ -15,6 +15,11 @@ import scala.collection.mutable
 import scala.language.implicitConversions
 
 object Pretty {
+  // Pretty only needs a small part of the environment
+  abstract class Scope {
+    def inScope(i: Item): Boolean
+  }
+
   // Fixity and precedence: to parenthesize or not to parenthesize
   //
   // The theory is as follows: we have a set of slots S and expression types T.  Slots include
@@ -98,6 +103,7 @@ object Pretty {
 
   // Pretty printing utilities
   val space = WhitespaceTok(" ")
+  implicit def prettyToken(x: Token): (Fixity,Tokens) = (HighestFix,List(x))
   def parens[A](x: A)(implicit p: Pretty[A]): Tokens = parens(tokens(x))
   def parens(ts: Tokens): Tokens = LParenTok :: ts ::: List(RParenTok)
   def around[A](x: A, a: Around)(implicit p: Pretty[A]): (Fixity,Tokens) = {
@@ -299,17 +305,17 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyItem(i: Item)(implicit env: Env): (Fixity,Tokens) =
+  implicit def prettyItem(i: Item)(implicit env: Scope): (Fixity,Tokens) =
     if (env.inScope(i)) pretty(i.name)
     else i match {
       case i:Member if i.parent != LocalPkg && i.parent != Base.JavaLangPkg =>
         (FieldFix, tokens(i.parent) ::: DotTok :: tokens(i.name))
       case _ => pretty(i.name) // We can't see this item, show it anyway
     }
-  implicit def prettyParentItem(i: Item with Parent)(implicit env: Env): (Fixity,Tokens) =
+  implicit def prettyParentItem(i: Item with Parent)(implicit env: Scope): (Fixity,Tokens) =
     prettyItem(i)
 
-  implicit def prettyType(t: Type)(implicit env: Env): (Fixity,Tokens) = t match {
+  implicit def prettyType(t: Type)(implicit env: Scope): (Fixity,Tokens) = t match {
     case t:LangType => prettyLangType(t)
     case t:RefType => prettyRefType(t)
   }
@@ -325,7 +331,7 @@ object Pretty {
     case DoubleType  => DoubleTok
     case CharType    => CharTok
   }))
-  implicit def prettyRefType(t: RefType)(implicit env: Env): (Fixity,Tokens) = t match {
+  implicit def prettyRefType(t: RefType)(implicit env: Scope): (Fixity,Tokens) = t match {
     case NullType => pretty("nulltype")
     case t:ClassType => prettyClassType(t)
     case x:TypeVar => prettyTypeVar(x)
@@ -333,10 +339,10 @@ object Pretty {
     case ArrayType(t) => (ApplyFix, tokens(t) ::: List(LBrackTok,RBrackTok))
     case _ => impossible // Otherwise, Scala warns about nonexhaustive match for _: this.<local child>
   }
-  implicit def prettyClassType(t: ClassType)(implicit env: Env): (Fixity,Tokens) =
+  implicit def prettyClassType(t: ClassType)(implicit env: Scope): (Fixity,Tokens) =
     if (t.args.isEmpty) pretty(t.item)
     else (ApplyFix, tokens(t.item) ::: LtTok :: tokens(CommaList(t.args)) ::: List(GtTok))
-  implicit def prettyTypeArg(t: TypeArg)(implicit env: Env): (Fixity,Tokens) = {
+  implicit def prettyTypeArg(t: TypeArg)(implicit env: Scope): (Fixity,Tokens) = {
     def wild(t: RefType, d: Token) = fix(WildFix, QuestionTok :: d :: right(_,t))
     t match {
       case t:RefType => pretty(t)
@@ -345,7 +351,7 @@ object Pretty {
       case WildSuper(t) => wild(t,SuperTok)
     }
   }
-  implicit def prettyParent(p: Parent)(implicit env: Env): (Fixity,Tokens) = p match {
+  implicit def prettyParent(p: Parent)(implicit env: Scope): (Fixity,Tokens) = p match {
     case t:ClassType => prettyClassType(t)
     case t:SimpleParent => prettyItem(t.item)
   }
@@ -361,13 +367,13 @@ object Pretty {
     case StringLit(v,s) => StringLitTok(s)
     case NullLit => NullTok
   }))
-  def prettyField(x: Exp, f: Item)(implicit env: Env): (Fixity,Tokens) =
+  def prettyField(x: Exp, f: Item)(implicit env: Scope): (Fixity,Tokens) =
     fix(FieldFix, left(_,x) ::: DotTok :: tokens(f.name))
-  implicit def prettyExp(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
+  implicit def prettyExp(e: Exp)(implicit env: Scope): (Fixity,Tokens) = e match {
     case l: Lit => pretty(l)
     case LocalExp(x) => pretty(x)
-    case ThisExp(i) => if (env.inScope(i)) (HighestFix,List(ThisTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(ThisTok))
-    case SuperExp(i) => if (env.inScope(i)) (HighestFix,List(SuperTok)) else (FieldFix, tokens(i.self) ::: DotTok :: List(SuperTok))
+    case ThisExp(i) => if (env.inScope(i)) (HighestFix,List(ThisTok)) else (FieldFix, tokens(i.item) ::: DotTok :: List(ThisTok))
+    case SuperExp(i) => if (env.inScope(i)) (HighestFix,List(SuperTok)) else (FieldFix, tokens(i.ty) ::: DotTok :: List(SuperTok))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
     case ImpExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
     case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(token(e.op)))
@@ -393,8 +399,8 @@ object Pretty {
     }
     case CondExp(c,x,y,_) => fix(CondFix, s => left(s,c) ::: QuestionTok :: tokens(x) ::: ColonTok :: right(s,y))
   }
-  implicit def prettyCallable(f: Callable)(implicit env: Env): (Fixity,Tokens) = {
-    def method(x: Exp, ts: List[TypeArg], f: Item): (Fixity,Tokens) =
+  implicit def prettyCallable(f: Callable)(implicit env: Scope): (Fixity,Tokens) = {
+    def method[A](x: A, ts: List[TypeArg], f: Item)(implicit p: Pretty[A]): (Fixity,Tokens) =
       fix(FieldFix,left(_,x) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
     def gnu(p: Option[ClassType], c: ConstructorItem, ts0: List[TypeArg], ts1: List[TypeArg]) = {
       (NewFix,NewTok :: tokensTypeArgs(ts1) ::: (p match {
@@ -402,12 +408,11 @@ object Pretty {
         case Some(p) => tokens(p)(prettyType) ::: List(DotTok)
       }) ::: tokens(c.parent) ::: tokensTypeArgs(ts0))
     }
-    def forward(c: ConstructorItem, ts: List[TypeArg]) = {
-      val self = env.getThis.self
-      val forward =
-        if (self == c.parent) ThisTok
-        else if (self.base.item == c.parent) SuperTok
-        else throw new RuntimeException(s"Can't forward to constructor ${show(c)} if this has type ${show(self)}")
+    def forward(x: ThisOrSuper, c: ConstructorItem, ts: List[TypeArg]) = {
+      val forward = x match {
+        case _:ThisItem => ThisTok
+        case _:SuperItem => SuperTok
+      }
       (ApplyFix,tokensTypeArgs(ts) ::: List(forward))
     }
     // TODO: If ts is inferable, don't print it
@@ -417,15 +422,15 @@ object Pretty {
     }
     hide match {
       case           LocalMethodDen(f) => pretty(f)
-      case TypeApply(LocalMethodDen(f),ts,_) => method(ThisExp(env.getThis),ts,f)
+      case TypeApply(LocalMethodDen(f),ts,_) => method(ThisTok,ts,f)
       case           MethodDen(Some(x),f) => method(x,Nil,f)
       case TypeApply(MethodDen(Some(x),f),ts,_) => method(x,ts,f)
       case           MethodDen(None,f) => pretty(f)
       case TypeApply(MethodDen(None,f),ts,_) => (FieldFix,tokens(f.parent) ::: DotTok :: tokensTypeArgs(ts) ::: tokens(f.name))
       case           NewDen(p,c,ts0) => gnu(p,c,ts0 getOrElse Nil,Nil)
       case TypeApply(NewDen(p,c,ts0),ts1,_) => gnu(p,c,ts0 getOrElse Nil,ts1)
-      case           ForwardDen(_,c) => forward(c,Nil)
-      case TypeApply(ForwardDen(_,c),ts,_) => forward(c,ts)
+      case           ForwardDen(x,c) => forward(x,c,Nil)
+      case TypeApply(ForwardDen(x,c),ts,_) => forward(x,c,ts)
       case           DiscardCallableDen(ds,f) => above(ds,f)
       case TypeApply(DiscardCallableDen(ds,f),ts,_) => above(ds,TypeApply(f,ts,false))
     }
@@ -434,13 +439,13 @@ object Pretty {
     case Nil => Nil
     case ts => LtTok :: separate(ts.map(tokens(_)),List(CommaTok)) ::: List(GtTok)
   }
-  def prettyInit(e: Exp)(implicit env: Env): (Fixity,Tokens) = e match {
+  def prettyInit(e: Exp)(implicit env: Scope): (Fixity,Tokens) = e match {
     case ArrayExp(_,xs) => prettyArrayExp(xs)
     case e => prettyExp(e)
   }
-  def prettyArrayExp(xs: List[Exp])(implicit env: Env): (Fixity,Tokens) =
+  def prettyArrayExp(xs: List[Exp])(implicit env: Scope): (Fixity,Tokens) =
     (HighestFix, LCurlyTok :: tokens(CommaList(xs))(prettyList(_)(prettyInit)) ::: List(RCurlyTok))
-  implicit def prettyStmt(s: Stmt)(implicit env: Env): (Fixity,Tokens) = s match {
+  implicit def prettyStmt(s: Stmt)(implicit env: Scope): (Fixity,Tokens) = s match {
     case EmptyStmt => (SemiFix, List(SemiTok))
     case HoleStmt => (HighestFix, List(HoleTok))
     case VarStmt(t,vs,m) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(CommaList(vs)) ::: List(SemiTok))
@@ -465,31 +470,31 @@ object Pretty {
     case CommentStmt(t) => (HighestFix,List(t))
     case _:DiscardStmt => impossible
   }
-  implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(v: (Local,Dims,Option[Exp]))(implicit env: Env): (Fixity,Tokens) = v match {
+  implicit def prettyStmts(ss: List[Stmt])(implicit env: Scope): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)
+  implicit def prettyVar(v: (Local,Dims,Option[Exp]))(implicit env: Scope): (Fixity,Tokens) = v match {
     case (x,n,None) => prettyDims(x,n)
     case (x,n,Some(i)) => fix(AssignFix, prettyDims(x,n)._2 ::: space :: EqTok :: space :: right(_,i)(prettyInit))
   }
-  implicit def prettyForInit(i: ForInit)(implicit env: Env): (Fixity,Tokens) = i match {
+  implicit def prettyForInit(i: ForInit)(implicit env: Scope): (Fixity,Tokens) = i match {
     case v: VarStmt => prettyStmt(v)
     case ForExps(es) => (SemiFix, tokens(CommaList(es)) ::: List(SemiTok))
   }
-  implicit def prettyVarStmt(v: VarStmt)(implicit env: Env): (Fixity,Tokens) = prettyStmt(v)
+  implicit def prettyVarStmt(v: VarStmt)(implicit env: Scope): (Fixity,Tokens) = prettyStmt(v)
 
   // Print a type variable with bound details
-  def details(v: TypeVar)(implicit env: Env): String = {
+  def details(v: TypeVar)(implicit env: Scope): String = {
     val mid = v.name
     val pre = if (v.lo == NullType) mid else s"${show(v.lo)} extends $mid"
     if (v.hi == ObjectType) pre else s"$pre extends ${show(v.hi)}"
   }
 
   // For debugging use only.  The user should never see.
-  def above[A](ds: List[Stmt], x: A)(implicit p: Pretty[A], env: Env): (Fixity,Tokens) = ds match {
+  def above[A](ds: List[Stmt], x: A)(implicit p: Pretty[A], env: Scope): (Fixity,Tokens) = ds match {
     case Nil => pretty(x)
     case ds => (HighestFix,IdentTok("Above") :: LParenTok ::
       separate(ds map (tokens(_)),List(SemiTok)) ::: SemiTok :: tokens(x) ::: List(RParenTok))
   }
-  implicit def prettyDen(x: Den)(implicit env: Env): (Fixity,Tokens) = x match {
+  implicit def prettyDen(x: Den)(implicit env: Scope): (Fixity,Tokens) = x match {
     case x:Exp => prettyExp(x)
     case p:PackageDen => prettyItem(p.p)
     case x:Callable => prettyCallable(x)

@@ -45,7 +45,7 @@ object Environment {
     PlaceInfo(place,exactPlace,breakable,continuable,SLoc(lastEdit))
 
   // An environment for name resolution
-  abstract class Env {
+  abstract class Env extends Pretty.Scope {
     // Where we are
     def scope: Map[Item,Int]
     def place: PlaceInfo

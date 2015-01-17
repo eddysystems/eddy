@@ -138,7 +138,7 @@ object Semantics {
     objs flatMap { xd => {
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
         xd match {
-          case ThisExp(tt:ThisItem) if tt.self.base.item == c => fail("We'll use super instead of this")
+          case ThisExp(tt:ThisItem) if tt.item.base.item == c => fail("We'll use super instead of this")
           case _ => single(FieldExp(Some(CastExp(c.raw,xd)),i), Pr.shadowedFieldValue(objs, xd,c,i))
         }
       } else
@@ -402,14 +402,13 @@ object Semantics {
       case i:MethodItem if i.isStatic => knownNotNew(m,MethodDen(None,i))
       case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i))
       case i:MethodItem => biasedNotNew(m,denoteMethod(i,0))
-      case ThisItem(c) if env.place.forwardThisPossible(c) =>
-        biasedNotNew(m,uniformGood(Pr.forwardThis,c.constructors(env.place)) flatMap {
+      case i:ThisItem if env.place.forwardThisPossible(i.item) =>
+        biasedNotNew(m,uniformGood(Pr.forwardThis,i.item.constructors(env.place)) flatMap {
           case cons if cons == env.place.place => fail("Can't forward to current constructor")
-          case cons => known(ForwardDen(Some(c.inside),cons))
+          case cons => known(ForwardDen(i,cons))
         })
-      case SuperItem(c) if env.place.forwardSuperPossible(c.item) => biasedNotNew(m,{
-        val tenv = c.env
-        uniformGood(Pr.forwardSuper,c.item.constructors(env.place)) map (ForwardDen(Some(c),_))
+      case i:SuperItem if env.place.forwardSuperPossible(i.item) => biasedNotNew(m,{
+        uniformGood(Pr.forwardSuper,i.item.constructors(env.place)) map (ForwardDen(i,_))
       })
       case _ => fail(s"Unusable callable $c")
     })

@@ -126,13 +126,10 @@ object Denotations {
     def discards = Nil
     def strip = this
   }
-  case class ForwardDen(parent: Option[ClassType], f: ConstructorItem) extends NotTypeApply {
+  case class ForwardDen(x: ThisOrSuper, f: ConstructorItem) extends NotTypeApply {
     def tparams = f.tparams
     def params = {
-      implicit val env: Tenv = parent match {
-        case Some(p) => p.env
-        case None => Map.empty
-      }
+      implicit val env: Tenv = x.ty.env
       f.params map (_.substitute)
     }
     def result = VoidType
@@ -332,12 +329,12 @@ object Denotations {
   }
   case class ThisExp(t: ThisItem) extends Exp with NoDiscardExp {
     def item = t.item
-    def ty = t.inside
+    def ty = t.ty
   }
   // t is the type super is used in, t.base is the type of this expression
   case class SuperExp(s: SuperItem) extends Exp with NoDiscardExp {
     def item = s.item
-    def ty = s.self
+    def ty = s.ty
   }
   case class CastExp(ty: Type, e: Exp) extends Exp {
     def item = ty.item
