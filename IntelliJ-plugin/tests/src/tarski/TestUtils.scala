@@ -19,6 +19,8 @@ object TestUtils {
   implicit def toAExp(s: String): AExp = NameAExp(s,r)
   implicit def toAExp(b: Boolean): AExp = NameAExp(if (b) "true" else "false",r)
   implicit def toAExps(e: AExp): List[AExp] = List(e)
+  implicit def toOAExp(e: AExp): Option[AExp] = Some(e)
+  implicit def toOAExp[A](e: A)(implicit to: A => AExp): Option[AExp] = Some(to(e))
   implicit def toAStmt(e: AExp): AStmt = ExpAStmt(e)
   implicit def toAStmts(e: AExp): List[AStmt] = List(ExpAStmt(e))
   implicit def toAStmts(s: AStmt): List[AStmt] = List(s)

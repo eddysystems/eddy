@@ -1,6 +1,7 @@
 package tarski
 
 import tarski.AST._
+import tarski.Mods._
 import tarski.Denotations._
 import tarski.Environment.Env
 import tarski.Items._
@@ -442,7 +443,7 @@ object Pretty {
   implicit def prettyStmt(s: Stmt)(implicit env: Env): (Fixity,Tokens) = s match {
     case EmptyStmt => (SemiFix, List(SemiTok))
     case HoleStmt => (HighestFix, List(HoleTok))
-    case VarStmt(t,vs) => (SemiFix, tokens(t) ::: space :: tokens(CommaList(vs)) ::: List(SemiTok))
+    case VarStmt(t,vs,m) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(CommaList(vs)) ::: List(SemiTok))
     case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok))
     case BlockStmt(b) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
     case AssertStmt(c,None) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
@@ -473,6 +474,7 @@ object Pretty {
     case v: VarStmt => prettyStmt(v)
     case ForExps(es) => (SemiFix, tokens(CommaList(es)) ::: List(SemiTok))
   }
+  implicit def prettyVarStmt(v: VarStmt)(implicit env: Env): (Fixity,Tokens) = prettyStmt(v)
 
   // Print a type variable with bound details
   def details(v: TypeVar)(implicit env: Env): String = {

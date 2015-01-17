@@ -4,6 +4,7 @@ import utility.Utility._
 import utility.Locations._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
+import tarski.Mods._
 import tarski.Base.VoidItem
 import tarski.Denotations._
 import tarski.Environment._
@@ -35,23 +36,6 @@ object Semantics {
     }
   }
   def denoteStringLit(v: String): String = unescapeJava(v.slice(1,v.size-1))
-
-  // Check for a list of modifiers, and bail if we see any unwanted ones
-  def modifiers(mods: List[Mod], want: List[Mod]): List[Boolean] = {
-    val modSet = mods.toSet
-    val bad = modSet -- want
-    if (bad.nonEmpty) throw new RuntimeException("Unexpected modifiers "+bad.mkString(", "))
-    want map modSet.contains
-  }
-  def modifiers(mods: List[Mod], a: Mod): Boolean = modifiers(mods,List(a)).head
-  def modifiers(mods: List[Mod], a: Mod, b: Mod): (Boolean,Boolean) = modifiers(mods,List(a,b)) match {
-    case List(a,b) => (a,b)
-    case _ => impossible
-  }
-  def modifiers(mods: List[Mod], a: Mod, b: Mod, c: Mod): (Boolean,Boolean,Boolean) = modifiers(mods,List(a,b,c)) match {
-    case List(a,b,c) => (a,b,c)
-    case _ => impossible
-  }
 
   def denoteTypeArg(e: AExp)(implicit env: Env): Scored[Above[TypeArg]] = {
     def fix(t: Type): Scored[RefType] = t match {
@@ -596,30 +580,38 @@ object Semantics {
     s match {
       case EmptyAStmt => single((env,List(EmptyStmt)), Pr.emptyStmt)
       case HoleAStmt => single((env,List(HoleStmt)), Pr.holeStmt)
-      case VarAStmt(m,t,ds,_) =>
-        val isFinal = modifiers(m,Final)
+      case VarAStmt(m,t,ds,_) => modifiers(m,Final) flatMap (isFinal => {
         def process(d: AVarDecl)(env: Env, x: Local): Scored[VarDecl] = d match {
           case (_,k,None) => known(x,k,None)
           case (_,k,Some(i)) => denoteAssignsTo(i,x.ty) map (i => (x,k,Some(i)))
         }
-        val useType = env.newVariables(ds.list map (_._1),isFinal,ds.list map process) flatMap (f =>
-          above(denoteType(t)(env) flatMap (at => safe(at.beneath)(t => {
-            val (env,dss) = f(ds.list map {case (_,k,_) => arrays(t,k)})
-            product(dss) map (ds => (env,VarStmt(t,ds).discard(at.discards)))
-          }))))
+        val useType = t match {
+          case None => Empty
+          case Some(t) =>
+            env.newVariables(ds.list map (_._1),isFinal,ds.list map process) flatMap (f =>
+              above(denoteType(t)(env) flatMap (at => safe(at.beneath)(t => {
+                val (env,dss) = f(ds.list map {case (_,k,_) => arrays(t,k)})
+                product(dss) map (ds => (env,VarStmt(t,ds,m).discard(at.discards)))
+              }))))
+        }
         ds.list match {
           case List((v,0,Some(e))) => // For T v = i, allow T to change
-            useType ++ biased(Pr.ignoreVarType(env.place.lastEditIn(t.r)),{
-              val goal = guessItem(t)
+            val p = t match {
+              case None => Pr.ignoreMissingType
+              case Some(t) => Pr.ignoreVarType(env.place.lastEditIn(t.r))
+            }
+            useType ++ biased(p,{
+              val goal = t flatMap guessItem
               product(env.newVariable(v,isFinal),denoteExp(e)(env)) flatMap {case (f,e) =>
                 safe(similarBase(e.ty,goal))(t => {
                   val (env,x) = f(t)
-                  known(env,List(VarStmt(t,List((x,0,Some(e))))))
+                  known(env,List(VarStmt(t,List((x,0,Some(e))),m)))
                 })
               }
             })
           case _ => useType
         }
+      })
       case ExpAStmt(e) => {
         val exps = denoteExp(e) flatMap {
           case e:StmtExp => known(env,ExpStmt(e))
@@ -688,8 +680,8 @@ object Semantics {
             .map {case (c,u,(env,s)) => (env,List(i(c,u,s)))}
         })})
       }
-      case ForAStmt(info@Foreach(m,t,v,n,e,_),s,a,r) => {
-        val isFinal = modifiers(m,Final) || t.isEmpty
+      case ForAStmt(info@Foreach(m,t,v,n,e,_),s,a,r) => modifiers(m,Final) flatMap (explicitFinal => {
+        val isFinal = explicitFinal || t.isEmpty
         def hole = show(ForAStmt(info,HoleAStmt,a,r))
         above(product(env.newVariable(v,isFinal),thread(t)(denoteType),denoteExp(e)) flatMap {case (f,at,e) =>
           val t = at map (_.beneath)
@@ -713,7 +705,7 @@ object Semantics {
               }
           }
         })
-      }
+      })
     }
   }
 

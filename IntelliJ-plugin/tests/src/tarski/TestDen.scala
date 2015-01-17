@@ -1,5 +1,6 @@
 package tarski
 
+import tarski.Mods.Final
 import utility.Locations._
 import utility.Utility._
 import tarski.AST._
@@ -936,4 +937,7 @@ class TestDen {
   }
 
   @Test def comment() = test("x = 1 // blah","x",x => List(VarStmt(IntType,(x,1)),CommentStmt(EOLCommentTok("// blah"))))
+
+  @Test def finalVar() = test("final x = 1;","x",x => VarStmt(IntType,(x,1),List(Final)))
+  @Test def finalVarType() = test("final int x = 1;","x",x => VarStmt(IntType,(x,1),List(Final)))
 }

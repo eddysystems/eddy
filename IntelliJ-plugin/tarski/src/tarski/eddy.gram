@@ -6,7 +6,7 @@ simple (?<!Lit|Ident)Tok
 preamble package tarski
 preamble import tarski.Tokens._
 preamble import tarski.AST._
-preamble import tarski.Types._
+preamble import tarski.Mods._
 preamble import tarski.Operators._
 
 // Identifiers, including fake keywords
@@ -133,7 +133,8 @@ StmtHelper AStmt
   ForTok ForInfo                                             { ForAStmt($2,HoleAStmt,NoAround,$r) }
   SynchronizedTok MaybeParenExp                              { SyncAStmt($2._1,HoleAStmt,$2._2,$r) }
 StmtHelperBS AStmt
-  Juxts0[Mod] Type List1[VarDecl]                            { VarAStmt($1,$2,$3,$r) }
+  Type List1[VarDecl]                                        { VarAStmt(Nil,Some($1),$2,$r) }
+  Juxts1[Mod] Option[Type] List1[VarDecl]                    { VarAStmt($1,$2,$3,$r) }
   Block                                                      { BlockAStmt($1,$r) }
   ExpAssign                                                  { ExpAStmt($1) }
   AssertTok ExpJuxt                                          { AssertAStmt($2,None,$r) }

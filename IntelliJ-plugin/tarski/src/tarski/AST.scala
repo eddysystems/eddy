@@ -1,23 +1,11 @@
 package tarski
 
+import tarski.Mods.Mod
 import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
 import utility.Locations._
 
 object AST {
   type Name = String
-
-  sealed abstract class Mod
-  case class Annotation(name: Name) extends Mod
-  case object Abstract extends Mod
-  case object Public extends Mod
-  case object Protected extends Mod
-  case object Private extends Mod
-  case object Static extends Mod
-  case object Final extends Mod
-  case object Strictfp extends Mod
-  case object Transient extends Mod
-  case object Volatile extends Mod
-  case object Synchronized extends Mod
 
   sealed abstract class Bound
   case object Extends extends Bound
@@ -68,7 +56,7 @@ object AST {
   sealed abstract class AStmtLoc extends AStmt with HasRange
   case object EmptyAStmt extends AStmt
   case object HoleAStmt extends AStmt
-  case class VarAStmt(m: List[Mod], t: AExp, v: KList[AVarDecl], r: SRange) extends AStmtLoc
+  case class VarAStmt(m: List[Mod], t: Option[AExp], v: KList[AVarDecl], r: SRange) extends AStmtLoc
   case class BlockAStmt(b: Block, r: SRange) extends AStmtLoc
   case class ExpAStmt(e: AExp) extends AStmtLoc { def r = e.r }
   case class AssertAStmt(cond: AExp, msg: Option[AExp], r: SRange) extends AStmtLoc
