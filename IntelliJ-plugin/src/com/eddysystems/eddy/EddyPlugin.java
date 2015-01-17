@@ -191,7 +191,7 @@ public class EddyPlugin implements ProjectComponent {
 
     // schedule initialization if necessary
     final Runnable init = new Runnable() { @Override public void run() {
-      ProgressManager.getInstance().run(new Task.Backgroundable(project, "initializing eddy...", true, new PerformInBackgroundOption() {
+      ProgressManager.getInstance().run(new Task.Backgroundable(project, "Initializing eddy...", true, new PerformInBackgroundOption() {
         @Override public boolean shouldStartInBackground() { return true; }
         @Override public void processSentToBackground() { }
       }) {
