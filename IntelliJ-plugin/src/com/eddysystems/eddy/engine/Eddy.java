@@ -16,141 +16,168 @@ import com.intellij.psi.impl.source.tree.java.MethodElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.Unit;
 import scala.Tuple2;
+import scala.Unit$;
 import scala.collection.Iterator;
 import scala.collection.immutable.Map;
 import tarski.*;
 import tarski.Scores.Alt;
 import tarski.Tokens.Token;
 import utility.Locations.Located;
+import utility.Utility.Unchecked;
+import static utility.Utility.unchecked;
 import java.util.List;
+import tarski.Environment.Env;
+import tarski.Denotations.Stmt;
 import static com.eddysystems.eddy.engine.Utility.*;
 
 public class Eddy {
   final private Project project;
+  final private Editor editor;
   final private Memory.Info base;
 
-  private boolean canceled;
+  private boolean canceled; // TODO: Clean up
 
-  // all these are filled in process()
-  // the range to be replaced
-  private TextRange tokens_range;
-  private List<Located<Token>> input;
+  public static class Input {
+    final TextRange range;
+    final List<Located<Token>> input;
+    final PsiElement place;
+    final String before_text;
 
-  private Editor editor = null;
-  private PsiElement place = null;
-
-  // the results of the interpretation
-  private Environment.Env env = null;
-  private List<Alt<List<Tuple2<Denotations.Stmt, String>>>> results;
-  private List<String> resultStrings;
-  private boolean found_existing;
-
-  // a bias for which result is the best one (reset in process())
-  private int resultOffset = 0;
-  boolean selectedExplicitly = true;
-
-  public Eddy(@NotNull final Project project) {
-    this.project = project;
-    this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
+    Input(final TextRange range, final List<Located<Token>> input, final PsiElement place, final String before_text) {
+      this.range = range;
+      this.input = input;
+      this.place = place;
+      this.before_text = before_text;
+    }
   }
 
-  // applies a result in the editor
-  public void apply(int i) {
-    apply(resultStrings.get(i), editor, tokens_range);
-  }
+  // The results of the interpretation
+  public static class Output {
+    final private Eddy eddy;
+    final public Input input;
+    final public Env env;
+    final public List<Alt<List<Tuple2<Stmt,String>>>> results;
+    final public List<String> strings;
+    final public boolean found_existing;
 
-  public void apply(final @NotNull String code,
-                    final @NotNull Editor editor,
-                    final @NotNull TextRange replace_range) {
-    ApplicationManager.getApplication().runWriteAction(new Runnable() {
-      @Override
-      public void run() {
-        final Project project = editor.getProject();
-        final Document document = editor.getDocument();
-        final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-        assert psifile != null;
+    // Mutable field: which output we've selected.  If we haven't explicitly selected something, offset < 0.
+    private int selected = -1;
 
-        new WriteCommandAction(project, psifile) {
-          @Override
-          public void run(@NotNull Result result) {
-            final int newOffset = replace_range.getEndOffset() - replace_range.getLength() + code.length();
-            System.out.println("replacing '" + document.getText(replace_range) + "' with '" + code + "'");
-            document.replaceString(replace_range.getStartOffset(), replace_range.getEndOffset(), code);
-            editor.getCaretModel().moveToOffset(newOffset);
-            PsiDocumentManager.getInstance(project).commitDocument(document);
-          }
-        }.execute();
+    Output(final Eddy eddy, final Input input, final Env env, final List<Alt<List<Tuple2<Stmt,String>>>> results,
+           final List<String> strings, final boolean found_existing) {
+      this.eddy = eddy;
+      this.input = input;
+      this.env = env;
+      this.results = results;
+      this.strings = strings;
+      this.found_existing = found_existing;
+    }
+
+    public boolean foundSomething() {
+      return !results.isEmpty();
+    }
+
+    // Did we find useful meanings, and are those meanings different from what's already there?
+    public boolean foundSomethingUseful() {
+      return !found_existing && !results.isEmpty();
+    }
+
+    // Is there only one realistic option (or did the user explicitly select one)?
+    public boolean single() {
+      return results.size() == 1 || selected >= 0;
+    }
+
+    public boolean nextBestResult() {
+      if (foundSomethingUseful() && results.size()>1) {
+        selected = (Math.max(0,selected)+1)%results.size();
+        return true;
       }
-    });
-    Memory.log(Memory.eddyApply(base, input, results, resultStrings, code));
+      return false;
+    }
+
+    public boolean prevBestResult() {
+      if (foundSomethingUseful() && results.size()>1) {
+        selected = (Math.max(0,selected)+results.size()-1)%results.size();
+        return true;
+      }
+      return false;
+    }
+
+    public String bestText() {
+      assert foundSomethingUseful();
+      return strings.get(Math.max(0,selected));
+    }
+
+    public void applyBest() {
+      apply(strings.get(Math.max(0,selected)));
+    }
+
+    public void apply(final @NotNull String code) {
+      ApplicationManager.getApplication().runWriteAction(new Runnable() {
+        @Override
+        public void run() {
+          final Editor editor = eddy.editor;
+          final Project project = editor.getProject();
+          final Document document = editor.getDocument();
+          final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
+          assert psifile != null;
+
+          new WriteCommandAction(project, psifile) {
+            @Override
+            public void run(@NotNull Result result) {
+              final TextRange range = input.range;
+              final int newOffset = range.getEndOffset() - range.getLength() + code.length();
+              System.out.println("replacing '" + document.getText(range) + "' with '" + code + "'");
+              document.replaceString(range.getStartOffset(), range.getEndOffset(), code);
+              editor.getCaretModel().moveToOffset(newOffset);
+              PsiDocumentManager.getInstance(project).commitDocument(document);
+            }
+          }.execute();
+        }
+      });
+      Memory.log(Memory.eddyApply(eddy.base,input.input,results,strings,code));
+    }
   }
 
-  public void applyBest() {
-    apply(resultOffset);
-  }
-
-  public Editor getEditor() {
-    return editor;
-  }
-
-  public TextRange getRange() { return tokens_range; }
-
-  public List<String> getResultStrings() { return resultStrings; }
-
-  public List<Alt<List<Tuple2<Denotations.Stmt, String>>>> getResults() { return results; }
-
-  public Environment.Env getEnv() {
-    assert env != null;
-    return env;
-  }
-
-  public void dumpEnvironment(String filename) {
-    if (env != null)
-      Environment.envToFile(env,filename);
+  public Eddy(@NotNull final Project project, final Editor editor) {
+    this.project = project;
+    this.editor = editor;
+    this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
   }
 
   public void cancel() {
     canceled = true;
   }
 
-  void processInternal(@NotNull Editor editor, int lastedit, final @Nullable String special) {
+  public static class Skip extends Exception {
+    public Skip(final String s) {
+      super(s);
+    }
+  }
+
+  private Input input(final @NotNull Editor editor) throws Skip {
     log("processing eddy@" + hashCode() + "...");
     assert project == editor.getProject();
 
-    Document document = editor.getDocument();
-
-    // reset object variables
-    this.editor = editor;
-    found_existing = false;
-    input = null;
-    results = null;
-    resultStrings = new SmartList<String>();
-
-    // clear the offset
-    resultOffset = 0;
-    selectedExplicitly = false;
-
-    PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-
+    final Document document = editor.getDocument();
+    final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
     if (psifile == null)
-      return;
+      throw new Skip("File is null");
 
-    int pos = editor.getCaretModel().getCurrentCaret().getOffset();
-    int lnum = document.getLineNumber(pos);
+    final int pos = editor.getCaretModel().getCurrentCaret().getOffset();
+    final int lnum = document.getLineNumber(pos);
 
-    int column = pos - document.getLineStartOffset(lnum);
     final TextRange lrange = TextRange.create(document.getLineStartOffset(lnum), document.getLineEndOffset(lnum));
-    String line = document.getText(lrange);
+    final String line = document.getText(lrange);
 
     //log("processing at " + lnum + "/" + column);
     log("  current line: " + line);
 
-    PsiElement elem = psifile.findElementAt(pos);
-
     // TODO: remove this once we can handle class/method declarations
     // Bail if we're not inside a code block
-    PsiElement block = elem;
+    PsiElement block = psifile.findElementAt(pos);
     //log("  elem: " + block);
     while (block != null &&
            !(block instanceof PsiFile) &&
@@ -160,10 +187,8 @@ public class Eddy {
       block = block.getParent();
       //log("    block: " + block);
     }
-    if (!(block instanceof PsiCodeBlock)) {
-      log("  not inside code block, found: " + block);
-      return;
-    }
+    if (!(block instanceof PsiCodeBlock))
+      throw new Skip("Not inside code block, found: "+block);
 
     //log("    found code block");
 
@@ -172,20 +197,15 @@ public class Eddy {
       block = block.getParent();
       //log("    block: " + block);
     }
-
-    if (block == null) {
-      log("  not inside method");
-      return;
-    }
+    if (block == null)
+      throw new Skip("Not inside method");
 
     // get the method body
     block = ((CompositeElement)(block.getNode())).findChildByRoleAsPsiElement(ChildRole.METHOD_BODY);
 
-    ASTNode node = block.getNode();
-    if (node == null) {
-      log("  cannot find a node to look at.");
-      return;
-    }
+    final ASTNode node = block.getNode();
+    if (node == null)
+      throw new Skip("Can't find a node to look at");
 
     // then walk the node subtree and output all tokens contained in any statement overlapping with the line
     // now, node is the AST node we want to interpret.
@@ -196,6 +216,7 @@ public class Eddy {
     final List<Located<Token>> vtokens = new SmartList<Located<Token>>();
     final List<TextRange> vtokens_ranges = new SmartList<TextRange>();
 
+    final PsiElement[] place = new PsiElement[1];
     ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
       @Override
       protected boolean visitNode(TreeElement element) {
@@ -216,8 +237,8 @@ public class Eddy {
           // if this would be the first token added to the stream, remember the previous token as the place where we
           // compute the environment
           if (vtokens.isEmpty()) {
-            place = element.getTreePrev().getPsi();
-            assert place != null;
+            place[0] = element.getTreePrev().getPsi();
+            assert place[0] != null;
           }
 
           vtokens.add(Tokenizer.psiToTok(element));
@@ -241,7 +262,7 @@ public class Eddy {
     }
 
     // compute range to be replaced
-    tokens_range = TextRange.EMPTY_RANGE; // TextRange is broken. Argh.
+    TextRange tokens_range = TextRange.EMPTY_RANGE; // TextRange is broken. Argh.
     if (!tokens_ranges.isEmpty()) {
       tokens_range = tokens_ranges.get(0);
       for (TextRange range: tokens_ranges) {
@@ -249,105 +270,101 @@ public class Eddy {
       }
     }
 
-    String before_text = document.getText(tokens_range);
-
+    final String before_text = document.getText(tokens_range);
     log("  before: " + before_text);
 
-    // don't do the environment if we're canceled
+    // Check if we're canceled.  TODO: Cleaner way?
     if (canceled)
-      return;
+      throw new ThreadDeath();
+    return new Input(tokens_range,tokens,place[0],before_text);
+  }
 
-    env = EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(place, lastedit);
-    final Tarski.Enough enough = new Tarski.Enough() { @Override
-      public boolean enough(Map<List<Tuple2<Denotations.Stmt,String>>,Object> m) {
+  private Env env(final Input input, final int lastEdit) {
+    return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place,lastEdit);
+  }
+
+  private List<Alt<List<Tuple2<Stmt,String>>>> results(final Input input, final Env env, final String special) {
+    return Tarski.fixJava(input.input,env,new Tarski.Enough() {
+      @Override public boolean enough(Map<List<Tuple2<Stmt,String>>,Object> m) {
         if (m.size() < 4) return false;
         if (special == null) return true;
-        final Iterator<List<Tuple2<Denotations.Stmt, String>>> i =  m.keysIterator();
+        final Iterator<List<Tuple2<Stmt, String>>> i =  m.keysIterator();
         while (i.hasNext()) {
-          final List<Tuple2<Denotations.Stmt, String>> x = i.next();
-          if (reformat(x).equals(special))
+          final List<Tuple2<Stmt, String>> x = i.next();
+          if (reformat(input.place,x).equals(special))
             return true;
         }
         return false;
       }
-    };
-    this.input = tokens;
-    results = Tarski.fixJava(tokens,env,enough);
-    resultStrings = reformat(results, before_text);
+    });
   }
 
-  public void process(@NotNull Editor editor, int lastEdit, final @Nullable String special) {
-    final double start = Memory.now();
-    if (isDebug()) { // Run outside try so that we can see inside exceptions
-      processInternal(editor,lastEdit,special);
-      Memory.log(Memory.eddyProcess(base,start,input,results,resultStrings));
-    } else {
-      try {
-        processInternal(editor,lastEdit,special);
-        Memory.log(Memory.eddyProcess(base,start,input,results,resultStrings));
-      } catch (Throwable e) {
-        // Log everything except for ThreadDeath, which happens all the time.
-        if (!(e instanceof ThreadDeath)) {
-          logError("process()",e);
-          Memory.log(Memory.eddyProcess(base,start,input,results,resultStrings).error(e));
+  private Output output(final Input input, final Env env, final List<Alt<List<Tuple2<Stmt,String>>>> results) {
+    final Tuple2<List<String>,Boolean> f = reformat(input.place,results,input.before_text);
+    return new Output(this,input,env,results,f._1(),f._2());
+  }
+
+  public Output process(final @NotNull Editor editor, final int lastEdit, final @Nullable String special) {
+    // Use mutable variables so that we log more if an exception is thrown partway through
+    class Helper {
+      final double start = Memory.now();
+      Input input;
+      Env env;
+      List<Alt<List<Tuple2<Stmt,String>>>> results;
+      Output output;
+      Throwable error;
+
+      void unsafe() throws Skip {
+        input   = Eddy.this.input(editor);
+        env     = Eddy.this.env(input,lastEdit);
+        results = Eddy.this.results(input,env,special);
+        output  = Eddy.this.output(input,env,results);
+      }
+
+      Output safe() {
+        try {
+          if (isDebug()) // Run outside try so that we can see inside exceptions
+            unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() throws Skip {
+              unsafe();
+              return Unit$.MODULE$;
+            }});
+          else try {
+            unsafe();
+          } catch (Throwable e) {
+            error = e;
+            if (!(e instanceof ThreadDeath))
+              logError("process()",e); // Log everything except for ThreadDeath, which happens all the time.
+            if (e instanceof Error && !(e instanceof AssertionError))
+              throw (Error)e; // Rethrow most kinds of Errors
+          }
+        } finally {
+          Memory.log(Memory.eddyProcess(base,start,
+                                        input==null ? null : input.input,
+                                        results,
+                                        output==null ? null : output.strings).error(error));
         }
-        // Rethrow most kinds of Errors
-        if (e instanceof Error && !(e instanceof AssertionError))
-          throw (Error)e;
+        return output;
       }
     }
+    return new Helper().safe();
   }
 
-  private List<String> reformat(List<Alt<List<Tuple2<Denotations.Stmt,String>>>> results, String before_text) {
-    List<String> resultStrings = new SmartList<String>();
-    for (Alt<List<Tuple2<Denotations.Stmt,String>>> interpretation : results) {
-      final String s = reformat(interpretation.x());
-      resultStrings.add(s);
+  // Returns (strings,found_existing)
+  private Tuple2<List<String>,Boolean> reformat(final PsiElement place, List<Alt<List<Tuple2<Stmt,String>>>> results, String before_text) {
+    List<String> strings = new SmartList<String>();
+    boolean found_existing = false;
+    for (Alt<List<Tuple2<Stmt,String>>> interpretation : results) {
+      final String s = reformat(place,interpretation.x());
+      strings.add(s);
       log("eddy result: '" + s + "' existing '" + before_text + "'");
       if (s.equals(before_text))
         found_existing = true;
     }
-    return resultStrings;
-  }
-
-  public boolean foundSomething() {
-    return results != null && !results.isEmpty();
-  }
-
-  public boolean foundSomethingUseful() {
-    // did we find useful meanings, and are those meanings different from what's already there?
-    return !found_existing && results != null && !results.isEmpty();
-  }
-
-  public boolean single() {
-    // is there only one realistic option (or did the user explicitly select one)?
-    return results != null && results.size() == 1 || selectedExplicitly;
-  }
-
-  public boolean nextBestResult() {
-    if (foundSomethingUseful() && results.size()>1) {
-      selectedExplicitly = true;
-      resultOffset += 1;
-      if (resultOffset == results.size())
-        resultOffset = 0;
-      return true;
-    }
-    return false;
-  }
-
-  public boolean prevBestResult() {
-    if (foundSomethingUseful() && results.size()>1) {
-      selectedExplicitly = true;
-      resultOffset -= 1;
-      if (resultOffset < 0)
-        resultOffset += results.size();
-      return true;
-    }
-    return false;
+    return new Tuple2<List<String>,Boolean>(strings,found_existing);
   }
 
   // The string should be a single syntactically valid statement
-  private String reformat(@NotNull Denotations.Stmt s, @NotNull String in) {
+  private String reformat(final PsiElement place, @NotNull Stmt s, @NotNull String in) {
     if (s instanceof Denotations.CommentStmt)
       return ((Denotations.CommentStmt)s).c().content();
     PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(in, place);
@@ -355,19 +372,14 @@ public class Eddy {
     return elem.getText();
   }
 
-  private String reformat(@NotNull List<Tuple2<Denotations.Stmt,String>> in) {
+  private String reformat(final PsiElement place, @NotNull List<Tuple2<Stmt,String>> in) {
     String r = "";
     boolean first = true;
-    for (final Tuple2<Denotations.Stmt,String> ss : in) {
+    for (final Tuple2<Stmt,String> ss : in) {
       if (first) first = false;
       else r += " ";
-      r += reformat(ss._1(),ss._2());
+      r += reformat(place,ss._1(),ss._2());
     }
     return r;
-  }
-
-  public String bestText() {
-    assert foundSomethingUseful();
-    return resultStrings.get(resultOffset);
   }
 }

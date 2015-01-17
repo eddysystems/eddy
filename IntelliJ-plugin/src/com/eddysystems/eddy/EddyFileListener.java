@@ -91,8 +91,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       if (current_eddythread != null) {
         current_eddythread.interrupt();
       }
-      current_eddythread = new EddyThread(project,editor,lastEditLocation,new Consumer<Eddy>() {
-        @Override public void consume(Eddy eddy) { showHint(eddy); }
+      current_eddythread = new EddyThread(project,editor,lastEditLocation,new Consumer<Eddy.Output>() {
+        @Override public void consume(Eddy.Output output) { showHint(output); }
       });
       current_eddythread_owner = this;
       current_eddythread.start();
@@ -137,18 +137,18 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     });
   }
 
-  private void showHint(final Eddy eddy) {
+  private void showHint(final Eddy.Output output) {
     final int line = editor.getCaretModel().getLogicalPosition().line;
-    final EddyAction action = new EddyAction(eddy);
+    final EddyAction action = new EddyAction(output,editor);
     synchronized (active_lock) {
       active_instance = this;
       active_line = line;
       active_action = action;
       active_hint_instance = null;
       // show hint
-      if (eddy.foundSomethingUseful()) {
+      if (output.foundSomethingUseful()) {
         final int offset = editor.getCaretModel().getOffset();
-        final LightweightHint hint = EddyHintLabel.makeHint(eddy);
+        final LightweightHint hint = EddyHintLabel.makeHint(output);
 
         // we can only show hints from the UI thread, so schedule that
         ApplicationManager.getApplication().invokeLater(new Runnable() {
@@ -166,27 +166,19 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   public void nextResult() {
     synchronized (current_eddythread_lock) {
-      if (current_eddythread_owner == this) {
-        if (current_eddythread.eddy.nextBestResult())
-          showHint(current_eddythread.eddy);
-      }
+      if (   current_eddythread_owner == this
+          && current_eddythread.output != null
+          && current_eddythread.output.nextBestResult())
+        showHint(current_eddythread.output);
     }
   }
 
   public void prevResult() {
     synchronized (current_eddythread_lock) {
-      if (current_eddythread_owner == this) {
-        if (current_eddythread.eddy.prevBestResult())
-          showHint(current_eddythread.eddy);
-      }
-    }
-  }
-
-  public void dumpEnvironment(String filename) {
-    synchronized (current_eddythread_lock) {
-      if (current_eddythread_owner == this) {
-        current_eddythread.eddy.dumpEnvironment(filename);
-      }
+      if (   current_eddythread_owner == this
+          && current_eddythread.output != null
+          && current_eddythread.output.prevBestResult())
+        showHint(current_eddythread.output);
     }
   }
 

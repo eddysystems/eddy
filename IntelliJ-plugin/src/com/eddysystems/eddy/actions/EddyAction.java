@@ -15,41 +15,38 @@ import javax.swing.*;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyAction implements QuestionAction {
-
-  private final @NotNull Eddy eddy;
+  private final @NotNull Eddy.Output output;
   private final @NotNull Editor editor;
-  private final @NotNull TextRange replace_range;
 
-  public EddyAction(Eddy eddy) {
-    this.eddy = eddy;
-    this.editor = eddy.getEditor();
-    this.replace_range = eddy.getRange();
+  public EddyAction(final Eddy.Output output, final Editor editor) {
+    this.output = output;
+    this.editor = editor;
   }
 
   public String getText() {
-    if (!eddy.foundSomething())
+    if (!output.foundSomething())
       return "eddy knows nothing (action)";
-    if (eddy.getResultStrings().size() == 1) {
-      return "eddy says: " + eddy.getResultStrings().get(0);
+    if (output.strings.size() == 1) {
+      return "eddy says: " + output.strings.get(0);
     } else {
       return "eddy thinks...";
     }
   }
 
   public boolean isAvailable() {
-    return eddy.foundSomething();
+    return output.foundSomething();
   }
 
   @Override
   public boolean execute() {
     log("executing EddyAction");
 
-    if (eddy.single()) {
-      eddy.applyBest();
-    } else {
+    if (output.single())
+      output.applyBest();
+    else {
       // show selection dialog
       final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy thinks:", eddy.getResultStrings()) {
+        new BaseListPopupStep<String>("eddy thinks:", output.strings) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;
@@ -67,7 +64,7 @@ public class EddyAction implements QuestionAction {
             }
 
             if (finalChoice) {
-              eddy.apply(selectedValue, editor, replace_range);
+              output.apply(selectedValue);
               return FINAL_CHOICE;
             }
 
@@ -91,7 +88,7 @@ public class EddyAction implements QuestionAction {
           }
         };
       DataManager.getInstance().getDataContextFromFocus().doWhenDone(new Runnable() { @Override public void run() {
-        JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(eddy.getEditor());
+        JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(editor);
       }});
     }
     return true;

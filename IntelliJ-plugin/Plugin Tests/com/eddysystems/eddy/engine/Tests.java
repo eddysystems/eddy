@@ -82,7 +82,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     isSetUp = true;
   }
 
-  private Eddy makeEddy(@Nullable String special, int lastEdit) {
+  private Eddy.Output makeEddy(@Nullable String special, int lastEdit) {
     if (!isSetUp) try {
       setUp();
     } catch (Exception e) { log("setup threw: " + e); }
@@ -92,22 +92,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     EddyPlugin.getInstance(myFixture.getProject()).initEnv(null);
     log("Document:");
     log(myFixture.getEditor().getDocument().getCharsSequence());
-    final Eddy eddy = new Eddy(myFixture.getProject());
+    final Eddy eddy = new Eddy(myFixture.getProject(),myFixture.getEditor());
     if (lastEdit == -1) {
       lastEdit = myFixture.getEditor().getCaretModel().getOffset();
     }
-    eddy.processInternal(myFixture.getEditor(),lastEdit,special);
-
-    /*
-    for (Map.Entry<PsiElement,Item> it : EddyPlugin.getInstance(myFixture.getProject()).getEnv().items.entrySet()) {
-      if (it.getKey() instanceof PsiClass && ((PsiClass)it.getKey()).getName().equals("Object"))
-        log("static: " + it.getKey() + " => " + it.getValue());
-    }
-    */
-    return eddy;
+    return eddy.process(myFixture.getEditor(),lastEdit,special);
   }
 
-  private Eddy setupEddy(@Nullable String special, int lastEdit, String... filename) {
+  private Eddy.Output setupEddy(@Nullable String special, int lastEdit, String... filename) {
     pushScope("setup eddy");
     try {
       myFixture.configureByFiles(filename);
@@ -115,34 +107,32 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     } finally { popScope(); }
   }
 
-  private Eddy setupEddy(@Nullable String special, int lastEdit, final String filename) {
+  private Eddy.Output setupEddy(@Nullable String special, int lastEdit, final String filename) {
     pushScope("setup eddy");
     try {
       myFixture.configureByFile(filename);
-      return makeEddy(special, lastEdit);
+      return makeEddy(special,lastEdit);
     } finally { popScope(); }
   }
 
-  private Eddy setupEddy(@Nullable String special, String... filenames) {
+  private Eddy.Output setupEddy(@Nullable String special, String... filenames) {
     return setupEddy(special, -1, filenames);
   }
 
-  private Eddy setupEddy(@Nullable String special, final String filename) {
+  private Eddy.Output setupEddy(@Nullable String special, final String filename) {
     return setupEddy(special, -1, filename);
   }
 
-  private void dumpResults(final Eddy eddy, final String special) {
-    final List<Alt<List<Tuple2<Denotations.Stmt, String>>>> results = eddy.getResults();
-    if (results == null) {
+  private void dumpResults(final Eddy.Output output, final String special) {
+    if (output == null) {
       log("nothing found.");
       return;
     }
-    final List<String> strings = eddy.getResultStrings();
     final String sep = "  -------------------------------";
     log("results:");
-    for (int i=0;i<results.size();i++) {
-      final Alt<List<Tuple2<Denotations.Stmt, String>>> r = results.get(i);
-      final String s = strings.get(i);
+    for (int i=0;i<output.results.size();i++) {
+      final Alt<List<Tuple2<Denotations.Stmt, String>>> r = output.results.get(i);
+      final String s = output.strings.get(i);
       if (i >= 4 && (special==null || !special.equals(s))) continue;
       if (i > 0) log(sep);
       log("  " + s);
@@ -176,18 +166,18 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     }, check);
   }
 
-  private void checkResult(Eddy eddy, String expected) {
-    dumpResults(eddy,expected);
-    assertTrue("eddy did not find correct solution: " + expected, eddy.getResultStrings().contains(expected));
+  private void checkResult(Eddy.Output output, String expected) {
+    dumpResults(output,expected);
+    assertTrue("eddy did not find correct solution: " + expected, output.strings.contains(expected));
   }
 
-  private void checkBest(Eddy eddy, String best, double margin) {
-    dumpResults(eddy,best);
-    final List<String> ss = eddy.getResultStrings();
+  private void checkBest(Eddy.Output output, String best, double margin) {
+    dumpResults(output,best);
+    final List<String> ss = output.strings;
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
-      final List<Alt<List<Tuple2<Denotations.Stmt,String>>>> rs = eddy.getResults();
+      final List<Alt<List<Tuple2<Denotations.Stmt,String>>>> rs = output.results;
       final double p0 = rs.get(0).p(),
                    p1 = rs.get(1).p();
       final String m = "wanted margin "+margin+", got "+p1+" / "+p0+" = "+p1/p0;
@@ -196,33 +186,29 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     }
   }
 
-  private void checkPriority(Eddy eddy, String high, String lo) {
-    dumpResults(eddy,null);
+  private void checkPriority(final Eddy.Output output, String high, String lo) {
+    dumpResults(output,null);
     double phi = 0, plo = 0;
-    final List<String> strings = eddy.getResultStrings();
-    for (int i = 0; i < strings.size(); ++i) {
-      double p = eddy.getResults().get(i).p();
-      if (strings.get(i).equals(high))
+    for (int i = 0; i < output.strings.size(); ++i) {
+      double p = output.results.get(i).p();
+      if (output.strings.get(i).equals(high))
         phi = p;
-      else if (strings.get(i).equals(lo))
+      else if (output.strings.get(i).equals(lo))
         plo = p;
     }
     assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phi + "), but shouldn't.", plo < phi);
   }
 
   private void test(String filename, String expected) {
-    Eddy eddy = setupEddy(null, filename);
-    checkResult(eddy, expected);
+    checkResult(setupEddy(null,filename),expected);
   }
 
   private void testMargin(String filename, String best, double margin) {
-    Eddy eddy = setupEddy(null, filename);
-    checkBest(eddy, best, margin);
+    checkBest(setupEddy(null,filename),best,margin);
   }
 
   private void testPriority(String filename, String hi, String lo) {
-    Eddy eddy = setupEddy(null, filename);
-    checkPriority(eddy, hi, lo);
+    checkPriority(setupEddy(null,filename),hi,lo);
   }
 
   // actual tests
@@ -231,15 +217,15 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testProbLE1() {
-    Eddy eddy = setupEddy(null,"denote_x.java");
-    for (Alt<List<Tuple2<Denotations.Stmt, String>>> result : eddy.getResults())
+    final Eddy.Output output = setupEddy(null,"denote_x.java");
+    for (final Alt<List<Tuple2<Denotations.Stmt,String>>> result : output.results)
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 
   public void testTypeVar() {
-    Eddy eddy = setupEddy(null,"typeVar.java");
+    final Eddy.Output output = setupEddy(null,"typeVar.java");
     int As = 0, Bs = 0, Cs = 0;
-    for (Item i : eddy.getEnv().allLocalItems()) {
+    for (Item i : output.env.allLocalItems()) {
       final String n = i.name();
       if      (n.equals("Avar")) As++;
       else if (n.equals("Bvar")) Bs++;
@@ -252,15 +238,15 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testImplicitConstructor() {
-    Eddy eddy = setupEddy(null,"ConstructorTest.java");
-    for (Item i : eddy.getEnv().allLocalItems()) {
+    final Eddy.Output output = setupEddy(null,"ConstructorTest.java");
+    for (Item i : output.env.allLocalItems()) {
       if (!(i instanceof Items.ClassItem))
         continue;
       if (i.name().equals("A") || i.name().equals("B") || i.name().equals("C"))
         log("found class " + i.name() + " (" + i.qualified() + ")");
       if (i.name().equals("A")) {
         assertEquals("found not exactly one constructor for " + i, 1, ((Items.ClassItem) i).constructors().length);
-        assertFalse("constructor of A is private, should be inaccessible", ((Items.ClassItem)i).constructors()[0].accessible(eddy.getEnv().place()));
+        assertFalse("constructor of A is private, should be inaccessible", ((Items.ClassItem)i).constructors()[0].accessible(output.env.place()));
       } else if (i.name().equals("B")) {
         Items.ConstructorItem cons[] = ((Items.ClassItem)i).constructors();
         assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
@@ -400,8 +386,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   
   public void testVisibility() {
     // package resolution only works if directory structure is consistent
-    Eddy eddy = setupEddy(null, "scope1/scopes1.java", "scope2/scopes2.java");
-    Environment.Env env = eddy.getEnv();
+    final Eddy.Output output = setupEddy(null, "scope1/scopes1.java", "scope2/scopes2.java");
+    final Environment.Env env = output.env;
     JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
     log("local items: ");
     log(jenv.localItems);

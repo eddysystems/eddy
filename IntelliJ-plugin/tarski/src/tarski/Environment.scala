@@ -347,21 +347,4 @@ object Environment {
       case _:UnknownContainerItemBase => die("non-Java item")
     }
   }
-
-  def envToFile(env: Env, name: String): Unit = {
-    val os = new FileOutputStream(name)
-    val oos = new ObjectOutputStream(os)
-    oos.writeObject(env)
-    oos.close()
-    os.close()
-  }
-
-  def envFromFile(name: String): Env = {
-    val is = new FileInputStream(name)
-    val ois = new ObjectInputStream(is)
-    val env = ois.readObject().asInstanceOf[Env]
-    ois.close()
-    is.close()
-    env
-  }
 }

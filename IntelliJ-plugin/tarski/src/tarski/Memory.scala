@@ -54,7 +54,7 @@ object Memory {
       val s = safe(v)
       Info(install,((i:Item) => i.`with`(k,s)) :: fs)
     }
-    def error(e: Throwable): Info = add("error",e).add("stack",e.getStackTrace)
+    def error(e: Throwable): Info = if (e==null) this else add("error",e).add("stack",e.getStackTrace)
   }
 
   // Basic information about an install and a project

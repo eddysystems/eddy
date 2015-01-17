@@ -20,11 +20,14 @@ public class EddyThread extends Thread {
   private final @NotNull Project project;
   private final @NotNull Editor editor;
   private final int lastEditLocation;
-  private final Consumer<Eddy> cont;
+  private final Consumer<Eddy.Output> cont;
 
-  EddyThread(final Project project, final Editor editor, final int lastEditLocation, final Consumer<Eddy> cont) {
+  // Results, if we've finished computing
+  Eddy.Output output = null;
+
+  EddyThread(final Project project, final Editor editor, final int lastEditLocation, final Consumer<Eddy.Output> cont) {
     this.setName("Eddy thread " + getId());
-    this.eddy = new Eddy(project);
+    this.eddy = new Eddy(project,editor);
     this.project = project;
     this.editor = editor;
     this.lastEditLocation = lastEditLocation;
@@ -38,7 +41,7 @@ public class EddyThread extends Thread {
     return _canceled;
   }
 
-  public synchronized void setSoftInterrupts(boolean b) {
+  public synchronized void setSoftInterrupts(final boolean b) {
     if (softInterrupts == b)
       return;
 
@@ -85,10 +88,10 @@ public class EddyThread extends Thread {
             try {
               EddyPlugin.getInstance(project).getWidget().moreBusy();
 
-              eddy.process(editor,lastEditLocation,null);
+              output = eddy.process(editor,lastEditLocation,null);
               if (isInterrupted())
                 return;
-              cont.consume(eddy);
+              cont.consume(output);
             } finally {
               EddyPlugin.getInstance(project).getWidget().lessBusy();
             }
