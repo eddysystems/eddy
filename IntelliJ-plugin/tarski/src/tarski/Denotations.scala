@@ -7,6 +7,7 @@ import tarski.Operators._
 import tarski.Types._
 import tarski.Scores._
 import tarski.Tokens._
+import tarski.Mods._
 import scala.annotation.tailrec
 import scala.language.implicitConversions
 
@@ -208,9 +209,9 @@ object Denotations {
     def discards = Nil
     def strip = this
   }
-  case class VarStmt(t: Type, vs: List[VarDecl]) extends Stmt with ForInit {
+  case class VarStmt(t: Type, vs: List[VarDecl], m: List[Mod] = Nil) extends Stmt with ForInit {
     def discards = vs flatMap (_._3.discards)
-    def strip = VarStmt(t,vs map { case (v,n,e) => (v,n,e map (_.strip)) })
+    def strip = VarStmt(t,vs map { case (v,n,e) => (v,n,e map (_.strip)) },m)
   }
   case class ExpStmt(e: StmtExp) extends Stmt {
     def discards = e.discards

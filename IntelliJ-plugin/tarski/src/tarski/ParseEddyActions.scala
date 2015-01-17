@@ -2,7 +2,7 @@
 package tarski
 import tarski.Tokens._
 import tarski.AST._
-import tarski.Types._
+import tarski.Mods._
 import tarski.Operators._
 import utility.Locations._
 import scala.language.implicitConversions
@@ -37,8 +37,8 @@ object ParseEddyActions {
   def ExpAssignNC0(x0: AExp, x1: (Option[AssignOp],AExp), r: Range): AExp = AssignAExp(x1._1,x0,x1._2,r)
   def ExpAssignNC1(x0: AExp): AExp = x0
   def ExpHigh__Left0(x0: AExp, x1: Group): (AExp,Group) = (x0,x1)
-  def Type__List1_VarDecl0(x0: AExp, x1: KList[(String,Int,Option[AExp])]): (AExp,KList[(String,Int,Option[AExp])]) = (x0,x1)
   def IdentDims__ForeachSep__ExpAssign0(x0: (String,Int), x1: AExp): ((String,Int),AExp) = (x0,x1)
+  def Option_Type__List1_VarDecl0(x0: Option[AExp], x1: KList[(String,Int,Option[AExp])]): (Option[AExp],KList[(String,Int,Option[AExp])]) = (x0,x1)
   def Juxts1_Mod0(x0: Mod, x1: List[Mod]): List[Mod] = x0 :: x1
   def Juxts1_Mod1(x0: Mod): List[Mod] = List(x0)
   def List1_ExpAssignNC0(x0: List[AExp]): KList[AExp] = JuxtList(x0)
@@ -106,13 +106,13 @@ object ParseEddyActions {
   def StmtHelperBS4(x1: Option[AExp], r: Range): AStmt = ReturnAStmt(x1,r)
   def StmtHelperBS5(x1: AExp, x3: AExp, r: Range): AStmt = AssertAStmt(x1,Some(x3),r)
   def StmtHelperBS6(x0: (AExp,Around), x1: (AStmt,AStmt), r: Range): AStmt = IfElseAStmt(x0._1,x1._1,x1._2,x0._2,r)
-  def StmtHelperBS7(x1: AExp, r: Range): AStmt = IfElseAStmt(x1,EmptyAStmt,HoleAStmt,NoAround,r)
-  def StmtHelperBS8(x0: Boolean, x1: (AExp,AStmt), r: Range): AStmt = WhileAStmt(x1._1,x1._2,x0,NoAround,r)
-  def StmtHelperBS9(x0: (Group,ForInfo), x1: (Group,AStmt), r: Range): AStmt = ForAStmt(x0._2,x1._2,Grouped(x0._1,x1._1),r)
-  def StmtHelperBS10(x1: Option[String], r: Range): AStmt = ContinueAStmt(x1,r)
-  def StmtHelperBS11(x1: (AExp,Around), x2: List[AStmt], r: Range): AStmt = SyncAStmt(x1._1,BlockAStmt(x2,r),x1._2,r)
-  def StmtHelperBS12(x1: Option[String], r: Range): AStmt = BreakAStmt(x1,r)
-  def StmtHelperBS13(x0: List[Mod], x1: (AExp,KList[(String,Int,Option[AExp])]), r: Range): AStmt = VarAStmt(x0,x1._1,x1._2,r)
+  def StmtHelperBS7(x0: List[Mod], x1: (Option[AExp],KList[(String,Int,Option[AExp])]), r: Range): AStmt = VarAStmt(x0,x1._1,x1._2,r)
+  def StmtHelperBS8(x1: AExp, r: Range): AStmt = IfElseAStmt(x1,EmptyAStmt,HoleAStmt,NoAround,r)
+  def StmtHelperBS9(x0: Boolean, x1: (AExp,AStmt), r: Range): AStmt = WhileAStmt(x1._1,x1._2,x0,NoAround,r)
+  def StmtHelperBS10(x0: (Group,ForInfo), x1: (Group,AStmt), r: Range): AStmt = ForAStmt(x0._2,x1._2,Grouped(x0._1,x1._1),r)
+  def StmtHelperBS11(x1: Option[String], r: Range): AStmt = ContinueAStmt(x1,r)
+  def StmtHelperBS12(x1: (AExp,Around), x2: List[AStmt], r: Range): AStmt = SyncAStmt(x1._1,BlockAStmt(x2,r),x1._2,r)
+  def StmtHelperBS13(x1: Option[String], r: Range): AStmt = BreakAStmt(x1,r)
   def StmtHelperBS14(x0: AExp, x1: (AStmt,AStmt), r: Range): AStmt = IfElseAStmt(x0,x1._1,x1._2,NoAround,r)
   def StmtHelperBS15(x0: AStmt, x1: (Boolean,(AExp,Around)), r: Range): AStmt = DoAStmt(x0,x1._2._1,x1._1,x1._2._2,r)
   def StmtHelperBS16(x0: AExp): AStmt = ExpAStmt(x0)
@@ -120,7 +120,8 @@ object ParseEddyActions {
   def StmtHelperBS18(x1: ForInfo, x3: AStmt, r: Range): AStmt = ForAStmt(x1,x3,NoAround,r)
   def StmtHelperBS19(x0: List[AStmt], r: Range): AStmt = BlockAStmt(x0,r)
   def StmtHelperBS20(x1: AExp, r: Range): AStmt = AssertAStmt(x1,None,r)
-  def StmtHelperBS21(x0: (AExp,Around), x1: AStmt, r: Range): AStmt = IfAStmt(x0._1,x1,x0._2,r)
+  def StmtHelperBS21(x0: AExp, x1: KList[(String,Int,Option[AExp])], r: Range): AStmt = VarAStmt(Nil,Some(x0),x1,r)
+  def StmtHelperBS22(x0: (AExp,Around), x1: AStmt, r: Range): AStmt = IfAStmt(x0._1,x1,x0._2,r)
   def ExpEq_ExpJuxt0(x0: AExp, x2: AExp, r: Range): AExp = BinaryAExp(NeOp,x0,x2,r)
   def ExpEq_ExpJuxt1(x0: AExp, x2: AExp, r: Range): AExp = BinaryAExp(EqOp,x0,x2,r)
   def ExpEq_ExpJuxt2(x0: AExp): AExp = x0

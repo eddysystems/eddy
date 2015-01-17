@@ -9,6 +9,7 @@ import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
 import tarski.TestUtils._
+import tarski.Mods._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
 
@@ -16,7 +17,7 @@ class TestPretty {
   implicit val env = testEnv
 
   def test[A](s: String, x: A)(implicit p: Pretty[A]) =
-    assertEquals(s"$s -> ${show(x)}", lex(s) map (_.x) filterNot isSpace, tokens(x))
+    assertEquals(s"$s -> ${show(x)}", lex(s) map (_.x) filterNot isSpace, tokens(x) filterNot isSpace)
 
   @Test def obj() = test("Object", ObjectType)
   @Test def objMethod() = test("Object.f",NormalMethodItem("f",ObjectItem,Nil,VoidType,Nil,true))
@@ -83,4 +84,6 @@ class TestPretty {
   }
 
   @Test def cond() = test("true ? 1 : 0",CondExp(true,1,0,IntType))
+
+  @Test def finalVar() = test("final int x = 1;",VarStmt(IntType,(NormalLocal("x",IntType),1),List(Final)))
 }

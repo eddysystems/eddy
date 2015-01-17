@@ -2,7 +2,7 @@
 package tarski;
 import tarski.Tokens.*;
 import tarski.AST.*;
-import tarski.Types.*;
+import tarski.Mods.*;
 import tarski.Operators.*;
 
 // Internal imports
@@ -149,144 +149,144 @@ class ParseEddy {
     private static final int iGtSep = 4;
     private static final int iExpCond_ExpWild__Right = 5;
     private static final int iExpHigh__Left = 6;
-    private static final int iType__List1_VarDecl = 7;
-    private static final int iIdentDims__ForeachSep__ExpAssign = 8;
-    private static final int iJuxts2_ExpWild = 9;
-    private static final int iJuxts2_ExpAssignNC = 10;
-    private static final int iDotTok__Option_TypeArgs__Ident = 11;
-    private static final int iAssignOp = 12;
-    private static final int iForInfo__Right = 13;
-    private static final int iForeachSep__ExpAssign = 14;
-    private static final int iMaybeStmt__ElseTok__Stmt = 15;
-    private static final int iForTok__Left__ForInfo = 16;
-    private static final int iWildcardBounds = 17;
-    private static final int iPreOp = 18;
-    private static final int iCommas2_ExpCond_ExpJuxt__Right = 19;
-    private static final int iThenTok__MaybeStmt__ElseTok__Stmt = 20;
-    private static final int iParenExp = 21;
-    private static final int iIfTok__ParenExp = 22;
-    private static final int iPostOp = 23;
-    private static final int iCommas2_Type = 24;
-    private static final int iJuxts2_ExpWildNA = 25;
-    private static final int iExpParens = 26;
-    private static final int iTypeArgs = 27;
-    private static final int iOption_TypeArgs = 28;
-    private static final int iJuxts2_VarDecl = 29;
-    private static final int iMaybeThen = 30;
-    private static final int iLeftNP = 31;
-    private static final int iQuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt = 32;
-    private static final int iForTok__Left = 33;
-    private static final int iExpAssign__Right = 34;
-    private static final int iLeft = 35;
-    private static final int iWhileUntil = 36;
-    private static final int iJuxts2_ExpWild__Right = 37;
-    private static final int iMod = 38;
-    private static final int iJuxts1_Mod = 39;
-    private static final int iJuxts0_Mod = 40;
-    private static final int iExpAssignNP__DoTok__Stmt = 41;
-    private static final int iDoTok__MaybeStmt = 42;
-    private static final int iRight__Stmt = 43;
-    private static final int iCommas2_ExpCond_ExpJuxt = 44;
-    private static final int iJuxts2_Type = 45;
-    private static final int iLParenTok__Type = 46;
-    private static final int iAssignOp__ExpAssign = 47;
-    private static final int iIfTok__ParenExp__MaybeThen = 48;
-    private static final int iLit = 49;
-    private static final int iMaybeDo = 50;
-    private static final int iWhileUntil__ParenExp = 51;
-    private static final int iBlock = 52;
-    private static final int iRight = 53;
-    private static final int iList_ExpAssignNC__Right = 54;
-    private static final int iIdent = 55;
-    private static final int iOption_Ident = 56;
-    private static final int iExpPrimary = 57;
-    private static final int iExpNew = 58;
-    private static final int iExpHighNA = 59;
-    private static final int iExpHighNP = 60;
-    private static final int iExpHigh = 61;
-    private static final int iExpWild = 62;
-    private static final int iJuxts1_ExpWild = 63;
-    private static final int iExpJuxt = 64;
-    private static final int iExpUnary_ExpJuxt = 65;
-    private static final int iExpMul_ExpJuxt = 66;
-    private static final int iExpAdd_ExpJuxt = 67;
-    private static final int iExpShift_ExpJuxt = 68;
-    private static final int iExpRel_ExpJuxt = 69;
-    private static final int iExpEq_ExpJuxt = 70;
-    private static final int iExpAnd_ExpJuxt = 71;
-    private static final int iExpXor_ExpJuxt = 72;
-    private static final int iExpOr_ExpJuxt = 73;
-    private static final int iExpAndAnd_ExpJuxt = 74;
-    private static final int iExpOrOr_ExpJuxt = 75;
-    private static final int iExpCond_ExpJuxt = 76;
-    private static final int iExpAssignNC = 77;
-    private static final int iList1_ExpAssignNC = 78;
-    private static final int iList_ExpAssignNC = 79;
-    private static final int iCommas1_ExpAssignNC = 80;
-    private static final int iCommas0_ExpAssignNC = 81;
-    private static final int iJuxts1_ExpAssignNC = 82;
-    private static final int iExpCommas = 83;
-    private static final int iExpAssign = 84;
-    private static final int iStmtHelperBS = 85;
-    private static final int iCommas1_StmtHelperBS = 86;
-    private static final int iCommas0_StmtHelperBS = 87;
-    private static final int iStmtHelper = 88;
-    private static final int iStmt = 89;
-    private static final int iMaybeDo__Stmt = 90;
-    private static final int iMaybeThen__Stmt = 91;
-    private static final int iMaybeStmt = 92;
-    private static final int iStmts = 93;
-    private static final int iOption_ExpAssign = 94;
-    private static final int iCommas1_ExpCond_ExpJuxt = 95;
-    private static final int iOption_ExpJuxt = 96;
-    private static final int iExpUnary_ExpWild = 97;
-    private static final int iExpMul_ExpWild = 98;
-    private static final int iExpAdd_ExpWild = 99;
-    private static final int iExpShift_ExpWild = 100;
-    private static final int iExpRel_ExpWild = 101;
-    private static final int iExpEq_ExpWild = 102;
-    private static final int iExpAnd_ExpWild = 103;
-    private static final int iExpXor_ExpWild = 104;
-    private static final int iExpOr_ExpWild = 105;
-    private static final int iExpAndAnd_ExpWild = 106;
-    private static final int iExpOrOr_ExpWild = 107;
-    private static final int iExpCond_ExpWild = 108;
-    private static final int iType = 109;
-    private static final int iCommas1_Type = 110;
-    private static final int iOption_Type = 111;
-    private static final int iJuxts0_Mod__Option_Type = 112;
-    private static final int iList1_Type = 113;
-    private static final int iList_Type = 114;
-    private static final int iJuxts1_Type = 115;
-    private static final int iExpWildNP = 116;
-    private static final int iExpJuxtNP = 117;
-    private static final int iExpUnary_ExpJuxtNP = 118;
-    private static final int iExpMul_ExpJuxtNP = 119;
-    private static final int iExpAdd_ExpJuxtNP = 120;
-    private static final int iExpShift_ExpJuxtNP = 121;
-    private static final int iExpRel_ExpJuxtNP = 122;
-    private static final int iExpEq_ExpJuxtNP = 123;
-    private static final int iExpAnd_ExpJuxtNP = 124;
-    private static final int iExpXor_ExpJuxtNP = 125;
-    private static final int iExpOr_ExpJuxtNP = 126;
-    private static final int iExpAndAnd_ExpJuxtNP = 127;
-    private static final int iExpOrOr_ExpJuxtNP = 128;
-    private static final int iExpCond_ExpJuxtNP = 129;
-    private static final int iExpAssignNP = 130;
-    private static final int iMaybeParenExp = 131;
-    private static final int iMaybeParenExp__MaybeDo = 132;
-    private static final int iExpWildNA = 133;
-    private static final int iSingleJuxt1_ExpWildNA = 134;
-    private static final int iJuxts1_ExpWildNA = 135;
-    private static final int iIdentDims = 136;
-    private static final int iVarDecl = 137;
-    private static final int iJuxts1_VarDecl = 138;
-    private static final int iCommas1_VarDecl = 139;
-    private static final int iForeachSep = 140;
-    private static final int iSemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC = 141;
-    private static final int iForInfo = 142;
-    private static final int iCommas2_VarDecl = 143;
-    private static final int iList1_VarDecl = 144;
+    private static final int iIdentDims__ForeachSep__ExpAssign = 7;
+    private static final int iJuxts2_ExpWild = 8;
+    private static final int iJuxts2_ExpAssignNC = 9;
+    private static final int iDotTok__Option_TypeArgs__Ident = 10;
+    private static final int iAssignOp = 11;
+    private static final int iForInfo__Right = 12;
+    private static final int iForeachSep__ExpAssign = 13;
+    private static final int iMaybeStmt__ElseTok__Stmt = 14;
+    private static final int iForTok__Left__ForInfo = 15;
+    private static final int iWildcardBounds = 16;
+    private static final int iPreOp = 17;
+    private static final int iCommas2_ExpCond_ExpJuxt__Right = 18;
+    private static final int iThenTok__MaybeStmt__ElseTok__Stmt = 19;
+    private static final int iParenExp = 20;
+    private static final int iIfTok__ParenExp = 21;
+    private static final int iPostOp = 22;
+    private static final int iCommas2_Type = 23;
+    private static final int iJuxts2_ExpWildNA = 24;
+    private static final int iExpParens = 25;
+    private static final int iTypeArgs = 26;
+    private static final int iOption_TypeArgs = 27;
+    private static final int iJuxts2_VarDecl = 28;
+    private static final int iMaybeThen = 29;
+    private static final int iLeftNP = 30;
+    private static final int iQuestionTok__ExpAssign__ColonTok__ExpCond_ExpJuxt = 31;
+    private static final int iForTok__Left = 32;
+    private static final int iExpAssign__Right = 33;
+    private static final int iLeft = 34;
+    private static final int iWhileUntil = 35;
+    private static final int iJuxts2_ExpWild__Right = 36;
+    private static final int iMod = 37;
+    private static final int iJuxts1_Mod = 38;
+    private static final int iJuxts0_Mod = 39;
+    private static final int iExpAssignNP__DoTok__Stmt = 40;
+    private static final int iDoTok__MaybeStmt = 41;
+    private static final int iRight__Stmt = 42;
+    private static final int iCommas2_ExpCond_ExpJuxt = 43;
+    private static final int iJuxts2_Type = 44;
+    private static final int iLParenTok__Type = 45;
+    private static final int iAssignOp__ExpAssign = 46;
+    private static final int iIfTok__ParenExp__MaybeThen = 47;
+    private static final int iLit = 48;
+    private static final int iMaybeDo = 49;
+    private static final int iWhileUntil__ParenExp = 50;
+    private static final int iBlock = 51;
+    private static final int iRight = 52;
+    private static final int iList_ExpAssignNC__Right = 53;
+    private static final int iIdent = 54;
+    private static final int iOption_Ident = 55;
+    private static final int iExpPrimary = 56;
+    private static final int iExpNew = 57;
+    private static final int iExpHighNA = 58;
+    private static final int iExpHighNP = 59;
+    private static final int iExpHigh = 60;
+    private static final int iExpWild = 61;
+    private static final int iJuxts1_ExpWild = 62;
+    private static final int iExpJuxt = 63;
+    private static final int iExpUnary_ExpJuxt = 64;
+    private static final int iExpMul_ExpJuxt = 65;
+    private static final int iExpAdd_ExpJuxt = 66;
+    private static final int iExpShift_ExpJuxt = 67;
+    private static final int iExpRel_ExpJuxt = 68;
+    private static final int iExpEq_ExpJuxt = 69;
+    private static final int iExpAnd_ExpJuxt = 70;
+    private static final int iExpXor_ExpJuxt = 71;
+    private static final int iExpOr_ExpJuxt = 72;
+    private static final int iExpAndAnd_ExpJuxt = 73;
+    private static final int iExpOrOr_ExpJuxt = 74;
+    private static final int iExpCond_ExpJuxt = 75;
+    private static final int iExpAssignNC = 76;
+    private static final int iList1_ExpAssignNC = 77;
+    private static final int iList_ExpAssignNC = 78;
+    private static final int iCommas1_ExpAssignNC = 79;
+    private static final int iCommas0_ExpAssignNC = 80;
+    private static final int iJuxts1_ExpAssignNC = 81;
+    private static final int iExpCommas = 82;
+    private static final int iExpAssign = 83;
+    private static final int iStmtHelperBS = 84;
+    private static final int iCommas1_StmtHelperBS = 85;
+    private static final int iCommas0_StmtHelperBS = 86;
+    private static final int iStmtHelper = 87;
+    private static final int iStmt = 88;
+    private static final int iMaybeDo__Stmt = 89;
+    private static final int iMaybeThen__Stmt = 90;
+    private static final int iMaybeStmt = 91;
+    private static final int iStmts = 92;
+    private static final int iOption_ExpAssign = 93;
+    private static final int iCommas1_ExpCond_ExpJuxt = 94;
+    private static final int iOption_ExpJuxt = 95;
+    private static final int iExpUnary_ExpWild = 96;
+    private static final int iExpMul_ExpWild = 97;
+    private static final int iExpAdd_ExpWild = 98;
+    private static final int iExpShift_ExpWild = 99;
+    private static final int iExpRel_ExpWild = 100;
+    private static final int iExpEq_ExpWild = 101;
+    private static final int iExpAnd_ExpWild = 102;
+    private static final int iExpXor_ExpWild = 103;
+    private static final int iExpOr_ExpWild = 104;
+    private static final int iExpAndAnd_ExpWild = 105;
+    private static final int iExpOrOr_ExpWild = 106;
+    private static final int iExpCond_ExpWild = 107;
+    private static final int iType = 108;
+    private static final int iCommas1_Type = 109;
+    private static final int iOption_Type = 110;
+    private static final int iJuxts0_Mod__Option_Type = 111;
+    private static final int iList1_Type = 112;
+    private static final int iList_Type = 113;
+    private static final int iJuxts1_Type = 114;
+    private static final int iExpWildNP = 115;
+    private static final int iExpJuxtNP = 116;
+    private static final int iExpUnary_ExpJuxtNP = 117;
+    private static final int iExpMul_ExpJuxtNP = 118;
+    private static final int iExpAdd_ExpJuxtNP = 119;
+    private static final int iExpShift_ExpJuxtNP = 120;
+    private static final int iExpRel_ExpJuxtNP = 121;
+    private static final int iExpEq_ExpJuxtNP = 122;
+    private static final int iExpAnd_ExpJuxtNP = 123;
+    private static final int iExpXor_ExpJuxtNP = 124;
+    private static final int iExpOr_ExpJuxtNP = 125;
+    private static final int iExpAndAnd_ExpJuxtNP = 126;
+    private static final int iExpOrOr_ExpJuxtNP = 127;
+    private static final int iExpCond_ExpJuxtNP = 128;
+    private static final int iExpAssignNP = 129;
+    private static final int iMaybeParenExp = 130;
+    private static final int iMaybeParenExp__MaybeDo = 131;
+    private static final int iExpWildNA = 132;
+    private static final int iSingleJuxt1_ExpWildNA = 133;
+    private static final int iJuxts1_ExpWildNA = 134;
+    private static final int iIdentDims = 135;
+    private static final int iVarDecl = 136;
+    private static final int iJuxts1_VarDecl = 137;
+    private static final int iCommas1_VarDecl = 138;
+    private static final int iForeachSep = 139;
+    private static final int iSemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC = 140;
+    private static final int iForInfo = 141;
+    private static final int iCommas2_VarDecl = 142;
+    private static final int iList1_VarDecl = 143;
+    private static final int iOption_Type__List1_VarDecl = 144;
     private static final int iWhileUntil__MaybeParenExp = 145;
     
     // Determine token types
@@ -448,7 +448,6 @@ class ParseEddy {
         GtSep(lo,hi,range);
         ExpCond_ExpWild__Right(lo,hi,range);
         ExpHigh__Left(lo,hi,range);
-        Type__List1_VarDecl(lo,hi,range);
         IdentDims__ForeachSep__ExpAssign(lo,hi,range);
         Juxts2_ExpWild(lo,hi,range);
         Juxts2_ExpAssignNC(lo,hi,range);
@@ -586,6 +585,7 @@ class ParseEddy {
         ForInfo(lo,hi,range);
         Commas2_VarDecl(lo,hi,range);
         List1_VarDecl(lo,hi,range);
+        Option_Type__List1_VarDecl(lo,hi,range);
         WhileUntil__MaybeParenExp(lo,hi,range);
       }
     }
@@ -698,24 +698,6 @@ class ParseEddy {
       }
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iExpHigh__Left<<24|lo<<12|hi,(long)prev<<32|count); }
-    }
-    
-    private void Type__List1_VarDecl(final int lo, final int hi, final long range) {
-      final int prev = values.size();
-      if (hi-lo>=2) {
-        for (int j=lo+1;j<=hi-1;j++) {
-          {
-            final long s1 = slices.get(iType<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iList1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(Type__List1_VarDecl0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3)));
-            }
-          }
-        }
-      }
-      final int count = values.size()-prev;
-      if (count != 0) { slices.put(iType__List1_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
     private void IdentDims__ForeachSep__ExpAssign(final int lo, final int hi, final long range) {
@@ -2520,11 +2502,23 @@ class ParseEddy {
           }
         }
       }
+      if (hi-lo>=2) {
+        for (int j=lo+1;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iJuxts1_Mod<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iOption_Type__List1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(StmtHelperBS7((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
       if (hi-lo>=2 && type[lo]==iIfTok) {
         final long s1 = slices.get(iExpAssignNP<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS7((AExp)values.get((int)(s1>>32)+k),range));
+            values.add(StmtHelperBS8((AExp)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=4) {
@@ -2534,7 +2528,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAssignNP__DoTok__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS8((java.lang.Boolean)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+                values.add(StmtHelperBS9((java.lang.Boolean)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2546,7 +2540,7 @@ class ParseEddy {
             final long s3 = slices.get(iRight__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS9((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
+                values.add(StmtHelperBS10((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2555,7 +2549,7 @@ class ParseEddy {
         final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS10((Option)values.get((int)(s1>>32)+k),range));
+            values.add(StmtHelperBS11((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=4 && type[lo]==iSynchronizedTok) {
@@ -2565,7 +2559,7 @@ class ParseEddy {
             final long s3 = slices.get(iBlock<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS11((Tuple2)values.get((int)(s1>>32)+k1),(List)values.get((int)(s3>>32)+k3),range));
+                values.add(StmtHelperBS12((Tuple2)values.get((int)(s1>>32)+k1),(List)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -2574,19 +2568,7 @@ class ParseEddy {
         final long s1 = slices.get(iOption_Ident<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS12((Option)values.get((int)(s1>>32)+k),range));
-        }
-      }
-      if (hi-lo>=2) {
-        for (int j=lo;j<=hi-2;j++) {
-          {
-            final long s1 = slices.get(iJuxts0_Mod<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iType__List1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS13((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3),range));
-            }
-          }
+            values.add(StmtHelperBS13((Option)values.get((int)(s1>>32)+k),range));
         }
       }
       if (hi-lo>=5) {
@@ -2658,6 +2640,18 @@ class ParseEddy {
             values.add(StmtHelperBS20((AExp)values.get((int)(s1>>32)+k),range));
         }
       }
+      if (hi-lo>=2) {
+        for (int j=lo+1;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iType<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iList1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(StmtHelperBS21((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3),range));
+            }
+          }
+        }
+      }
       if (hi-lo>=5) {
         for (int j=lo+4;j<=hi-1;j++) {
           {
@@ -2665,7 +2659,7 @@ class ParseEddy {
             final long s3 = slices.get(iMaybeThen__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS21((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
+                values.add(StmtHelperBS22((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -4347,6 +4341,24 @@ class ParseEddy {
       }
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iList1_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
+    }
+    
+    private void Option_Type__List1_VarDecl(final int lo, final int hi, final long range) {
+      final int prev = values.size();
+      if (hi-lo>=1) {
+        for (int j=lo;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iOption_Type<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iList1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(Option_Type__List1_VarDecl0((Option)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3)));
+            }
+          }
+        }
+      }
+      final int count = values.size()-prev;
+      if (count != 0) { slices.put(iOption_Type__List1_VarDecl<<24|lo<<12|hi,(long)prev<<32|count); }
     }
     
     private void WhileUntil__MaybeParenExp(final int lo, final int hi, final long range) {

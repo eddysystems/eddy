@@ -188,4 +188,5 @@ object Pr {
   val constructor = Prob("constructor",1)
   val notDropNew = Prob("not drop new",1)
   val reasonable = Prob("reasonable",1)
+  val ignoreMissingType = Prob("ignore missing type",1)
 }
