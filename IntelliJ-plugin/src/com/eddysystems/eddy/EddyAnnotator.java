@@ -28,8 +28,8 @@ public class EddyAnnotator implements Annotator {
       if (!(ed instanceof TextEditor))
         continue;
 
-      Editor editor = ((TextEditor)ed).getEditor();
-      Document document = editor.getDocument();
+      final Editor editor = ((TextEditor)ed).getEditor();
+      final Document document = editor.getDocument();
 
       // make sure we're editing the right file
       if (psifile != PsiDocumentManager.getInstance(project).getPsiFile(document))
@@ -38,23 +38,23 @@ public class EddyAnnotator implements Annotator {
       // only annotate the current line, and bail if there's more than one cursor
       if (editor.getCaretModel().getCaretCount() != 1)
         return;
-      int pos = editor.getCaretModel().getCurrentCaret().getOffset();
+      final int pos = editor.getCaretModel().getCurrentCaret().getOffset();
 
       // since we're called for each element, discard all elements that are not the one under the cursor
-      PsiElement lineelem = psifile.getNode().getPsi().findElementAt(pos);
-      if (element != lineelem)
+      final PsiElement lineElem = psifile.getNode().getPsi().findElementAt(pos);
+      if (element != lineElem)
         return;
 
       // this runs once. Make an annotation (which is invisible), which will then be used to actually run eddy every time
       // the cursor moves.
 
       // this code should only execute once per pass
-      int line = document.getLineNumber(pos);
-      int lineStart = document.getLineStartOffset(line);
-      int lineEnd = document.getLineEndOffset(line);
-      TextRange lineRange = new TextRange(lineStart, lineEnd);
+      final int line = document.getLineNumber(pos);
+      final int lineStart = document.getLineStartOffset(line);
+      final int lineEnd = document.getLineEndOffset(line);
+      final TextRange lineRange = new TextRange(lineStart, lineEnd);
 
-      Annotation ann = holder.createErrorAnnotation(lineRange, null /* we don't want a message here */);
+      final Annotation ann = holder.createErrorAnnotation(lineRange, null /* we don't want a message here */);
       ann.registerFix(new EddyIntention());
       // make invisible, except for maybe gutter icon. The annotation is irrelevant -- we only care about the fix that's attached
       ann.setHighlightType(ProblemHighlightType.INFORMATION);
