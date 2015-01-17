@@ -14,10 +14,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import tarski.*;
-
 import java.util.*;
-
 import static com.eddysystems.eddy.engine.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.logError;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
 
@@ -188,7 +187,7 @@ public class JavaEnvironment {
     converter = new Converter(this, items, localItems, addedItems);
   }
 
-  synchronized public void initialize() {
+  public void initialize() {
     pushScope("make base environment");
     try {
       // add base items
@@ -335,14 +334,26 @@ public class JavaEnvironment {
       final Processor<PsiClass> proc = new Processor<PsiClass>() {
         @Override
         public boolean process(final PsiClass cls) {
-          converter.addClass(cls, true);
+          try {
+            converter.addClass(cls, true);
+          } catch (AssertionError e) {
+            // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
+            if (utility.Utility.fromScalaPlugin(e)) logError("storeProjectClassInfo()",e);
+            else throw e;
+          }
           return true;
         }
       };
 
       for (final String s : classNames) {
         DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() { @Override public void run() {
-          cache.processClassesWithName(s, proc, scope, filter);
+          try {
+            cache.processClassesWithName(s, proc, scope, filter);
+          } catch (AssertionError e) {
+            // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
+            if (utility.Utility.fromScalaPlugin(e)) logError("storeProjectClassInfo()",e);
+            else throw e;
+          }
         }});
       }
     } finally { popScope(); }

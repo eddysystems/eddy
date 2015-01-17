@@ -42,9 +42,9 @@ class Tokenizer {
       return new IdentTok(text);
 
     if (type == JavaTokenType.C_STYLE_COMMENT)
-      return new EOLCommentTok(text);
-    if (type == JavaTokenType.END_OF_LINE_COMMENT)
       return new CCommentTok(text);
+    if (type == JavaTokenType.END_OF_LINE_COMMENT)
+      return new EOLCommentTok(text);
 
     if (type == JavaTokenType.INTEGER_LITERAL)
       return new IntLitTok(text);

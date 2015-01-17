@@ -512,7 +512,8 @@ class TestDen {
       val t = A.generic(List(w))
       val x = NormalLocal("x",t,isParameter=false,isFinal=true)
       implicit val env = localEnv(A,x,F,f)
-      test("f(x) // "+w,ApplyExp(TypeApply(f,List(t),hide=true),List(x),auto=false))
+      test("f(x) // "+w,List(ExpStmt(ApplyExp(TypeApply(f,List(t),hide=true),List(x),auto=false)),
+                             CommentStmt(EOLCommentTok("// "+w))))
     }
   }
 
@@ -933,4 +934,6 @@ class TestDen {
     test("if (b != 0)",IfStmt(BinaryExp(NeOp,b,false),HoleStmt))
     test("if (0 == b)",IfStmt(BinaryExp(EqOp,false,b),HoleStmt))
   }
+
+  @Test def comment() = test("x = 1 // blah","x",x => List(VarStmt(IntType,(x,1)),CommentStmt(EOLCommentTok("// blah"))))
 }

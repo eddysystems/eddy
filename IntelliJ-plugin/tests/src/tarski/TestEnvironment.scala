@@ -1,9 +1,11 @@
 package tarski
 
 import utility.Utility._
+import tarski.TestUtils._
 import tarski.Denotations.ThisExp
 import tarski.Environment._
 import tarski.Items._
+import tarski.JavaItems._
 import tarski.JavaScores.pp
 import tarski.Pretty._
 import tarski.Scores.Alt
@@ -12,6 +14,8 @@ import tarski.Tries._
 import tarski.Types._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
+import scala.collection.JavaConverters._
+import scala.util.Random
 
 class TestEnvironment {
 
@@ -126,4 +130,39 @@ class TestEnvironment {
 
   // Warn if exactOnly is true
   @Test def noExactOnly(): Unit = assertEquals(false,exactOnly)
+
+  @Test def valuesByItemTest(): Unit = {
+    // One diamond
+    val A = NormalInterfaceItem("A")
+    val B = NormalInterfaceItem("B")
+    val C = NormalInterfaceItem("C",interfaces=List(A,B))
+    // An extra run of two
+    val D = NormalInterfaceItem("D",interfaces=List(B))
+    val E = NormalInterfaceItem("E",interfaces=List(D))
+    // Another diamond
+    val F = NormalInterfaceItem("F",interfaces=List(C))
+    val G = NormalInterfaceItem("G",interfaces=List(C))
+    val H = NormalInterfaceItem("H",interfaces=List(F,G))
+    val types = Array(A,B,C,D,E,F,G,H)
+    val random = new Random(17311)
+    for (i <- 0 until 100; n <- 0 until 100) {
+      def randomItem(k: Int): Item = {
+        if (random.nextDouble < .1) SimpleTypeVar(s"T$k")
+        else NormalLocal(s"x$k",types(random.nextInt(types.length)))
+      }
+      val items = Array.tabulate(n)(randomItem)
+      val values = items collect {case v:Local => v}
+      val by = valuesByItem(items).asScala
+
+      // All values should be included
+      assertSetsEqual(values,by.values.flatten)
+      // Entries should be unique and valid
+      by foreach {case (i,vs) =>
+        assert(vs.size == vs.toSet.size)
+        vs foreach (v => assert(isSubitem(v.item,i)))
+      }
+      // Every super of a value should be included, except for Object
+      values foreach (v => superItems(v.item) foreach (i => if (i != ObjectItem) assert(by(i) contains v)))
+    }
+  }
 }

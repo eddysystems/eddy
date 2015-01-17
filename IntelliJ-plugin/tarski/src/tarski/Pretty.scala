@@ -461,6 +461,7 @@ object Pretty {
     case ForeachStmt(t,v,e,s) => (SemiFix, ForTok :: parens(
       tokens(t) ::: tokens(v) ::: ColonTok :: tokens(e)) ::: tokens(s))
     case SyncStmt(e,s) => (SemiFix, SynchronizedTok :: parens(e) ::: tokens(s))
+    case CommentStmt(t) => (HighestFix,List(t))
     case _:DiscardStmt => impossible
   }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Env): (Fixity,Tokens) = (SemiFix, ss.map(tokens(_)).flatten)

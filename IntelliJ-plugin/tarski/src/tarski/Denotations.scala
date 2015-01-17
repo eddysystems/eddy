@@ -6,6 +6,7 @@ import tarski.Items._
 import tarski.Operators._
 import tarski.Types._
 import tarski.Scores._
+import tarski.Tokens._
 import scala.annotation.tailrec
 import scala.language.implicitConversions
 
@@ -274,6 +275,10 @@ object Denotations {
   case class DiscardStmt(ds: List[Stmt], s: Stmt) extends Stmt {
     def discards = ds ::: s.discards
     def strip = s.strip
+  }
+  case class CommentStmt(c: CommentTok) extends Stmt {
+    def discards = Nil
+    def strip = this
   }
 
   // It's all expressions from here

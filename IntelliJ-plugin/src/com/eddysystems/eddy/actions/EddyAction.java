@@ -31,7 +31,7 @@ public class EddyAction implements QuestionAction {
     if (eddy.getResultStrings() == null || eddy.getResultStrings().isEmpty())
       return "eddy knows nothing.";
     if (eddy.getResultStrings().size() == 1) {
-      return "eddy says: " + eddy.bestText();
+      return "eddy says: " + eddy.getResultStrings().get(0);
     } else {
       return "eddy thinks...";
     }

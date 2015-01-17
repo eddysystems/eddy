@@ -23,6 +23,11 @@ object Base {
   }
   private def comparable(t: RefType): ClassType = GenericType(ComparableItem,List(t),JavaLangPkg)
 
+  // Basic reference types
+  val StringType       = StringItem.simple
+  val CloneableType    = CloneableItem.simple
+  val SerializableType = SerializableItem.simple
+
   // Class Enum
   case object EnumBaseItem extends BaseItem {
     def name = "Enum"
@@ -55,7 +60,7 @@ object Base {
     def name = "Throwable"
     val base = ObjectType
     val interfaces = Nil
-    val supers = base :: interfaces
+    val supers = List(base)
     val superItems = supers map (_.item)
     def isFinal = false
   }
@@ -79,7 +84,7 @@ object Base {
     def name = "String"
     val base = ObjectType
     lazy val interfaces = List(comparable(inside),CharSequenceItem.simple,SerializableType)
-    lazy val supers = base :: interfaces
+    lazy val supers = interfaces
     val superItems = List(ObjectItem,ComparableItem,CharSequenceItem,SerializableItem)
     def isFinal = true
   }
@@ -89,7 +94,7 @@ object Base {
     def name = "Void"
     val base = ObjectType
     val interfaces = Nil
-    val supers = base :: interfaces
+    val supers = List(base)
     val superItems = supers map (_.item)
     def isFinal = true
   }
@@ -99,7 +104,7 @@ object Base {
     def name = "Boolean"
     val base = ObjectType
     val interfaces = List(comparable(inside),SerializableType)
-    val supers = base :: interfaces
+    val supers = interfaces
     val superItems = supers map (_.item)
     override def unbox = Some(BooleanType)
     override def unboxesToBoolean = true
@@ -109,7 +114,7 @@ object Base {
     def name = "Character"
     val base = ObjectType
     val interfaces = List(comparable(inside),SerializableType)
-    val supers = base :: interfaces
+    val supers = interfaces
     val superItems = supers map (_.item)
     override def unbox = Some(CharType)
     override def unboxNumeric = Some(CharType)
@@ -120,7 +125,7 @@ object Base {
     def name = "Number"
     val base = ObjectType
     val interfaces = List(SerializableType)
-    val supers = base :: interfaces
+    val supers = interfaces
     val superItems = supers map (_.item)
     def isFinal = false
   }

@@ -4,6 +4,7 @@ import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
+import com.intellij.openapi.application.ApplicationListener;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Document;
@@ -23,7 +24,7 @@ import org.jetbrains.annotations.NotNull;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
-public class EddyFileListener implements CaretListener, DocumentListener {
+public class EddyFileListener implements CaretListener, DocumentListener, ApplicationListener {
   private final @NotNull Project project;
   private final @NotNull Editor editor;
   private final @NotNull Document document;
@@ -290,4 +291,21 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     process();
   }
 
+  // ApplicationListener methods
+  @Override public boolean canExitApplication() { return true; }
+  @Override public void applicationExiting() {}
+  @Override public void writeActionStarted(Object action) {}
+  @Override public void writeActionFinished(Object action) {}
+
+  @Override public void beforeWriteActionStart(Object action) {
+    // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
+    synchronized (current_eddythread_lock) {
+      if (current_eddythread != null) {
+        current_eddythread.interrupt();
+        current_eddythread = null;
+        log("Killing eddy thread to allow write action:");
+        log(action);
+      }
+    }
+  }
 }

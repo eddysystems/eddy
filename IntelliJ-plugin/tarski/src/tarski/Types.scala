@@ -283,11 +283,6 @@ object Types {
   // None means the type variable is "raw" and therefore unknown.
   type Tenv = Map[TypeVar,Option[RefType]]
 
-  // Basic reference types
-  val StringType       = StringItem.simple
-  val CloneableType    = CloneableItem.simple
-  val SerializableType = SerializableItem.simple
-
   // Unary and binary numeric promotion (without unboxing logic)
   def promote(t: NumType): NumType = t match {
     case ByteType|ShortType|CharType => IntType
@@ -516,6 +511,10 @@ object Types {
       else t.superItems.foldLeft(ss+t)(loop)
     }
     t.superItems.foldLeft(Set(t))(loop)
+  }
+  def superItems(t: TypeItem): Set[RefTypeItem] = t match {
+    case t:RefTypeItem => superItems(t)
+    case _ => Set()
   }
 
   // Least upper bounds: 4.10.4
