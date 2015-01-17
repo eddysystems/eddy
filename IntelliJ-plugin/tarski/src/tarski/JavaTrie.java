@@ -250,47 +250,47 @@ public class JavaTrie {
     }
   }
 
-  // only one thread can call this function at a time because of the shared static working memory.
-  // concurrent eddy threads are rare (each one is killed as soon as a new one is started), so this should
-  // not be much of a problem.
-  private static final Object d_lock = new Object();
-  private static float[][] d = new float[10][10];
-  public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
-    synchronized (d_lock) {
-      d = levenshteinDistance(meant, meant_length, typed, typed_length, d);
-      return d[meant_length][typed_length];
+  // Thread local workspace storage
+  private static ThreadLocal<float[]> _workspace = new ThreadLocal<float[]>() {
+    @Override protected float[] initialValue() { return new float[0]; }
+  };
+  private static float[] workspace(final int size) {
+    float[] w = _workspace.get();
+    if (w.length < size) {
+      w = new float[Math.max(size,2*w.length)];
+      _workspace.set(w);
     }
+    return w;
   }
 
-  // TODO: use this function as much as possible to reduce thread locking (by having a d field in trie classes used by only one thread)
-  public static float[][] levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length, float[][] d) {
-    // make sure we have enough space
-    if (meant_length+1 > d.length || typed_length+1 > d[0].length)
-      d = new float[Math.max(meant_length+1,d.length)][Math.max(typed_length+1,d[0].length)];
+  public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
+    // Grab workspace
+    final int cols = typed_length+1;
+    final float[] d = workspace((meant_length+1)*cols);
 
     // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
 
     // fill first column (moving down equals deletion of a character in meant
     for (int i = 0; i <= meant_length; ++i) {
-      d[i][0] = i * StringMatching.deleteCostConst(); // d[i-1][0] + deleteCost(meant, i-1, "", 0);
+      d[i*cols] = i * StringMatching.deleteCostConst(); // d[i-1][0] + deleteCost(meant, i-1, "", 0);
     }
 
     // fill first row (moving right equals inserting a character into typed)
     for (int i = 1; i <= typed_length; ++i) {
-      d[0][i] = d[0][i-1] + insertCost(meant, 0, typed, i-1);
+      d[i] = d[i-1] + insertCost(meant, 0, typed, i-1);
     }
 
     for (int i = 1; i <= meant_length; ++i) {
       for (int j = 1; j <= typed_length; ++j) {
         // we're mentally at character i of what we intended to write, and we have already written j characters
-        float del = d[i-1][j] + StringMatching.deleteCostConst(); // deleteCost(meant, i-1, typed, j-1), // omit a character of what we intended to write
-        float ins = d[i][j-1] + insertCost(meant, i-1, typed, j-1); // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
-        float rep = d[i-1][j-1] + replaceCost(meant, i-1, typed, j-1, meant_length > i); // type a character (maybe getting it wrong)
-        d[i][j] = Math.min(Math.min(del, ins), rep);
+        float del = d[(i-1)*cols+j] + StringMatching.deleteCostConst(); // deleteCost(meant, i-1, typed, j-1), // omit a character of what we intended to write
+        float ins = d[i*cols+j-1] + insertCost(meant, i-1, typed, j-1); // insert a character typed[j-1] accidentally (without advancing our mental state of where we are with typing)
+        float rep = d[(i-1)*cols+j-1] + replaceCost(meant, i-1, typed, j-1, meant_length > i); // type a character (maybe getting it wrong)
+        d[i*cols+j] = Math.min(Math.min(del, ins), rep);
         // swapped two characters?
         if (j > 1 && i > 1) {
-          float swp = d[i-1][j-2] + swapCost(meant, i-2, typed, j-2);
-          d[i][j] = Math.min(d[i][j], swp);
+          float swp = d[(i-1)*cols+j-2] + swapCost(meant, i-2, typed, j-2);
+          d[i*cols+j] = Math.min(d[i*cols+j], swp);
         }
 
         // TODO: three subsequent replace actions are cheaper especially if the letters scrambled are on opposite
@@ -302,11 +302,10 @@ public class JavaTrie {
       String ms = String.copyValueOf(meant,0,meant_length);
       String ts = String.copyValueOf(typed,0,typed_length);
       float ld = StringMatching.levenshteinDistance(ms, ts);
-      if (d[meant_length][typed_length] != ld)
-        System.out.println("d(" + ms + ", " + ts + "): " + d[meant_length][typed_length] + ", ld: " + ld);
+      if (d[meant_length*cols+typed_length] != ld)
+        System.out.println("d(" + ms + ", " + ts + "): " + d[meant_length*cols+typed_length] + ", ld: " + ld);
     }
-
-    return d;
+    return d[meant_length*cols+typed_length];
   }
 
   // Find approximate matches for a string.  Exact matches are ignored.
