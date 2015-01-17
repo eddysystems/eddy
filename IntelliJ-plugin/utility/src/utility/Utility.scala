@@ -238,4 +238,9 @@ object Utility {
   // Dodge checked exception compile errors for a block of code
   abstract class Unchecked[A] { @throws(classOf[Exception]) def apply: A }
   def unchecked[A](f: Unchecked[A]): A = f.apply
+
+  // Tuple construction from Java
+  def tuple[A,B]    (a: A, b: B):             (A,B)     = (a,b)
+  def tuple[A,B,C]  (a: A, b: B, c: C):       (A,B,C)   = (a,b,c)
+  def tuple[A,B,C,D](a: A, b: B, c: C, d: D): (A,B,C,D) = (a,b,c,d)
 }

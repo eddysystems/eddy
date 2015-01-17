@@ -24,9 +24,10 @@ import scala.collection.immutable.Map;
 import tarski.*;
 import tarski.Scores.Alt;
 import tarski.Tokens.Token;
+import tarski.Tarski.ShowStmt;
 import utility.Locations.Located;
 import utility.Utility.Unchecked;
-import static utility.Utility.unchecked;
+import static utility.Utility.*;
 import java.util.List;
 import tarski.Environment.Env;
 import tarski.Denotations.Stmt;
@@ -57,19 +58,17 @@ public class Eddy {
   public static class Output {
     final private Eddy eddy;
     final public Input input;
-    final public Env env;
-    final public List<Alt<List<Tuple2<Stmt,String>>>> results;
+    final public List<Alt<List<ShowStmt>>> results;
     final public List<String> strings;
     final public boolean found_existing;
 
     // Mutable field: which output we've selected.  If we haven't explicitly selected something, offset < 0.
     private int selected = -1;
 
-    Output(final Eddy eddy, final Input input, final Env env, final List<Alt<List<Tuple2<Stmt,String>>>> results,
+    Output(final Eddy eddy, final Input input, final List<Alt<List<ShowStmt>>> results,
            final List<String> strings, final boolean found_existing) {
       this.eddy = eddy;
       this.input = input;
-      this.env = env;
       this.results = results;
       this.strings = strings;
       this.found_existing = found_existing;
@@ -283,12 +282,12 @@ public class Eddy {
     return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place,lastEdit);
   }
 
-  private List<Alt<List<Tuple2<Stmt,String>>>> results(final Input input, final Env env, final String special) {
+  private List<Alt<List<ShowStmt>>> results(final Input input, final Env env, final String special) {
     return Tarski.fixJava(input.input,env,new Tarski.Enough() {
-      @Override public boolean enough(List<Alt<List<Tuple2<Stmt,String>>>> rs) {
+      @Override public boolean enough(List<Alt<List<ShowStmt>>> rs) {
         if (rs.size() < 4) return false;
         if (special == null) return true;
-        for (final Alt<List<Tuple2<Stmt,String>>> r : rs)
+        for (final Alt<List<ShowStmt>> r : rs)
           if (reformat(input.place,r.x()).equals(special))
             return true;
         return false;
@@ -296,18 +295,18 @@ public class Eddy {
     });
   }
 
-  private Output output(final Input input, final Env env, final List<Alt<List<Tuple2<Stmt,String>>>> results) {
+  private Output output(final Input input, final List<Alt<List<ShowStmt>>> results) {
     final Tuple2<List<String>,Boolean> f = reformat(input.place,results,input.before_text);
-    return new Output(this,input,env,results,f._1(),f._2());
+    return new Output(this,input,results,f._1(),f._2());
   }
 
-  public Output process(final @NotNull Editor editor, final int lastEdit, final @Nullable String special) {
+  public Tuple2<Output,Env> process(final @NotNull Editor editor, final int lastEdit, final @Nullable String special) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
       final double start = Memory.now();
       Input input;
       Env env;
-      List<Alt<List<Tuple2<Stmt,String>>>> results;
+      List<Alt<List<ShowStmt>>> results;
       Output output;
       Throwable error;
 
@@ -315,10 +314,10 @@ public class Eddy {
         input   = Eddy.this.input(editor);
         env     = Eddy.this.env(input,lastEdit);
         results = Eddy.this.results(input,env,special);
-        output  = Eddy.this.output(input,env,results);
+        output  = Eddy.this.output(input,results);
       }
 
-      Output safe() {
+      Tuple2<Output,Env> safe() {
         try {
           if (isDebug()) // Run outside try so that we can see inside exceptions
             unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() throws Skip {
@@ -340,42 +339,42 @@ public class Eddy {
                                         results,
                                         output==null ? null : output.strings).error(error));
         }
-        return output;
+        return tuple(output,env);
       }
     }
     return new Helper().safe();
   }
 
   // Returns (strings,found_existing)
-  private Tuple2<List<String>,Boolean> reformat(final PsiElement place, List<Alt<List<Tuple2<Stmt,String>>>> results, String before_text) {
+  private Tuple2<List<String>,Boolean> reformat(final PsiElement place, List<Alt<List<ShowStmt>>> results, String before_text) {
     List<String> strings = new SmartList<String>();
     boolean found_existing = false;
-    for (Alt<List<Tuple2<Stmt,String>>> interpretation : results) {
+    for (final Alt<List<ShowStmt>> interpretation : results) {
       final String s = reformat(place,interpretation.x());
       strings.add(s);
       log("eddy result: '" + s + "' existing '" + before_text + "'");
       if (s.equals(before_text))
         found_existing = true;
     }
-    return new Tuple2<List<String>,Boolean>(strings,found_existing);
+    return tuple(strings,found_existing);
   }
 
   // The string should be a single syntactically valid statement
-  private String reformat(final PsiElement place, @NotNull Stmt s, @NotNull String in) {
-    if (s instanceof Denotations.CommentStmt)
-      return ((Denotations.CommentStmt)s).c().content();
-    PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(in, place);
-    CodeStyleManager.getInstance(project).reformat(elem, true);
+  private String reformat(final PsiElement place, final @NotNull ShowStmt s) {
+    if (s.comment().nonEmpty())
+      return s.comment().get();
+    PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(s.show(),place);
+    CodeStyleManager.getInstance(project).reformat(elem,true);
     return elem.getText();
   }
 
-  private String reformat(final PsiElement place, @NotNull List<Tuple2<Stmt,String>> in) {
+  private String reformat(final PsiElement place, @NotNull List<ShowStmt> in) {
     String r = "";
     boolean first = true;
-    for (final Tuple2<Stmt,String> ss : in) {
+    for (final ShowStmt s : in) {
       if (first) first = false;
       else r += " ";
-      r += reformat(place,ss._1(),ss._2());
+      r += reformat(place,s);
     }
     return r;
   }

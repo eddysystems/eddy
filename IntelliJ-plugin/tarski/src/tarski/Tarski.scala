@@ -41,12 +41,20 @@ object Tarski {
     }
   }
 
+  // (show(s),s.toString) for a statement s.  Once we convert Stmt to ShowStmt, Env can be discarded.
+  case class ShowStmt(show: String, den: String, comment: Option[String])
+  object ShowStmt {
+    def apply(s: Stmt)(implicit env: Pretty.Scope): ShowStmt =
+      new ShowStmt(show(s),s.toString,s match {
+        case CommentStmt(c) => Some(c.content)
+        case _ => None
+      })
+  }
+
   // Java and Scala result types
   type JList[A] = java.util.List[A]
-  type  Result =  List[(Stmt,String)]
-  type JResult = JList[(Stmt,String)]
-  type  Results =  List[Alt[ Result]]
-  type JResults = JList[Alt[JResult]]
+  type  Results =  List[Alt[ List[ShowStmt]]]
+  type JResults = JList[Alt[JList[ShowStmt]]]
 
   abstract class Enough {
     def enough(rs: JResults): Boolean
@@ -59,15 +67,15 @@ object Tarski {
     //println(s"fix found: empty ${r.isEmpty}, single ${r.isSingle}, best ${r.best}")
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
-    def mergeTake(s: Stream[Alt[Result]])(m: Map[List[String],Alt[List[Stmt]]]): JResults = {
-      val rs = (m.toList map {case (a,Alt(p,b)) => Alt(p,(b,a).zipped.toList.asJava)} sortBy (-_.p)).asJava
+    def mergeTake(s: Stream[Alt[List[ShowStmt]]])(m: Map[List[String],Alt[List[ShowStmt]]]): JResults = {
+      val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
       if (s.isEmpty || enough.enough(rs)) rs
       else {
-        val Alt(p,ba) = s.head
-        val (b,a) = ba.unzip
+        val Alt(p,b) = s.head
+        val a = b map (_.show)
         mergeTake(s.tail)(m + ((a,m get a match {
           case None => Alt(p,b)
-          case Some(Alt(q,c)) => Alt(padd(q,p),c) // Use the List[Stmt] from the higher probability alternative
+          case Some(Alt(q,c)) => Alt(padd(q,p),c) // Use the List[ShowStmt] from the higher probability alternative
         })))
       }
     }
@@ -75,11 +83,11 @@ object Tarski {
     r.map { case (env,s) => {
       implicit val e = env
       println(s"$s => ${s.map(show(_))}")
-      s.map(x => (x,show(x)))
+      s map (ShowStmt(_))
     }}.all match {
       case Left(error) =>
         if (trackErrors) println("fixJava failed:\n"+error.prefixed("error: "))
-        new java.util.ArrayList[Alt[JResult]]
+        new java.util.ArrayList[Alt[JList[ShowStmt]]]
       case Right(all) =>
         val rs = mergeTake(all)(Map.empty)
         rs.asScala foreach {case Alt(p,r) => println(s"$p: $r")}

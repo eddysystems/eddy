@@ -88,7 +88,7 @@ public class EddyThread extends Thread {
             try {
               EddyPlugin.getInstance(project).getWidget().moreBusy();
 
-              output = eddy.process(editor,lastEditLocation,null);
+              output = eddy.process(editor,lastEditLocation,null)._1();
               if (isInterrupted())
                 return;
               cont.consume(output);
