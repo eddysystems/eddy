@@ -473,5 +473,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("comment.java", "return false; // A comment", .9);
   }
 
+  public void testParameterVsField() {
+    testMargin("parameterVsField.java", "f(x);", .9);
+  }
+
+  public void testParameter() {
+    testMargin("parameter.java", "f(x);", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }

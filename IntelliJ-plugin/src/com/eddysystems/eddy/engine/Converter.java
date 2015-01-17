@@ -1184,7 +1184,7 @@ class Converter {
     LazyLocal(Converter env, PsiVariable var, boolean isFinal) {
       this.env = env;
       this.var = var;
-      this._isParameter = env instanceof PsiParameter;
+      this._isParameter = var instanceof PsiParameter;
       this._name = var.getName();
       this._isFinal = isFinal;
     }
