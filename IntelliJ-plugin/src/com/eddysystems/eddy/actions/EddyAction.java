@@ -2,7 +2,6 @@ package com.eddysystems.eddy.actions;
 
 import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.QuestionAction;
-import com.intellij.codeInsight.intention.IntentionAction;
 import com.intellij.ide.DataManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -28,13 +27,17 @@ public class EddyAction implements QuestionAction {
   }
 
   public String getText() {
-    if (eddy.getResultStrings() == null || eddy.getResultStrings().isEmpty())
-      return "eddy knows nothing.";
+    if (!eddy.foundSomething())
+      return "eddy knows nothing (action)";
     if (eddy.getResultStrings().size() == 1) {
       return "eddy says: " + eddy.getResultStrings().get(0);
     } else {
       return "eddy thinks...";
     }
+  }
+
+  public boolean isAvailable() {
+    return eddy.foundSomething();
   }
 
   @Override

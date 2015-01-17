@@ -26,7 +26,7 @@ public class EddyIntention implements IntentionAction, HighPriorityAction, Icona
   }
   @Override @NotNull public String getText() {
     if (action == null)
-      return "eddy knows nothing.";
+      return "eddy knows nothing (intention)";
     else
       return action.getText();
   }
@@ -37,7 +37,7 @@ public class EddyIntention implements IntentionAction, HighPriorityAction, Icona
     if (action == null)
       return false;
     else
-      return true;
+      return action.isAvailable();
   }
 
   @Override

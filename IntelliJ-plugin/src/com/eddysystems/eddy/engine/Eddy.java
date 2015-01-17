@@ -310,6 +310,10 @@ public class Eddy {
     return resultStrings;
   }
 
+  public boolean foundSomething() {
+    return results != null && !results.isEmpty();
+  }
+
   public boolean foundSomethingUseful() {
     // did we find useful meanings, and are those meanings different from what's already there?
     return !found_existing && results != null && !results.isEmpty();
