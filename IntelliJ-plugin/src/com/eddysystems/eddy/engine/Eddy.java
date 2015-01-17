@@ -54,7 +54,7 @@ public class Eddy {
 
   public Eddy(@NotNull final Project project) {
     this.project = project;
-    this.base = Memory.basics(EddyPlugin.installKey(), "0.1", project.getName()); // TODO: Real version
+    this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
   }
 
   // applies a result in the editor

@@ -3,6 +3,9 @@ PARSE = tarski/src/tarski/ParseEddy.java
 ACTIONS = tarski/src/tarski/ParseEddyActions.scala
 AMBIGUITY = out/artifacts/ambiguity_jar/ambiguity.jar
 
+MODIFIED = `git status --short | grep -c ""` 
+COMMIT = `git log --no-color --oneline --no-abbrev | head -n1 | awk '{ print $$1; }'`
+
 all: $(PARSE) $(ACTIONS)
 jar: eddy.jar
 
@@ -11,6 +14,10 @@ $(PARSE): $(AMBIGUITY) $(GRAM)
 
 $(ACTIONS): $(AMBIGUITY) $(GRAM)
 	java -jar $(AMBIGUITY) -a $(GRAM) > $(ACTIONS)
+
+.PHONY: commit
+commit: 
+	@echo $(COMMIT) 
 
 eddy.jar: eddy.zip shrink.pro
 	proguard @shrink.pro

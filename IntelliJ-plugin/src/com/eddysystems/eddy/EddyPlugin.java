@@ -18,11 +18,16 @@ import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiTreeChangeListener;
+import com.intellij.util.PathUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.popScope;
@@ -45,6 +50,35 @@ public class EddyPlugin implements ProjectComponent {
       }
     }
     return _install;
+  }
+
+  static private Properties _properties = null;
+  public static Properties getProperties() {
+    if (_properties == null) {
+      _properties = new Properties();
+
+      try {
+        String pathname = PathUtil.getJarPathForClass(EddyPlugin.class);
+        File path = new File(pathname);
+        if (path.isDirectory()) {
+          log("looking for resources in directory: " + pathname);
+          _properties.load(new FileInputStream(new File(path, "eddy.properties")));
+        } else {
+          _properties.load(_properties.getClass().getClassLoader().getResourceAsStream("eddy.properties"));
+        }
+      } catch (IOException e) {
+        log("cannot read version information: " + e);
+      }
+    }
+    return _properties;
+  }
+
+  public static String getVersion() {
+    return getProperties().getProperty("version");
+  }
+
+  public static String getBuild() {
+    return getProperties().getProperty("build");
   }
 
   public Project getProject() { return project; }
@@ -115,9 +149,9 @@ public class EddyPlugin implements ProjectComponent {
           if (sbar != null) {
             widget.lessBusy();
             if (err.isEmpty())
-              sbar.setInfo("eddy scan done.");
+              sbar.setInfo("eddy initialized.");
             else
-              sbar.setInfo("eddy scan aborted, " + err);
+              sbar.setInfo("eddy library scan aborted, " + err);
           }
         }
       }
@@ -155,7 +189,7 @@ public class EddyPlugin implements ProjectComponent {
 
     // schedule initialization if necessary
     final Runnable init = new Runnable() { @Override public void run() {
-      ProgressManager.getInstance().run(new Task.Backgroundable(project, "Eddy scan", true, new PerformInBackgroundOption() {
+      ProgressManager.getInstance().run(new Task.Backgroundable(project, "initializing eddy...", true, new PerformInBackgroundOption() {
         @Override public boolean shouldStartInBackground() { return true; }
         @Override public void processSentToBackground() { }
       }) {
@@ -179,7 +213,7 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void initComponent() {
-    log("eddy starting: installation " + installKey());
+    log("eddy starting: installation " + installKey() + " version " + getVersion() + " build " + getBuild());
 
     // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
