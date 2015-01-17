@@ -168,6 +168,7 @@ public class EddyPlugin implements ProjectComponent {
 
     projectMap.put(project, this);
     injector = new EddyInjector(project);
+    app.addApplicationListener(new EddyApplicationListener());
 
     // TODO: talk to server to send usage info
   }

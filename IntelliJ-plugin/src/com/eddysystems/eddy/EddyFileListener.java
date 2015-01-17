@@ -4,9 +4,7 @@ import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
-import com.intellij.openapi.application.ApplicationListener;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.CaretEvent;
@@ -15,16 +13,16 @@ import com.intellij.openapi.editor.event.DocumentEvent;
 import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.TextEditor;
-import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.ui.LightweightHint;
+import com.intellij.util.Consumer;
 import org.jetbrains.annotations.NotNull;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
-public class EddyFileListener implements CaretListener, DocumentListener, ApplicationListener {
+public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Project project;
   private final @NotNull Editor editor;
   private final @NotNull Document document;
@@ -55,10 +53,6 @@ public class EddyFileListener implements CaretListener, DocumentListener, Applic
 
   private boolean inChange = false;
   private int lastEditLocation = -1;
-
-  public int getLastEditLocation() {
-    return lastEditLocation;
-  }
 
   public EddyFileListener(@NotNull Project project, TextEditor editor) {
     this.project = project;
@@ -97,9 +91,24 @@ public class EddyFileListener implements CaretListener, DocumentListener, Applic
       if (current_eddythread != null) {
         current_eddythread.interrupt();
       }
-      current_eddythread = new EddyThread(this);
+      current_eddythread = new EddyThread(project,editor,lastEditLocation,new Consumer<Eddy>() {
+        @Override public void consume(Eddy eddy) { showHint(eddy); }
+      });
       current_eddythread_owner = this;
       current_eddythread.start();
+    }
+  }
+
+  // True if a thread was actually killed
+  public static boolean killEddyThread() {
+    // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
+    synchronized (current_eddythread_lock) {
+      if (current_eddythread != null) {
+        current_eddythread.interrupt();
+        current_eddythread = null;
+        return true;
+      }
+      return false;
     }
   }
 
@@ -109,115 +118,6 @@ public class EddyFileListener implements CaretListener, DocumentListener, Applic
       return (EddyThread)t;
     else
       return null;
-  }
-
-  public static class EddyThread extends Thread {
-    private final Eddy eddy;
-    private final EddyFileListener owner;
-
-    EddyThread(EddyFileListener owner) {
-      this.setName("Eddy thread " + getId());
-      this.owner = owner;
-      this.eddy = new Eddy(owner.project);
-    }
-
-    private boolean softInterrupts = false;
-    private boolean _canceled = false;
-
-    public boolean canceled() {
-      return _canceled;
-    }
-
-    public synchronized void setSoftInterrupts(boolean b) {
-      if (softInterrupts == b)
-        return;
-
-      softInterrupts = b;
-
-      // if we switch to soft interrupts and we were interrupted, kill the thread now
-      if (softInterrupts && isInterrupted()) {
-        throw new ThreadDeath();
-      }
-
-      // if we switch back to hard interrupts and we tried interrupting before, interrupt now.
-      if (!softInterrupts && _canceled) {
-        interrupt();
-      }
-    }
-
-    public synchronized void interrupt() {
-      if (_canceled)
-        return;
-      eddy.cancel();
-      _canceled = true;
-      if (softInterrupts) {
-        log("soft interrupting " + this.getName());
-      } else {
-        log("interrupting " + this.getName());
-        super.interrupt();
-      }
-    }
-
-    @Override
-    public void run() {
-      try {
-        // must be in smart mode, must be inside read action
-        final long start = System.nanoTime();
-        DumbService.getInstance(owner.project).runReadActionInSmartMode(new Runnable() {
-            @Override
-            public void run() {
-            // if we waited for smart mode, don't wait too much longer
-            try {
-              int millis = new Double(200-(System.nanoTime()-start)/1e3).intValue();
-              if (millis > 0)
-                sleep(millis);
-
-              try {
-                EddyPlugin.getInstance(owner.project).getWidget().moreBusy();
-
-                eddy.process(owner.editor,owner.getLastEditLocation(),null);
-                if (isInterrupted())
-                  return;
-                showHint();
-              } finally {
-                EddyPlugin.getInstance(owner.project).getWidget().lessBusy();
-              }
-            } catch (InterruptedException e) {
-              // interrupted while sleeping, ignore
-            }
-          }
-        });
-      } catch (RuntimeInterruptedException e) {
-        // interrupted while sleeping inside DumbService, ignore
-      }
-    }
-
-    protected void showHint() {
-      final int line = owner.editor.getCaretModel().getLogicalPosition().line;
-      final EddyAction action = new EddyAction(eddy);
-      synchronized (active_lock) {
-        active_instance = owner;
-        active_line = line;
-        active_action = action;
-        active_hint_instance = null;
-        // show hint
-        if (eddy.foundSomethingUseful()) {
-          final int offset = owner.editor.getCaretModel().getOffset();
-          final LightweightHint hint = EddyHintLabel.makeHint(eddy);
-
-          // we can only show hints from the UI thread, so schedule that
-          ApplicationManager.getApplication().invokeLater(new Runnable() {
-            @Override public void run() {
-              // whoever showed the hint last is it
-              // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
-              // no synchronization is needed in here
-              active_hint_instance = owner;
-              HintManagerImpl.getInstanceImpl().showQuestionHint(owner.editor, offset, offset + 1, hint, action, HintManager.ABOVE);
-            }
-          });
-        }
-      }
-    }
   }
 
   protected void process() {
@@ -237,11 +137,38 @@ public class EddyFileListener implements CaretListener, DocumentListener, Applic
     });
   }
 
+  private void showHint(final Eddy eddy) {
+    final int line = editor.getCaretModel().getLogicalPosition().line;
+    final EddyAction action = new EddyAction(eddy);
+    synchronized (active_lock) {
+      active_instance = this;
+      active_line = line;
+      active_action = action;
+      active_hint_instance = null;
+      // show hint
+      if (eddy.foundSomethingUseful()) {
+        final int offset = editor.getCaretModel().getOffset();
+        final LightweightHint hint = EddyHintLabel.makeHint(eddy);
+
+        // we can only show hints from the UI thread, so schedule that
+        ApplicationManager.getApplication().invokeLater(new Runnable() {
+          @Override public void run() {
+            // whoever showed the hint last is it
+            // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
+            // no synchronization is needed in here
+            active_hint_instance = EddyFileListener.this;
+            HintManagerImpl.getInstanceImpl().showQuestionHint(editor, offset, offset + 1, hint, action, HintManager.ABOVE);
+          }
+        });
+      }
+    }
+  }
+
   public void nextResult() {
     synchronized (current_eddythread_lock) {
       if (current_eddythread_owner == this) {
         if (current_eddythread.eddy.nextBestResult())
-          current_eddythread.showHint();
+          showHint(current_eddythread.eddy);
       }
     }
   }
@@ -250,7 +177,7 @@ public class EddyFileListener implements CaretListener, DocumentListener, Applic
     synchronized (current_eddythread_lock) {
       if (current_eddythread_owner == this) {
         if (current_eddythread.eddy.prevBestResult())
-          current_eddythread.showHint();
+          showHint(current_eddythread.eddy);
       }
     }
   }
@@ -291,23 +218,5 @@ public class EddyFileListener implements CaretListener, DocumentListener, Applic
     inChange = false;
     lastEditLocation = event.getOffset();
     process();
-  }
-
-  // ApplicationListener methods
-  @Override public boolean canExitApplication() { return true; }
-  @Override public void applicationExiting() {}
-  @Override public void writeActionStarted(Object action) {}
-  @Override public void writeActionFinished(Object action) {}
-
-  @Override public void beforeWriteActionStart(Object action) {
-    // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
-    synchronized (current_eddythread_lock) {
-      if (current_eddythread != null) {
-        current_eddythread.interrupt();
-        current_eddythread = null;
-        log("Killing eddy thread to allow write action:");
-        log(action);
-      }
-    }
   }
 }
