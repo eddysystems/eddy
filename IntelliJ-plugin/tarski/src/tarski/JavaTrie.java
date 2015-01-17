@@ -250,9 +250,20 @@ public class JavaTrie {
     }
   }
 
-  // TODO: this is not thread-safe, these functions should be a part of the Trie class, and d should be a field.
+  // only one thread can call this function at a time because of the shared static working memory.
+  // concurrent eddy threads are rare (each one is killed as soon as a new one is started), so this should
+  // not be much of a problem.
+  private static final Object d_lock = new Object();
   private static float[][] d = new float[10][10];
   public static float levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length) {
+    synchronized (d_lock) {
+      d = levenshteinDistance(meant, meant_length, typed, typed_length, d);
+      return d[meant_length][typed_length];
+    }
+  }
+
+  // TODO: use this function as much as possible to reduce thread locking (by having a d field in trie classes used by only one thread)
+  public static float[][] levenshteinDistance(char[] meant, int meant_length, char[] typed, int typed_length, float[][] d) {
     // make sure we have enough space
     if (meant_length+1 > d.length || typed_length+1 > d[0].length)
       d = new float[Math.max(meant_length+1,d.length)][Math.max(typed_length+1,d[0].length)];
@@ -295,14 +306,14 @@ public class JavaTrie {
         System.out.println("d(" + ms + ", " + ts + "): " + d[meant_length][typed_length] + ", ld: " + ld);
     }
 
-    return d[meant_length][typed_length];
+    return d;
   }
 
   // Find approximate matches for a string.  Exact matches are ignored.
   // We take char[] instead of String for typed to avoid string allocations (use _.toCharArray to convert)
   public static <V> scala.collection.immutable.List<Scores.Alt<V>>
   levenshteinLookupGenerated(final int[] structure, final Tries.Generator<V> lookup, final char[] typed,
-                    final float maxDistance, final double expected, final double minProb) {
+                             final float maxDistance, final double expected, final double minProb) {
     final List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
     final int typed_length = typed.length;
 
