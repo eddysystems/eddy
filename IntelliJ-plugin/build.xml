@@ -2,7 +2,7 @@
 
   <property name="version" value="0.1"/>
 
-  <target name="version">
+  <target name="properties">
     <tstamp>
         <format property="builtat" pattern="MM/dd/yyyy hh:mm aa"/>
     </tstamp>
