@@ -124,7 +124,6 @@ public class EddyPlugin implements ProjectComponent {
         String err = "";
 
         if (sbar != null) {
-          sbar.setInfo("eddy is scanning libraries...");
           widget.moreBusy();
         }
 
