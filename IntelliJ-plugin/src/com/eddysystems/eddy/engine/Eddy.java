@@ -285,15 +285,12 @@ public class Eddy {
 
   private List<Alt<List<Tuple2<Stmt,String>>>> results(final Input input, final Env env, final String special) {
     return Tarski.fixJava(input.input,env,new Tarski.Enough() {
-      @Override public boolean enough(Map<List<Tuple2<Stmt,String>>,Object> m) {
-        if (m.size() < 4) return false;
+      @Override public boolean enough(List<Alt<List<Tuple2<Stmt,String>>>> rs) {
+        if (rs.size() < 4) return false;
         if (special == null) return true;
-        final Iterator<List<Tuple2<Stmt, String>>> i =  m.keysIterator();
-        while (i.hasNext()) {
-          final List<Tuple2<Stmt, String>> x = i.next();
-          if (reformat(input.place,x).equals(special))
+        for (final Alt<List<Tuple2<Stmt,String>>> r : rs)
+          if (reformat(input.place,r.x()).equals(special))
             return true;
-        }
         return false;
       }
     });
