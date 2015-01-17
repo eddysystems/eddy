@@ -18,7 +18,7 @@ public class EddyAction implements QuestionAction {
   private final @NotNull Eddy.Output output;
   private final @NotNull Editor editor;
 
-  public EddyAction(final Eddy.Output output, final Editor editor) {
+  public EddyAction(final @NotNull Eddy.Output output, final Editor editor) {
     this.output = output;
     this.editor = editor;
   }

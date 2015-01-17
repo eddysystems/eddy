@@ -138,6 +138,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   private void showHint(final Eddy.Output output) {
+    if (output == null)
+      return; // Don't make a hint if there's no output
     final int line = editor.getCaretModel().getLogicalPosition().line;
     final EddyAction action = new EddyAction(output,editor);
     synchronized (active_lock) {
