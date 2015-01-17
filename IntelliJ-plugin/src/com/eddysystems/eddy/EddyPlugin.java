@@ -35,6 +35,7 @@ import static utility.JavaUtils.pushScope;
 
 public class EddyPlugin implements ProjectComponent {
   @NotNull final private Application app;
+  @NotNull final private EddyApplicationListener listener;
   private Project project;
 
   // Find our "install" key, or create it if necessary
@@ -167,7 +168,8 @@ public class EddyPlugin implements ProjectComponent {
 
     projectMap.put(project, this);
     injector = new EddyInjector(project);
-    app.addApplicationListener(new EddyApplicationListener());
+    listener = new EddyApplicationListener();
+    app.addApplicationListener(listener);
 
     // TODO: talk to server to send usage info
   }
@@ -232,17 +234,17 @@ public class EddyPlugin implements ProjectComponent {
 
   public void disposeComponent() {
     log("disposing plugin.");
-
-    assert ApplicationManager.getApplication().isDispatchThread();
-
+    assert app.isDispatchThread();
     projectMap.remove(project);
-    StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+    final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+
     if (sbar != null)
       sbar.removeWidget(widget.ID());
 
-    if (psiListener != null) {
+    if (psiListener != null)
       PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
-    }
+
+    app.removeApplicationListener(listener);
   }
 
   @NotNull
