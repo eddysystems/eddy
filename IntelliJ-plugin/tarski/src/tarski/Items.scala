@@ -300,12 +300,11 @@ object Items {
       def isFinal: Boolean
     }
     abstract class Local extends Value {
-      override def toString = (if (isParameter) "param:" else "local:") + name
+      override def toString = "local:" + name
       def ty: Type
       def item = ty.item
-      def isParameter: Boolean // true if parameter, false if local variable
     }
-    case class NormalLocal(name: Name, ty: Type, isParameter: Boolean = false, isFinal: Boolean = true) extends Local {}
+    case class NormalLocal(name: Name, ty: Type, isFinal: Boolean = true) extends Local {}
     sealed abstract class ThisOrSuper extends Value with PseudoCallableItem {
       def ty: ClassType
     }
@@ -332,10 +331,10 @@ object Items {
     }
 
     // Normal values
-    case class NormalFieldItem(name: Name, inside: Type, parent: ClassItem, isFinal: Boolean) extends FieldItem {
+    case class NormalFieldItem(name: Name, inside: Type, parent: ClassItem, isFinal: Boolean = true) extends FieldItem {
       val isStatic = false
     }
-    case class NormalStaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean) extends FieldItem {
+    case class NormalStaticFieldItem(name: Name, ty: Type, parent: ClassItem, isFinal: Boolean = true) extends FieldItem {
       val isStatic = true
       def inside: Type = ty
     }

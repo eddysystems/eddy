@@ -1174,7 +1174,6 @@ class Converter {
   protected static class LazyLocal extends Local implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableFinalItem {
     private final Converter env;
     private final PsiVariable var;
-    private final boolean _isParameter;
     private String _name;
     private boolean _isFinal;
 
@@ -1184,7 +1183,6 @@ class Converter {
     LazyLocal(Converter env, PsiVariable var, boolean isFinal) {
       this.env = env;
       this.var = var;
-      this._isParameter = var instanceof PsiParameter;
       this._name = var.getName();
       this._isFinal = isFinal;
     }
@@ -1204,7 +1202,6 @@ class Converter {
       }
       return _ty;
     }
-    public boolean isParameter() { return _isParameter; }
     public void setFinal(boolean b) { _isFinal = b; }
     public void refreshName() { _name = var.getName(); }
 
@@ -1224,15 +1221,15 @@ class Converter {
       return var;
     }
 
-    PsiElement _place = null;
-    boolean _accessible = false;
+    private PsiElement _place = null;
+    private boolean _accessible = false;
     @Override
     public boolean accessible(Environment.PlaceInfo info) {
       if (info.exactPlace() != _place) {
         _place = info.exactPlace();
-        if (_isParameter) {
+        if (var instanceof PsiParameter)
           _accessible = PsiTreeUtil.isAncestor(((PsiParameter)psi()).getDeclarationScope(), _place, false);
-        } else {
+        else {
           // find code block, check if place is inside code block, and after our declaration
           PsiCodeBlock cb = PsiTreeUtil.getParentOfType(psi(), PsiCodeBlock.class, true);
           if (PsiTreeUtil.isAncestor(cb, _place, false)) {

@@ -76,7 +76,7 @@ class TestPretty {
 
   @Test def applyFixity() = {
     val A = NormalClassItem("A", LocalPkg)
-    val a = NormalLocal("a", A.simple, isParameter=false, isFinal=false);
+    val a = NormalLocal("a", A.simple, isFinal=false)
     val f = NormalMethodItem("f",A,Nil,A.simple,Nil,isStatic=true)
     implicit val env = Env(Array(A,f,a), Map((a,1),(f,2)),PlaceInfo(f))
     test("a.f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(Some(LocalExp(a)),f),Nil,auto=false)),f),Nil,auto=false))
