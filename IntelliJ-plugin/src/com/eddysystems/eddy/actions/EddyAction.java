@@ -26,11 +26,10 @@ public class EddyAction implements QuestionAction {
   public String getText() {
     if (!output.foundSomething())
       return "eddy knows nothing (action)";
-    if (output.strings.size() == 1) {
-      return "eddy says: " + output.strings.get(0);
-    } else {
+    if (output.results.size() == 1)
+      return "eddy says: " + output.format(0);
+    else
       return "eddy thinks...";
-    }
   }
 
   public boolean isAvailable() {
@@ -46,7 +45,7 @@ public class EddyAction implements QuestionAction {
     else {
       // show selection dialog
       final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy thinks:", output.strings) {
+        new BaseListPopupStep<String>("eddy thinks:", output.formats()) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;

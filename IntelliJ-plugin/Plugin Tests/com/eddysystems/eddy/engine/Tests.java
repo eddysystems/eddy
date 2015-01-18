@@ -84,7 +84,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     isSetUp = true;
   }
 
-  private Tuple2<Eddy.Output,Env> makeEddy(@Nullable String special, int lastEdit) {
+  private Eddy makeEddy() {
     if (!isSetUp) try {
       setUp();
     } catch (Exception e) { log("setup threw: " + e); }
@@ -95,22 +95,28 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     log("Document:");
     log(myFixture.getEditor().getDocument().getCharsSequence());
     final Eddy eddy = new Eddy(myFixture.getProject(),myFixture.getEditor());
-    if (lastEdit == -1) {
-      lastEdit = myFixture.getEditor().getCaretModel().getOffset();
-    }
-    return eddy.process(myFixture.getEditor(),lastEdit,special);
+    return eddy;
   }
 
-  private Tuple2<Eddy.Output,Env> setupEddy(final @Nullable String special, final int lastEdit, final String... filename) {
-    pushScope("setup eddy");
+  private Env setupEnv(int lastEdit, final String... filename) throws Exception {
+    pushScope("setup eddy env");
     try {
       myFixture.configureByFiles(filename);
-      return makeEddy(special, lastEdit);
+      if (lastEdit < 0)
+        lastEdit = myFixture.getEditor().getCaretModel().getOffset();
+      final Eddy eddy = makeEddy();
+      return eddy.env(eddy.input(myFixture.getEditor()),lastEdit);
     } finally { popScope(); }
   }
 
-  private Tuple2<Eddy.Output,Env> setupEddy(final @Nullable String special, final String... filenames) {
-    return setupEddy(special, -1, filenames);
+  private Eddy.Output setupEddy(final @Nullable String special, int lastEdit, final String... filename) {
+    pushScope("setup eddy");
+    try {
+      myFixture.configureByFiles(filename);
+      if (lastEdit < 0)
+        lastEdit = myFixture.getEditor().getCaretModel().getOffset();
+      return makeEddy().process(myFixture.getEditor(),lastEdit,special);
+    } finally { popScope(); }
   }
 
   private void dumpResults(final Eddy.Output output, final String special) {
@@ -122,7 +128,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     log("results:");
     for (int i=0;i<output.results.size();i++) {
       final Alt<List<ShowStmt>> r = output.results.get(i);
-      final String s = output.strings.get(i);
+      final String s = output.format(i);
       if (i >= 4 && (special==null || !special.equals(s))) continue;
       if (i > 0) log(sep);
       log("  " + s);
@@ -158,12 +164,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   private void checkResult(Eddy.Output output, String expected) {
     dumpResults(output,expected);
-    assertTrue("eddy did not find correct solution: " + expected, output.strings.contains(expected));
+    assertTrue("eddy did not find correct solution: " + expected, output.formats().contains(expected));
   }
 
   private void checkBest(Eddy.Output output, String best, double margin) {
     dumpResults(output,best);
-    final List<String> ss = output.strings;
+    final List<String> ss = output.formats();
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
@@ -179,41 +185,41 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   private void checkPriority(final Eddy.Output output, String high, String lo) {
     dumpResults(output,null);
     double phi = 0, plo = 0;
-    for (int i = 0; i < output.strings.size(); ++i) {
+    for (int i = 0; i < output.results.size(); ++i) {
       double p = output.results.get(i).p();
-      if (output.strings.get(i).equals(high))
+      if (output.format(i).equals(high))
         phi = p;
-      else if (output.strings.get(i).equals(lo))
+      else if (output.format(i).equals(lo))
         plo = p;
     }
     assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phi + "), but shouldn't.", plo < phi);
   }
 
   private void test(String filename, String expected) {
-    checkResult(setupEddy(null,filename)._1(),expected);
+    checkResult(setupEddy(null,-1,filename),expected);
   }
 
   private void testMargin(String filename, String best, double margin) {
-    checkBest(setupEddy(null,filename)._1(),best,margin);
+    checkBest(setupEddy(null,-1,filename),best,margin);
   }
 
   private void testPriority(String filename, String hi, String lo) {
-    checkPriority(setupEddy(null,filename)._1(),hi,lo);
+    checkPriority(setupEddy(null,-1,filename),hi,lo);
   }
 
   // actual tests
   public void testCreateEddy() throws Exception {
-    setupEddy(null,"dummy.java");
+    setupEddy(null,-1,"dummy.java");
   }
 
   public void testProbLE1() {
-    final Eddy.Output output = setupEddy(null,"denote_x.java")._1();
+    final Eddy.Output output = setupEddy(null,-1,"denote_x.java");
     for (final Alt<List<ShowStmt>> result : output.results)
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 
-  public void testTypeVar() {
-    final Env env = setupEddy(null,"typeVar.java")._2();
+  public void testTypeVar() throws Exception {
+    final Env env = setupEnv(-1,"typeVar.java");
     int As = 0, Bs = 0, Cs = 0;
     for (Item i : env.allLocalItems()) {
       final String n = i.name();
@@ -227,8 +233,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assert Cs==0;
   }
 
-  public void testImplicitConstructor() {
-    final Env env = setupEddy(null,"ConstructorTest.java")._2();
+  public void testImplicitConstructor() throws Exception {
+    final Env env = setupEnv(-1,"ConstructorTest.java");
     for (Item i : env.allLocalItems()) {
       if (!(i instanceof Items.ClassItem))
         continue;
@@ -374,9 +380,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   }
   
-  public void testVisibility() {
+  public void testVisibility() throws Exception {
     // package resolution only works if directory structure is consistent
-    final Env env = setupEddy(null, "scope1/scopes1.java", "scope2/scopes2.java")._2();
+    final Env env = setupEnv(-1, "scope1/scopes1.java", "scope2/scopes2.java");
     JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
     log("local items: ");
     log(jenv.localItems);

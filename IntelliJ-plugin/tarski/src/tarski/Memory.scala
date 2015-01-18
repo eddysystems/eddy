@@ -64,10 +64,11 @@ object Memory {
                      .add("project",project)
 
   // Specific kinds of messages
-  def eddyApply(base: Info, input: JList[Located[Token]], results: JList[Alt[JList[ShowStmt]]], formatted: JList[String], choice: String) = {
+  def eddyApply(base: Info, input: JList[Located[Token]], results: JList[Alt[JList[ShowStmt]]], choice: String) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[Seq[String]] = if (results==null) null else results.asScala.map(_.x.asScala.map(_.den))
     val tokens: Seq[Alt[Seq[String]]] = if (results==null) null else results.asScala.map(_ map (_.asScala.map(_.show)))
+    val formatted: Seq[Seq[String]]   = if (results==null) null else results.asScala.map(_.x.asScala map (_.format))
     base.add("kind","Eddy.apply")
         .add("input",input)
         .add("results",tokens)
@@ -76,10 +77,11 @@ object Memory {
         .add("choice",choice)
   }
 
-  def eddyProcess(base: Info, start: Double, input: JList[Located[Token]], results: JList[Alt[JList[ShowStmt]]], formatted: JList[String]) = {
+  def eddyProcess(base: Info, start: Double, input: JList[Located[Token]], results: JList[Alt[JList[ShowStmt]]]) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[Seq[String]] = if (results==null) null else results.asScala.map(_.x.asScala.map(_.den))
     val tokens: Seq[Alt[Seq[String]]] = if (results==null) null else results.asScala.map(_ map (_.asScala.map(_.show)))
+    val formatted: Seq[Seq[String]]   = if (results==null) null else results.asScala.map(_.x.asScala map (_.format))
     base.add("kind","Eddy.process")
         .add("start",start)
         .add("input",input)

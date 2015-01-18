@@ -16,11 +16,13 @@ import com.intellij.psi.impl.source.tree.java.MethodElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.Function2;
 import scala.Unit;
 import scala.Tuple2;
 import scala.Unit$;
 import scala.collection.Iterator;
 import scala.collection.immutable.Map;
+import scala.runtime.AbstractFunction2;
 import tarski.*;
 import tarski.Scores.Alt;
 import tarski.Tokens.Token;
@@ -28,9 +30,12 @@ import tarski.Tarski.ShowStmt;
 import utility.Locations.Located;
 import utility.Utility.Unchecked;
 import static utility.Utility.*;
+
+import java.util.ArrayList;
 import java.util.List;
 import tarski.Environment.Env;
 import tarski.Denotations.Stmt;
+import tarski.Denotations.CommentStmt;
 import static com.eddysystems.eddy.engine.Utility.*;
 
 public class Eddy {
@@ -59,19 +64,33 @@ public class Eddy {
     final private Eddy eddy;
     final public Input input;
     final public List<Alt<List<ShowStmt>>> results;
-    final public List<String> strings;
-    final public boolean found_existing;
 
     // Mutable field: which output we've selected.  If we haven't explicitly selected something, offset < 0.
     private int selected = -1;
 
-    Output(final Eddy eddy, final Input input, final List<Alt<List<ShowStmt>>> results,
-           final List<String> strings, final boolean found_existing) {
+    Output(final Eddy eddy, final Input input, final List<Alt<List<ShowStmt>>> results) {
       this.eddy = eddy;
       this.input = input;
       this.results = results;
-      this.strings = strings;
-      this.found_existing = found_existing;
+    }
+
+    static String format(final List<ShowStmt> ss) {
+      final StringBuilder b = new StringBuilder();
+      for (final ShowStmt s : ss) {
+        if (b.length() > 0)
+          b.append(' ');
+        b.append(s.format());
+      }
+      return b.toString();
+    }
+    public String format(final int i) {
+      return format(results.get(i).x());
+    }
+    public List<String> formats() {
+      final List<String> fs = new ArrayList<String>(results.size());
+      for (final Alt<List<ShowStmt>> a : results)
+        fs.add(format(a.x()));
+      return fs;
     }
 
     public boolean foundSomething() {
@@ -80,7 +99,10 @@ public class Eddy {
 
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean foundSomethingUseful() {
-      return !found_existing && !results.isEmpty();
+      for (final Alt<List<ShowStmt>> r : results)
+        if (format(r.x()).equals(input.before_text))
+          return false; // We found what's already there
+      return !results.isEmpty();
     }
 
     // Is there only one realistic option (or did the user explicitly select one)?
@@ -106,11 +128,11 @@ public class Eddy {
 
     public String bestText() {
       assert foundSomethingUseful();
-      return strings.get(Math.max(0,selected));
+      return format(Math.max(0,selected));
     }
 
     public void applyBest() {
-      apply(strings.get(Math.max(0,selected)));
+      apply(format(Math.max(0,selected)));
     }
 
     public void apply(final @NotNull String code) {
@@ -136,7 +158,7 @@ public class Eddy {
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base,input.input,results,strings,code));
+      Memory.log(Memory.eddyApply(eddy.base,input.input,results,code));
     }
   }
 
@@ -156,7 +178,7 @@ public class Eddy {
     }
   }
 
-  private Input input(final @NotNull Editor editor) throws Skip {
+  public Input input(final @NotNull Editor editor) throws Skip {
     log("processing eddy@" + hashCode() + "...");
     assert project == editor.getProject();
 
@@ -278,46 +300,46 @@ public class Eddy {
     return new Input(tokens_range,tokens,place[0],before_text);
   }
 
-  private Env env(final Input input, final int lastEdit) {
-    return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place,lastEdit);
+  public Env env(final Input input, final int lastEdit) {
+    return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place, lastEdit);
   }
 
-  private List<Alt<List<ShowStmt>>> results(final Input input, final Env env, final String special) {
-    return Tarski.fixJava(input.input,env,new Tarski.Enough() {
-      @Override public boolean enough(List<Alt<List<ShowStmt>>> rs) {
-        if (rs.size() < 4) return false;
-        if (special == null) return true;
-        for (final Alt<List<ShowStmt>> r : rs)
-          if (reformat(input.place,r.x()).equals(special))
-            return true;
-        return false;
-      }
-    });
-  }
-
-  private Output output(final Input input, final List<Alt<List<ShowStmt>>> results) {
-    final Tuple2<List<String>,Boolean> f = reformat(input.place,results,input.before_text);
-    return new Output(this,input,results,f._1(),f._2());
-  }
-
-  public Tuple2<Output,Env> process(final @NotNull Editor editor, final int lastEdit, final @Nullable String special) {
+  public Output process(final @NotNull Editor editor, final int lastEdit, final @Nullable String special) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
       final double start = Memory.now();
       Input input;
-      Env env;
       List<Alt<List<ShowStmt>>> results;
       Output output;
       Throwable error;
 
-      void unsafe() throws Skip {
-        input   = Eddy.this.input(editor);
-        env     = Eddy.this.env(input,lastEdit);
-        results = Eddy.this.results(input,env,special);
-        output  = Eddy.this.output(input,results);
+      void compute(final Env env) {
+        final Function2<Stmt,String,String> format = new AbstractFunction2<Stmt,String,String>() {
+          @Override public String apply(final Stmt s, final String sh) {
+            return reformat(input.place,s,sh);
+          }
+        };
+        final Tarski.Take take = new Tarski.Take() {
+          @Override public boolean take(final List<Alt<List<ShowStmt>>> rs) {
+            results = rs;
+            if (rs.size() < 4) return false;
+            if (special == null) return true;
+            for (final Alt<List<ShowStmt>> r : rs)
+              if (Output.format(r.x()).equals(special))
+                return true;
+            return false;
+          }
+        };
+        Tarski.fixTake(input.input,env,format,take);
       }
 
-      Tuple2<Output,Env> safe() {
+      void unsafe() throws Skip {
+        input = Eddy.this.input(editor);
+        compute(env(input,lastEdit));
+        output = new Output(Eddy.this,input,results);
+      }
+
+      Output safe() {
         try {
           if (isDebug()) // Run outside try so that we can see inside exceptions
             unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() throws Skip {
@@ -336,46 +358,20 @@ public class Eddy {
         } finally {
           Memory.log(Memory.eddyProcess(base,start,
                                         input==null ? null : input.input,
-                                        results,
-                                        output==null ? null : output.strings).error(error));
+                                        results).error(error));
         }
-        return tuple(output,env);
+        return output;
       }
     }
     return new Helper().safe();
   }
 
-  // Returns (strings,found_existing)
-  private Tuple2<List<String>,Boolean> reformat(final PsiElement place, List<Alt<List<ShowStmt>>> results, String before_text) {
-    List<String> strings = new SmartList<String>();
-    boolean found_existing = false;
-    for (final Alt<List<ShowStmt>> interpretation : results) {
-      final String s = reformat(place,interpretation.x());
-      strings.add(s);
-      log("eddy result: '" + s + "' existing '" + before_text + "'");
-      if (s.equals(before_text))
-        found_existing = true;
-    }
-    return tuple(strings,found_existing);
-  }
-
   // The string should be a single syntactically valid statement
-  private String reformat(final PsiElement place, final @NotNull ShowStmt s) {
-    if (s.comment().nonEmpty())
-      return s.comment().get();
-    PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(s.show(),place);
+  private String reformat(final PsiElement place, final @NotNull Stmt s, final @NotNull String show) {
+    if (s instanceof CommentStmt)
+      return ((CommentStmt)s).c().content();
+    PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(show,place);
     CodeStyleManager.getInstance(project).reformat(elem,true);
     return elem.getText();
-  }
-
-  private String reformat(final PsiElement place, @NotNull List<ShowStmt> in) {
-    String r = "";
-    boolean first = true;
-    for (final ShowStmt s : in) {
-      if (first) first = false;
-      else r += " ";
-      r += reformat(place,s);
-    }
-    return r;
   }
 }

@@ -41,38 +41,33 @@ object Tarski {
     }
   }
 
-  // (show(s),s.toString) for a statement s.  Once we convert Stmt to ShowStmt, Env can be discarded.
-  case class ShowStmt(show: String, den: String, comment: Option[String])
-  object ShowStmt {
-    def apply(s: Stmt)(implicit env: Pretty.Scope): ShowStmt =
-      new ShowStmt(show(s),s.toString,s match {
-        case CommentStmt(c) => Some(c.content)
-        case _ => None
-      })
-  }
+  // (show(s),s.toString,format) for a statement s.  Once we convert Stmt to ShowStmt, Env can be discarded.
+  case class ShowStmt(show: String, den: String, format: String)
 
   // Java and Scala result types
   type JList[A] = java.util.List[A]
   type  Results =  List[Alt[ List[ShowStmt]]]
   type JResults = JList[Alt[JList[ShowStmt]]]
 
-  abstract class Enough {
-    def enough(rs: JResults): Boolean
+  abstract class Take {
+    // Accept some results, returning true if we've had enough.
+    def take(rs: JResults): Boolean
   }
 
-  def fixJava(tokens: java.util.List[Located[Token]], env: Env, enough: Enough): JResults = {
+  // Feed results to a take instance until it's satisfied
+  def fixTake(tokens: java.util.List[Located[Token]], env: Env, format: (Stmt,String) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
 
     //println(s"fix found: empty ${r.isEmpty}, single ${r.isSingle}, best ${r.best}")
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
-    def mergeTake(s: Stream[Alt[List[ShowStmt]]])(m: Map[List[String],Alt[List[ShowStmt]]]): JResults = {
+    def mergeTake(s: Stream[Alt[List[ShowStmt]]])(m: Map[List[String],Alt[List[ShowStmt]]]): Unit = {
       val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
-      if (s.isEmpty || enough.enough(rs)) rs
-      else {
+      if (!take.take(rs) && s.nonEmpty) {
         val Alt(p,b) = s.head
-        val a = b map (_.show)
+        val a = b map (_.format)
+        println(s"$p: $a")
         mergeTake(s.tail)(m + ((a,m get a match {
           case None => Alt(p,b)
           case Some(Alt(q,c)) => Alt(padd(q,p),c) // Use the List[ShowStmt] from the higher probability alternative
@@ -80,19 +75,20 @@ object Tarski {
       }
     }
 
-    r.map { case (env,s) => {
+    val sc = r.map { case (env,s) => {
       implicit val e = env
       println(s"$s => ${s.map(show(_))}")
-      s map (ShowStmt(_))
-    }}.all match {
-      case Left(error) =>
-        if (trackErrors) println("fixJava failed:\n"+error.prefixed("error: "))
-        new java.util.ArrayList[Alt[JList[ShowStmt]]]
-      case Right(all) =>
-        val rs = mergeTake(all)(Map.empty)
-        rs.asScala foreach {case Alt(p,r) => println(s"$p: $r")}
-        rs
+      s map (s => {
+        val sh = show(s)
+        ShowStmt(sh,s.toString,format(s,sh))
+      })
+    }}
+    // Complain if there's an error
+    if (trackErrors) sc.strict match {
+      case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("error: "))
+      case _:Best[_] => ()
     }
+    mergeTake(sc.stream)(Map.empty)
   }
 
   def fix(tokens: List[Located[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
