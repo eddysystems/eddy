@@ -96,7 +96,8 @@ public class EddyThread extends Thread {
                 return;
               cont.consume(output);
             } finally {
-              EddyPlugin.getInstance(project).getWidget().lessBusy();
+              if (EddyPlugin.getInstance(project) != null && EddyPlugin.getInstance(project).getWidget() != null)
+                EddyPlugin.getInstance(project).getWidget().lessBusy();
             }
           } catch (InterruptedException e) {
             // interrupted while sleeping, ignore
