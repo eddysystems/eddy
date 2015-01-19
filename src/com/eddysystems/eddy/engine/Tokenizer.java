@@ -1,6 +1,8 @@
 package com.eddysystems.eddy.engine;
 
+import com.intellij.openapi.util.TextRange;
 import utility.Locations;
+import utility.Locations.SRange;
 import utility.Locations.Located;
 import com.intellij.lang.java.lexer.JavaLexer;
 import com.intellij.pom.java.LanguageLevel;
@@ -19,6 +21,10 @@ class Tokenizer {
               hi = lo+elem.getTextLength()-1;
     return Locations.locatedHelper(token(elem.getElementType(),elem.getText()),
                                    Locations.buildHelper(lo,hi));
+  }
+
+  public static <A> TextRange range(final Located<A> x) {
+    return new TextRange(x.rawLo(),x.rawHi()+1);
   }
 
   public static Token[] tokenize(final String input) {

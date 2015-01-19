@@ -33,6 +33,10 @@ object Locations {
 
   case class Located[A](x: A, r: SRange) extends HasRange {
     def map[B](f: A => B): Located[B] = Located(f(x),r)
-    def raw: Long = r.raw // For Java use
+
+    // For Java use
+    def raw: Long = r.raw
+    def rawLo: Int = r.lo.x
+    def rawHi: Int = r.hi.x
   }
 }
