@@ -1,15 +1,10 @@
 package com.eddysystems.eddy;
 
-import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
-import com.intellij.codeInsight.hint.HintManager;
-import com.intellij.codeInsight.hint.HintManagerImpl;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import com.intellij.ui.LightweightHint;
 import com.intellij.util.Consumer;
 import org.jetbrains.annotations.NotNull;
 
@@ -36,6 +31,14 @@ public class EddyThread extends Thread {
 
   private boolean softInterrupts = false;
   private boolean _canceled = false;
+
+  public static EddyThread getEddyThread() {
+    Thread t = currentThread();
+    if (t instanceof EddyThread)
+      return (EddyThread)t;
+    else
+      return null;
+  }
 
   public boolean canceled() {
     return _canceled;

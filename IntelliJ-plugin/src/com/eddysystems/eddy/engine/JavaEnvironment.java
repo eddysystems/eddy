@@ -1,6 +1,5 @@
 package com.eddysystems.eddy.engine;
 
-import com.eddysystems.eddy.EddyFileListener;
 import com.eddysystems.eddy.EddyThread;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
@@ -77,7 +76,7 @@ public class JavaEnvironment {
     }
 
     private Items.Item[] generate(String s) {
-      final EddyThread thread = EddyFileListener.getEddyThread();
+      final EddyThread thread = EddyThread.getEddyThread();
       final List<Items.Item> results = new ArrayList<Items.Item>();
 
       final Processor<PsiClass> classProc = new Processor<PsiClass>() {

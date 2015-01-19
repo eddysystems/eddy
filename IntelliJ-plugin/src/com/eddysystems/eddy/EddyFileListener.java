@@ -99,6 +99,19 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     }
   }
 
+  // True if a thread was actually restarted
+  public static boolean restartEddyThread() {
+    // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
+    synchronized (current_eddythread_lock) {
+      if (current_eddythread != null) {
+        killEddyThread(); // does not reset current_eddythread_owner
+        current_eddythread_owner.runEddyThread();
+        return true;
+      }
+      return false;
+    }
+  }
+
   // True if a thread was actually killed
   public static boolean killEddyThread() {
     // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
@@ -110,14 +123,6 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       }
       return false;
     }
-  }
-
-  public static EddyThread getEddyThread() {
-    Thread t = Thread.currentThread();
-    if (t instanceof EddyThread)
-      return (EddyThread)t;
-    else
-      return null;
   }
 
   protected void process() {

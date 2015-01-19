@@ -12,8 +12,8 @@ public class EddyApplicationListener implements ApplicationListener {
 
   @Override public void beforeWriteActionStart(Object action) {
     // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
-    if (EddyFileListener.killEddyThread()) {
-      log("Killing eddy thread to allow write action:");
+    if (EddyFileListener.restartEddyThread()) {
+      log("Restarting eddy thread to allow write action:");
       log(action);
     }
   }
