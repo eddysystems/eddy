@@ -254,7 +254,7 @@ object Parse {
       method("private void","nonnulls",Nil,
         "final int n = input.length;" ::
         block("for (int lo=n;lo>=0;lo--) for (int hi=lo+1;hi<=n;hi++)",
-          "final long range = betweenHelper(ranges[lo],ranges[hi-1]);" ::
+          "final long range = unionHelper(ranges[lo],ranges[hi-1]);" ::
           nons.map(n => s"$n(lo,hi,range);")))
 
     def nonnull(n: Symbol): Code =

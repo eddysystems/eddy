@@ -18,13 +18,13 @@ class Tokenizer {
 
   public static Located<Token> psiToTok(TreeElement elem) {
     final int lo = elem.getTextOffset(),
-              hi = lo+elem.getTextLength()-1;
+              hi = lo+elem.getTextLength();
     return Locations.locatedHelper(token(elem.getElementType(),elem.getText()),
                                    Locations.buildHelper(lo,hi));
   }
 
   public static <A> TextRange range(final Located<A> x) {
-    return new TextRange(x.rawLo(),x.rawHi()+1);
+    return new TextRange(x.rawLo(),x.rawHi());
   }
 
   public static Token[] tokenize(final String input) {
