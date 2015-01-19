@@ -30,3 +30,18 @@ Clone git@github.com:eddysystems/eddy-plugin, and open it as a directory. It sho
 
 5. To see debug output using the Logger class used in the eddy plugin, make sure you see the IDEA Log in the output, and set the debug level to "all".
 
+
+### Logging
+
+We use Amazon's DynamoDB for logging.  There is an "eddy-log" table with
+primary key "install" and range key "time".  "install" is a cryptographic
+random number unique to a given installation of eddy, and "time" is Greenwich
+time in seconds down to milliseconds.  There is an IAM "eddy-public" user with
+write-only access to eddy-log.
+
+IMPORTANT: The credentials for eddy-public are checked into the code and
+distributed along with the plugin.  This is safe because the access is
+write-only.  Since the "install" key is random, a malicious user can only stomp
+on their own data, which is harmless.
+
+IAM login link: https://909287615191.signin.aws.amazon.com/console
