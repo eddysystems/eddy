@@ -31,6 +31,9 @@
         <category>Other</category>
         <descriptionDirectoryName>Eddy</descriptionDirectoryName>
     </intentionAction>
+
+    <applicationConfigurable provider="com.eddysystems.eddy.PreferencesProvider">
+    </applicationConfigurable>
   </extensions>
 
   <application-components>
@@ -42,7 +45,7 @@
       <component>
           <implementation-class>com.eddysystems.eddy.EddyPlugin</implementation-class>
       </component>
-      <!--
+      <!-- no need to instantiate here
       <component>
           <implementation-class>com.eddysystems.eddy.EddyIntention</implementation-class>
       </component>
