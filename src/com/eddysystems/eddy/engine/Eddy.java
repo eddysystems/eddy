@@ -15,28 +15,26 @@ import com.intellij.psi.impl.source.tree.*;
 import com.intellij.psi.impl.source.tree.java.MethodElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import scala.Function2;
-import scala.Unit;
-import scala.Tuple2;
 import scala.Unit$;
-import scala.collection.Iterator;
-import scala.collection.immutable.Map;
 import scala.runtime.AbstractFunction2;
-import tarski.*;
+import tarski.Denotations.CommentStmt;
+import tarski.Denotations.Stmt;
+import tarski.Environment.Env;
+import tarski.Memory;
 import tarski.Scores.Alt;
-import tarski.Tokens.Token;
+import tarski.Tarski;
 import tarski.Tarski.ShowStmt;
+import tarski.Tokens;
+import tarski.Tokens.Token;
 import utility.Locations.Located;
 import utility.Utility.Unchecked;
-import static utility.Utility.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import tarski.Environment.Env;
-import tarski.Denotations.Stmt;
-import tarski.Denotations.CommentStmt;
+
 import static com.eddysystems.eddy.engine.Utility.*;
+import static utility.Utility.unchecked;
 
 public class Eddy {
   final private Project project;
@@ -160,6 +158,11 @@ public class Eddy {
       });
       Memory.log(Memory.eddyApply(eddy.base,input.input,results,code));
     }
+  }
+
+  public static interface Take {
+    // return true if we're done absorbing output, false if more is desired
+    public boolean take(Output output);
   }
 
   public Eddy(@NotNull final Project project, final Editor editor) {
@@ -304,13 +307,13 @@ public class Eddy {
     return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place, lastEdit);
   }
 
-  public Output process(final @NotNull Editor editor, final int lastEdit, final @Nullable String special) {
+  public void process(final @NotNull Editor editor, final int lastEdit, final Take takeoutput) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
       final double start = Memory.now();
       Input input;
-      List<Alt<List<ShowStmt>>> results;
       Output output;
+      List<Alt<List<ShowStmt>>> results;
       Throwable error;
 
       void compute(final Env env) {
@@ -322,12 +325,8 @@ public class Eddy {
         final Tarski.Take take = new Tarski.Take() {
           @Override public boolean take(final List<Alt<List<ShowStmt>>> rs) {
             results = rs;
-            if (rs.size() < 4) return false;
-            if (special == null) return true;
-            for (final Alt<List<ShowStmt>> r : rs)
-              if (Output.format(r.x()).equals(special))
-                return true;
-            return false;
+            output = new Output(Eddy.this, input, results);
+            return takeoutput.take(output);
           }
         };
         Tarski.fixTake(input.input,env,format,take);
@@ -339,7 +338,7 @@ public class Eddy {
         output = new Output(Eddy.this,input,results);
       }
 
-      Output safe() {
+      void safe() {
         try {
           if (isDebug()) // Run outside try so that we can see inside exceptions
             unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() throws Skip {
@@ -360,10 +359,9 @@ public class Eddy {
                                         input==null ? null : input.input,
                                         results).error(error));
         }
-        return output;
       }
     }
-    return new Helper().safe();
+    new Helper().safe();
   }
 
   // The string should be a single syntactically valid statement

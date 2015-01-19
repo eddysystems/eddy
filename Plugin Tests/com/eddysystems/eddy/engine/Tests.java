@@ -28,12 +28,14 @@ import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import scala.Tuple2;
-import tarski.*;
+import tarski.Environment;
+import tarski.Environment.Env;
+import tarski.Items;
 import tarski.Items.Item;
+import tarski.JavaScores;
 import tarski.Scores.Alt;
 import tarski.Tarski.ShowStmt;
-import tarski.Environment.Env;
+import tarski.Types;
 
 import java.util.List;
 
@@ -115,7 +117,23 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       myFixture.configureByFiles(filename);
       if (lastEdit < 0)
         lastEdit = myFixture.getEditor().getCaretModel().getOffset();
-      return makeEddy().process(myFixture.getEditor(),lastEdit,special);
+
+      class TestTake implements Eddy.Take {
+        Eddy.Output output;
+        @Override public boolean take(Eddy.Output output) {
+          this.output = output;
+          if (output.results.size() < 4) return false;
+          if (special == null) return true;
+          for (final Alt<List<ShowStmt>> r : output.results)
+            if (Eddy.Output.format(r.x()).equals(special))
+              return true;
+          return false;
+        }
+      }
+
+      TestTake take = new TestTake();
+      makeEddy().process(myFixture.getEditor(),lastEdit,take);
+      return take.output;
     } finally { popScope(); }
   }
 

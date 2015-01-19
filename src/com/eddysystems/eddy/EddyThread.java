@@ -5,7 +5,6 @@ import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import com.intellij.util.Consumer;
 import org.jetbrains.annotations.NotNull;
 
 import static com.eddysystems.eddy.engine.Utility.log;
@@ -15,12 +14,12 @@ public class EddyThread extends Thread {
   private final @NotNull Project project;
   private final @NotNull Editor editor;
   private final int lastEditLocation;
-  private final Consumer<Eddy.Output> cont;
+  private final Eddy.Take cont;
 
-  // Results, if we've finished computing
+  // Results, if we've found something
   Eddy.Output output = null;
 
-  EddyThread(final Project project, final Editor editor, final int lastEditLocation, final Consumer<Eddy.Output> cont) {
+  EddyThread(final Project project, final Editor editor, final int lastEditLocation, final Eddy.Take cont) {
     this.setName("Eddy thread " + getId());
     this.eddy = new Eddy(project,editor);
     this.project = project;
@@ -91,10 +90,12 @@ public class EddyThread extends Thread {
             try {
               EddyPlugin.getInstance(project).getWidget().moreBusy();
 
-              output = eddy.process(editor,lastEditLocation,null);
-              if (isInterrupted())
-                return;
-              cont.consume(output);
+              eddy.process(editor, lastEditLocation, new Eddy.Take() {
+                @Override public boolean take(Eddy.Output output) {
+                  EddyThread.this.output = output;
+                  return cont.take(output);
+                }
+              });
             } finally {
               if (EddyPlugin.getInstance(project) != null && EddyPlugin.getInstance(project).getWidget() != null)
                 EddyPlugin.getInstance(project).getWidget().lessBusy();

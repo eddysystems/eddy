@@ -17,7 +17,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.ui.LightweightHint;
-import com.intellij.util.Consumer;
 import org.jetbrains.annotations.NotNull;
 
 import static com.eddysystems.eddy.engine.Utility.log;
@@ -91,8 +90,13 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       if (current_eddythread != null) {
         current_eddythread.interrupt();
       }
-      current_eddythread = new EddyThread(project,editor,lastEditLocation,new Consumer<Eddy.Output>() {
-        @Override public void consume(Eddy.Output output) { showHint(output); }
+      current_eddythread = new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
+        @Override public boolean take(Eddy.Output output) {
+          showHint(output);
+          if (output.results.size() >= 4)
+            return true;
+          return false;
+        }
       });
       current_eddythread_owner = this;
       current_eddythread.start();
@@ -152,7 +156,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       active_line = line;
       active_action = action;
       active_hint_instance = null;
-      // show hint
+      // show hint only if we found something really good
       if (output.foundSomethingUseful()) {
         final int offset = editor.getCaretModel().getOffset();
         final LightweightHint hint = EddyHintLabel.makeHint(output);
@@ -195,6 +199,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       return;
 
     // only process on position change if we switched lines
+    // TODO: only process if input changed (ie if we switched statements)
     if (e.getNewPosition().line != e.getOldPosition().line)
       process();
   }
