@@ -41,8 +41,6 @@ public class Eddy {
   final private Editor editor;
   final private Memory.Info base;
 
-  private boolean canceled; // TODO: Clean up
-
   public static class Input {
     final TextRange range;
     final List<Located<Token>> input;
@@ -171,136 +169,102 @@ public class Eddy {
     this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
   }
 
-  public void cancel() {
-    canceled = true;
-  }
-
   public static class Skip extends Exception {
     public Skip(final String s) {
       super(s);
     }
   }
 
-  public Input input(final @NotNull Editor editor) throws Skip {
-    log("processing eddy@" + hashCode() + "...");
-    assert project == editor.getProject();
+  // Walk upwards until we find a code block
+  private static PsiCodeBlock codeBlockAbove(PsiElement e) throws Skip {
+    for (;;) {
+      if (e instanceof PsiCodeBlock)
+        return (PsiCodeBlock)e;
+      if (e == null || e instanceof PsiFile
+                    || e instanceof PsiClass
+                    || e instanceof PsiMethod)
+        throw new Skip("Not inside code block, found: "+e);
+      e = e.getParent();
+    }
+  }
+
+  // Walk upwards until we find a method
+  private static PsiMethod methodAbove(PsiElement e) throws Skip {
+    for (;;) {
+      if (e == null)
+        throw new Skip("Not inside method");
+      if (e instanceof PsiMethod)
+        return (PsiMethod)e;
+      e = e.getParent();
+    }
+  }
+
+  public static Input input(final @NotNull Editor editor) throws Skip {
+    log("processing eddy...");
+    final Project project = editor.getProject();
+    assert project != null;
 
     final Document document = editor.getDocument();
-    final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-    if (psifile == null)
+    final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
+    if (file == null)
       throw new Skip("File is null");
 
     final int pos = editor.getCaretModel().getCurrentCaret().getOffset();
-    final int lnum = document.getLineNumber(pos);
+    final int line = document.getLineNumber(pos);
+    final TextRange range = TextRange.create(document.getLineStartOffset(line),document.getLineEndOffset(line));
+    log("  processing line "+line+": " + document.getText(range));
 
-    final TextRange lrange = TextRange.create(document.getLineStartOffset(lnum), document.getLineEndOffset(lnum));
-    final String line = document.getText(lrange);
+    // TODO: Generalize to handle class/method declarations
+    final PsiCodeBlock body = methodAbove(codeBlockAbove(file.findElementAt(pos))).getBody();
+    assert body != null;
 
-    //log("processing at " + lnum + "/" + column);
-    log("  current line: " + line);
-
-    // TODO: remove this once we can handle class/method declarations
-    // Bail if we're not inside a code block
-    PsiElement block = psifile.findElementAt(pos);
-    //log("  elem: " + block);
-    while (block != null &&
-           !(block instanceof PsiFile) &&
-           !(block instanceof PsiClass) &&
-           !(block instanceof PsiMethod) &&
-           !(block instanceof PsiCodeBlock)) {
-      block = block.getParent();
-      //log("    block: " + block);
-    }
-    if (!(block instanceof PsiCodeBlock))
-      throw new Skip("Not inside code block, found: "+block);
-
-    //log("    found code block");
-
-    // walk further up, until we hit the containing method
-    while (block != null && !(block instanceof PsiMethod)) {
-      block = block.getParent();
-      //log("    block: " + block);
-    }
-    if (block == null)
-      throw new Skip("Not inside method");
-
-    // get the method body
-    block = ((CompositeElement)(block.getNode())).findChildByRoleAsPsiElement(ChildRole.METHOD_BODY);
-
-    final ASTNode node = block.getNode();
+    // Descend from Psi to AST so that we get all the tokens
+    final ASTNode node = body.getNode();
     if (node == null)
       throw new Skip("Can't find a node to look at");
 
-    // then walk the node subtree and output all tokens contained in any statement overlapping with the line
+    // Walk the node subtree and output all tokens contained in any statement overlapping with the line
     // now, node is the AST node we want to interpret.
-
-    // get token stream for this node
-    assert node instanceof TreeElement;
-
-    final List<Located<Token>> vtokens = new SmartList<Located<Token>>();
-    final List<TextRange> vtokens_ranges = new SmartList<TextRange>();
-
+    final List<Located<Token>> tokens = new SmartList<Located<Token>>();
     final PsiElement[] place = new PsiElement[1];
-    ((TreeElement) node).acceptTree(new RecursiveTreeElementVisitor() {
+    ((TreeElement)node).acceptTree(new RecursiveTreeElementVisitor() {
       @Override
       protected boolean visitNode(TreeElement element) {
-        // if the element is not overlapping, don't output any of it
-        if (!lrange.intersects(element.getTextRange())) {
+        // If the element is not overlapping, don't output any of it
+        if (!range.intersects(element.getTextRange()))
           return false;
-        }
 
         if (element instanceof LeafElement) {
           //log("    node: " + element + " " + element.getTextRange() + " -> " + Tokenizer.psiToTok(element));
-          // don't include the opening and closing brace of the outermost code block before we hit the method
-          if ((element.getElementType() == JavaTokenType.LBRACE || element.getElementType() == JavaTokenType.RBRACE) &&
-              element.getTreeParent().getTreeParent() instanceof MethodElement)
+          // Don't include the opening and closing brace of the outermost code block before we hit the method
+          if (   (element.getElementType() == JavaTokenType.LBRACE || element.getElementType() == JavaTokenType.RBRACE)
+              && element.getTreeParent().getTreeParent() instanceof MethodElement)
             return true;
 
-          vtokens_ranges.add(element.getTextRange());
-
-          // if this would be the first token added to the stream, remember the previous token as the place where we
-          // compute the environment
-          if (vtokens.isEmpty()) {
+          // If this is the first token, remember the previous token as the place where we compute the environment
+          if (tokens.isEmpty()) {
             place[0] = element.getTreePrev().getPsi();
             assert place[0] != null;
           }
-
-          vtokens.add(Tokenizer.psiToTok(element));
+          tokens.add(Tokenizer.psiToTok(element));
         }
-
         return true;
       }
     });
 
-    List<Located<Token>> tokens = vtokens;
-    List<TextRange> tokens_ranges = vtokens_ranges;
-
     // Remove leading and trailing whitespace
-    while (!tokens.isEmpty() && tokens.get(0).x() instanceof Tokens.WhitespaceTok) {
-      tokens = tokens.subList(1,tokens.size());
-      tokens_ranges = tokens_ranges.subList(1,tokens_ranges.size());
-    }
-    while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof Tokens.WhitespaceTok) {
-      tokens = tokens.subList(0,tokens.size()-1);
-      tokens_ranges = tokens_ranges.subList(0,tokens_ranges.size()-1);
-    }
+    while (!tokens.isEmpty() && tokens.get(0).x() instanceof Tokens.WhitespaceTok)
+      tokens.remove(0);
+    while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof Tokens.WhitespaceTok)
+      tokens.remove(tokens.size()-1);
 
-    // compute range to be replaced
-    TextRange tokens_range = TextRange.EMPTY_RANGE; // TextRange is broken. Argh.
-    if (!tokens_ranges.isEmpty()) {
-      tokens_range = tokens_ranges.get(0);
-      for (TextRange range: tokens_ranges) {
-        tokens_range = tokens_range.union(range);
-      }
-    }
+    // Compute range to be replaced
+    final TextRange trim = tokens.isEmpty() ? TextRange.EMPTY_RANGE
+      : Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
-    final String before_text = document.getText(tokens_range);
-    log("  before: " + before_text);
-
-    // Check if we're canceled.  TODO: Cleaner way?
-    if (canceled)
-      throw new ThreadDeath();
-    return new Input(tokens_range,tokens,place[0],before_text);
+    final String before = document.getText(trim);
+    log("  before: " + before);
+    return new Input(trim,tokens,place[0],before);
   }
 
   public Env env(final Input input, final int lastEdit) {
@@ -317,6 +281,8 @@ public class Eddy {
       Throwable error;
 
       void compute(final Env env) {
+        if (Thread.currentThread().isInterrupted())
+          throw new ThreadDeath();
         final Function2<Stmt,String,String> format = new AbstractFunction2<Stmt,String,String>() {
           @Override public String apply(final Stmt s, final String sh) {
             return reformat(input.place,s,sh);
@@ -333,7 +299,7 @@ public class Eddy {
       }
 
       void unsafe() throws Skip {
-        input = Eddy.this.input(editor);
+        input = Eddy.input(editor);
         compute(env(input,lastEdit));
         output = new Output(Eddy.this,input,results);
       }

@@ -63,7 +63,6 @@ public class EddyThread extends Thread {
   public synchronized void interrupt() {
     if (_canceled)
       return;
-    eddy.cancel();
     _canceled = true;
     if (softInterrupts) {
       log("soft interrupting " + this.getName());

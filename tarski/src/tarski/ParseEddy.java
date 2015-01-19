@@ -440,7 +440,7 @@ class ParseEddy {
     private void nonnulls() {
       final int n = input.length;
       for (int lo=n;lo>=0;lo--) for (int hi=lo+1;hi<=n;hi++) {
-        final long range = betweenHelper(ranges[lo],ranges[hi-1]);
+        final long range = unionHelper(ranges[lo],ranges[hi-1]);
         Commas2_ExpAssignNC(lo,hi,range);
         IfTok__ExpAssignNP(lo,hi,range);
         MaybeThen__MaybeStmt__ElseTok(lo,hi,range);
