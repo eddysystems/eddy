@@ -1,5 +1,6 @@
 package com.eddysystems.eddy;
 
+import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurableProvider;
 import com.intellij.openapi.options.ConfigurationException;
@@ -11,8 +12,18 @@ import javax.swing.*;
 public class PreferencesProvider extends ConfigurableProvider {
 
   private static class Preferences implements Configurable {
+    static boolean initialized = false;
+    static final private PreferencesForm form = new PreferencesForm();
+    static final private PropertiesComponent props = PropertiesComponent.getInstance();
+    static final private PreferenceData data = new PreferenceData();
 
-    static private com.eddysystems.eddy.Preferences form = new com.eddysystems.eddy.Preferences();
+    Preferences() {
+      // load data from file
+      if (!initialized) {
+        load();
+        initialized = true;
+      }
+    }
 
     @Nls
     @Override
@@ -34,20 +45,28 @@ public class PreferencesProvider extends ConfigurableProvider {
 
     @Override
     public boolean isModified() {
-      return false;
+      return form.isModified(data);
+    }
+
+    private void load() {
+      data.setAutoApply(props.getBoolean("com.eddysystems.Props.autoApply", false));
     }
 
     @Override
     public void apply() throws ConfigurationException {
+      form.getData(data);
+
+      // save to file
+      props.setValue("com.eddysystems.Props.autoApply", Boolean.toString(data.isAutoApply()), Boolean.toString(false));
     }
 
     @Override
     public void reset() {
+      form.setData(data);
     }
 
     @Override
     public void disposeUIResources() {
-      form = null;
     }
 
   }
