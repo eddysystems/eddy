@@ -7,7 +7,6 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
-import com.intellij.openapi.util.TextRange;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -40,8 +39,8 @@ public class EddyAction implements QuestionAction {
   public boolean execute() {
     log("executing EddyAction");
 
-    if (output.single())
-      output.applyBest();
+    if (output.results.size() == 1)
+      output.apply(output.format(0));
     else {
       // show selection dialog
       final BaseListPopupStep<String> step =

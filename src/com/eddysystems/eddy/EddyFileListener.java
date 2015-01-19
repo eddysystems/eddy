@@ -157,7 +157,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       active_action = action;
       active_hint_instance = null;
       // show hint only if we found something really good
-      if (output.foundSomethingUseful()) {
+      if (output.shouldShowHint()) {
         final int offset = editor.getCaretModel().getOffset();
         final LightweightHint hint = EddyHintLabel.makeHint(output);
 

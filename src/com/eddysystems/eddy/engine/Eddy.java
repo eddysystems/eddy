@@ -94,7 +94,7 @@ public class Eddy {
     }
 
     // Did we find useful meanings, and are those meanings different from what's already there?
-    public boolean foundSomethingUseful() {
+    public boolean shouldShowHint() {
       for (final Alt<List<ShowStmt>> r : results)
         if (format(r.x()).equals(input.before_text))
           return false; // We found what's already there
@@ -107,7 +107,7 @@ public class Eddy {
     }
 
     public boolean nextBestResult() {
-      if (foundSomethingUseful() && results.size()>1) {
+      if (shouldShowHint() && results.size()>1) {
         selected = (Math.max(0,selected)+1)%results.size();
         return true;
       }
@@ -115,7 +115,7 @@ public class Eddy {
     }
 
     public boolean prevBestResult() {
-      if (foundSomethingUseful() && results.size()>1) {
+      if (shouldShowHint() && results.size()>1) {
         selected = (Math.max(0,selected)+results.size()-1)%results.size();
         return true;
       }
@@ -123,7 +123,7 @@ public class Eddy {
     }
 
     public String bestText() {
-      assert foundSomethingUseful();
+      assert shouldShowHint();
       return format(Math.max(0,selected));
     }
 
