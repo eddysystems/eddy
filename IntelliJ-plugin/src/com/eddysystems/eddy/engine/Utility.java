@@ -58,11 +58,14 @@ public class Utility {
     // special handling for collections and arrays
     if (obj instanceof Collection<?>) {
       return collectionString((Collection<Object>)obj);
+    } else if (obj == null) {
+      return "null";
     } else if (obj.getClass().isArray()) {
       return arrayString((Object[])obj);
-    } else
+    } else {
       // ls is a regular object
       return obj.toString();
+    }
   }
 
   // can't use logger in test mode. Sucks.

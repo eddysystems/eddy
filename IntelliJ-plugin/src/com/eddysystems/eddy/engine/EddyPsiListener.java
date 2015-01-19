@@ -196,10 +196,23 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildReplacement(@NotNull PsiTreeChangeEvent event) {
-    log("child of " + event.getParent() + ": " + event.getOldChild() + " being replaced with something new");
+    PsiElement elem = event.getOldChild();
+
+    String np = "<name unavailable>";
+    try {
+      np = event.getParent().toString();
+    } catch (NullPointerException e) {
+      // Scala plugin likes to throw NullPointerExceptions in toString()
+    }
+    String noc = "<name unavailable>";
+    try {
+      noc = elem.toString();
+    } catch (NullPointerException e) {
+      // Scala plugin likes to throw NullPointerExceptions in toString()
+    }
+    log("child of " + np + ": " + noc + " being replaced with something new");
 
     // if complete items are replaced, translate to delete/add pair
-    PsiElement elem = event.getOldChild();
     if (elem instanceof PsiClass || elem instanceof PsiField || elem instanceof PsiMethod) {
       env.deleteItem(elem);
       return;
