@@ -1,1 +1,7 @@
+.DS_Store
+eddy.zip
+eddy.jar
+.idea/inspectionProfiles
+out/
+resources/eddy.properties
 javadoc/
