@@ -43,8 +43,6 @@ public class Eddy {
   final private Editor editor;
   final private Memory.Info base;
 
-  private boolean canceled; // TODO: Clean up
-
   public static class Input {
     final TextRange range;
     final List<Located<Token>> input;
@@ -166,10 +164,6 @@ public class Eddy {
     this.project = project;
     this.editor = editor;
     this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
-  }
-
-  public void cancel() {
-    canceled = true;
   }
 
   public static class Skip extends Exception {
@@ -294,8 +288,6 @@ public class Eddy {
 
     final String before_text = document.getText(tokens_range);
     log("  before: " + before_text);
-
-    // Check if we're canceled.  TODO: Cleaner way?
     return new Input(tokens_range,tokens,place[0],before_text);
   }
 
@@ -313,6 +305,8 @@ public class Eddy {
       Throwable error;
 
       void compute(final Env env) {
+        if (Thread.currentThread().isInterrupted())
+          throw new ThreadDeath();
         final Function2<Stmt,String,String> format = new AbstractFunction2<Stmt,String,String>() {
           @Override public String apply(final Stmt s, final String sh) {
             return reformat(input.place,s,sh);
@@ -333,9 +327,7 @@ public class Eddy {
       }
 
       void unsafe() throws Skip {
-        input = Eddy.this.input(editor);
-        if (canceled)
-          throw new ThreadDeath();
+        input = Eddy.input(editor);
         compute(env(input,lastEdit));
         output = new Output(Eddy.this,input,results);
       }
