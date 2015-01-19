@@ -117,7 +117,7 @@ class Converter {
        if (vf != null)
          return projectScope.contains(vf);
        else {
-         log("can't determine whether " + elem + " is in project.");
+         //log("can't determine whether " + elem + " is in project.");
          return true;
        }
      }
