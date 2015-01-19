@@ -178,9 +178,10 @@ public class Eddy {
     }
   }
 
-  public Input input(final @NotNull Editor editor) throws Skip {
-    log("processing eddy@" + hashCode() + "...");
-    assert project == editor.getProject();
+  public static Input input(final @NotNull Editor editor) throws Skip {
+    log("processing eddy...");
+    final Project project = editor.getProject();
+    assert project != null;
 
     final Document document = editor.getDocument();
     final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
@@ -295,8 +296,6 @@ public class Eddy {
     log("  before: " + before_text);
 
     // Check if we're canceled.  TODO: Cleaner way?
-    if (canceled)
-      throw new ThreadDeath();
     return new Input(tokens_range,tokens,place[0],before_text);
   }
 
@@ -335,6 +334,8 @@ public class Eddy {
 
       void unsafe() throws Skip {
         input = Eddy.this.input(editor);
+        if (canceled)
+          throw new ThreadDeath();
         compute(env(input,lastEdit));
         output = new Output(Eddy.this,input,results);
       }
