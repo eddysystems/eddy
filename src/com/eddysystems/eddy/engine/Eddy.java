@@ -1,6 +1,7 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
+import com.eddysystems.eddy.PreferencesProvider;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
@@ -34,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.*;
+import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.Utility.unchecked;
 
 public class Eddy {
@@ -127,8 +129,34 @@ public class Eddy {
       return format(Math.max(0,selected));
     }
 
-    public void applyBest() {
+    public void applySelected() {
       apply(format(Math.max(0,selected)));
+    }
+
+    public int autoApply() {
+      // used to automatically apply the best found result
+      return rawApply(eddy.editor.getDocument(), format(0));
+    }
+
+    public boolean isConfident() {
+      // check if we're confident enough to apply the best found result automatically
+      double t = PreferencesProvider.getData().getNumericAutoApplyThreshold();
+      double f = PreferencesProvider.getData().getNumericAutoApplyFactor();
+      log("confidence based on t = " + t + ", f = " + f + ", " + results.size() + " results.");
+      if (results.size() >= 1 && results.get(0).p() >= t) {
+        if (results.size() == 1)
+          return true;
+        else
+          return results.get(0).p()/results.get(1).p() > f;
+      }
+      return false;
+    }
+
+    public int rawApply(final @NotNull Document document, final @NotNull String code) {
+      final int offsetDiff = code.length() - input.range.getLength();
+      log("replacing '" + document.getText(input.range) + "' with '" + code + '\'');
+      document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
+      return offsetDiff;
     }
 
     public void apply(final @NotNull String code) {
@@ -144,10 +172,7 @@ public class Eddy {
           new WriteCommandAction(project, psifile) {
             @Override
             public void run(@NotNull Result result) {
-              final TextRange range = input.range;
-              final int newOffset = range.getEndOffset() - range.getLength() + code.length();
-              System.out.println("replacing '" + document.getText(range) + "' with '" + code + "'");
-              document.replaceString(range.getStartOffset(), range.getEndOffset(), code);
+              final int newOffset = input.range.getEndOffset() + rawApply(document, code);
               editor.getCaretModel().moveToOffset(newOffset);
               PsiDocumentManager.getInstance(project).commitDocument(document);
             }

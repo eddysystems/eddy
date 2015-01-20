@@ -31,6 +31,30 @@ public class EddyAction implements QuestionAction {
       return "eddy thinks...";
   }
 
+  public double maxProb() {
+    if (output.results.isEmpty())
+      return 0;
+    else
+      return output.results.get(0).p();
+  }
+
+  public double nextProb() {
+    if (output.results.size() > 1) {
+      return output.results.get(1).p();
+    } else {
+      return 0;
+    }
+  }
+
+  public boolean isConfident() {
+    return output.isConfident();
+  }
+
+  // return how many net characters were inserted (by how much the line has grown/shrunk)
+  public int autoExecute() {
+    return output.autoApply();
+  }
+
   public boolean isAvailable() {
     return output.foundSomething();
   }
@@ -41,6 +65,8 @@ public class EddyAction implements QuestionAction {
 
     if (output.results.size() == 1)
       output.apply(output.format(0));
+    else if (output.single())
+      output.applySelected();
     else {
       // show selection dialog
       final BaseListPopupStep<String> step =

@@ -24,7 +24,21 @@
     <!-- Add your extensions here -->
     <!--
     <annotator language="JAVA" implementationClass="com.eddysystems.eddy.EddyAnnotator"/>
-     -->
+      -->
+    <!-- set the implementation class for this to something Derived form EditorSmartKeysConfigurable to
+         offer additional options on the editor smart keys pane
+      <editorSmartKeysConfigurable/>
+      -->
+    <!-- generic handler for all editor actions - may be overkill
+      <editorActionHandler/>
+      -->
+    <!-- maybe the most "correct" way to implement smart enter keys, but looks complicated
+      <lang.smartEnterProcessor>
+      </lang.smartEnterProcessor>
+      -->
+    <!-- yey!
+      -->
+    <enterHandlerDelegate implementation="com.eddysystems.eddy.EddyEnterHandlerDelegate"/>
 
     <intentionAction>
         <className>com.eddysystems.eddy.EddyIntention</className>

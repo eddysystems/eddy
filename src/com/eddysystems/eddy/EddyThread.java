@@ -78,29 +78,20 @@ public class EddyThread extends Thread {
       // must be in smart mode, must be inside read action
       final long start = System.nanoTime();
       DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() {
-          @Override
-          public void run() {
-          // if we waited for smart mode, don't wait too much longer
+        @Override
+        public void run() {
           try {
-            int millis = new Double(200-(System.nanoTime()-start)/1e3).intValue();
-            if (millis > 0)
-              sleep(millis);
+            EddyPlugin.getInstance(project).getWidget().moreBusy();
 
-            try {
-              EddyPlugin.getInstance(project).getWidget().moreBusy();
-
-              eddy.process(editor, lastEditLocation, new Eddy.Take() {
-                @Override public boolean take(Eddy.Output output) {
-                  EddyThread.this.output = output;
-                  return cont.take(output);
-                }
-              });
-            } finally {
-              if (EddyPlugin.getInstance(project) != null && EddyPlugin.getInstance(project).getWidget() != null)
-                EddyPlugin.getInstance(project).getWidget().lessBusy();
-            }
-          } catch (InterruptedException e) {
-            // interrupted while sleeping, ignore
+            eddy.process(editor, lastEditLocation, new Eddy.Take() {
+              @Override public boolean take(Eddy.Output output) {
+                EddyThread.this.output = output;
+                return cont.take(output);
+              }
+            });
+          } finally {
+            if (EddyPlugin.getInstance(project) != null && EddyPlugin.getInstance(project).getWidget() != null)
+              EddyPlugin.getInstance(project).getWidget().lessBusy();
           }
         }
       });
