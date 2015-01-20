@@ -70,7 +70,7 @@ object Tarski {
         println(s"$p: $a")
         mergeTake(s.tail)(m + ((a,m get a match {
           case None => Alt(p,b)
-          case Some(Alt(q,c)) => Alt(padd(q,p),c) // Use the List[ShowStmt] from the higher probability alternative
+          case Some(Alt(q,c)) => Alt(pmax(q,p),c) // Use the List[ShowStmt] from the higher probability alternative, use maximum probability of any alternative
         })))
       }
     }
