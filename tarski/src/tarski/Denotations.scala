@@ -270,13 +270,22 @@ object Denotations {
     def discards = e.discards
     def strip = SyncStmt(e.strip,s)
   }
-  case class DiscardStmt(ds: List[Stmt], s: Stmt) extends Stmt {
-    def discards = ds ::: s.discards
-    def strip = s.strip
+  case class Catch(m: List[Mod], ts: List[ClassItem], v: Local, n: Dims, s: Stmt)
+  case class TryStmt(s: Stmt, cs: List[Catch], f: Option[Stmt]) extends Stmt {
+    def discards = Nil
+    def strip = this
   }
   case class CommentStmt(c: CommentTok) extends Stmt {
     def discards = Nil
     def strip = this
+  }
+  case class TokStmt(t: StmtTok) extends Stmt {
+    def discards = Nil
+    def strip = this
+  }
+  case class DiscardStmt(ds: List[Stmt], s: Stmt) extends Stmt {
+    def discards = ds ::: s.discards
+    def strip = s.strip
   }
 
   // It's all expressions from here
@@ -298,17 +307,21 @@ object Denotations {
   }
 
   // Literals
-  sealed abstract class Lit extends Exp with NoDiscardExp
-  case class ByteLit(b: Byte, text: String) extends Lit     { def ty = ByteType;    def item = ubByteItem }
-  case class ShortLit(s: Short, text: String) extends Lit   { def ty = ShortType;   def item = ubShortItem }
-  case class IntLit(i: Int, text: String) extends Lit       { def ty = IntType;     def item = ubIntItem }
-  case class LongLit(l: Long, text: String) extends Lit     { def ty = LongType;    def item = ubLongItem }
-  case class BooleanLit(b: Boolean) extends Lit             { def ty = BooleanType; def item = ubBooleanItem }
-  case class StringLit(s: String, text: String) extends Lit { def ty = StringType;  def item = StringItem }
-  case class FloatLit(f: Float, text: String) extends Lit   { def ty = FloatType;   def item = ubFloatItem }
-  case class DoubleLit(d: Double, text: String) extends Lit { def ty = DoubleType;  def item = ubDoubleItem }
-  case class CharLit(c: Char, text: String) extends Lit     { def ty = CharType;    def item = ubCharItem }
-  case object NullLit extends Lit                           { def ty = NullType;    def item = NullType.item }
+  sealed abstract class Lit extends Exp with NoDiscardExp {
+    def show: String
+  }
+  case class ByteLit(b: Byte, show: String) extends Lit     { def ty = ByteType;    def item = ubByteItem }
+  case class ShortLit(s: Short, show: String) extends Lit   { def ty = ShortType;   def item = ubShortItem }
+  case class IntLit(i: Int, show: String) extends Lit       { def ty = IntType;     def item = ubIntItem }
+  case class LongLit(l: Long, show: String) extends Lit     { def ty = LongType;    def item = ubLongItem }
+  case class StringLit(s: String, show: String) extends Lit { def ty = StringType;  def item = StringItem }
+  case class FloatLit(f: Float, show: String) extends Lit   { def ty = FloatType;   def item = ubFloatItem }
+  case class DoubleLit(d: Double, show: String) extends Lit { def ty = DoubleType;  def item = ubDoubleItem }
+  case class CharLit(c: Char, show: String) extends Lit     { def ty = CharType;    def item = ubCharItem }
+  case class BooleanLit(b: Boolean) extends Lit             { def ty = BooleanType; def item = ubBooleanItem
+                                                              def show = if (b) "true" else "false" }
+  case object NullLit extends Lit                           { def ty = NullType;    def item = NullType.item
+                                                              def show = "null" }
 
   // Expressions
   case class LocalExp(x: Local) extends Exp with NoDiscardExp {
@@ -459,5 +472,11 @@ object Denotations {
     case Nil => EmptyStmt
     case List(s) => s
     case ss => BlockStmt(ss)
+  }
+
+  def needBlock(s: Stmt): Stmt = s match {
+    case _:BlockStmt => s
+    case TokStmt(t) if t.blocked => s
+    case _ => BlockStmt(List(s))
   }
 }

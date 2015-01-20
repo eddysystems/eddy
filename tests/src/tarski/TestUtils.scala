@@ -24,7 +24,7 @@ object TestUtils {
   implicit def toAStmt(e: AExp): AStmt = ExpAStmt(e)
   implicit def toAStmts(e: AExp): List[AStmt] = List(ExpAStmt(e))
   implicit def toAStmts(s: AStmt): List[AStmt] = List(s)
-  implicit def toAExp(t: LangType): AExp = NameAExp(show(t),r)
+  implicit def toAExp(t: LangType): AExp = NameAExp(t.name,r)
   implicit def toAExps[A](xs: KList[A])(implicit to: A => AExp): KList[AExp] = xs map to
   implicit def toAExps[A](x: A)(implicit to: A => AExp): KList[AExp] = SingleList(to(x))
   implicit def toAVarDecls(v: AVarDecl): KList[AVarDecl] = SingleList(v)

@@ -2,7 +2,7 @@ package tarski
 
 import tarski.Denotations.Stmt
 import tarski.Scores.Alt
-import tarski.Tokens.{Token,show}
+import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmt
 import utility.Locations.{SLoc, Located}
 import scala.concurrent.Future
@@ -14,6 +14,8 @@ import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 
 object Memory {
+  private implicit val showFlags = abbrevShowFlags
+
   // User credentials for eddy-public.  This user has permissions only for putItem into eddy-log.
   val cred: AWSCredentials = {
     val accessKeyId = "AKIAIQBAJAY2GBWGADPQ"
@@ -45,7 +47,7 @@ object Memory {
   implicit def safeSLoc(x: SLoc) = S(x.x:java.lang.Integer)
   implicit def safeLocated[A](x: Located[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"lo"->safe(x.r.lo),"hi"->safe(x.r.hi)).asJava)
   implicit def safeAlt[A](x: Alt[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"p"->safe(x.p)).asJava)
-  implicit def safeToken(x: Token) = S(Map("c"->x.getClass.getName,"s"->show(x)).asJava)
+  implicit def safeToken(x: Token) = S(Map("c"->x.getClass.getName,"s"->x.show).asJava)
   implicit def safeException(x: Throwable) = S(Map("c"->x.getClass.getName,"s"->x.getMessage).asJava)
   implicit def safeStack(x: StackTraceElement) = S(x.toString)
 
@@ -68,7 +70,7 @@ object Memory {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[Seq[String]] = if (results==null) null else results.asScala.map(_.x.asScala.map(_.den))
     val tokens: Seq[Alt[Seq[String]]] = if (results==null) null else results.asScala.map(_ map (_.asScala.map(_.show)))
-    val formatted: Seq[Seq[String]]   = if (results==null) null else results.asScala.map(_.x.asScala map (_.format))
+    val formatted: Seq[Seq[String]]   = if (results==null) null else results.asScala.map(_.x.asScala map (_.abbrev))
     base.add("kind","Eddy.apply")
         .add("input",input)
         .add("results",tokens)
@@ -81,7 +83,7 @@ object Memory {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[Seq[String]] = if (results==null) null else results.asScala.map(_.x.asScala.map(_.den))
     val tokens: Seq[Alt[Seq[String]]] = if (results==null) null else results.asScala.map(_ map (_.asScala.map(_.show)))
-    val formatted: Seq[Seq[String]]   = if (results==null) null else results.asScala.map(_.x.asScala map (_.format))
+    val formatted: Seq[Seq[String]]   = if (results==null) null else results.asScala.map(_.x.asScala map (_.abbrev))
     base.add("kind","Eddy.process")
         .add("start",start)
         .add("input",input)

@@ -18,6 +18,7 @@ class TestParse {
   val p = ParenAround
   def noLoc[A](x: Located[A]): Located[A] = Located(x.x,r)
   def clean(s: String): String = s.replaceAllLiterally(",SRange(-1,-1)","")
+  implicit val showFlags = abbrevShowFlags
 
   @Test
   def lexer(): Unit = {

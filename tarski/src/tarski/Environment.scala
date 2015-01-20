@@ -18,6 +18,8 @@ object Environment {
   // Turn on to skip all approximate lookups
   val exactOnly = false
 
+  private implicit val showFlags = abbrevShowFlags
+
   // Information about where we are
   // TODO: add information about static scope
   // TODO: add information about whether we're in a spot where we can delegate constructor calls

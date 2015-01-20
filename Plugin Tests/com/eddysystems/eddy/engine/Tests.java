@@ -34,12 +34,17 @@ import tarski.Items;
 import tarski.Items.Item;
 import tarski.JavaScores;
 import tarski.Scores.Alt;
+import tarski.Tokens.ShowFlags;
 import tarski.Tarski.ShowStmt;
 import tarski.Types;
 
 import java.util.List;
 
+import static tarski.Tokens.fullShowFlags;
+import static tarski.Tokens.abbrevShowFlags;
 import static com.eddysystems.eddy.engine.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.pushDebug;
+import static com.eddysystems.eddy.engine.Utility.popDebug;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
 
@@ -125,13 +130,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
           if (output.results.size() < 4) return false;
           if (special == null) return true;
           for (final Alt<List<ShowStmt>> r : output.results)
-            if (Eddy.Output.format(r.x()).equals(special))
+            if (Eddy.Output.format(r.x(),abbrevShowFlags()).equals(special))
               return true;
           return false;
         }
       }
 
-      TestTake take = new TestTake();
+      final TestTake take = new TestTake();
       makeEddy().process(myFixture.getEditor(),lastEdit,take);
       return take.output;
     } finally { popScope(); }
@@ -146,7 +151,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     log("results:");
     for (int i=0;i<output.results.size();i++) {
       final Alt<List<ShowStmt>> r = output.results.get(i);
-      final String s = output.format(i);
+      final String s = output.format(i,abbrevShowFlags());
       if (i >= 4 && (special==null || !special.equals(s))) continue;
       if (i > 0) log(sep);
       log("  " + s);
@@ -180,14 +185,15 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     }, check);
   }
 
-  private void checkResult(Eddy.Output output, String expected) {
+  private void checkResult(final Eddy.Output output, final String expected) {
     dumpResults(output,expected);
-    assertTrue("eddy did not find correct solution: " + expected, output.formats().contains(expected));
+    assertTrue("eddy did not find correct solution: " + expected,
+      output.formats(abbrevShowFlags()).contains(expected));
   }
 
-  private void checkBest(Eddy.Output output, String best, double margin) {
+  private void checkBest(final Eddy.Output output, final String best, final double margin, final ShowFlags f) {
     dumpResults(output,best);
-    final List<String> ss = output.formats();
+    final List<String> ss = output.formats(f);
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
@@ -200,25 +206,30 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     }
   }
 
-  private void checkPriority(final Eddy.Output output, String high, String lo) {
+  private void checkPriority(final Eddy.Output output, final String high, final String lo) {
     dumpResults(output,null);
     double phi = 0, plo = 0;
     for (int i = 0; i < output.results.size(); ++i) {
       double p = output.results.get(i).p();
-      if (output.format(i).equals(high))
+      if (output.format(i,abbrevShowFlags()).equals(high))
         phi = p;
-      else if (output.format(i).equals(lo))
+      else if (output.format(i,abbrevShowFlags()).equals(lo))
         plo = p;
     }
+    // TODO: Verify that both options are there
     assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phi + "), but shouldn't.", plo < phi);
   }
 
   private void test(String filename, String expected) {
-    checkResult(setupEddy(null,-1,filename),expected);
+    checkResult(setupEddy(null, -1, filename), expected);
   }
 
-  private void testMargin(String filename, String best, double margin) {
-    checkBest(setupEddy(null,-1,filename),best,margin);
+  private void testMargin(final String filename, final String best, final double margin) {
+    checkBest(setupEddy(null, -1, filename), best, margin, abbrevShowFlags());
+  }
+
+  private void testMarginFull(final String filename, final String best, final double margin) {
+    checkBest(setupEddy(null,-1,filename),best,margin,fullShowFlags());
   }
 
   private void testPriority(String filename, String hi, String lo) {
@@ -275,7 +286,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testClosingBrace() {
-    testMargin("closingBrace.java", "", .9);
+    pushDebug();
+    try {
+      testMargin("closingBrace.java", "nonsense", .9);
+      throw new Eddy.Skip("");
+    } catch (final Eddy.Skip e) {
+      assert e.getMessage().contains("No tokens");
+    } finally { popDebug(); }
   }
 
   public void testPartialEditTypeConflict() {
@@ -434,11 +451,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testUnresolved() {
-    testMargin("unresolved.java", "if (x != null) {\n}", .9);
+    testMargin("unresolved.java", "if (x != null) {...}", .9);
   }
 
   public void testNullComparison() {
-    testMargin("nullComparison.java", "if (x != null) {\n}", .9);
+    testMargin("nullComparison.java", "if (x != null) {...}", .9);
   }
 
   public void testSpuriousTypeArgs() {
@@ -494,7 +511,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testComment() {
-    testMargin("comment.java", "return false; // A comment", .9);
+    testMargin("comment.java", "return false;", .9);
+  }
+
+  public void testCommentFull() {
+    testMarginFull("comment.java", "return false; // A comment", .9);
   }
 
   public void testParameterVsField() {

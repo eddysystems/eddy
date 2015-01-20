@@ -4,298 +4,195 @@ import tarski.Pretty._
 import tarski.Scores._
 import utility.Locations._
 
+import scala.annotation.tailrec
+
 object Tokens {
 
-  sealed abstract class Token
-  sealed abstract class FixedToken extends Token // Always the same string
-  sealed abstract class ToIdentToken extends FixedToken // Converts to IdentTok before parsing
+  sealed abstract class Token {
+    def show(implicit f: ShowFlags): String
+  }
+  sealed abstract class SimpleToken extends Token {
+    def s: String
+    final def show(implicit f: ShowFlags) = s
+  }
+  sealed abstract class FixedToken(val s: String) extends SimpleToken // Always the same string
+  sealed abstract class ToIdentToken extends SimpleToken // Converts to IdentTok before parsing
+
+  // Flags controlling show for fancy tokens
+  case class ShowFlags(abbreviate: Boolean)
+  val abbrevShowFlags = ShowFlags(abbreviate=true)
+  val fullShowFlags = ShowFlags(abbreviate=false)
 
   // Holes in the grammar
-  case object HoleTok extends Token
+  case object HoleTok extends SimpleToken {
+    def s = ""
+  }
 
   // Identifiers
-  case class IdentTok(name: String) extends Token
+  case class IdentTok(name: String) extends SimpleToken {
+    def s = name
+  }
 
   // Whitespace
   sealed abstract class SpaceTok extends Token {
-    def content: String
+    def s: String
+    def show(implicit f: ShowFlags) = if (f.abbreviate) " " else s
   }
   sealed abstract class CommentTok extends SpaceTok
-  case class WhitespaceTok(content: String) extends SpaceTok
-  case class EOLCommentTok(content: String) extends CommentTok
-  case class CCommentTok(content: String) extends CommentTok
+  case class WhitespaceTok(s: String) extends SpaceTok
+  case class EOLCommentTok(s: String) extends CommentTok
+  case class CCommentTok(s: String) extends CommentTok
 
   // Keywords: 3.9
-  case object AbstractTok extends FixedToken
-  case object AssertTok extends FixedToken
-  case object BooleanTok extends FixedToken
-  case object BreakTok extends FixedToken
-  case object CaseTok extends FixedToken
-  case object CatchTok extends FixedToken
-  case object ClassTok extends FixedToken
-  case object ConstTok extends FixedToken
-  case object ContinueTok extends FixedToken
-  case object DefaultTok extends FixedToken
-  case object DoTok extends FixedToken
-  case object ElseTok extends FixedToken
-  case object EnumTok extends FixedToken
-  case object ExtendsTok extends FixedToken
-  case object FinalTok extends FixedToken
-  case object FinallyTok extends FixedToken
-  case object ForTok extends FixedToken
-  case object IfTok extends FixedToken
-  case object GotoTok extends FixedToken
-  case object ImplementsTok extends FixedToken
-  case object ImportTok extends FixedToken
-  case object InstanceofTok extends FixedToken
-  case object InterfaceTok extends FixedToken
-  case object NativeTok extends FixedToken
-  case object NewTok extends FixedToken
-  case object PackageTok extends FixedToken
-  case object PrivateTok extends FixedToken
-  case object ProtectedTok extends FixedToken
-  case object PublicTok extends FixedToken
-  case object ReturnTok extends FixedToken
-  case object StaticTok extends FixedToken
-  case object StrictfpTok extends FixedToken
-  case object SuperTok extends FixedToken
-  case object SwitchTok extends FixedToken
-  case object SynchronizedTok extends FixedToken
-  case object ThisTok extends FixedToken
-  case object ThrowTok extends FixedToken
-  case object ThrowsTok extends FixedToken
-  case object TransientTok extends FixedToken
-  case object TryTok extends FixedToken
-  case object VolatileTok extends FixedToken
-  case object WhileTok extends FixedToken
+  case object AbstractTok extends FixedToken("abstract")
+  case object AssertTok extends FixedToken("assert")
+  case object BooleanTok extends FixedToken("boolean")
+  case object BreakTok extends FixedToken("break")
+  case object CaseTok extends FixedToken("case")
+  case object CatchTok extends FixedToken("catch")
+  case object ClassTok extends FixedToken("class")
+  case object ConstTok extends FixedToken("const")
+  case object ContinueTok extends FixedToken("continue")
+  case object DefaultTok extends FixedToken("default")
+  case object DoTok extends FixedToken("do")
+  case object ElseTok extends FixedToken("else")
+  case object EnumTok extends FixedToken("enum")
+  case object ExtendsTok extends FixedToken("extends")
+  case object FinalTok extends FixedToken("final")
+  case object FinallyTok extends FixedToken("finally")
+  case object ForTok extends FixedToken("for")
+  case object IfTok extends FixedToken("if")
+  case object GotoTok extends FixedToken("goto")
+  case object ImplementsTok extends FixedToken("implements")
+  case object ImportTok extends FixedToken("import")
+  case object InstanceofTok extends FixedToken("instanceof")
+  case object InterfaceTok extends FixedToken("interface")
+  case object NativeTok extends FixedToken("native")
+  case object NewTok extends FixedToken("new")
+  case object PackageTok extends FixedToken("package")
+  case object PrivateTok extends FixedToken("private")
+  case object ProtectedTok extends FixedToken("protected")
+  case object PublicTok extends FixedToken("public")
+  case object ReturnTok extends FixedToken("return")
+  case object StaticTok extends FixedToken("static")
+  case object StrictfpTok extends FixedToken("strictfp")
+  case object SuperTok extends FixedToken("super")
+  case object SwitchTok extends FixedToken("switch")
+  case object SynchronizedTok extends FixedToken("synchronized")
+  case object ThisTok extends FixedToken("this")
+  case object ThrowTok extends FixedToken("throw")
+  case object ThrowsTok extends FixedToken("throws")
+  case object TransientTok extends FixedToken("transient")
+  case object TryTok extends FixedToken("try")
+  case object VolatileTok extends FixedToken("volatile")
+  case object WhileTok extends FixedToken("while")
 
   // Keywords that we parse as identifiers
-  case object ByteTok   extends ToIdentToken
-  case object CharTok   extends ToIdentToken
-  case object DoubleTok extends ToIdentToken
-  case object FloatTok  extends ToIdentToken
-  case object IntTok    extends ToIdentToken
-  case object LongTok   extends ToIdentToken
-  case object NullTok   extends ToIdentToken
-  case object ShortTok  extends ToIdentToken
-  case object VoidTok   extends ToIdentToken
+  case object ByteTok   extends ToIdentToken { def s = "byte" }
+  case object CharTok   extends ToIdentToken { def s = "char" }
+  case object DoubleTok extends ToIdentToken { def s = "double" }
+  case object FloatTok  extends ToIdentToken { def s = "float" }
+  case object IntTok    extends ToIdentToken { def s = "int" }
+  case object LongTok   extends ToIdentToken { def s = "long" }
+  case object NullTok   extends ToIdentToken { def s = "null" }
+  case object ShortTok  extends ToIdentToken { def s = "short" }
+  case object VoidTok   extends ToIdentToken { def s = "void" }
 
   // Fake keywords.  These are not actual Java reserved words, but they are used in the grammar.
-  sealed abstract class FakeToken extends FixedToken
-  case object ThenTok extends FakeToken
-  case object UntilTok extends FakeToken
-  case object InTok extends FakeToken
+  sealed abstract class FakeToken(show: String) extends FixedToken(show)
+  case object ThenTok extends FakeToken("then")
+  case object UntilTok extends FakeToken("until")
+  case object InTok extends FakeToken("in")
 
   // Literals: 3.10
-  case class IntLitTok(v: String) extends Token
-  case class LongLitTok(v: String) extends Token
-  case class FloatLitTok(v: String) extends Token
-  case class DoubleLitTok(v: String) extends Token
-  case class BoolLitTok(v: Boolean) extends ToIdentToken
-  case class CharLitTok(v: String) extends Token
-  case class StringLitTok(v: String) extends Token
+  case class IntLitTok(s: String) extends SimpleToken
+  case class LongLitTok(s: String) extends SimpleToken
+  case class FloatLitTok(s: String) extends SimpleToken
+  case class DoubleLitTok(s: String) extends SimpleToken
+  case class BoolLitTok(v: Boolean) extends ToIdentToken { def s = if (v) "true" else "false" }
+  case class CharLitTok(s: String) extends SimpleToken
+  case class StringLitTok(s: String) extends SimpleToken
 
   // Separators: 3.11
-  case object LParenTok extends FixedToken
-  case object RParenTok extends FixedToken
-  case object LCurlyTok extends FixedToken
-  case object RCurlyTok extends FixedToken
-  case object LBrackTok extends FixedToken
-  case object RBrackTok extends FixedToken
-  case object SemiTok extends FixedToken
-  case object CommaTok extends FixedToken
-  case object DotTok extends FixedToken
-  case object EllipsisTok extends FixedToken
-  case object AtTok extends FixedToken
-  case object ColonColonTok extends FixedToken
+  case object LParenTok extends FixedToken("(")
+  case object RParenTok extends FixedToken(")")
+  case object LCurlyTok extends FixedToken("{")
+  case object RCurlyTok extends FixedToken("}")
+  case object LBrackTok extends FixedToken("[")
+  case object RBrackTok extends FixedToken("]")
+  case object SemiTok extends FixedToken(";")
+  case object CommaTok extends FixedToken(",")
+  case object DotTok extends FixedToken(".")
+  case object EllipsisTok extends FixedToken("...")
+  case object AtTok extends FixedToken("@")
+  case object ColonColonTok extends FixedToken("::")
 
   // Operators: 3.12
-  case object EqTok extends FixedToken
-  case object GtTok extends FixedToken
-  case object LtTok extends FixedToken
-  case object NotTok extends FixedToken
-  case object CompTok extends FixedToken
-  case object QuestionTok extends FixedToken
-  case object ColonTok extends FixedToken
-  case object ArrowTok extends FixedToken
-  case object EqEqTok extends FixedToken
-  case object GeTok extends FixedToken
-  case object LeTok extends FixedToken
-  case object NeTok extends FixedToken
-  case object AndAndTok extends FixedToken
-  case object OrOrTok extends FixedToken
-  case object PlusPlusTok extends FixedToken
-  case object MinusMinusTok extends FixedToken
+  case object EqTok extends FixedToken("=")
+  case object GtTok extends FixedToken(">")
+  case object LtTok extends FixedToken("<")
+  case object NotTok extends FixedToken("!")
+  case object CompTok extends FixedToken("~")
+  case object QuestionTok extends FixedToken("?")
+  case object ColonTok extends FixedToken(":")
+  case object ArrowTok extends FixedToken("->")
+  case object EqEqTok extends FixedToken("==")
+  case object GeTok extends FixedToken(">=")
+  case object LeTok extends FixedToken("<=")
+  case object NeTok extends FixedToken("!=")
+  case object AndAndTok extends FixedToken("&&")
+  case object OrOrTok extends FixedToken("||")
+  case object PlusPlusTok extends FixedToken("++")
+  case object MinusMinusTok extends FixedToken("--")
   // Binary
-  case object PlusTok extends FixedToken
-  case object MinusTok extends FixedToken
-  case object MulTok extends FixedToken
-  case object DivTok extends FixedToken
-  case object AndTok extends FixedToken
-  case object OrTok extends FixedToken
-  case object XorTok extends FixedToken
-  case object ModTok extends FixedToken
-  case object LShiftTok extends FixedToken
-  case object RShiftTok extends FixedToken
-  case object UnsignedRShiftTok extends FixedToken
+  case object PlusTok extends FixedToken("+")
+  case object MinusTok extends FixedToken("-")
+  case object MulTok extends FixedToken("*")
+  case object DivTok extends FixedToken("/")
+  case object AndTok extends FixedToken("&")
+  case object OrTok extends FixedToken("|")
+  case object XorTok extends FixedToken("^")
+  case object ModTok extends FixedToken("%")
+  case object LShiftTok extends FixedToken("<<")
+  case object RShiftTok extends FixedToken(">>")
+  case object UnsignedRShiftTok extends FixedToken(">>>")
   // Binary assign
-  case object PlusEqTok extends FixedToken
-  case object MinusEqTok extends FixedToken
-  case object MulEqTok extends FixedToken
-  case object DivEqTok extends FixedToken
-  case object AndEqTok extends FixedToken
-  case object OrEqTok extends FixedToken
-  case object XorEqTok extends FixedToken
-  case object ModEqTok extends FixedToken
-  case object LShiftEqTok extends FixedToken
-  case object RShiftEqTok extends FixedToken
-  case object UnsignedRShiftEqTok extends FixedToken
+  case object PlusEqTok extends FixedToken("+=")
+  case object MinusEqTok extends FixedToken("-=")
+  case object MulEqTok extends FixedToken("*=")
+  case object DivEqTok extends FixedToken("/=")
+  case object AndEqTok extends FixedToken("&=")
+  case object OrEqTok extends FixedToken("|=")
+  case object XorEqTok extends FixedToken("^=")
+  case object ModEqTok extends FixedToken("%=")
+  case object LShiftEqTok extends FixedToken("<<=")
+  case object RShiftEqTok extends FixedToken(">>=")
+  case object UnsignedRShiftEqTok extends FixedToken(">>>=")
 
   // In fake, we split >> and >>> into GtToks, with separators in between
-  sealed abstract class PhantomTok extends Token
+  sealed abstract class PhantomTok extends SimpleToken {
+    def s = throw new RuntimeException(s"Shouldn't be printing phantom token $this")
+  }
   case object RShiftSepTok extends PhantomTok
   case object UnsignedRShiftSepTok extends PhantomTok
 
-  def isSpace(t: Token) = t.isInstanceOf[SpaceTok]
-
-  def show(t: Token): String = t match {
-    case HoleTok => ""
-    case IdentTok(s) => s
-    case WhitespaceTok(s) => s
-    case EOLCommentTok(s) => s
-    case CCommentTok(s) => s
-    // Keywords
-    case AbstractTok => "abstract"
-    case AssertTok => "assert"
-    case BooleanTok => "boolean"
-    case BreakTok => "break"
-    case ByteTok => "byte"
-    case CaseTok => "case"
-    case CatchTok => "catch"
-    case CharTok => "char"
-    case ClassTok => "class"
-    case ConstTok => "const"
-    case ContinueTok => "continue"
-    case DefaultTok => "default"
-    case DoTok => "do"
-    case DoubleTok => "double"
-    case ElseTok => "else"
-    case EnumTok => "enum"
-    case ExtendsTok => "extends"
-    case FinalTok => "final"
-    case FinallyTok => "finally"
-    case FloatTok => "float"
-    case ForTok => "for"
-    case IfTok => "if"
-    case GotoTok => "goto"
-    case ImplementsTok => "implements"
-    case ImportTok => "import"
-    case InstanceofTok => "instanceof"
-    case IntTok => "int"
-    case InterfaceTok => "interface"
-    case LongTok => "long"
-    case NativeTok => "native"
-    case NewTok => "new"
-    case PackageTok => "package"
-    case PrivateTok => "private"
-    case ProtectedTok => "protected"
-    case PublicTok => "public"
-    case ReturnTok => "return"
-    case ShortTok => "short"
-    case StaticTok => "static"
-    case StrictfpTok => "strictfp"
-    case SuperTok => "super"
-    case SwitchTok => "switch"
-    case SynchronizedTok => "synchronized"
-    case ThisTok => "this"
-    case ThrowTok => "throw"
-    case ThrowsTok => "throws"
-    case TransientTok => "transient"
-    case TryTok => "try"
-    case VoidTok => "void"
-    case VolatileTok => "volatile"
-    case WhileTok => "while"
-    // Fake keywords
-    case ThenTok => "then"
-    case UntilTok => "until"
-    case InTok => "in"
-    // Literals
-    case IntLitTok(v) => v
-    case LongLitTok(v) => v
-    case FloatLitTok(v) => v
-    case DoubleLitTok(v) => v
-    case BoolLitTok(true) => "true"
-    case BoolLitTok(false) => "false"
-    case CharLitTok(v) => v
-    case StringLitTok(v) => v
-    case NullTok => "null"
-    // Separators
-    case LParenTok => "("
-    case RParenTok => ")"
-    case LCurlyTok => "{"
-    case RCurlyTok => "}"
-    case LBrackTok => "["
-    case RBrackTok => "]"
-    case SemiTok => ";"
-    case CommaTok => ","
-    case DotTok => "."
-    case EllipsisTok => "..."
-    case AtTok => "@"
-    case ColonColonTok => "::"
-    // Operators
-    case EqTok => "="
-    case GtTok => ">"
-    case LtTok => "<"
-    case NotTok => "!"
-    case CompTok => "~"
-    case QuestionTok => "?"
-    case ColonTok => ":"
-    case ArrowTok => "->"
-    case EqEqTok => "=="
-    case GeTok => ">="
-    case LeTok => "<="
-    case NeTok => "!="
-    case AndAndTok => "&&"
-    case OrOrTok => "||"
-    case PlusPlusTok => "++"
-    case MinusMinusTok => "--"
-    // Binary
-    case PlusTok => "+"
-    case MinusTok => "-"
-    case MulTok => "*"
-    case DivTok => "/"
-    case AndTok => "&"
-    case OrTok => "|"
-    case XorTok => "^"
-    case ModTok => "%"
-    case LShiftTok => "<<"
-    case RShiftTok => ">>"
-    case UnsignedRShiftTok => ">>>"
-    // Binary assign
-    case PlusEqTok => "+="
-    case MinusEqTok => "-="
-    case MulEqTok => "*="
-    case DivEqTok => "/="
-    case AndEqTok => "&="
-    case OrEqTok => "|="
-    case XorEqTok => "^="
-    case ModEqTok => "%="
-    case LShiftEqTok => "<<="
-    case RShiftEqTok => ">>="
-    case UnsignedRShiftEqTok => ">>>="
-    // Phantoms
-    case _:PhantomTok => throw new RuntimeException(s"Shouldn't be printing phantom token $t")
+  // Uninterpreted statements and code blocks
+  abstract class StmtTok extends Token {
+    def blocked: Boolean
+    def show(implicit f: ShowFlags): String
   }
 
+  def isSpace(t: Token) = t.isInstanceOf[SpaceTok]
+
   // Convert to a string, adding whitespace between every token
-  def showSep[A](x: A)(implicit p: Pretty[A]): String =
-    tokens(x) map show mkString " "
+  def showSep[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =
+    tokens(x) map (_.show) mkString " "
 
   // Convert to a string, adding as little whitespace as possible
-  def show[A](x: A)(implicit p: Pretty[A]): String = {
+  def show[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String = {
     def process(ts: List[Token]): String = ts match {
       case Nil => ""
-      case x::Nil => show(x)
+      case x::Nil => x.show
       case x::(ys@(y::_)) =>
         def safe(x: Token, y: Token) = (x,y) match {
           case (_:WhitespaceTok,_)|(_,_:WhitespaceTok) => true
@@ -308,7 +205,7 @@ object Tokens {
           case (_,SemiTok) => true
           case _ => false
         }
-        show(x) + (if (safe(x,y)) "" else " ") + process(ys)
+        x.show + (if (safe(x,y)) "" else " ") + process(ys)
     }
     process(tokens(x))
   }
@@ -328,13 +225,14 @@ object Tokens {
         case "in" => InTok
         case _ => t
       })
-      case t:ToIdentToken => List(IdentTok(show(t)))
+      case t:ToIdentToken => List(IdentTok(t.s))
       case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
       case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
       case t => List(t)
     }) map (Located(_,r))}
     def interior(ts: List[Located[Token]]): Scored[List[Located[Token]]] =
-      if (ts exists (_.x.isInstanceOf[CommentTok])) fail("Token stream contains interior comments")
+      if (ts exists (_.x.isInstanceOf[CommentTok]))
+        fail(s"Token stream contains interior comments:\n  ${ts.reverse mkString "\n  "}")
       else known(expand(ts.reverse))
     ts.reverse match {
       case (Located(c:EOLCommentTok,_)) :: s => interior(s) map ((_,Some(c)))

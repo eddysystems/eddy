@@ -2,6 +2,7 @@ package tarski
 
 import tarski.Mods.Mod
 import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
+import tarski.Tokens.StmtTok
 import utility.Locations._
 
 object AST {
@@ -58,6 +59,7 @@ object AST {
   case object HoleAStmt extends AStmt
   case class VarAStmt(m: List[Mod], t: Option[AExp], v: KList[AVarDecl], r: SRange) extends AStmtLoc
   case class BlockAStmt(b: Block, r: SRange) extends AStmtLoc
+  case class TokAStmt(b: StmtTok, r: SRange) extends AStmtLoc
   case class ExpAStmt(e: AExp) extends AStmtLoc { def r = e.r }
   case class AssertAStmt(cond: AExp, msg: Option[AExp], r: SRange) extends AStmtLoc
   case class BreakAStmt(label: Option[Name], r: SRange) extends AStmtLoc

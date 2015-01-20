@@ -12,6 +12,7 @@ import scala.annotation.tailrec
 
 object ArgMatching {
   type Exps = List[Scored[Exp]]
+  private implicit val showFlags = abbrevShowFlags
 
   def useAll(e: ApplyExp, unused: Exps)(implicit env: Env): Scored[Exp] = unused match {
     case Nil => known(e)

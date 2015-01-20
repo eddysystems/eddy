@@ -90,7 +90,7 @@ class EddyHintLabel extends JPanel {
   }
 
   protected static LightweightHint makeHint(Eddy.Output output) {
-    final String text = output.bestText() + (output.single() ? "" : " (multiple options...)");
+    final String text = output.bestTextAbbrev() + (output.single() ? "" : " (multiple options...)");
     final String hintText = ' ' + text + ' ' + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
 
     HintHint hintHint = new HintHint().setTextBg(HintUtil.QUESTION_COLOR)

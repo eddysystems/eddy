@@ -19,6 +19,8 @@ import java.util.IdentityHashMap
 import scala.annotation.tailrec
 
 object Semantics {
+  private implicit val showFlags = abbrevShowFlags
+
   // Literals
   def denoteLit(x: ALit): Scored[Lit] = {
     def under(v: String): String = v.replaceAllLiterally("_","")
@@ -579,6 +581,7 @@ object Semantics {
     s match {
       case EmptyAStmt => single((env,List(EmptyStmt)), Pr.emptyStmt)
       case HoleAStmt => single((env,List(HoleStmt)), Pr.holeStmt)
+      case TokAStmt(t,_) => known(env,List(TokStmt(t)))
       case VarAStmt(m,t,ds,_) => modifiers(m,Final) flatMap (isFinal => {
         def process(d: AVarDecl)(env: Env, x: Local): Scored[VarDecl] = d match {
           case (_,k,None) => known(x,k,None)

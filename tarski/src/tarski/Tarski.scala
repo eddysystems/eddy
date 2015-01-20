@@ -41,8 +41,8 @@ object Tarski {
     }
   }
 
-  // (show(s),s.toString,format) for a statement s.  Once we convert Stmt to ShowStmt, Env can be discarded.
-  case class ShowStmt(show: String, den: String, format: String)
+  // (show(s),s.toString,fullFormat,abbrevFormat) for a statement s.  Once we convert Stmt to ShowStmt, Env can be discarded.
+  case class ShowStmt(show: String, den: String, full: String, abbrev: String)
 
   // Java and Scala result types
   type JList[A] = java.util.List[A]
@@ -55,7 +55,8 @@ object Tarski {
   }
 
   // Feed results to a take instance until it's satisfied
-  def fixTake(tokens: java.util.List[Located[Token]], env: Env, format: (Stmt,String) => String, take: Take): Unit = {
+  def fixTake(tokens: java.util.List[Located[Token]], env: Env,
+              format: (Stmt,String,ShowFlags) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
 
@@ -66,7 +67,7 @@ object Tarski {
       val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
       if (!take.take(rs) && s.nonEmpty) {
         val Alt(p,b) = s.head
-        val a = b map (_.format)
+        val a = b map (_.abbrev)
         println(s"$p: $a")
         mergeTake(s.tail)(m + ((a,m get a match {
           case None => Alt(p,b)
@@ -76,12 +77,15 @@ object Tarski {
     }
 
     val sc = r.map { case (env,s) => {
-      implicit val e = env
-      println(s"$s => ${s.map(show(_))}")
-      s map (s => {
-        val sh = show(s)
-        ShowStmt(sh,s.toString,format(s,sh))
+      val sh = s map (s => {
+        val abbrev = show(s)(Pretty.prettyStmt(_)(env),abbrevShowFlags).trim
+        val full   = show(s)(Pretty.prettyStmt(_)(env),fullShowFlags)
+        ShowStmt(show=abbrev,den=s.toString,
+          full=format(s,full,fullShowFlags),
+          abbrev=format(s,abbrev,abbrevShowFlags))
       })
+      println(s"$s => ${sh map (_.show)}")
+      sh
     }}
     // Complain if there's an error
     if (trackErrors) sc.strict match {

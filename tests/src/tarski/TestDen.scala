@@ -24,6 +24,7 @@ import scala.annotation.tailrec
 class TestDen {
   // Default to an empty local environment
   implicit val env = localEnvWithBase()
+  implicit val showFlags = abbrevShowFlags
 
   def fp(p: Prob) = pp(p) + (if (!trackProbabilities) "" else s"\n${ppretty(p).prefixed("  ")}")
 
@@ -33,7 +34,7 @@ class TestDen {
       case e:EmptyOrBad => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.error.prefixed("error: "))
       case Best(p,(env,s),rest) =>
         val b = convert(best(env))
-        def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env))
+        def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env),showFlags)
         if (b != s) {
           val ep = probOf(fixes,env => convert(best(env)))
           throw new AssertionError(s"Denotation test failed:\ninput: $input" +
