@@ -3,25 +3,20 @@ package com.eddysystems.eddy.engine;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import utility.Locations;
-import utility.Locations.SRange;
-import utility.Locations.Located;
-import com.intellij.lang.java.lexer.JavaLexer;
-import com.intellij.pom.java.LanguageLevel;
+import utility.Locations.Loc;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.tree.IElementType;
 import tarski.Tokens.*;
 
-import java.util.ArrayList;
-
 class Tokenizer {
 
-  public static Located<Token> psiToTok(final TreeElement elem) {
+  public static Loc<Token> psiToTok(final TreeElement elem) {
     final int lo = elem.getTextOffset(),
               hi = lo+elem.getTextLength();
     return Locations.locatedHelper(token(elem),Locations.buildHelper(lo,hi));
   }
 
-  public static <A> TextRange range(final Located<A> x) {
+  public static <A> TextRange range(final Loc<A> x) {
     return new TextRange(x.rawLo(),x.rawHi());
   }
 

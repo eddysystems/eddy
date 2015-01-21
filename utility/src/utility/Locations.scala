@@ -5,7 +5,7 @@ object Locations {
   def buildHelper(lo: Int, hi: Int): Long = lo | hi.toLong<<32
   def unionHelper(r0: Long, r1: Long): Long =
     buildHelper(Math.min(r0.toInt,r1.toInt),Math.max(r0>>>32,r1>>>32).toInt)
-  def locatedHelper[A](x: A, r: Long): Located[A] = Located(x,new SRange(r))
+  def locatedHelper[A](x: A, r: Long): Loc[A] = Loc(x,new SRange(r))
 
   // Single source location
   class SLoc(val x: Int) extends AnyVal
@@ -35,8 +35,8 @@ object Locations {
     def setR(r: SRange): A
   }
 
-  case class Located[A](x: A, r: SRange) extends HasRange {
-    def map[B](f: A => B): Located[B] = Located(f(x),r)
+  case class Loc[A](x: A, r: SRange) extends HasRange {
+    def map[B](f: A => B): Loc[B] = Loc(f(x),r)
 
     // For Java use
     def raw: Long = r.raw

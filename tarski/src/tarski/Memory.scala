@@ -4,7 +4,7 @@ import tarski.Denotations.Stmt
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmt
-import utility.Locations.{SLoc, Located}
+import utility.Locations.{SLoc, Loc}
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.amazonaws.auth.{BasicAWSCredentials,AWSCredentials}
@@ -45,7 +45,7 @@ object Memory {
     S(y)
   }
   implicit def safeSLoc(x: SLoc) = S(x.x:java.lang.Integer)
-  implicit def safeLocated[A](x: Located[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"lo"->safe(x.r.lo),"hi"->safe(x.r.hi)).asJava)
+  implicit def safeLocated[A](x: Loc[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"lo"->safe(x.r.lo),"hi"->safe(x.r.hi)).asJava)
   implicit def safeAlt[A](x: Alt[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"p"->safe(x.p)).asJava)
   implicit def safeToken(x: Token) = S(Map("c"->x.getClass.getName,"s"->x.show).asJava)
   implicit def safeException(x: Throwable) = S(Map("c"->x.getClass.getName,"s"->x.getMessage).asJava)
@@ -66,7 +66,7 @@ object Memory {
                      .add("project",project)
 
   // Specific kinds of messages
-  def eddyApply(base: Info, input: JList[Located[Token]], results: JList[Alt[JList[ShowStmt]]], choice: String) = {
+  def eddyApply(base: Info, input: JList[Loc[Token]], results: JList[Alt[JList[ShowStmt]]], choice: String) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[Seq[String]] = if (results==null) null else results.asScala.map(_.x.asScala.map(_.den))
     val tokens: Seq[Alt[Seq[String]]] = if (results==null) null else results.asScala.map(_ map (_.asScala.map(_.show)))
@@ -79,7 +79,7 @@ object Memory {
         .add("choice",choice)
   }
 
-  def eddyProcess(base: Info, start: Double, input: JList[Located[Token]], results: JList[Alt[JList[ShowStmt]]]) = {
+  def eddyProcess(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[JList[ShowStmt]]]) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[Seq[String]] = if (results==null) null else results.asScala.map(_.x.asScala.map(_.den))
     val tokens: Seq[Alt[Seq[String]]] = if (results==null) null else results.asScala.map(_ map (_.asScala.map(_.show)))

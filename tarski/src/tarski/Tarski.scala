@@ -55,7 +55,7 @@ object Tarski {
   }
 
   // Feed results to a take instance until it's satisfied
-  def fixTake(tokens: java.util.List[Located[Token]], env: Env,
+  def fixTake(tokens: java.util.List[Loc[Token]], env: Env,
               format: (Stmt,String,ShowFlags) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
@@ -96,7 +96,7 @@ object Tarski {
     mergeTake(sc.stream)(Map.empty)
   }
 
-  def fix(tokens: List[Located[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
+  def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     prepare(tokens) flatMap { case (ts,c) =>
       val asts = Mismatch.repair(ts) flatMap (ts => {
         val asts = ParseEddy.parse(ts)

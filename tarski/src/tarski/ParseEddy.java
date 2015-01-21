@@ -17,7 +17,7 @@ import static tarski.ParseEddyActions.*;
 
 class ParseEddy {
   // Parse a token stream
-  public static List<List<AStmt>> parse(List<Located<Token>> input) {
+  public static List<List<AStmt>> parse(List<Loc<Token>> input) {
     return new Parser(input).toplevel();
   }
   
@@ -30,16 +30,16 @@ class ParseEddy {
     private final static long vMask = (1L<<32)-1;
     
     // Convert input and allocate working memory
-    Parser(List<Located<Token>> _input) {
+    Parser(List<Loc<Token>> _input) {
       final int n = _input.size();
       assert n+1<(1<<12);
       input = new Token[n];
       ranges = new long[n];
       for (int i=0;i<n;i++) {
-        final Located<Token> tr = _input.head();
+        final Loc<Token> tr = _input.head();
         input[i] = tr.x();
         ranges[i] = tr.raw();
-        _input = (List<Located<Token>>)_input.tail();
+        _input = (List<Loc<Token>>)_input.tail();
       }
       type = new byte[n];
     }
@@ -1139,7 +1139,7 @@ class ParseEddy {
         final long s1 = slices.get(iTypeArgs<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Option_TypeArgs0((Located)values.get((int)(s1>>32)+k)));
+            values.add(Option_TypeArgs0((Loc)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
@@ -1592,7 +1592,7 @@ class ParseEddy {
             final long s3 = slices.get(iTypeArgs<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary0((AExp)values.get((int)(s1>>32)+k1),(Located)values.get((int)(s3>>32)+k3),range));
+                values.add(ExpPrimary0((AExp)values.get((int)(s1>>32)+k1),(Loc)values.get((int)(s3>>32)+k3),range));
             }
           }
         }
@@ -1648,7 +1648,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpPrimary<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpNew1((Located)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
+                values.add(ExpNew1((Loc)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),range));
             }
           }
         }

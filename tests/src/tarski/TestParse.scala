@@ -16,7 +16,7 @@ import org.testng.AssertJUnit._
 class TestParse {
   val r = SRange.unknown
   val p = ParenAround
-  def noLoc[A](x: Located[A]): Located[A] = Located(x.x,r)
+  def noLoc[A](x: Loc[A]): Loc[A] = Loc(x.x,r)
   def clean(s: String): String = s.replaceAllLiterally(",SRange(-1,-1)","")
   implicit val showFlags = abbrevShowFlags
 
@@ -63,7 +63,7 @@ class TestParse {
     check("(1 + 2) * 3", mul(add(1,2),3))
   }
 
-  def prep(s: String): List[Located[Token]] = prepare(lex(s) map noLoc).all match {
+  def prep(s: String): List[Loc[Token]] = prepare(lex(s) map noLoc).all match {
     case Left(_) => throw new RuntimeException("prepare failed")
     case Right(ss) => ss.toList match {
       case List(Alt(p,(ts,None))) if pp(p)==1 => ts
@@ -179,7 +179,7 @@ class TestParse {
     VarAStmt(Nil,"a",JuxtList(("b",0,None),("c",0,None)),r))
 
   @Test def twoTypeArgs() =
-    testAST("new<C>A<B>",NewAExp(Some(Located(SingleList("C"),r)),TypeApplyAExp("A","B",r,true,r),r),
+    testAST("new<C>A<B>",NewAExp(Some(Loc(SingleList("C"),r)),TypeApplyAExp("A","B",r,true,r),r),
                          NewAExp(None,TypeApplyAExp(TypeApplyAExp("A","C",r,false,r),"B",r,true,r),r),
-                         TypeApplyAExp(NewAExp(Some(Located(SingleList("C"),r)),"A",r),"B",r,true,r))
+                         TypeApplyAExp(NewAExp(Some(Loc(SingleList("C"),r)),"A",r),"B",r,true,r))
 }

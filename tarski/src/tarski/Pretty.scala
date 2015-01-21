@@ -237,7 +237,7 @@ object Pretty {
       fix(s, left(_,e) ::: around(xs,a)._2)
     }
   }
-  implicit def prettyATypeArgs(t: Option[Located[KList[AExp]]]): (Fixity,Tokens) =
+  implicit def prettyATypeArgs(t: Option[Loc[KList[AExp]]]): (Fixity,Tokens) =
     (HighestFix, t map (t => typeBracket(t.x)) getOrElse Nil)
 
   // AST statements

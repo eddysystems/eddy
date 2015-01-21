@@ -29,7 +29,7 @@ import tarski.Tarski;
 import tarski.Tarski.ShowStmt;
 import tarski.Tokens.ShowFlags;
 import tarski.Tokens.Token;
-import utility.Locations.Located;
+import utility.Locations.Loc;
 import utility.Utility.Unchecked;
 
 import java.util.ArrayList;
@@ -47,11 +47,11 @@ public class Eddy {
 
   public static class Input {
     final TextRange range;
-    final List<Located<Token>> input;
+    final List<Loc<Token>> input;
     final PsiElement place;
     final String before_text;
 
-    Input(final TextRange range, final List<Located<Token>> input, final PsiElement place, final String before_text) {
+    Input(final TextRange range, final List<Loc<Token>> input, final PsiElement place, final String before_text) {
       this.range = range;
       this.input = input;
       this.place = place;
@@ -347,7 +347,7 @@ public class Eddy {
 
     // Walk all relevant elements, collecting leaves and atomic code blocks.
     // We walk on AST instead of Psi to get down to the token level.
-    final List<Located<Token>> tokens = new ArrayList<Located<Token>>();
+    final List<Loc<Token>> tokens = new ArrayList<Loc<Token>>();
     final RecursiveTreeElementVisitor V = new RecursiveTreeElementVisitor() {
       @Override protected boolean visitNode(final TreeElement e) {
         if (expand(e,range,cursor))
