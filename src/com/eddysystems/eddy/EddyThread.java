@@ -143,6 +143,8 @@ public class EddyThread extends Thread {
 
     // if we switch back to hard interrupts and we tried interrupting before, interrupt now.
     if (!softInterrupts && _canceled) {
+      // cancel again not that we can hard interrupt
+      _canceled=false;
       interrupt();
     }
   }
@@ -155,6 +157,8 @@ public class EddyThread extends Thread {
       log("soft interrupting " + this.getName());
     } else {
       log("interrupting " + this.getName());
+      // release our read lock. This may kill our thread, but that's the point.
+      releaseReadLock();
       super.interrupt();
     }
   }
