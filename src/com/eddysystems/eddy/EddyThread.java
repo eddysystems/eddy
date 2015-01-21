@@ -157,8 +157,6 @@ public class EddyThread extends Thread {
       log("soft interrupting " + this.getName());
     } else {
       log("interrupting " + this.getName());
-      // release our read lock. This may kill our thread, but that's the point.
-      releaseReadLock();
       super.interrupt();
     }
   }
