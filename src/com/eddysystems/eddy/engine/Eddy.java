@@ -425,7 +425,7 @@ public class Eddy {
             delays.add(delay);
             output = new Output(Eddy.this,input,results);
             if (isDebug())
-              System.out.println(String.format("output %.3fs:\n", delay) + logString(output.formats(abbrevShowFlags(),true)));
+              System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(abbrevShowFlags(),true)));
 
             updateIntentions();
             return takeoutput.take(output);

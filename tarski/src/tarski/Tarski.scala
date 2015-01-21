@@ -87,7 +87,7 @@ object Tarski {
           full=format(s,full,fullShowFlags),
           abbrev=ShowFlags.replaceSentinels(format(s,sentinel,sentinelShowFlags)).replaceAll("""\s+"""," "))
       })
-      println(s"$s => ${sh map (_.show)}")
+      //println(s"$s => ${sh map (_.show)}")
       sh
     }}
     // Complain if there's an error
