@@ -64,7 +64,7 @@ object Tarski {
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
     @tailrec def mergeTake(s: Stream[Alt[List[ShowStmt]]], m: Map[List[String],Alt[List[ShowStmt]]], notify: Boolean): Unit = {
-      env.checkThread.run // check if the thread was interrupted (as the probabilities decline, we hardly ever do env lookups)
+      env.checkThread() // check if the thread was interrupted (as the probabilities decline, we hardly ever do env lookups)
       val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
       val done = notify && take.take(rs) // if we shouldn't notify take, it gets not say in whether to continue, there's no new information.
       if (!done && s.nonEmpty) {
