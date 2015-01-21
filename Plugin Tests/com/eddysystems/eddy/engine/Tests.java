@@ -526,5 +526,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("parameter.java", "f(x);", .9);
   }
 
+  public void testElif() {
+    testMargin("elif.java", "if (true) {...} else if (false) {...}", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }

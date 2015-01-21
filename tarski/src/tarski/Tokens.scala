@@ -99,10 +99,11 @@ object Tokens {
   case object VoidTok   extends ToIdentToken { def s = "void" }
 
   // Fake keywords.  These are not actual Java reserved words, but they are used in the grammar.
-  sealed abstract class FakeToken(show: String) extends FixedToken(show)
-  case object ThenTok extends FakeToken("then")
-  case object UntilTok extends FakeToken("until")
-  case object InTok extends FakeToken("in")
+  sealed trait FakeToken extends Token
+  case object ThenTok extends FixedToken("then") with FakeToken
+  case object UntilTok extends FixedToken("until") with FakeToken
+  case class ElifTok(s: String) extends SimpleToken with FakeToken
+  case object InTok extends FixedToken("in") with FakeToken
 
   // Literals: 3.10
   case class IntLitTok(s: String) extends SimpleToken
@@ -222,6 +223,7 @@ object Tokens {
       case t@IdentTok(s) => List(s match {
         case "then" => ThenTok
         case "until" => UntilTok
+        case "elif"|"elsif"|"elseif" => ElifTok(s)
         case "in" => InTok
         case _ => t
       })

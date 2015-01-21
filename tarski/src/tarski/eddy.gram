@@ -1,7 +1,7 @@
 name ParseEddy
 start Stmts
 token Token
-simple (?<!Lit|Ident|Stmt)Tok
+simple (?<!Lit|Ident|Stmt|Elif)Tok
 
 preamble package tarski
 preamble import tarski.Tokens._
@@ -12,6 +12,7 @@ preamble import tarski.Operators._
 // Identifiers, including fake keywords
 Ident String
   IdentTok { $1.name }
+  ElifTok  { $1.s }
   ThenTok  { "then" }
   UntilTok { "until" }
   InTok    { "in" }
@@ -126,9 +127,7 @@ MaybeStmt AStmt
   Stmt                                                       { $1 }
 StmtHelper AStmt
   StmtHelperBS                                               { $1 }
-  IfTok MaybeParenExp MaybeThen                              { IfAStmt($2._1,HoleAStmt,$2._2,$r) }
-  IfTok ParenExp MaybeThen MaybeStmt ElseTok                 { IfElseAStmt($2._1,$4,HoleAStmt,$2._2,$r) }
-  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok                { IfElseAStmt($2,$4,HoleAStmt,NoAround,$r) }
+  IfTok AfterIfA                                             { $2 setR $r }
   WhileUntil MaybeParenExp MaybeDo                           { WhileAStmt($2._1,HoleAStmt,$1,$2._2,$r) }
   ForTok Left ForInfo Right                                  { ForAStmt($3,HoleAStmt,Grouped($2,$4),$r) }
   ForTok ForInfo                                             { ForAStmt($2,HoleAStmt,NoAround,$r) }
@@ -145,12 +144,7 @@ StmtHelperBS AStmt
   ReturnTok Option[ExpJuxt]                                  { ReturnAStmt($2,$r) }
   ThrowTok ExpJuxt                                           { ThrowAStmt($2,$r) }
   // LabelStmt
-  IfTok ParenExp MaybeThen Stmt                              { IfAStmt($2._1,$4,$2._2,$r) }
-  IfTok ExpAssignNP ThenTok Stmt                             { IfAStmt($2,$4,NoAround,$r) }
-  IfTok ExpAssignNP                                          { IfAStmt($2,EmptyAStmt,NoAround,$r) }
-  IfTok ExpAssignNP                                          { IfElseAStmt($2,EmptyAStmt,HoleAStmt,NoAround,$r) }
-  IfTok ParenExp MaybeThen MaybeStmt ElseTok Stmt            { IfElseAStmt($2._1,$4,$6,$2._2,$r) }
-  IfTok ExpAssignNP ThenTok MaybeStmt ElseTok Stmt           { IfElseAStmt($2,$4,$6,NoAround,$r) }
+  IfTok AfterIfB                                             { $2 setR $r }
   WhileUntil ParenExp MaybeDo Stmt                           { WhileAStmt($2._1,$4,$1,$2._2,$r) }
   WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($2,$4,$1,NoAround,$r) }
   WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt,$1,NoAround,$r) }
@@ -160,6 +154,23 @@ StmtHelperBS AStmt
   SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2._1,$3,$2._2,$r) }
   // Try
   // Switch
+AfterIf IfsAStmt
+  AfterIfA                                                   { $1 }
+  AfterIfB                                                   { $1 }
+AfterIfA IfsAStmt
+  MaybeParenExp MaybeThen                                    { IfAStmt($1._1,HoleAStmt,$1._2,$r) }
+  ParenExp MaybeThen MaybeStmt ElseTok                       { IfElseAStmt($1._1,$3,HoleAStmt,$1._2,$r) }
+  ExpAssignNP ThenTok MaybeStmt ElseTok                      { IfElseAStmt($1,$3,HoleAStmt,NoAround,$r) }
+AfterIfB IfsAStmt
+  ParenExp MaybeThen Stmt                                    { IfAStmt($1._1,$3,$1._2,$r) }
+  ExpAssignNP ThenTok Stmt                                   { IfAStmt($1,$3,NoAround,$r) }
+  ExpAssignNP Block                                          { IfAStmt($1,$2,NoAround,$r) }
+  ExpAssignNP                                                { IfAStmt($1,EmptyAStmt,NoAround,$r) }
+  ExpAssignNP                                                { IfElseAStmt($1,EmptyAStmt,HoleAStmt,NoAround,$r) }
+  ParenExp MaybeThen MaybeStmt ElseTok Stmt                  { IfElseAStmt($1._1,$3,$5,$1._2,$r) }
+  ParenExp MaybeThen MaybeStmt ElifTok AfterIf               { IfElseAStmt($1._1,$3,$5,$1._2,$r) }
+  ExpAssignNP ThenTok MaybeStmt ElseTok Stmt                 { IfElseAStmt($1,$3,$5,NoAround,$r) }
+  ExpAssignNP ThenTok MaybeStmt ElifTok AfterIf              { IfElseAStmt($1,$3,$5,NoAround,$r) }
 VarDecl (String,Int,Option[AExp])
   IdentDims                      { ($1._1,$1._2,None) }
   IdentDims EqTok ExpCommas      { ($1._1,$1._2,Some($3)) }

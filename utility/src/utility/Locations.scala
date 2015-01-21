@@ -31,6 +31,9 @@ object Locations {
   trait HasRange {
     def r: SRange
   }
+  trait SetRange[+A] {
+    def setR(r: SRange): A
+  }
 
   case class Located[A](x: A, r: SRange) extends HasRange {
     def map[B](f: A => B): Located[B] = Located(f(x),r)

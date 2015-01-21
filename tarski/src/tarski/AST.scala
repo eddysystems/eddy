@@ -67,8 +67,13 @@ object AST {
   case class ReturnAStmt(e: Option[AExp], r: SRange) extends AStmtLoc
   case class ThrowAStmt(e: AExp, r: SRange) extends AStmtLoc
   case class SyncAStmt(e: AExp, s: AStmt, a: Around, r: SRange) extends AStmtLoc
-  case class IfAStmt(cond: AExp, t: AStmt, a: Around, r: SRange) extends AStmtLoc
-  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around, r: SRange) extends AStmtLoc
+  sealed trait IfsAStmt extends AStmtLoc with SetRange[IfsAStmt]
+  case class IfAStmt(cond: AExp, t: AStmt, a: Around, r: SRange) extends IfsAStmt {
+    def setR(r: SRange) = IfAStmt(cond,t,a,r)
+  }
+  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around, r: SRange) extends IfsAStmt {
+    def setR(r: SRange) = IfElseAStmt(cond,t,f,a,r)
+  }
   case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
   case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
   case class ForAStmt(i: ForInfo, s: AStmt, a: Around, r: SRange) extends AStmtLoc

@@ -721,7 +721,10 @@ object Semantics {
     else known(a))
 
   def xor(x: Boolean, y: Exp): Exp =
-    if (x) NonImpExp(NotOp,y) else y
+    if (x) y match {
+      case BooleanLit(y) => BooleanLit(!y)
+      case _ => NonImpExp(NotOp,y)
+    } else y
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)}
