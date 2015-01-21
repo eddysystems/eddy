@@ -63,16 +63,18 @@ object Tarski {
     //println(s"fix found: empty ${r.isEmpty}, single ${r.isSingle}, best ${r.best}")
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
-    @tailrec def mergeTake(s: Stream[Alt[List[ShowStmt]]])(m: Map[List[String],Alt[List[ShowStmt]]]): Unit = {
+    @tailrec def mergeTake(s: Stream[Alt[List[ShowStmt]]], m: Map[List[String],Alt[List[ShowStmt]]], notify: Boolean): Unit = {
+      env.checkThread.run // check if the thread was interrupted (as the probabilities decline, we hardly ever do env lookups)
       val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
-      if (!take.take(rs) && s.nonEmpty) {
+      val done = notify && take.take(rs) // if we shouldn't notify take, it gets not say in whether to continue, there's no new information.
+      if (!done && s.nonEmpty) {
         val Alt(p,b) = s.head
         val a = b map (_.abbrev)
-        println(s"$p: $a")
-        mergeTake(s.tail)(m + ((a,m get a match {
-          case None => Alt(p,b)
-          case Some(Alt(q,c)) => Alt(pmax(q,p),c) // Use the List[ShowStmt] from the higher probability alternative, use maximum probability of any alternative
-        })))
+        println(s"found in stream: $p: $a")
+        if (m contains a)
+          mergeTake(s.tail, m, notify=false)
+        else
+          mergeTake(s.tail, m + ((a,Alt(p,b))), notify=true)
       }
     }
 
@@ -93,7 +95,7 @@ object Tarski {
       case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("error: "))
       case _:Best[_] => ()
     }
-    mergeTake(sc.stream)(Map.empty)
+    mergeTake(sc.stream, Map.empty, notify=false)
   }
 
   def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
