@@ -2,9 +2,12 @@ package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
 import com.eddysystems.eddy.PreferencesProvider;
+import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
+import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
+import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -43,8 +46,16 @@ import static utility.Utility.unchecked;
 
 public class Eddy {
   final private Project project;
-  final private Editor editor;
   final private Memory.Info base;
+  final private Editor editor;
+  final private Document document;
+
+  public Editor getEditor() { return editor; }
+  public PsiFile getFile() {
+    final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
+    assert file != null;
+    return file;
+  }
 
   public static class Input {
     final TextRange range;
@@ -151,7 +162,7 @@ public class Eddy {
 
     public int autoApply() {
       // Automatically apply the best found result
-      return rawApply(eddy.editor.getDocument(),format(0,abbrevShowFlags()));
+      return rawApply(eddy.document,format(0,abbrevShowFlags()));
     }
 
     public boolean shouldAutoApply() {
@@ -181,17 +192,12 @@ public class Eddy {
         @Override
         public void run() {
           final Editor editor = eddy.editor;
-          final Project project = editor.getProject();
-          final Document document = editor.getDocument();
-          final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-          assert psifile != null;
-
-          new WriteCommandAction(project, psifile) {
+          new WriteCommandAction(eddy.project, eddy.getFile()) {
             @Override
             public void run(@NotNull Result result) {
-              final int newOffset = input.range.getEndOffset() + rawApply(document,full);
+              final int newOffset = input.range.getEndOffset() + rawApply(eddy.document,full);
               editor.getCaretModel().moveToOffset(newOffset);
-              PsiDocumentManager.getInstance(project).commitDocument(document);
+              PsiDocumentManager.getInstance(eddy.project).commitDocument(eddy.document);
             }
           }.execute();
         }
@@ -208,6 +214,7 @@ public class Eddy {
   public Eddy(@NotNull final Project project, final Editor editor) {
     this.project = project;
     this.editor = editor;
+    this.document = editor.getDocument();
     this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
   }
 
@@ -222,8 +229,7 @@ public class Eddy {
   }
 
   // Find the previous or immediately enclosing element (which may be null if there's no parent)
-  private static @Nullable
-  PsiElement previous(final PsiElement e) throws Skip {
+  private static @Nullable PsiElement previous(final PsiElement e) throws Skip {
     PsiElement p = e.getPrevSibling();
     if (p != null)
       return p;
@@ -331,24 +337,16 @@ public class Eddy {
     return true;
   }
 
-  public static Input input(final @NotNull Editor editor) throws Skip {
+  public Input input() throws Skip {
     log("processing eddy...");
-    final Project project = editor.getProject();
-    assert project != null;
-
-    final Document doc = editor.getDocument();
-    final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(doc);
-    if (file == null)
-      throw new Skip("File is null");
-
     // Determine where we are
     final int cursor = editor.getCaretModel().getCurrentCaret().getOffset();
-    final int line = doc.getLineNumber(cursor);
-    final TextRange range = TextRange.create(doc.getLineStartOffset(line), doc.getLineEndOffset(line));
-    log("  processing line " + line + ": " + doc.getText(range));
+    final int line = document.getLineNumber(cursor);
+    final TextRange range = TextRange.create(document.getLineStartOffset(line), document.getLineEndOffset(line));
+    log("  processing line " + line + ": " + document.getText(range));
 
     // Find relevant statements and comments
-    final List<PsiElement> elems = elementsContaining(doc,range,file.findElementAt(cursor));
+    final List<PsiElement> elems = elementsContaining(document,range,getFile().findElementAt(cursor));
     if (elems.isEmpty())
       throw new Skip("Empty statement list");
     final PsiElement place = previous(elems.get(0));
@@ -378,13 +376,27 @@ public class Eddy {
     // Compute range to be replaced.  We rely on !tokens.isEmpty
     final TextRange trim = Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
-    final String before = doc.getText(trim);
+    final String before = document.getText(trim);
     log("  before: " + before);
     return new Input(trim,tokens,place,before);
   }
 
   public Env env(final Input input, final int lastEdit) {
     return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place, lastEdit);
+  }
+
+  private void updateIntentions() {
+    LaterInvocator.invokeLater(new Runnable() {
+      @Override
+      public void run() {
+        final PsiFile file = getFile();
+        ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
+        ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
+        if (!intentions.isEmpty()) {
+          IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+        }
+      }
+    });
   }
 
   public void process(final @NotNull Editor editor, final int lastEdit, final Take takeoutput) {
@@ -415,7 +427,7 @@ public class Eddy {
             if (isDebug())
               System.out.println(String.format("output %.3fs:\n", delay) + logString(output.formats(abbrevShowFlags(),true)));
 
-            // TODO: update the intention menu (maybe just by making a new ShowIntentionsPass and running it)
+            updateIntentions();
             return takeoutput.take(output);
           }
         };
@@ -424,7 +436,7 @@ public class Eddy {
 
       void unsafe() {
         try {
-          input = Eddy.input(editor);
+          input = Eddy.this.input();
           compute(env(input,lastEdit));
         } catch (Skip s) {
           // ignore skipped lines

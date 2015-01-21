@@ -155,9 +155,10 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     if (inChange)
       return;
 
-    // only process on position change if we switched lines
-    // TODO: only process if input changed (ie if we switched statements)
-    if (e.getNewPosition().line != e.getOldPosition().line)
+    // TODO: only process if input changed (if we switched statements?)
+    if (EddyThread.getEddyThread() == null || // process if no thread has ever been started
+        EddyThread.getEddyThread().eddy.getEditor() != this || // process if current thread is for a different editor
+        e.getNewPosition().line != e.getOldPosition().line) // process if we switched lines
       process();
   }
 

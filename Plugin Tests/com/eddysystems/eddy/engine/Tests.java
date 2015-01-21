@@ -112,7 +112,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       if (lastEdit < 0)
         lastEdit = myFixture.getEditor().getCaretModel().getOffset();
       final Eddy eddy = makeEddy();
-      return eddy.env(eddy.input(myFixture.getEditor()),lastEdit);
+      return eddy.env(eddy.input(),lastEdit);
     } finally { popScope(); }
   }
 
