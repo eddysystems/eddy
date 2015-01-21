@@ -10,7 +10,7 @@ import scala.util.matching.Regex.Match
 object Lexer {
   private val (pattern,factories): (Regex,List[(Int,String => Token)]) = {
     // Fixed tokens
-    val fixed: List[Token] = List(
+    val fixed: List[SimpleToken] = List(
       // Keywords
       AbstractTok,AssertTok,BooleanTok,BreakTok,ByteTok,CaseTok,CatchTok,CharTok,ClassTok,ConstTok,ContinueTok,
       DefaultTok,DoTok,DoubleTok,ElseTok,EnumTok,ExtendsTok,FinalTok,FinallyTok,FloatTok,ForTok,IfTok,GotoTok,
@@ -25,7 +25,7 @@ object Lexer {
       PlusPlusTok,MinusMinusTok,PlusTok,MinusTok,MulTok,DivTok,AndTok,OrTok,XorTok,ModTok,LShiftTok,RShiftTok,
       UnsignedRShiftTok,PlusEqTok,MinusEqTok,MulEqTok,DivEqTok,AndEqTok,OrEqTok,XorEqTok,ModEqTok,LShiftEqTok,
       RShiftEqTok,UnsignedRShiftEqTok)
-    val fixedMap = fixed.map(t => (show(t),t)).toMap
+    val fixedMap = fixed.map(t => (t.s,t)).toMap
 
     // Regular expressions to factories
     val subs = List(

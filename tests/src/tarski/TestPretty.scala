@@ -15,6 +15,7 @@ import org.testng.AssertJUnit._
 
 class TestPretty {
   implicit val env = testEnv
+  implicit val showFlags = abbrevShowFlags
 
   def test[A](s: String, x: A)(implicit p: Pretty[A]) =
     assertEquals(s"$s -> ${show(x)}", lex(s) map (_.x) filterNot isSpace, tokens(x) filterNot isSpace)

@@ -8,9 +8,10 @@ import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
 import org.jetbrains.annotations.NotNull;
+import tarski.Tokens;
 
 import javax.swing.*;
-
+import static tarski.Tokens.abbrevShowFlags;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyAction implements QuestionAction {
@@ -26,7 +27,7 @@ public class EddyAction implements QuestionAction {
     if (!output.foundSomething())
       return "eddy knows nothing (action)";
     if (output.results.size() == 1)
-      return "eddy says: " + output.format(0);
+      return "eddy says: " + output.format(0,abbrevShowFlags());
     else
       return "eddy thinks...";
   }
@@ -49,13 +50,13 @@ public class EddyAction implements QuestionAction {
     log("executing EddyAction");
 
     if (output.results.size() == 1)
-      output.apply(output.format(0));
+      output.apply(output.format(0,abbrevShowFlags()));
     else if (output.single())
       output.applySelected();
     else {
       // show selection dialog
       final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy thinks:", output.formats()) {
+        new BaseListPopupStep<String>("eddy thinks:", output.formats(abbrevShowFlags())) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;
@@ -67,7 +68,7 @@ public class EddyAction implements QuestionAction {
           }
 
           @Override
-          public PopupStep onChosen(String selectedValue, boolean finalChoice) {
+          public PopupStep onChosen(final String selectedValue, final boolean finalChoice) {
             if (selectedValue == null) {
               return FINAL_CHOICE;
             }

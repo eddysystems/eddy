@@ -12,13 +12,14 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.impl.source.tree.*;
-import com.intellij.psi.impl.source.tree.java.MethodElement;
+import com.intellij.psi.impl.source.tree.LeafElement;
+import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
+import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-import scala.Function2;
+import scala.Function3;
 import scala.Unit$;
-import scala.runtime.AbstractFunction2;
+import scala.runtime.AbstractFunction3;
 import tarski.Denotations.CommentStmt;
 import tarski.Denotations.Stmt;
 import tarski.Environment.Env;
@@ -26,7 +27,7 @@ import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
 import tarski.Tarski.ShowStmt;
-import tarski.Tokens;
+import tarski.Tokens.ShowFlags;
 import tarski.Tokens.Token;
 import utility.Locations.Located;
 import utility.Utility.Unchecked;
@@ -35,7 +36,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.*;
-import static com.eddysystems.eddy.engine.Utility.log;
+import static tarski.Tokens.abbrevShowFlags;
+import static tarski.Tokens.fullShowFlags;
 import static utility.Utility.unchecked;
 
 public class Eddy {
@@ -72,22 +74,23 @@ public class Eddy {
       this.results = results;
     }
 
-    static String format(final List<ShowStmt> ss) {
+    static String format(final List<ShowStmt> ss, final ShowFlags f) {
       final StringBuilder b = new StringBuilder();
       for (final ShowStmt s : ss) {
         if (b.length() > 0)
           b.append(' ');
-        b.append(s.format());
+        b.append(f.abbreviate() ? s.abbrev() : s.full());
       }
-      return b.toString();
+      final String s = b.toString();
+      return f.abbreviate() ? s.trim() : s;
     }
-    public String format(final int i) {
-      return format(results.get(i).x());
+    public String format(final int i, final ShowFlags f) {
+      return format(results.get(i).x(),f);
     }
-    public List<String> formats() {
+    public List<String> formats(final ShowFlags f) {
       final List<String> fs = new ArrayList<String>(results.size());
       for (final Alt<List<ShowStmt>> a : results)
-        fs.add(format(a.x()));
+        fs.add(format(a.x(),f));
       return fs;
     }
 
@@ -98,7 +101,7 @@ public class Eddy {
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean shouldShowHint() {
       for (final Alt<List<ShowStmt>> r : results)
-        if (format(r.x()).equals(input.before_text))
+        if (format(r.x(),fullShowFlags()).equals(input.before_text))
           return false; // We found what's already there
       return !results.isEmpty();
     }
@@ -124,18 +127,25 @@ public class Eddy {
       return false;
     }
 
-    public String bestText() {
+    public String bestTextAbbrev() {
       assert shouldShowHint();
-      return format(Math.max(0,selected));
+      return format(Math.max(0,selected),abbrevShowFlags());
+    }
+
+    private String unabbrev(final String abbrev) {
+      for (final Alt<List<ShowStmt>> r : results)
+        if (abbrev.equals(format(r.x(),abbrevShowFlags())))
+          return format(r.x(),fullShowFlags());
+      throw new RuntimeException("Can't find full version of abbreviated code: "+abbrev);
     }
 
     public void applySelected() {
-      apply(format(Math.max(0,selected)));
+      apply(format(Math.max(0,selected),abbrevShowFlags()));
     }
 
     public int autoApply() {
-      // used to automatically apply the best found result
-      return rawApply(eddy.editor.getDocument(), format(0));
+      // Automatically apply the best found result
+      return rawApply(eddy.editor.getDocument(),format(0,abbrevShowFlags()));
     }
 
     public boolean shouldAutoApply() {
@@ -159,7 +169,8 @@ public class Eddy {
       return offsetDiff;
     }
 
-    public void apply(final @NotNull String code) {
+    public void apply(final @NotNull String abbrev) {
+      final String full = unabbrev(abbrev);
       ApplicationManager.getApplication().runWriteAction(new Runnable() {
         @Override
         public void run() {
@@ -172,14 +183,14 @@ public class Eddy {
           new WriteCommandAction(project, psifile) {
             @Override
             public void run(@NotNull Result result) {
-              final int newOffset = input.range.getEndOffset() + rawApply(document, code);
+              final int newOffset = input.range.getEndOffset() + rawApply(document,full);
               editor.getCaretModel().moveToOffset(newOffset);
               PsiDocumentManager.getInstance(project).commitDocument(document);
             }
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base,input.input,results,code));
+      Memory.log(Memory.eddyApply(eddy.base,input.input,results,abbrev));
     }
   }
 
@@ -200,28 +211,112 @@ public class Eddy {
     }
   }
 
-  // Walk upwards until we find a code block
-  private static PsiCodeBlock codeBlockAbove(PsiElement e) throws Skip {
+  // Find the previous or immediately enclosing element
+  private static @NotNull PsiElement previous(final PsiElement e) throws Skip {
+    PsiElement p = e.getPrevSibling();
+    if (p != null)
+      return p;
+    p = e.getParent();
+    if (p != null)
+      return p;
+    throw new Skip("previous failed: element "+e+" has no previous sibling or parent");
+  }
+
+  // Trim a range to not include whitespace
+  private static TextRange trim(final Document doc, final TextRange r) {
+    final int lo = r.getStartOffset();
+    final String s = doc.getText(r);
+    final String t = s.trim();
+    final int st = s.indexOf(t);
+    return new TextRange(lo+st,lo+st+t.length());
+  }
+
+  private static @NotNull PsiCodeBlock codeBlockAbove(PsiElement e) throws Skip {
     for (;;) {
+      if (e == null)
+        throw new Skip("No enclosing code block found");
       if (e instanceof PsiCodeBlock)
         return (PsiCodeBlock)e;
-      if (e == null || e instanceof PsiFile
-                    || e instanceof PsiClass
-                    || e instanceof PsiMethod)
-        throw new Skip("Not inside code block, found: "+e);
       e = e.getParent();
     }
   }
 
-  // Walk upwards until we find a method
-  private static PsiMethod methodAbove(PsiElement e) throws Skip {
+  private static @NotNull PsiElement stmtsAbove(PsiElement e) throws Skip {
     for (;;) {
       if (e == null)
-        throw new Skip("Not inside method");
-      if (e instanceof PsiMethod)
-        return (PsiMethod)e;
+        throw new Skip("No enclosing statements found");
+      if (e instanceof PsiCodeBlock || e instanceof PsiStatement)
+        return e;
       e = e.getParent();
     }
+  }
+
+  // Find the smallest consecutive sequence of statements and EOL comments that contains the given range.
+  // 1. Starting at elem, go up to find the nearest enclosing code block.
+  // 2. Descend to the smallest child that contains the whole trimmed range.
+  // 3. Go up to the nearest enclosing statement or code block.
+  // 4. If we're at a code block, return the list of children intersecting the line.
+  // 5. Otherwise, return whatever we're at.
+  private static List<PsiElement> elementsContaining(final Document doc, TextRange range, PsiElement e) throws Skip {
+    // Trim whitespace off both ends of range
+    range = trim(doc,range);
+
+    // Go up to the nearest enclosing code block
+    e = codeBlockAbove(e);
+
+    // Descend to the smallest child of e that contains the whole (trimmed) range
+    outer:
+    for (;;) {
+      for (final PsiElement kid : e.getChildren())
+        if (kid.getTextRange().contains(range)) {
+          e = kid;
+          continue outer;
+        }
+      break;
+    }
+
+    // Go back up to find a statement or code block
+    e = stmtsAbove(e);
+
+    // Collect results
+    final List<PsiElement> results = new SmartList<PsiElement>();
+    if (e instanceof PsiCodeBlock) {
+      // We're a code block, so return only those children intersecting the line.
+      // Also ignore the first and last children, which are left and right braces.
+      final PsiElement[] block = e.getChildren();
+      int lo = 1, hi = block.length-1;
+      while (lo < hi && !block[lo  ].getTextRange().intersects(range)) lo++;
+      while (lo < hi && !block[hi-1].getTextRange().intersects(range)) hi--;
+      for (int i=lo;i<hi;i++)
+        results.add(block[i]);
+    } else {
+      // Otherwise, return a singleton list
+      results.add(e);
+    }
+    return results;
+  }
+
+  // Should we expand an element or leave it atomic?
+  private static boolean expand(final TreeElement e, final int cursor) {
+    // Never expand leaves
+    if (e instanceof LeafElement)
+      return false;
+
+    // Otherwise, expand or not based on psi
+    final @NotNull PsiElement psi = e.getPsi();
+    final TextRange r = psi.getTextRange();
+
+    // Expand blocks if the cursor is strictly inside
+    if (psi instanceof PsiCodeBlock) {
+      // Check if we're strictly inside.  Note that r.contains(pos) is wrong here.
+      //   |{}  -  r 0 2, pos 0, not inside
+      //   {|}  -  r 0 2, pos 1, inside
+      //   {}|  -  r 0 2, pos 2, not inside
+      return r.getStartOffset() < cursor && cursor < r.getEndOffset();
+    }
+
+    // Expand everything else
+    return true;
   }
 
   public static Input input(final @NotNull Editor editor) throws Skip {
@@ -229,67 +324,49 @@ public class Eddy {
     final Project project = editor.getProject();
     assert project != null;
 
-    final Document document = editor.getDocument();
-    final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
+    final Document doc = editor.getDocument();
+    final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(doc);
     if (file == null)
       throw new Skip("File is null");
 
-    final int pos = editor.getCaretModel().getCurrentCaret().getOffset();
-    final int line = document.getLineNumber(pos);
-    final TextRange range = TextRange.create(document.getLineStartOffset(line),document.getLineEndOffset(line));
-    log("  processing line "+line+": " + document.getText(range));
+    // Determine where we are
+    final int cursor = editor.getCaretModel().getCurrentCaret().getOffset();
+    final int line = doc.getLineNumber(cursor);
+    final TextRange range = TextRange.create(doc.getLineStartOffset(line), doc.getLineEndOffset(line));
+    log("  processing line " + line + ": " + doc.getText(range));
 
-    // TODO: Generalize to handle class/method declarations
-    final PsiCodeBlock body = methodAbove(codeBlockAbove(file.findElementAt(pos))).getBody();
-    assert body != null;
+    // Find relevant statements and comments
+    final List<PsiElement> elems = elementsContaining(doc,range,file.findElementAt(cursor));
+    if (elems.isEmpty())
+      throw new Skip("Empty statement list");
+    final PsiElement place = previous(elems.get(0));
 
-    // Descend from Psi to AST so that we get all the tokens
-    final ASTNode node = body.getNode();
-    if (node == null)
-      throw new Skip("Can't find a node to look at");
-
-    // Walk the node subtree and output all tokens contained in any statement overlapping with the line
-    // now, node is the AST node we want to interpret.
-    final List<Located<Token>> tokens = new SmartList<Located<Token>>();
-    final PsiElement[] place = new PsiElement[1];
-    ((TreeElement)node).acceptTree(new RecursiveTreeElementVisitor() {
-      @Override
-      protected boolean visitNode(TreeElement element) {
-        // If the element is not overlapping, don't output any of it
-        if (!range.intersects(element.getTextRange()))
-          return false;
-
-        if (element instanceof LeafElement) {
-          //log("    node: " + element + " " + element.getTextRange() + " -> " + Tokenizer.psiToTok(element));
-          // Don't include the opening and closing brace of the outermost code block before we hit the method
-          if (   (element.getElementType() == JavaTokenType.LBRACE || element.getElementType() == JavaTokenType.RBRACE)
-              && element.getTreeParent().getTreeParent() instanceof MethodElement)
-            return true;
-
-          // If this is the first token, remember the previous token as the place where we compute the environment
-          if (tokens.isEmpty()) {
-            place[0] = element.getTreePrev().getPsi();
-            assert place[0] != null;
-          }
-          tokens.add(Tokenizer.psiToTok(element));
-        }
-        return true;
+    // Walk all relevant elements, collecting leaves and atomic code blocks.
+    // We walk on AST instead of Psi to get down to the token level.
+    final List<Located<Token>> tokens = new ArrayList<Located<Token>>();
+    final RecursiveTreeElementVisitor V = new RecursiveTreeElementVisitor() {
+      @Override protected boolean visitNode(final TreeElement e) {
+        if (expand(e,cursor))
+          return true;
+        if (!Tokenizer.isSpace(e))
+          tokens.add(Tokenizer.psiToTok(e));
+        return false;
       }
-    });
+    };
+    for (final PsiElement elem : elems) {
+      final ASTNode node = elem.getNode();
+      assert node instanceof TreeElement : "Bad AST node "+node+" for element "+elem;
+      ((TreeElement)node).acceptTree(V);
+    }
+    if (tokens.isEmpty())
+      throw new Skip("No tokens");
 
-    // Remove leading and trailing whitespace
-    while (!tokens.isEmpty() && tokens.get(0).x() instanceof Tokens.WhitespaceTok)
-      tokens.remove(0);
-    while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof Tokens.WhitespaceTok)
-      tokens.remove(tokens.size()-1);
+    // Compute range to be replaced.  We rely on !tokens.isEmpty
+    final TextRange trim = Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
-    // Compute range to be replaced
-    final TextRange trim = tokens.isEmpty() ? TextRange.EMPTY_RANGE
-      : Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
-
-    final String before = document.getText(trim);
+    final String before = doc.getText(trim);
     log("  before: " + before);
-    return new Input(trim,tokens,place[0],before);
+    return new Input(trim,tokens,place,before);
   }
 
   public Env env(final Input input, final int lastEdit) {
@@ -308,15 +385,15 @@ public class Eddy {
       void compute(final Env env) {
         if (Thread.currentThread().isInterrupted())
           throw new ThreadDeath();
-        final Function2<Stmt,String,String> format = new AbstractFunction2<Stmt,String,String>() {
-          @Override public String apply(final Stmt s, final String sh) {
-            return reformat(input.place,s,sh);
+        final Function3<Stmt,String,ShowFlags,String> format = new AbstractFunction3<Stmt,String,ShowFlags,String>() {
+          @Override public String apply(final Stmt s, final String sh, final ShowFlags f) {
+            return reformat(input.place,s,sh,f);
           }
         };
         final Tarski.Take take = new Tarski.Take() {
           @Override public boolean take(final List<Alt<List<ShowStmt>>> rs) {
             results = rs;
-            output = new Output(Eddy.this, input, results);
+            output = new Output(Eddy.this,input,results);
             return takeoutput.take(output);
           }
         };
@@ -326,7 +403,6 @@ public class Eddy {
       void unsafe() throws Skip {
         input = Eddy.input(editor);
         compute(env(input,lastEdit));
-        output = new Output(Eddy.this,input,results);
       }
 
       void safe() {
@@ -338,7 +414,7 @@ public class Eddy {
             }});
           else try {
             unsafe();
-          } catch (Throwable e) {
+          } catch (final Throwable e) {
             error = e;
             if (!(e instanceof ThreadDeath))
               logError("process()",e); // Log everything except for ThreadDeath, which happens all the time.
@@ -356,9 +432,10 @@ public class Eddy {
   }
 
   // The string should be a single syntactically valid statement
-  private String reformat(final PsiElement place, final @NotNull Stmt s, final @NotNull String show) {
+  private String reformat(final PsiElement place, final @NotNull Stmt s,
+                          final @NotNull String show, final ShowFlags f) {
     if (s instanceof CommentStmt)
-      return ((CommentStmt)s).c().content();
+      return ((CommentStmt)s).c().show(f);
     PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(show,place);
     CodeStyleManager.getInstance(project).reformat(elem,true);
     return elem.getText();

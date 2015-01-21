@@ -1,7 +1,7 @@
 name ParseEddy
 start Stmts
 token Token
-simple (?<!Lit|Ident)Tok
+simple (?<!Lit|Ident|Stmt)Tok
 
 preamble package tarski
 preamble import tarski.Tokens._
@@ -106,8 +106,9 @@ WildcardBounds Option[(Bound,AExp)]
 // TODO: ClassDecl
 
 // Blocks
-Block List[AStmt]
-  LCurlyTok Stmts Right          { $2 }
+Block AStmt
+  StmtTok                        { TokAStmt($1,$r) }
+  LCurlyTok Stmts Right          { BlockAStmt($2,$r) }
 Stmts List[AStmt]
   ""                             { Nil }
   SemiTok Stmts                  { EmptyAStmt :: $2 }
@@ -135,7 +136,7 @@ StmtHelper AStmt
 StmtHelperBS AStmt
   Type List1[VarDecl]                                        { VarAStmt(Nil,Some($1),$2,$r) }
   Juxts1[Mod] Option[Type] List1[VarDecl]                    { VarAStmt($1,$2,$3,$r) }
-  Block                                                      { BlockAStmt($1,$r) }
+  Block                                                      { $1 }
   ExpAssign                                                  { ExpAStmt($1) }
   AssertTok ExpJuxt                                          { AssertAStmt($2,None,$r) }
   AssertTok ExpJuxt ColonTok ExpJuxt                         { AssertAStmt($2,Some($4),$r) }
@@ -156,7 +157,7 @@ StmtHelperBS AStmt
   DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($2,$4._1,$3,$4._2,$r) }
   ForTok Left ForInfo Right Stmt                             { ForAStmt($3,$5,Grouped($2,$4),$r) }
   ForTok ForInfo DoTok Stmt                                  { ForAStmt($2,$4,NoAround,$r) }
-  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2._1,BlockAStmt($3,$r),$2._2,$r) }
+  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2._1,$3,$2._2,$r) }
   // Try
   // Switch
 VarDecl (String,Int,Option[AExp])
@@ -314,12 +315,12 @@ LeftNP Group
   LCurlyTok { Curly }
 
 Lit ALit
-  IntLitTok     { IntALit($1.v,$r) }
-  LongLitTok    { LongALit($1.v,$r) }
-  FloatLitTok   { FloatALit($1.v,$r) }
-  DoubleLitTok  { DoubleALit($1.v,$r) }
-  CharLitTok    { CharALit($1.v,$r) }
-  StringLitTok  { StringALit($1.v,$r) }
+  IntLitTok     { IntALit($1.s,$r) }
+  LongLitTok    { LongALit($1.s,$r) }
+  FloatLitTok   { FloatALit($1.s,$r) }
+  DoubleLitTok  { DoubleALit($1.s,$r) }
+  CharLitTok    { CharALit($1.s,$r) }
+  StringLitTok  { StringALit($1.s,$r) }
 
 PostOp UnaryOp
   PlusPlusTok    { PostIncOp }

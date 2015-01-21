@@ -249,6 +249,7 @@ object Pretty {
       case HoleAStmt => (HighestFix,List(HoleTok))
       case VarAStmt(m,t,v,_) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(v))
       case BlockAStmt(b,_) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
+      case TokAStmt(b,_) => (HighestFix, List(b))
       case ExpAStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok))
       case AssertAStmt(c,None,_) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
       case AssertAStmt(c,Some(m),_) => (SemiFix, AssertTok :: tokens(c) ::: ColonTok :: tokens(m) ::: List(SemiTok))
@@ -451,6 +452,7 @@ object Pretty {
     case VarStmt(t,vs,m) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(CommaList(vs)) ::: List(SemiTok))
     case ExpStmt(e) => (SemiFix, tokens(e) ::: List(SemiTok))
     case BlockStmt(b) => (HighestFix, LCurlyTok :: tokens(b) ::: List(RCurlyTok))
+    case TokStmt(t) => (HighestFix, List(t))
     case AssertStmt(c,None) => (SemiFix, AssertTok :: tokens(c) ::: List(SemiTok))
     case AssertStmt(c,Some(m)) => (SemiFix, AssertTok :: tokens(c) ::: ColonTok :: tokens(m) ::: List(SemiTok))
     case BreakStmt(lab)    => (SemiFix, BreakTok    :: lab.map(l => IdentTok(l.name)).toList ::: List(SemiTok))
@@ -466,7 +468,8 @@ object Pretty {
       tokens(i) ::: tokens(c) ::: SemiTok :: tokens(CommaList(u))) ::: tokens(s))
     case ForeachStmt(t,v,e,s) => (SemiFix, ForTok :: parens(
       tokens(t) ::: tokens(v) ::: ColonTok :: tokens(e)) ::: tokens(s))
-    case SyncStmt(e,s) => (SemiFix, SynchronizedTok :: parens(e) ::: tokens(s))
+    case SyncStmt(e,s) => (SemiFix, SynchronizedTok :: parens(e) ::: tokens(needBlock(s)))
+    case TryStmt(s,cs,f) => notImplemented // Make sure to call needBlock
     case CommentStmt(t) => (HighestFix,List(t))
     case _:DiscardStmt => impossible
   }
@@ -482,7 +485,7 @@ object Pretty {
   implicit def prettyVarStmt(v: VarStmt)(implicit env: Scope): (Fixity,Tokens) = prettyStmt(v)
 
   // Print a type variable with bound details
-  def details(v: TypeVar)(implicit env: Scope): String = {
+  def details(v: TypeVar)(implicit env: Scope, f: ShowFlags): String = {
     val mid = v.name
     val pre = if (v.lo == NullType) mid else s"${show(v.lo)} extends $mid"
     if (v.hi == ObjectType) pre else s"$pre extends ${show(v.hi)}"

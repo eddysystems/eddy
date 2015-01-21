@@ -6,6 +6,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import org.apache.log4j.Level;
 
 import java.util.Collection;
+import java.util.Stack;
 
 public class Utility {
   static long last_queue_process_events = System.nanoTime();
@@ -107,5 +108,15 @@ public class Utility {
                    .getInputArguments().toString().contains("jdwp") ? 1 : 0;
     }
     return _isDebug == 1;
+  }
+
+  // Push and pop temporary debug mode (for use in unit tests).  Always use popDebug in a finally block.
+  private static Stack<Boolean> debugStack = new Stack<Boolean>();
+  public static void pushDebug() {
+    debugStack.push(isDebug());
+    _isDebug = 1;
+  }
+  public static void popDebug() {
+    _isDebug = debugStack.pop() ? 1 : 0;
   }
 }

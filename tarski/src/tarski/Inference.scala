@@ -9,6 +9,8 @@ import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 object Inference {
+  private implicit val showFlags = abbrevShowFlags
+
   // Bounds: 18.1.3.  Each of these refers to an ambient type variable s
   type Var = TypeVar
   type Bounds = Map[Var,Bound] // If false is allowed, use Option[Bounds]

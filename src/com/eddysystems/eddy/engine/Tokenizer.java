@@ -1,13 +1,12 @@
 package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.util.TextRange;
+import com.intellij.psi.*;
 import utility.Locations;
 import utility.Locations.SRange;
 import utility.Locations.Located;
 import com.intellij.lang.java.lexer.JavaLexer;
 import com.intellij.pom.java.LanguageLevel;
-import com.intellij.psi.JavaTokenType;
-import com.intellij.psi.TokenType;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.psi.tree.IElementType;
 import tarski.Tokens.*;
@@ -16,29 +15,58 @@ import java.util.ArrayList;
 
 class Tokenizer {
 
-  public static Located<Token> psiToTok(TreeElement elem) {
+  public static Located<Token> psiToTok(final TreeElement elem) {
     final int lo = elem.getTextOffset(),
               hi = lo+elem.getTextLength();
-    return Locations.locatedHelper(token(elem.getElementType(),elem.getText()),
-                                   Locations.buildHelper(lo,hi));
+    return Locations.locatedHelper(token(elem),Locations.buildHelper(lo,hi));
   }
 
   public static <A> TextRange range(final Located<A> x) {
     return new TextRange(x.rawLo(),x.rawHi());
   }
 
-  public static Token token(final IElementType type, final String text) {
-    if (type == JavaTokenType.IDENTIFIER) return new IdentTok(text);
+  public static boolean isSpace(final TreeElement elem) {
+    return elem.getElementType() == JavaTokenType.WHITE_SPACE;
+  }
 
-    if (type == JavaTokenType.C_STYLE_COMMENT)     return new CCommentTok(text);
-    if (type == JavaTokenType.END_OF_LINE_COMMENT) return new EOLCommentTok(text);
+  // Uninterpreted statements and code blocks
+  private static final class PsiStmtTok extends StmtTok {
+    final PsiElement psi;
 
-    if (type == JavaTokenType.INTEGER_LITERAL)   return new IntLitTok(text);
-    if (type == JavaTokenType.LONG_LITERAL)      return new LongLitTok(text);
-    if (type == JavaTokenType.FLOAT_LITERAL)     return new FloatLitTok(text);
-    if (type == JavaTokenType.DOUBLE_LITERAL)    return new DoubleLitTok(text);
-    if (type == JavaTokenType.CHARACTER_LITERAL) return new CharLitTok(text);
-    if (type == JavaTokenType.STRING_LITERAL)    return new StringLitTok(text);
+    PsiStmtTok(final PsiCodeBlock block) {
+      this.psi = block;
+    }
+    PsiStmtTok(final PsiStatement stmt) {
+      this.psi = stmt;
+    }
+
+    public boolean blocked() {
+      return psi instanceof PsiCodeBlock;
+    }
+
+    public String show(final ShowFlags f) {
+      return f.abbreviate() ? "{ ... }" : psi.getText();
+    }
+
+    @Override public String toString() {
+      return "PsiStmtTok(...)";
+    }
+  }
+
+  public static Token token(final TreeElement elem) {
+    final IElementType type = elem.getElementType();
+
+    if (type == JavaTokenType.IDENTIFIER) return new IdentTok(elem.getText());
+
+    if (type == JavaTokenType.C_STYLE_COMMENT)     return new CCommentTok(elem.getText());
+    if (type == JavaTokenType.END_OF_LINE_COMMENT) return new EOLCommentTok(elem.getText());
+
+    if (type == JavaTokenType.INTEGER_LITERAL)   return new IntLitTok(elem.getText());
+    if (type == JavaTokenType.LONG_LITERAL)      return new LongLitTok(elem.getText());
+    if (type == JavaTokenType.FLOAT_LITERAL)     return new FloatLitTok(elem.getText());
+    if (type == JavaTokenType.DOUBLE_LITERAL)    return new DoubleLitTok(elem.getText());
+    if (type == JavaTokenType.CHARACTER_LITERAL) return new CharLitTok(elem.getText());
+    if (type == JavaTokenType.STRING_LITERAL)    return new StringLitTok(elem.getText());
     if (type == JavaTokenType.TRUE_KEYWORD)      return new BoolLitTok(true);
     if (type == JavaTokenType.FALSE_KEYWORD)     return new BoolLitTok(false);
     if (type == JavaTokenType.NULL_KEYWORD)      return NullTok$.MODULE$;
@@ -148,8 +176,12 @@ class Tokenizer {
     if (type == JavaTokenType.DOUBLE_COLON) return ColonColonTok$.MODULE$;
     if (type == JavaTokenType.ARROW)        return ArrowTok$.MODULE$;
 
-    if (type == TokenType.WHITE_SPACE) return new WhitespaceTok(text);
+    if (type == TokenType.WHITE_SPACE) return new WhitespaceTok(elem.getText());
 
-    throw new RuntimeException("unknown token: type " + type + ", text " + text);
+    final PsiElement psi = elem.getPsi();
+    if (psi instanceof PsiStatement) return new PsiStmtTok((PsiStatement)psi);
+    if (psi instanceof PsiCodeBlock) return new PsiStmtTok((PsiCodeBlock)psi);
+
+    throw new RuntimeException("unknown token: type " + type + ", text " + elem.getText());
   }
 }

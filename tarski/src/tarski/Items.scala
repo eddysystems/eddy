@@ -103,7 +103,7 @@ object Items {
     }
     abstract class LangTypeItem extends TypeItem {
       def ty: LangType
-      val name = show(ty)
+      val name = ty.name
       def supers = Nil
       def superItems = Nil
       def inside = ty
@@ -324,7 +324,7 @@ object Items {
       def isStatic: Boolean
     }
     case class LitValue(x: Lit) extends Value {
-      val name = show(x)
+      val name = x.show
       val ty = x.ty
       val item = x.item
       def isFinal = true
