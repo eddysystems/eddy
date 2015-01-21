@@ -451,11 +451,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testUnresolved() {
-    testMargin("unresolved.java", "if (x != null) {...}", .9);
+    testMargin("unresolved.java", "if (x != null) { ... }", .9);
   }
 
   public void testNullComparison() {
-    testMargin("nullComparison.java", "if (x != null) {...}", .9);
+    testMargin("nullComparison.java", "if (x != null) { ... }", .9);
   }
 
   public void testSpuriousTypeArgs() {
@@ -499,7 +499,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testAnonymousClass() {
-    testMargin("anonymousClass.java", "if (true) test();\nelse this.test();", .9);
+    testMargin("anonymousClass.java", "if (true) test(); else this.test();", .9);
   }
 
   public void testAnonymousClassSuper() {
@@ -524,6 +524,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testParameter() {
     testMargin("parameter.java", "f(x);", .9);
+  }
+
+  public void testElif() {
+    testMargin("elif.java", "if (true) { ... } else if (false) { ... }", .9);
+  }
+
+  public void testAtomicStmt() {
+    testMargin("atomicStmt.java", "if (true) ...", .9);
   }
 
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)

@@ -237,7 +237,7 @@ object Pretty {
       fix(s, left(_,e) ::: around(xs,a)._2)
     }
   }
-  implicit def prettyATypeArgs(t: Option[Located[KList[AExp]]]): (Fixity,Tokens) =
+  implicit def prettyATypeArgs(t: Option[Loc[KList[AExp]]]): (Fixity,Tokens) =
     (HighestFix, t map (t => typeBracket(t.x)) getOrElse Nil)
 
   // AST statements
@@ -376,7 +376,7 @@ object Pretty {
     case ThisExp(i) => if (env.inScope(i)) (HighestFix,List(ThisTok)) else (FieldFix, tokens(i.item) ::: DotTok :: List(ThisTok))
     case SuperExp(i) => if (env.inScope(i)) (HighestFix,List(SuperTok)) else (FieldFix, tokens(i.ty) ::: DotTok :: List(SuperTok))
     case CastExp(t,x) => fix(PrefixFix, parens(t) ::: right(_,x))
-    case ImpExp(op,x) if isPrefix(op) => fix(PrefixFix, token(op) :: right(_,x))
+    case e:UnaryExp if isPrefix(e.op) => fix(PrefixFix, token(e.op) :: right(_,e.e))
     case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(token(e.op)))
     case BinaryExp(op,x,y) => { val (s,t) = pretty(op); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,x,y) => fix(AssignFix, s => left(s,x) ::: space :: token(op) :: space :: right(s,y))

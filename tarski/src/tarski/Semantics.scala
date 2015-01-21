@@ -103,9 +103,9 @@ object Semantics {
       val use = product(fs flatMap (prepareTypeArgs(n,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
       use ++ biased(Pr.ignoreTypeArgs(env.place.lastEditIn(r)),fs)
   }
-  def addTypeArgs(fs: Scored[Den], ts: Option[Located[KList[AExp]]])(implicit env: Env): Scored[Den] = ts match {
+  def addTypeArgs(fs: Scored[Den], ts: Option[Loc[KList[AExp]]])(implicit env: Env): Scored[Den] = ts match {
     case None => fs
-    case Some(Located(ts,r)) => addTypeArgs(fs,ts,r)
+    case Some(Loc(ts,r)) => addTypeArgs(fs,ts,r)
   }
 
   // Check whether a type is accessible in the environment (can be qualified by something in scope).
@@ -224,8 +224,8 @@ object Semantics {
     case NameAExp(n,_) => denoteName(n,m,expects)
 
     // Fields
-    case FieldAExp(x,None|Some(Located(EmptyList,_)),f,_) => denoteField(denoteParent(x),f,m,expects,e)
-    case FieldAExp(x,Some(Located(ts,r)),f,_) =>
+    case FieldAExp(x,None|Some(Loc(EmptyList,_)),f,_) => denoteField(denoteParent(x),f,m,expects,e)
+    case FieldAExp(x,Some(Loc(ts,r)),f,_) =>
       if (!m.callExp) fail(s"${show(e)}: Unexpected type arguments in mode $m")
       else fixCall(m,expects,addTypeArgs(denoteField(denoteParent(x),f,m.onlyCall,None,e),ts,r))
 
@@ -721,7 +721,10 @@ object Semantics {
     else known(a))
 
   def xor(x: Boolean, y: Exp): Exp =
-    if (x) NonImpExp(NotOp,y) else y
+    if (x) y match {
+      case BooleanLit(y) => BooleanLit(!y)
+      case _ => NonImpExp(NotOp,y)
+    } else y
 
   def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
     productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)}

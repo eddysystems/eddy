@@ -30,7 +30,7 @@ import tarski.Tarski;
 import tarski.Tarski.ShowStmt;
 import tarski.Tokens.ShowFlags;
 import tarski.Tokens.Token;
-import utility.Locations.Located;
+import utility.Locations.Loc;
 import utility.Utility.Unchecked;
 
 import java.util.ArrayList;
@@ -48,11 +48,11 @@ public class Eddy {
 
   public static class Input {
     final TextRange range;
-    final List<Located<Token>> input;
+    final List<Loc<Token>> input;
     final PsiElement place;
     final String before_text;
 
-    Input(final TextRange range, final List<Located<Token>> input, final PsiElement place, final String before_text) {
+    Input(final TextRange range, final List<Loc<Token>> input, final PsiElement place, final String before_text) {
       this.range = range;
       this.input = input;
       this.place = place;
@@ -305,7 +305,7 @@ public class Eddy {
   }
 
   // Should we expand an element or leave it atomic?
-  private static boolean expand(final TreeElement e, final int cursor) {
+  private static boolean expand(final TreeElement e, final TextRange range, final int cursor) {
     // Never expand leaves
     if (e instanceof LeafElement)
       return false;
@@ -322,6 +322,10 @@ public class Eddy {
       //   {}|  -  r 0 2, pos 2, not inside
       return r.getStartOffset() < cursor && cursor < r.getEndOffset();
     }
+
+    // Expand statements if they overlap our line
+    if (psi instanceof PsiStatement)
+      return r.intersects(range);
 
     // Expand everything else
     return true;
@@ -353,10 +357,10 @@ public class Eddy {
 
     // Walk all relevant elements, collecting leaves and atomic code blocks.
     // We walk on AST instead of Psi to get down to the token level.
-    final List<Located<Token>> tokens = new ArrayList<Located<Token>>();
+    final List<Loc<Token>> tokens = new ArrayList<Loc<Token>>();
     final RecursiveTreeElementVisitor V = new RecursiveTreeElementVisitor() {
       @Override protected boolean visitNode(final TreeElement e) {
-        if (expand(e,cursor))
+        if (expand(e,range,cursor))
           return true;
         if (!Tokenizer.isSpace(e))
           tokens.add(Tokenizer.psiToTok(e));

@@ -67,8 +67,13 @@ object AST {
   case class ReturnAStmt(e: Option[AExp], r: SRange) extends AStmtLoc
   case class ThrowAStmt(e: AExp, r: SRange) extends AStmtLoc
   case class SyncAStmt(e: AExp, s: AStmt, a: Around, r: SRange) extends AStmtLoc
-  case class IfAStmt(cond: AExp, t: AStmt, a: Around, r: SRange) extends AStmtLoc
-  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around, r: SRange) extends AStmtLoc
+  sealed trait IfsAStmt extends AStmtLoc with SetRange[IfsAStmt]
+  case class IfAStmt(cond: AExp, t: AStmt, a: Around, r: SRange) extends IfsAStmt {
+    def setR(r: SRange) = IfAStmt(cond,t,a,r)
+  }
+  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around, r: SRange) extends IfsAStmt {
+    def setR(r: SRange) = IfElseAStmt(cond,t,f,a,r)
+  }
   case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
   case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
   case class ForAStmt(i: ForInfo, s: AStmt, a: Around, r: SRange) extends AStmtLoc
@@ -80,12 +85,12 @@ object AST {
   sealed abstract class AExp extends HasRange
   case class NameAExp(name: Name, r: SRange) extends AExp
   case class ParenAExp(e: AExp, a: Grouped, r: SRange) extends AExp
-  case class FieldAExp(e: AExp, t: Option[Located[KList[AExp]]], f: Name, r: SRange) extends AExp
-  case class MethodRefAExp(e: AExp, t: Option[Located[KList[AExp]]], f: Name, r: SRange) extends AExp
-  case class NewRefAExp(e: AExp, t: Option[Located[KList[AExp]]], r: SRange) extends AExp
+  case class FieldAExp(e: AExp, t: Option[Loc[KList[AExp]]], f: Name, r: SRange) extends AExp
+  case class MethodRefAExp(e: AExp, t: Option[Loc[KList[AExp]]], f: Name, r: SRange) extends AExp
+  case class NewRefAExp(e: AExp, t: Option[Loc[KList[AExp]]], r: SRange) extends AExp
   case class TypeApplyAExp(e: AExp, t: KList[AExp], tr: SRange, after: Boolean, r: SRange) extends AExp // after ? A<T> : <T>A
   case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around, r: SRange) extends AExp
-  case class NewAExp(t: Option[Located[KList[AExp]]], e: AExp, r: SRange) extends AExp
+  case class NewAExp(t: Option[Loc[KList[AExp]]], e: AExp, r: SRange) extends AExp
   case class WildAExp(b: Option[(Bound,AExp)], r: SRange) extends AExp
   case class UnaryAExp(op: UnaryOp, e: AExp, r: SRange) extends AExp
   case class BinaryAExp(op: BinaryOp, e0: AExp, e1: AExp, r: SRange) extends AExp

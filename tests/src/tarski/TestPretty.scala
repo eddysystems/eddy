@@ -5,6 +5,7 @@ import tarski.Denotations._
 import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Lexer._
+import tarski.Operators._
 import tarski.Pretty._
 import tarski.Tokens._
 import tarski.Types._
@@ -87,4 +88,7 @@ class TestPretty {
   @Test def cond() = test("true ? 1 : 0",CondExp(true,1,0,IntType))
 
   @Test def finalVar() = test("final int x = 1;",VarStmt(IntType,(NormalLocal("x",IntType),1),List(Final)))
+
+  @Test def prefix() = test("!x",NonImpExp(NotOp,NormalLocal("x",BooleanType)))
+  @Test def postfix() = test("x++",ImpExp(PostIncOp,NormalLocal("x",IntType)))
 }

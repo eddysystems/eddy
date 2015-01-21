@@ -19,9 +19,17 @@ object Tokens {
   sealed abstract class ToIdentToken extends SimpleToken // Converts to IdentTok before parsing
 
   // Flags controlling show for fancy tokens
-  case class ShowFlags(abbreviate: Boolean, probs: Boolean)
-  val abbrevShowFlags = ShowFlags(abbreviate=true,probs=false)
-  val fullShowFlags = ShowFlags(abbreviate=false,probs=false)
+  case class ShowFlags(abbreviate: Boolean, valid: Boolean)
+  val abbrevShowFlags = ShowFlags(abbreviate=true,valid=false)
+  val sentinelShowFlags = ShowFlags(abbreviate=true,valid=true)
+  val fullShowFlags = ShowFlags(abbreviate=false,valid=true)
+
+  // Sentinel registry for use with ShowFlags
+  object ShowFlags {
+    private[this] var sentinels: List[(String,String)] = Nil
+    def registerSentinel(sentinel: String, value: String): Unit = sentinels = (sentinel,value)::sentinels
+    def replaceSentinels(s: String): String = sentinels.foldLeft(s)((s,p) => s.replaceAllLiterally(p._1,p._2))
+  }
 
   // Holes in the grammar
   case object HoleTok extends SimpleToken {
@@ -99,10 +107,11 @@ object Tokens {
   case object VoidTok   extends ToIdentToken { def s = "void" }
 
   // Fake keywords.  These are not actual Java reserved words, but they are used in the grammar.
-  sealed abstract class FakeToken(show: String) extends FixedToken(show)
-  case object ThenTok extends FakeToken("then")
-  case object UntilTok extends FakeToken("until")
-  case object InTok extends FakeToken("in")
+  sealed trait FakeToken extends Token
+  case object ThenTok extends FixedToken("then") with FakeToken
+  case object UntilTok extends FixedToken("until") with FakeToken
+  case class ElifTok(s: String) extends SimpleToken with FakeToken
+  case object InTok extends FixedToken("in") with FakeToken
 
   // Literals: 3.10
   case class IntLitTok(s: String) extends SimpleToken
@@ -216,12 +225,13 @@ object Tokens {
   // 3. Split >> and >>> into >'s and separators.
   // 4. Strip whitespace.
   // 5. Separate out comments to be added back at the end.
-  def prepare(ts: List[Located[Token]]): Scored[(List[Located[Token]],Option[EOLCommentTok])] = {
-    def expand(ts: List[Located[Token]]): List[Located[Token]] = ts flatMap { case Located(t,r) => (t match {
+  def prepare(ts: List[Loc[Token]]): Scored[(List[Loc[Token]],Option[EOLCommentTok])] = {
+    def expand(ts: List[Loc[Token]]): List[Loc[Token]] = ts flatMap { case Loc(t,r) => (t match {
       case _:SpaceTok => Nil
       case t@IdentTok(s) => List(s match {
         case "then" => ThenTok
         case "until" => UntilTok
+        case "elif"|"elsif"|"elseif" => ElifTok(s)
         case "in" => InTok
         case _ => t
       })
@@ -229,13 +239,13 @@ object Tokens {
       case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
       case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
       case t => List(t)
-    }) map (Located(_,r))}
-    def interior(ts: List[Located[Token]]): Scored[List[Located[Token]]] =
+    }) map (Loc(_,r))}
+    def interior(ts: List[Loc[Token]]): Scored[List[Loc[Token]]] =
       if (ts exists (_.x.isInstanceOf[CommentTok]))
         fail(s"Token stream contains interior comments:\n  ${ts.reverse mkString "\n  "}")
       else known(expand(ts.reverse))
     ts.reverse match {
-      case (Located(c:EOLCommentTok,_)) :: s => interior(s) map ((_,Some(c)))
+      case (Loc(c:EOLCommentTok,_)) :: s => interior(s) map ((_,Some(c)))
       case s => interior(s) map ((_,None))
     }
   }

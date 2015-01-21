@@ -54,7 +54,7 @@ object Tarski {
   }
 
   // Feed results to a take instance until it's satisfied
-  def fixTake(tokens: java.util.List[Located[Token]], env: Env,
+  def fixTake(tokens: java.util.List[Loc[Token]], env: Env,
               format: (Stmt,String,ShowFlags) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
@@ -77,11 +77,12 @@ object Tarski {
 
     val sc = r.map { case (env,s) => {
       val sh = s map (s => {
-        val abbrev = show(s)(Pretty.prettyStmt(_)(env),abbrevShowFlags).trim
-        val full   = show(s)(Pretty.prettyStmt(_)(env),fullShowFlags)
+        val abbrev   = show(s)(Pretty.prettyStmt(_)(env),abbrevShowFlags).trim
+        val sentinel = show(s)(Pretty.prettyStmt(_)(env),sentinelShowFlags).trim
+        val full     = show(s)(Pretty.prettyStmt(_)(env),fullShowFlags)
         ShowStmt(show=abbrev,den=s.toString,
           full=format(s,full,fullShowFlags),
-          abbrev=format(s,abbrev,abbrevShowFlags))
+          abbrev=ShowFlags.replaceSentinels(format(s,sentinel,sentinelShowFlags)).replaceAll("""\s+"""," "))
       })
       println(s"$s => ${sh map (_.show)}")
       sh
@@ -94,7 +95,7 @@ object Tarski {
     mergeTake(sc.stream)(Map.empty)
   }
 
-  def fix(tokens: List[Located[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
+  def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     prepare(tokens) flatMap { case (ts,c) =>
       val asts = Mismatch.repair(ts) flatMap (ts => {
         val asts = ParseEddy.parse(ts)

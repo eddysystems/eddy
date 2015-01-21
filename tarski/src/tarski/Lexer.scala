@@ -67,11 +67,11 @@ object Lexer {
     (pattern,factories)
   }
 
-  def lex(input: String): List[Located[Token]] = {
+  def lex(input: String): List[Loc[Token]] = {
     // TODO: Handle comments
     if ("""/\*""".r.findFirstIn(input).isDefined)
       throw new RuntimeException("Not implemented: multiline comments, input "+escape(input))
-    def loop(lo: Int, s: String, ts: List[Located[Token]]): List[Located[Token]] = if (s.isEmpty) ts else {
+    def loop(lo: Int, s: String, ts: List[Loc[Token]]): List[Loc[Token]] = if (s.isEmpty) ts else {
       def longest(n: Int, best: Option[Match]): Option[Match] = {
         if (n > s.length) best
         else longest(n+1,pattern.findPrefixMatchOf(s.substring(0,n)) orElse best)
@@ -80,7 +80,7 @@ object Lexer {
         case None => throw new RuntimeException(
           "Scan failed, column "+(input.length-s.length+1)+": "+escape(input)+", "+escape(s)+", "+ts.reverse)
         case Some(m) => (for ((i,f) <- factories; g = m.group(i); if g != null) yield (g.length,f(g))) match {
-          case List((n,t)) => loop(lo+n,s.substring(n),Located(t,SRange(lo,lo+n))::ts)
+          case List((n,t)) => loop(lo+n,s.substring(n),Loc(t,SRange(lo,lo+n))::ts)
           case ts => throw new RuntimeException("string "+escape(s)+" matches as ambiguous token list "+ts)
         }
       }

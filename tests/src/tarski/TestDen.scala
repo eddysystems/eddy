@@ -375,7 +375,7 @@ class TestDen {
 
   // If statements
   val t = BooleanLit(true)
-  val f = NonImpExp(NotOp,t)
+  val f = BooleanLit(false)
   val e = EmptyStmt
   val h = HoleStmt
   def testX(input: String, best: (Stmt,Stmt) => Stmt) = {
@@ -393,6 +393,9 @@ class TestDen {
   @Test def ifElse()       = testX("if (true) x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
   @Test def ifElseHole()   = test ("if (true) else", IfElseStmt(t,h,h))
   @Test def ifThenElse()   = testX("if true then x=1 else x=2", (a,b) => IfElseStmt(t,a,b))
+  @Test def elif()         = testX("if (true) x=1 elif (false) x=2", (a,b) => IfElseStmt(t,a,IfStmt(f,b)))
+  @Test def elifBraces()   = testX("if (true) { x=1; } elif false { x=2 }", (a,b) => IfElseStmt(t,BlockStmt(a),IfStmt(f,BlockStmt(b))))
+  @Test def ifBraces()     = testX("if true { x=1 }", (a,b) => IfStmt(t,BlockStmt(a)))
 
   // While and do
   @Test def whileStmt()       = test("while (true);", WhileStmt(t,e))
