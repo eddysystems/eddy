@@ -84,6 +84,7 @@ class Place {
       return parent;
     } else if (parent instanceof PsiDeclarationStatement || // local variable
               (parent instanceof PsiForeachStatement) || (parent instanceof PsiForStatement) || // declaration in for loop
+              (parent instanceof PsiCatchSection) || // parameter of catch block
               (parent instanceof PsiParameterList)) { // parameter to callable
       while (!(parent instanceof PsiMethod))
         parent = parent.getParent();
