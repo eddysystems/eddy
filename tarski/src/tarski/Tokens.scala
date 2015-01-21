@@ -48,6 +48,7 @@ object Tokens {
   }
   sealed abstract class CommentTok extends SpaceTok
   case class WhitespaceTok(s: String) extends SpaceTok
+  case class IllegalTok(s: String) extends SpaceTok // non-ASCII character outside identifiers or literals, we consider them space for now
   case class EOLCommentTok(s: String) extends CommentTok
   case class CCommentTok(s: String) extends CommentTok
 
