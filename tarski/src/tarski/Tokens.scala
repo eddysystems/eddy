@@ -19,9 +19,9 @@ object Tokens {
   sealed abstract class ToIdentToken extends SimpleToken // Converts to IdentTok before parsing
 
   // Flags controlling show for fancy tokens
-  case class ShowFlags(abbreviate: Boolean)
-  val abbrevShowFlags = ShowFlags(abbreviate=true)
-  val fullShowFlags = ShowFlags(abbreviate=false)
+  case class ShowFlags(abbreviate: Boolean, probs: Boolean)
+  val abbrevShowFlags = ShowFlags(abbreviate=true,probs=false)
+  val fullShowFlags = ShowFlags(abbreviate=false,probs=false)
 
   // Holes in the grammar
   case object HoleTok extends SimpleToken {

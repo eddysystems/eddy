@@ -1,7 +1,6 @@
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Eddy;
-import com.intellij.codeInsight.hint.HintUtil;
 import com.intellij.ide.IdeTooltipManager;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.IdeActions;
@@ -20,6 +19,9 @@ class EddyHintLabel extends JPanel {
   private JEditorPane myPane;
   private SimpleColoredComponent myColored;
   private JLabel myIcon;
+
+  public static final Color QUESTION_COLOR = new JBColor(new Color(181, 208, 251), new Color(55, 108, 137));
+  public static final Color AUTOAPPLY_COLOR = new JBColor(new Color(255, 187, 200), new Color(252, 77, 120));
 
   EddyHintLabel() {
     setLayout(new BorderLayout());
@@ -90,17 +92,24 @@ class EddyHintLabel extends JPanel {
   }
 
   protected static LightweightHint makeHint(Eddy.Output output) {
-    final String text = output.bestTextAbbrev() + (output.single() ? "" : " (multiple options...)");
-    final String hintText = ' ' + text + ' ' + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
+    boolean auto = output.shouldAutoApply();
 
-    HintHint hintHint = new HintHint().setTextBg(HintUtil.QUESTION_COLOR)
+    final String hintText, text = output.bestTextAbbrev() + (output.single() ? "" : " (multiple options...)");
+
+    if (auto) {
+      hintText = ' ' + text + ' ' + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_EDITOR_ENTER));
+    } else {
+      hintText = ' ' + text + ' ' + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
+    }
+
+    HintHint hintHint = new HintHint().setTextBg(auto ? AUTOAPPLY_COLOR : QUESTION_COLOR)
       .setTextFg(JBColor.foreground())
       .setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD))
       .setAwtTooltip(true);
 
     final EddyHintLabel label = new EddyHintLabel();
-    label.setText(hintText, hintHint);
     label.setIcon(EddyWidget.getIcon());
+    label.setText(hintText, hintHint);
 
     return new LightweightHint(label);
   }

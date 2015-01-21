@@ -24,6 +24,10 @@ public class EddyThread extends Thread {
   private AccessToken accessToken = null;
 
   private void getReadLock() {
+    // already have it?
+    if (accessToken != null)
+      return;
+
     // wait for smart mode and get a new access token
     DumbService ds = DumbService.getInstance(project);
     while (true) {

@@ -1,9 +1,11 @@
 package com.eddysystems.eddy;
 
+import com.eddysystems.eddy.engine.JavaEnvironment;
 import com.intellij.openapi.application.ApplicationListener;
 import com.intellij.openapi.project.DumbService;
 
 public class EddyApplicationListener implements ApplicationListener, DumbService.DumbModeListener {
+
   // ApplicationListenerInterface
   @Override public boolean canExitApplication() { return true; }
   @Override public void applicationExiting() {}
@@ -11,8 +13,11 @@ public class EddyApplicationListener implements ApplicationListener, DumbService
   @Override public void writeActionFinished(Object action) {}
 
   @Override public void beforeWriteActionStart(Object action) {
-    // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
+    // The eddy thread has a read access token. Release it to let the write action start.
     EddyThread.pause(action);
+
+    // The initialization code has a read access token. Release it to let the write action start.
+    JavaEnvironment.writeActionWaiting();
   }
 
   // DumbModeListener interface

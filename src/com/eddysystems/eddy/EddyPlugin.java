@@ -119,14 +119,10 @@ public class EddyPlugin implements ProjectComponent {
         env = new JavaEnvironment(project);
         psiListener = new EddyPsiListener(env);
         PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-        env.initialize();
+        env.initialize(indicator);
       } else {
         final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
         String err = "";
-
-        if (sbar != null) {
-          widget.moreBusy();
-        }
 
         try {
           // can't have changes between when we make the environment and when we register the psi listener
@@ -136,7 +132,7 @@ public class EddyPlugin implements ProjectComponent {
             PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
           }});
 
-          env.initialize();
+          env.initialize(indicator);
 
           log("environment initialized");
 
@@ -147,7 +143,6 @@ public class EddyPlugin implements ProjectComponent {
         } finally {
           initializing = false;
           if (sbar != null) {
-            widget.lessBusy();
             if (err.isEmpty())
               sbar.setInfo("eddy initialized.");
             else

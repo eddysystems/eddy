@@ -11,8 +11,10 @@ import org.jetbrains.annotations.NotNull;
 import tarski.Tokens;
 
 import javax.swing.*;
-import static tarski.Tokens.abbrevShowFlags;
+
+import static com.eddysystems.eddy.engine.Utility.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
+import static tarski.Tokens.abbrevShowFlags;
 
 public class EddyAction implements QuestionAction {
   private final @NotNull Eddy.Output output;
@@ -56,7 +58,7 @@ public class EddyAction implements QuestionAction {
     else {
       // show selection dialog
       final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy thinks:", output.formats(abbrevShowFlags())) {
+        new BaseListPopupStep<String>("eddy thinks:", output.formats(new Tokens.ShowFlags(true,isDebug()))) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;
@@ -74,12 +76,14 @@ public class EddyAction implements QuestionAction {
             }
 
             if (finalChoice) {
-              output.apply(selectedValue);
+              if (isDebug()) {
+                output.apply(selectedValue.substring(selectedValue.indexOf(':') + 2));
+              } else
+                output.apply(selectedValue);
               return FINAL_CHOICE;
             }
 
             return FINAL_CHOICE;
-            
           }
 
           @Override

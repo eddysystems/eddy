@@ -17,6 +17,7 @@ import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import scala.Function3;
 import scala.Unit$;
 import scala.runtime.AbstractFunction3;
@@ -91,6 +92,11 @@ public class Eddy {
       final List<String> fs = new ArrayList<String>(results.size());
       for (final Alt<List<ShowStmt>> a : results)
         fs.add(format(a.x(),f));
+      if (f.probs()) {
+        for (int i = 0; i < fs.size(); ++i) {
+          fs.set(i, String.format("%f: %s", results.get(i).p(), fs.get(i)));
+        }
+      }
       return fs;
     }
 
@@ -211,15 +217,17 @@ public class Eddy {
     }
   }
 
-  // Find the previous or immediately enclosing element
-  private static @NotNull PsiElement previous(final PsiElement e) throws Skip {
+  public static class PsiStructureException extends RuntimeException {
+    public PsiStructureException(final String s) { super(s); }
+  }
+
+  // Find the previous or immediately enclosing element (which may be null if there's no parent)
+  private static @Nullable
+  PsiElement previous(final PsiElement e) throws Skip {
     PsiElement p = e.getPrevSibling();
     if (p != null)
       return p;
-    p = e.getParent();
-    if (p != null)
-      return p;
-    throw new Skip("previous failed: element "+e+" has no previous sibling or parent");
+    return e.getParent();
   }
 
   // Trim a range to not include whitespace
@@ -340,6 +348,8 @@ public class Eddy {
     if (elems.isEmpty())
       throw new Skip("Empty statement list");
     final PsiElement place = previous(elems.get(0));
+    if (place == null)
+      throw new PsiStructureException("previous(" + elems.get(0) + ") == null");
 
     // Walk all relevant elements, collecting leaves and atomic code blocks.
     // We walk on AST instead of Psi to get down to the token level.
@@ -394,21 +404,29 @@ public class Eddy {
           @Override public boolean take(final List<Alt<List<ShowStmt>>> rs) {
             results = rs;
             output = new Output(Eddy.this,input,results);
+            if (isDebug()) {
+              log("produced output: ");
+              log(output.formats(new ShowFlags(true, true)));
+            }
             return takeoutput.take(output);
           }
         };
         Tarski.fixTake(input.input,env,format,take);
       }
 
-      void unsafe() throws Skip {
-        input = Eddy.input(editor);
-        compute(env(input,lastEdit));
+      void unsafe() {
+        try {
+          input = Eddy.input(editor);
+          compute(env(input,lastEdit));
+        } catch (Skip s) {
+          // ignore skipped lines
+        }
       }
 
       void safe() {
         try {
           if (isDebug()) // Run outside try so that we can see inside exceptions
-            unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() throws Skip {
+            unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() {
               unsafe();
               return Unit$.MODULE$;
             }});
