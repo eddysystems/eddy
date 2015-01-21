@@ -8,7 +8,6 @@ import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
 import org.jetbrains.annotations.NotNull;
-import tarski.Tokens;
 
 import javax.swing.*;
 
@@ -58,7 +57,7 @@ public class EddyAction implements QuestionAction {
     else {
       // show selection dialog
       final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy thinks:", output.formats(new Tokens.ShowFlags(true,isDebug()))) {
+        new BaseListPopupStep<String>("eddy thinks:", output.formats(abbrevShowFlags(), true)) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;

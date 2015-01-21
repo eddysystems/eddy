@@ -88,11 +88,11 @@ public class Eddy {
     public String format(final int i, final ShowFlags f) {
       return format(results.get(i).x(),f);
     }
-    public List<String> formats(final ShowFlags f) {
+    public List<String> formats(final ShowFlags f, final boolean probs) {
       final List<String> fs = new ArrayList<String>(results.size());
       for (final Alt<List<ShowStmt>> a : results)
         fs.add(format(a.x(),f));
-      if (f.probs()) {
+      if (probs) {
         for (int i = 0; i < fs.size(); ++i) {
           fs.set(i, String.format("%f: %s", results.get(i).p(), fs.get(i)));
         }
@@ -409,8 +409,9 @@ public class Eddy {
             results = rs;
             output = new Output(Eddy.this,input,results);
             if (isDebug()) {
+              System.out.println("output:\n" + logString(output.formats(abbrevShowFlags(),true)));
               log("produced output: ");
-              log(output.formats(new ShowFlags(true, true)));
+              log(output.formats(abbrevShowFlags(), true));
             }
             return takeoutput.take(output);
           }

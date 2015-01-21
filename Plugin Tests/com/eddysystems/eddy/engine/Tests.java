@@ -188,12 +188,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   private void checkResult(final Eddy.Output output, final String expected) {
     dumpResults(output,expected);
     assertTrue("eddy did not find correct solution: " + expected,
-      output.formats(abbrevShowFlags()).contains(expected));
+      output.formats(abbrevShowFlags(),false).contains(expected));
   }
 
   private void checkBest(final Eddy.Output output, final String best, final double margin, final ShowFlags f) {
     dumpResults(output,best);
-    final List<String> ss = output.formats(f);
+    final List<String> ss = output.formats(f,false);
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {

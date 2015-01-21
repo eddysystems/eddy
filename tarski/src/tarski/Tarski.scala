@@ -9,6 +9,7 @@ import tarski.Semantics._
 import tarski.Tokens._
 import tarski.Tries.{LazyTrie, DTrie, Trie}
 import utility.Locations._
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
 object Tarski {
@@ -62,7 +63,7 @@ object Tarski {
     //println(s"fix found: empty ${r.isEmpty}, single ${r.isSingle}, best ${r.best}")
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
-    def mergeTake(s: Stream[Alt[List[ShowStmt]]])(m: Map[List[String],Alt[List[ShowStmt]]]): Unit = {
+    @tailrec def mergeTake(s: Stream[Alt[List[ShowStmt]]])(m: Map[List[String],Alt[List[ShowStmt]]]): Unit = {
       val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
       if (!take.take(rs) && s.nonEmpty) {
         val Alt(p,b) = s.head
