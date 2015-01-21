@@ -19,9 +19,17 @@ object Tokens {
   sealed abstract class ToIdentToken extends SimpleToken // Converts to IdentTok before parsing
 
   // Flags controlling show for fancy tokens
-  case class ShowFlags(abbreviate: Boolean)
-  val abbrevShowFlags = ShowFlags(abbreviate=true)
-  val fullShowFlags = ShowFlags(abbreviate=false)
+  case class ShowFlags(abbreviate: Boolean, valid: Boolean)
+  val abbrevShowFlags = ShowFlags(abbreviate=true,valid=false)
+  val sentinelShowFlags = ShowFlags(abbreviate=true,valid=true)
+  val fullShowFlags = ShowFlags(abbreviate=false,valid=true)
+
+  // Sentinel registry for use with ShowFlags
+  object ShowFlags {
+    private[this] var sentinels: List[(String,String)] = Nil
+    def registerSentinel(sentinel: String, value: String): Unit = sentinels = (sentinel,value)::sentinels
+    def replaceSentinels(s: String): String = sentinels.foldLeft(s)((s,p) => s.replaceAllLiterally(p._1,p._2))
+  }
 
   // Holes in the grammar
   case object HoleTok extends SimpleToken {

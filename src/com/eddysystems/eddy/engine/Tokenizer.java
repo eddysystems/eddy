@@ -44,8 +44,17 @@ class Tokenizer {
       return psi instanceof PsiCodeBlock;
     }
 
+    private final static String sentinel = initSentinel();
+    private static String initSentinel() {
+      final String s = "_PsiStmtTokSentinelEllipsis_();";
+      ShowFlags$.MODULE$.registerSentinel(s,"...");
+      return s;
+    }
+
     public String show(final ShowFlags f) {
-      return f.abbreviate() ? "{ ... }" : psi.getText();
+      return f.abbreviate() ? f.valid() ? blocked() ? "{ "+sentinel+" }" : sentinel
+                                        : blocked() ? "{ ... }" : "..."
+                            : psi.getText();
     }
 
     @Override public String toString() {

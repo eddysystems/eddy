@@ -78,11 +78,12 @@ object Tarski {
 
     val sc = r.map { case (env,s) => {
       val sh = s map (s => {
-        val abbrev = show(s)(Pretty.prettyStmt(_)(env),abbrevShowFlags).trim
-        val full   = show(s)(Pretty.prettyStmt(_)(env),fullShowFlags)
+        val abbrev   = show(s)(Pretty.prettyStmt(_)(env),abbrevShowFlags).trim
+        val sentinel = show(s)(Pretty.prettyStmt(_)(env),sentinelShowFlags).trim
+        val full     = show(s)(Pretty.prettyStmt(_)(env),fullShowFlags)
         ShowStmt(show=abbrev,den=s.toString,
           full=format(s,full,fullShowFlags),
-          abbrev=format(s,abbrev,abbrevShowFlags))
+          abbrev=ShowFlags.replaceSentinels(format(s,sentinel,sentinelShowFlags)).replaceAll("""\s+"""," "))
       })
       println(s"$s => ${sh map (_.show)}")
       sh

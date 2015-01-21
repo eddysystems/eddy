@@ -297,7 +297,7 @@ public class Eddy {
   }
 
   // Should we expand an element or leave it atomic?
-  private static boolean expand(final TreeElement e, final int cursor) {
+  private static boolean expand(final TreeElement e, final TextRange range, final int cursor) {
     // Never expand leaves
     if (e instanceof LeafElement)
       return false;
@@ -314,6 +314,10 @@ public class Eddy {
       //   {}|  -  r 0 2, pos 2, not inside
       return r.getStartOffset() < cursor && cursor < r.getEndOffset();
     }
+
+    // Expand statements if they overlap our line
+    if (psi instanceof PsiStatement)
+      return r.intersects(range);
 
     // Expand everything else
     return true;
@@ -346,7 +350,7 @@ public class Eddy {
     final List<Located<Token>> tokens = new ArrayList<Located<Token>>();
     final RecursiveTreeElementVisitor V = new RecursiveTreeElementVisitor() {
       @Override protected boolean visitNode(final TreeElement e) {
-        if (expand(e,cursor))
+        if (expand(e,range,cursor))
           return true;
         if (!Tokenizer.isSpace(e))
           tokens.add(Tokenizer.psiToTok(e));
