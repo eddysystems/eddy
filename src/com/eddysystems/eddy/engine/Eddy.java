@@ -394,6 +394,7 @@ public class Eddy {
       Input input;
       Output output;
       List<Alt<List<ShowStmt>>> results;
+      List<Double> delays = new ArrayList<Double>(4);
       Throwable error;
 
       void compute(final Env env) {
@@ -404,15 +405,17 @@ public class Eddy {
             return reformat(input.place,s,sh,f);
           }
         };
+        final long startTime = System.nanoTime();
         final Tarski.Take take = new Tarski.Take() {
           @Override public boolean take(final List<Alt<List<ShowStmt>>> rs) {
             results = rs;
+            double delay = (System.nanoTime() - startTime)/1e9;
+            delays.add(delay);
             output = new Output(Eddy.this,input,results);
-            if (isDebug()) {
-              System.out.println("output:\n" + logString(output.formats(abbrevShowFlags(),true)));
-              log("produced output: ");
-              log(output.formats(abbrevShowFlags(), true));
-            }
+            if (isDebug())
+              System.out.println(String.format("output %.3fs:\n", delay) + logString(output.formats(abbrevShowFlags(),true)));
+
+            // TODO: update the intention menu (maybe just by making a new ShowIntentionsPass and running it)
             return takeoutput.take(output);
           }
         };
@@ -447,7 +450,8 @@ public class Eddy {
         } finally {
           Memory.log(Memory.eddyProcess(base,start,
                                         input==null ? null : input.input,
-                                        results).error(error));
+                                        results,
+                                        delays).error(error));
         }
       }
     }

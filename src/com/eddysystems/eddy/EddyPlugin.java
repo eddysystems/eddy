@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.eddysystems.eddy.engine.Utility.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
@@ -210,7 +211,7 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void initComponent() {
-    log("eddy starting: installation " + installKey() + " version " + getVersion() + " build " + getBuild());
+    log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
 
     // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);

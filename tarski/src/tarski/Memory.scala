@@ -37,6 +37,7 @@ object Memory {
 
   implicit def safeString(x: String) = S(x)
   implicit def safeDouble(x: Double) = S(x:java.lang.Double)
+  implicit def safeDouble(x: java.lang.Double) = S(x)
   implicit def safeSeq[A](x: Seq[A])(implicit s: Safe[A]) = S(x.map(safe(_)).asJava : java.util.List[Object])
   implicit def safeList[A](x: JList[A])(implicit s: Safe[A]) = S(x.asScala.map(safe(_)).asJava)
   implicit def safeArray[A](x: Array[A])(implicit s: Safe[A]) = {
@@ -87,7 +88,7 @@ object Memory {
     eddyApplyBase(base, "Eddy.AutoApply", input, results, choice);
   }
 
-  def eddyProcess(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[JList[ShowStmt]]]) = {
+  def eddyProcess(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[JList[ShowStmt]]], delays: JList[java.lang.Double]) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[Seq[String]] = if (results==null) null else results.asScala.map(_.x.asScala.map(_.den))
     val tokens: Seq[Alt[Seq[String]]] = if (results==null) null else results.asScala.map(_ map (_.asScala.map(_.show)))
@@ -98,6 +99,7 @@ object Memory {
         .add("results",tokens)
         .add("denotations",denotations) // same order as results
         .add("formatted",formatted) // same order as results
+        .add("delay",delays)
   }
 
   // Log to DynamoDB
