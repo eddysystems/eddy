@@ -138,7 +138,7 @@ public class Eddy {
       return rawApply(eddy.editor.getDocument(), format(0));
     }
 
-    public boolean isConfident() {
+    public boolean shouldAutoApply() {
       // check if we're confident enough to apply the best found result automatically
       double t = PreferencesProvider.getData().getNumericAutoApplyThreshold();
       double f = PreferencesProvider.getData().getNumericAutoApplyFactor();
@@ -154,8 +154,8 @@ public class Eddy {
 
     public int rawApply(final @NotNull Document document, final @NotNull String code) {
       final int offsetDiff = code.length() - input.range.getLength();
-      log("replacing '" + document.getText(input.range) + "' with '" + code + '\'');
       document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
+      Memory.log(Memory.eddyAutoApply(eddy.base,input.input,results,code));
       return offsetDiff;
     }
 
@@ -363,4 +363,5 @@ public class Eddy {
     CodeStyleManager.getInstance(project).reformat(elem,true);
     return elem.getText();
   }
+
 }

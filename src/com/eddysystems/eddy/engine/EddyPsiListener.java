@@ -1,5 +1,6 @@
 package com.eddysystems.eddy.engine;
 
+import com.eddysystems.eddy.EddyThread;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.PsiTreeChangeEventImpl;
 import com.intellij.psi.impl.source.tree.ChildRole;
@@ -148,6 +149,8 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildAddition(@NotNull PsiTreeChangeEvent event) {
+    // for now, whenever the PSI changes, assume our current eddy process is out of date completely
+    EddyThread.kill();
   }
 
   @Override
@@ -172,6 +175,9 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildRemoval(@NotNull PsiTreeChangeEvent event) {
+    // for now, whenever the PSI changes, assume our current eddy process is out of date completely
+    EddyThread.kill();
+
     log("child being removed from " + event.getParent() + ": " + event.getChild());
     if (deleteRecursive(event.getChild())) {
       // if the removed child itself was an item we can delete, we're done here.
@@ -196,6 +202,9 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildReplacement(@NotNull PsiTreeChangeEvent event) {
+    // for now, whenever the PSI changes, assume our current eddy process is out of date completely
+    EddyThread.kill();
+
     PsiElement elem = event.getOldChild();
 
     String np = "<name unavailable>";
@@ -255,6 +264,9 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildrenChange(@NotNull PsiTreeChangeEvent event) {
+    // for now, whenever the PSI changes, assume our current eddy process is out of date completely
+    EddyThread.kill();
+
     log("children of " + event.getParent() + " about to be changed.");
   }
 
@@ -277,6 +289,9 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforeChildMovement(@NotNull PsiTreeChangeEvent event) {
+    // for now, whenever the PSI changes, assume our current eddy process is out of date completely
+    EddyThread.kill();
+
     log("child of " + event.getOldParent() + " moving to " + event.getNewParent() + ": " + event.getChild());
 
     // just changing order doesn't affect us
@@ -313,6 +328,8 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void beforePropertyChange(@NotNull PsiTreeChangeEvent event) {
+    // for now, whenever the PSI changes, assume our current eddy process is out of date completely
+    EddyThread.kill();
   }
 
   @Override
