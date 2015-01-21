@@ -158,7 +158,12 @@ class Converter {
 
      // Classes are not types in IntelliJ's version of the world, so we have to look up this class in envitems
      if (t instanceof PsiClassType) {
-       PsiClass tcls = ((PsiClassType)t).resolve();
+       PsiClass tcls = null;
+       try {
+         tcls = ((PsiClassType)t).resolve();
+       } catch (PsiInvalidElementAccessException e) {
+         // this happens in scala code, which doesn't assign proper files to synthetic elements -- ignore
+       }
        if (tcls == null) {
          // we don't know how to deal with unresolved things that are not references.
          assert t instanceof PsiClassReferenceType;
