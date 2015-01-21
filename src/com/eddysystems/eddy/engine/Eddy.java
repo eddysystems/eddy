@@ -69,6 +69,12 @@ public class Eddy {
       this.place = place;
       this.before_text = before_text;
     }
+
+    // compare without considering to whitespace.
+    // TODO: this needs to change once we have a better way of handling comments etc.
+    public boolean sameAsBefore(String after) {
+      return before_text.replaceAll("[\n\t ]+"," ").equals(after.replaceAll("[\n\t ]+"," "));
+    }
   }
 
   // The results of the interpretation
@@ -118,7 +124,7 @@ public class Eddy {
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean shouldShowHint() {
       for (final Alt<List<ShowStmt>> r : results)
-        if (format(r.x(),fullShowFlags()).equals(input.before_text))
+        if (input.sameAsBefore(format(r.x(),fullShowFlags())))
           return false; // We found what's already there
       return !results.isEmpty();
     }
@@ -377,7 +383,7 @@ public class Eddy {
     final TextRange trim = Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
     final String before = document.getText(trim);
-    log("  before: " + before);
+    log("  before: " + before.replaceAll("[\n\t ]+"," "));
     return new Input(trim,tokens,place,before);
   }
 
@@ -440,6 +446,7 @@ public class Eddy {
           compute(env(input,lastEdit));
         } catch (Skip s) {
           // ignore skipped lines
+          log("skipping: " + s.getMessage());
         }
       }
 
