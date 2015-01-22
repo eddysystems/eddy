@@ -214,10 +214,10 @@ object Semantics {
     biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,expects,auto=true,ArgMatching.useAll))
   def fixCall(m: Mode, expects: Option[Type], f: => Scored[Den])(implicit env: Env): Scored[Den] =
     if (m.call) f
-    else biased(Pr.missingArgList,f flatMap {
-      case f:Callable => ArgMatching.fiddleCall(f,Nil,expects,auto=true,ArgMatching.useAll)
+    else f flatMap {
+      case f:Callable => biased(Pr.missingArgList, ArgMatching.fiddleCall(f,Nil,expects,auto=true,ArgMatching.useAll))
       case f => known(f)
-    })
+    }
 
   def denote(e: AExp, m: Mode, expects: Option[Type] = None)(implicit env: Env): Scored[Den] = e match {
     case x:ALit if m.exp => denoteLit(x)
