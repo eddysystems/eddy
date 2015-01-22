@@ -138,7 +138,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
       final TestTake take = new TestTake();
       makeEddy().process(myFixture.getEditor(),lastEdit,take);
-      assert take.output != null; // eddy should always return an output, even if it finds nothing
       return take.output;
     } finally { popScope(); }
   }
