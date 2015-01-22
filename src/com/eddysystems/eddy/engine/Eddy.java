@@ -224,7 +224,7 @@ public class Eddy {
     this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
   }
 
-  public static class Skip extends Exception {
+  private static class Skip extends Exception {
     public Skip(final String s) {
       super(s);
     }
@@ -412,7 +412,6 @@ public class Eddy {
     class Helper {
       final double start = Memory.now();
       Input input;
-      Output output;
       List<Alt<List<ShowStmt>>> results;
       List<Double> delays = new ArrayList<Double>(4);
       Throwable error;
@@ -431,7 +430,7 @@ public class Eddy {
             results = rs;
             double delay = (System.nanoTime() - startTime)/1e9;
             delays.add(delay);
-            output = new Output(Eddy.this,input,results);
+            Eddy.Output output = new Output(Eddy.this,input,results);
             if (isDebug())
               System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(abbrevShowFlags(),true)));
 
@@ -447,7 +446,7 @@ public class Eddy {
           input = Eddy.this.input();
           compute(env(input,lastEdit));
         } catch (Skip s) {
-          // ignore skipped lines (output will be null)
+          // ignore skipped lines
           log("skipping: " + s.getMessage());
         }
       }

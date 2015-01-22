@@ -288,10 +288,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testClosingBrace() {
     pushDebug();
     try {
-      testMargin("closingBrace.java", "nonsense", .9);
-      throw new Eddy.Skip("");
-    } catch (final Eddy.Skip e) {
-      assert e.getMessage().contains("No tokens");
+      assertNull(setupEddy(null, -1, "closingBrace.java"));
     } finally { popDebug(); }
   }
 
