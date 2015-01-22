@@ -60,13 +60,14 @@ object Tarski {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
 
-    //println(s"fix found: empty ${r.isEmpty}, single ${r.isSingle}, best ${r.best}")
+    println("input: " + Tokens.print(toks map (_.x))(abbrevShowFlags))
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
     @tailrec def mergeTake(s: Stream[Alt[List[ShowStmt]]], m: Map[List[String],Alt[List[ShowStmt]]], notify: Boolean): Unit = {
       env.checkThread() // check if the thread was interrupted (as the probabilities decline, we hardly ever do env lookups)
       val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
-      val done = notify && take.take(rs) // if we shouldn't notify take, it gets not say in whether to continue, there's no new information.
+
+      val done = notify && take.take(rs) // if we shouldn't notify take, it gets no say in whether to continue, there's no new information.
       if (!done && s.nonEmpty) {
         val Alt(p,b) = s.head
         val a = b map (_.abbrev)
@@ -75,6 +76,9 @@ object Tarski {
           mergeTake(s.tail, m, notify=false)
         else
           mergeTake(s.tail, m + ((a,Alt(p,b))), notify=true)
+      } else if (!done && m.isEmpty) {
+        // first time we get called, m is empty. If s is empty too, notify once with empty rs
+        take.take(rs)
       }
     }
 

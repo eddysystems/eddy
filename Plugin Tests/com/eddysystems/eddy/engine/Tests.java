@@ -124,7 +124,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
         lastEdit = myFixture.getEditor().getCaretModel().getOffset();
 
       class TestTake implements Eddy.Take {
-        Eddy.Output output;
+        Eddy.Output output = null;
         @Override public boolean take(Eddy.Output output) {
           this.output = output;
           if (output.results.size() < 4) return false;
@@ -138,6 +138,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
       final TestTake take = new TestTake();
       makeEddy().process(myFixture.getEditor(),lastEdit,take);
+      assert take.output != null; // eddy should always return an output, even if it finds nothing
       return take.output;
     } finally { popScope(); }
   }

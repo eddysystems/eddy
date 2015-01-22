@@ -198,26 +198,27 @@ object Tokens {
   def showSep[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =
     tokens(x) map (_.show) mkString " "
 
+  def print(ts: List[Token])(implicit f: ShowFlags): String = ts match {
+    case Nil => ""
+    case x::Nil => x.show
+    case x::(ys@(y::_)) =>
+      def safe(x: Token, y: Token) = (x,y) match {
+        case (_:WhitespaceTok,_)|(_,_:WhitespaceTok) => true
+        case (LParenTok|LBrackTok,_) => true
+        case (_,RParenTok|RBrackTok) => true
+        case (_:IdentTok,LParenTok|LBrackTok) => true
+        case (_:IdentTok|QuestionTok,LtTok|GtTok)|(LtTok|GtTok,_:IdentTok|QuestionTok) => true
+        case (GtTok,GtTok|LParenTok) => true
+        case (_,DotTok)|(DotTok,_) => true
+        case (_,SemiTok) => true
+        case _ => false
+      }
+      x.show + (if (safe(x,y)) "" else " ") + print(ys)
+  }
+
   // Convert to a string, adding as little whitespace as possible
   def show[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String = {
-    def process(ts: List[Token]): String = ts match {
-      case Nil => ""
-      case x::Nil => x.show
-      case x::(ys@(y::_)) =>
-        def safe(x: Token, y: Token) = (x,y) match {
-          case (_:WhitespaceTok,_)|(_,_:WhitespaceTok) => true
-          case (LParenTok|LBrackTok,_) => true
-          case (_,RParenTok|RBrackTok) => true
-          case (_:IdentTok,LParenTok|LBrackTok) => true
-          case (_:IdentTok|QuestionTok,LtTok|GtTok)|(LtTok|GtTok,_:IdentTok|QuestionTok) => true
-          case (GtTok,GtTok|LParenTok) => true
-          case (_,DotTok)|(DotTok,_) => true
-          case (_,SemiTok) => true
-          case _ => false
-        }
-        x.show + (if (safe(x,y)) "" else " ") + process(ys)
-    }
-    process(tokens(x))
+    print(tokens(x))
   }
 
   // Prepare a token stream for parsing.
