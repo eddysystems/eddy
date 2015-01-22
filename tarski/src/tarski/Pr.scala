@@ -3,9 +3,9 @@ package tarski
 import utility.JavaUtils.poissonPDF
 import tarski.AST.CommaList
 import tarski.Denotations.Exp
-import tarski.Items.{ClassMember, FieldItem, MethodItem, TypeItem}
+import tarski.Items._
 import tarski.Scores._
-import tarski.Types.Type
+import tarski.Types.{ClassType, Type}
 import tarski.JavaScores._
 
 object Pr {
@@ -51,6 +51,16 @@ object Pr {
     if (probs.isSingle) Prob("omit one choice",.8) // Only choice
     else if (Items.inPackage(choice.item,Base.JavaLangPkg)) Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
+  }
+
+  def omitNestedClass(t: TypeItem, c: ClassItem, first: Boolean): Prob = {
+    if (first) Prob("omit first qualifier for nested class",.8) else Prob("omit deep qualifier for nested class",.9)
+  }
+
+  def omitPackage(t:TypeItem, p: Items.Package): Prob = {
+    if (Items.inPackage(t,Base.JavaLangPkg)) Prob("omit java.lang for type",.9)
+    else if (Items.inPackage(p,Base.JavaPkg)) Prob("omit java.* for type",.7)
+    else Prob("omit package import",.5)
   }
 
   val argPosErrorRate = .2

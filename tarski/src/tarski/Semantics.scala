@@ -108,18 +108,6 @@ object Semantics {
     case Some(Loc(ts,r)) => addTypeArgs(fs,ts,r)
   }
 
-  // Check whether a type is accessible in the environment (can be qualified by something in scope).
-  // Pretty-printing will do the actual qualifying
-  @tailrec
-  def typeAccessible(t: TypeItem)(implicit env: Env): Boolean = env.inScope(t) || (t match {
-    case t:ClassItem => t.parent match {
-      case p:ClassType => typeAccessible(p.item)
-      case p:Package => true
-      case _ => false // We're not in scope, and we're a local class
-    }
-    case _ => false
-  })
-
   // Are we contained in the given type, or in something contained in the given type?
   @tailrec
   def containedIn(i: Item, t: TypeItem): Boolean = i match {
@@ -388,17 +376,35 @@ object Semantics {
   }
   */
 
+  def denoteTypeItem(t: TypeItem, omittedNestedClass: Boolean = false)(implicit env: Env): Scored[TypeDen] = {
+    // this function must only be called for TypeItems that are _.accessible!
+    if (env.inScope(t))
+      known(TypeDen(Nil,t.raw))
+    else t match {
+      case t:ClassItem => t.parent match {
+        case p:ClassItem => biased(Pr.omitNestedClass(t,p,!omittedNestedClass), denoteTypeItem(p,omittedNestedClass=true))
+        case p:Package => single(TypeDen(Nil,t.raw),Pr.omitPackage(t,p)) // need to import a package or qualify with a package name to avoid shadowing
+        case _:CallableItem|_:UnknownContainerItemBase => impossible // t is accessible, so local classes are not ok.
+      }
+      case _:TypeVar => fail("out of scope typevar cannot be qualified to be in scope")
+      case t:LangTypeItem => impossible // can't be out of scope and accessible if it's a builtin
+      case ArrayItem => impossible // we come from the environment, so we're definitely not the special array base class
+      case NoTypeItem => impossible // hopefully not.
+      case _:RefTypeItem => impossible // RefTypeItem is only not sealed so TypeVar can inherit from it.
+    }
+  }
+
   def denoteName(n: Name, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
     case v:Value if m.exp => denoteValue(v,depth=0)
     case t:TypeItem =>
-      if (!typeAccessible(t)) fail(s"${show(t)} is inaccessible")
-      else {
-        val s = if (!m.callExp) fail("Not in call mode") else t match {
+      // add probabilities for omitted qualifiers
+      denoteTypeItem(t) flatMap { tden =>
+        val s = if (!m.callExp) fail("Not in call mode") else tden.item match {
           case t:ClassItem if t.constructors(env.place).length == 0 => fail(s"$t has no accessible constructors")
           case t:ClassItem => fixCall(m,expects,uniformGood(Pr.constructor,t.constructors(env.place)) map (NewDen(None,_)))
-          case _ => fail(s"$t is not a class, and therefore has no constructors")
+          case t => fail(s"$t is not a class, and therefore has no constructors")
         }
-        if (m.ty) knownThen(TypeDen(Nil,t.raw),s) else s
+        if (m.ty) knownThen(tden,s) else s
       }
     case c:PseudoCallableItem if m.callExp => fixCall(m,expects,c match {
       case i:MethodItem if i.isStatic => knownNotNew(m,MethodDen(None,i))
