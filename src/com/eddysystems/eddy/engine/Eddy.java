@@ -124,7 +124,7 @@ public class Eddy {
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean shouldShowHint() {
       for (final Alt<List<ShowStmt>> r : results)
-        if (input.sameAsBefore(format(r.x(),fullShowFlags())))
+        if (input.sameAsBefore(format(r.x(), fullShowFlags())))
           return false; // We found what's already there
       return !results.isEmpty();
     }
@@ -383,7 +383,7 @@ public class Eddy {
     final TextRange trim = Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
     final String before = document.getText(trim);
-    log("  before: " + before.replaceAll("[\n\t ]+"," "));
+    log("  before: " + before.replaceAll("[\n\t ]+", " "));
     return new Input(trim,tokens,place,before);
   }
 
@@ -392,17 +392,19 @@ public class Eddy {
   }
 
   private void updateIntentions() {
-    LaterInvocator.invokeLater(new Runnable() {
-      @Override
-      public void run() {
-        final PsiFile file = getFile();
-        ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
-        ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
-        if (!intentions.isEmpty()) {
-          IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+    if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      LaterInvocator.invokeLater(new Runnable() {
+        @Override
+        public void run() {
+          final PsiFile file = getFile();
+          ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
+          ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
+          if (!intentions.isEmpty()) {
+            IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   public void process(final @NotNull Editor editor, final int lastEdit, final Take takeoutput) {

@@ -193,7 +193,10 @@ public class EddyThread extends Thread {
   }
 
   static public Runnable getThreadChecker() {
-    return ((EddyThread)Thread.currentThread()).getThisThreadChecker();
+    if (ApplicationManager.getApplication().isHeadlessEnvironment())
+      return new Runnable() { @Override public void run() {} };
+    else
+      return ((EddyThread)Thread.currentThread()).getThisThreadChecker();
   }
 
   @Override
