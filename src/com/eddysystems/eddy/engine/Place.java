@@ -85,7 +85,9 @@ class Place {
     } else if (parent instanceof PsiDeclarationStatement || // local variable
               (parent instanceof PsiForeachStatement) || (parent instanceof PsiForStatement) || // declaration in for loop
               (parent instanceof PsiCatchSection) || // parameter of catch block
-              (parent instanceof PsiParameterList)) { // parameter to callable
+              (parent instanceof PsiParameterList) || // parameters to callable
+              (parent instanceof PsiNewExpression) // anonymous classes
+              ) {
       while (!(parent instanceof PsiMethod))
         parent = parent.getParent();
       return parent;
@@ -93,7 +95,7 @@ class Place {
       assert elem instanceof PsiTypeParameter;
       return ((PsiTypeParameter)elem).getOwner();
     } else if (elem instanceof PsiClass) {
-      return ((PsiClass)elem).getScope();
+      return ((PsiClass)elem).getScope(); // anonymous classes are handled above
     } else if (elem instanceof PsiMember) {
       parent = ((PsiMember) elem).getContainingClass();
       if (parent != null)
