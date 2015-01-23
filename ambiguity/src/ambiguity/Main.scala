@@ -5,13 +5,13 @@ import ambiguity.Grammar._
 import scala.io.Source
 
 object Main {
-  def grammar(path: String): Grammar = {
+  def grammar(path: String, binary: Boolean = true): Grammar = {
     val file = Source.fromFile(path).mkString
     val Gr = read(file)
     check(Gr,generic=true)
     val Gc = complete(Gr)
     check(Gc)
-    val G = binarize(Gc)
+    val G = if (binary) binarize(Gc) else Gc
     check(G)
     G
   }
@@ -26,6 +26,7 @@ object Main {
     case Array(path) => parse(grammar(path))
     case Array("-n",path) => parse(grammar(path),nop=true)
     case Array("-a",path) => actions(grammar(path))
+    case Array("-s",path) => actions(grammar(path,binary=false))
     case _ => throw new RuntimeException("one argument expected")
   }
 }

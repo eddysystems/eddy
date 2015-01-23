@@ -28,8 +28,6 @@ public class JavaScores {
   static final boolean trackProbabilities = false;
   static double pp(double x) { return x; }
   static double pmul(double x, double y) { return x*y; }
-  static final double pzero = 0;
-  static double padd(double x, double y) { return x+y; }
   static double pmax(double x, double y) { return Math.max(x,y); }
   static public Scores.Error ppretty(double x) { return new OneError(""+x); }
   /**/
@@ -68,19 +66,6 @@ public class JavaScores {
       if (y instanceof MulProb) ((MulProb)y).flatten(es); else if (!y.known()) es.add(y.pretty());
     }
   }
-  static final class AddProb extends DebugProb {
-    final DebugProb x,y;
-    AddProb(DebugProb x, DebugProb y) { super(x.prob+y.prob); this.x = x; this.y = y; }
-    final public Scores.Error pretty() {
-      final ArrayList<Scores.Error> es = new ArrayList<Scores.Error>();
-      flatten(es);
-      return nest("+ : "+prob,es.toArray(new Scores.Error[es.size()]));
-    }
-    private void flatten(ArrayList<Scores.Error> es) {
-      if (x instanceof AddProb) ((AddProb)x).flatten(es); else es.add(x.pretty());
-      if (y instanceof AddProb) ((AddProb)y).flatten(es); else es.add(y.pretty());
-    }
-  }
   static final class MaxProb extends DebugProb {
     final DebugProb x,y;
     MaxProb(DebugProb x, DebugProb y) { super(Math.max(x.prob,y.prob); this.x = x; this.y = y; }
@@ -97,9 +82,7 @@ public class JavaScores {
   static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
   static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
-  static final DebugProb pzero = null;
-  static DebugProb padd(DebugProb x, DebugProb y) { return y==pzero ? x : new AddProb(x,y); }
-  static DebugProp pmax(DebugProb x, DebugProb y) { return y==pzero ? x : new MaxProb(x,y); }
+  static DebugProp pmax(DebugProb x, DebugProb y) { return new MaxProb(x,y); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
   static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
   /**/

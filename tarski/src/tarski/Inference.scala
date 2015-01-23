@@ -1,5 +1,6 @@
 package tarski
 
+import utility.Locations._
 import utility.Utility._
 import tarski.Pretty._
 import tarski.Types._
@@ -22,13 +23,14 @@ object Inference {
 
   // Pretty printing support
   private implicit val emptyEnv = Env(Array(),Map.empty)
-  implicit def prettyBounds(bs: Bounds): (Fixity,Tokens) = (HighestFix, IdentTok("Bounds") :: LParenTok ::
-    separate(bs.toList map (tokens(_)),List(CommaTok)) ::: List(RParenTok))
+  private implicit val r = SRange.unknown
+  implicit def prettyBounds(bs: Bounds): (Fixity,Tokens) = (HighestFix, Loc(IdentTok("Bounds"),r)
+    :: Loc(LParenTok,r) :: commas(bs.toList,r) ::: List(Loc(RParenTok,r)))
   implicit def prettyBound(vb: (Var,Bound)): (Fixity,Tokens) = (HighestFix, vb match {
-    case (v,Fixed(t)) => tokens(v) ::: EqTok :: tokens(t)
+    case (v,Fixed(t)) => tokens(v) ::: Loc(EqTok,r) :: tokens(t)
     case (v,Bounded(lo,hi)) =>
-      val tlo = if (lo.isEmpty) Nil else separate(lo.toList map (tokens(_)),List(CommaTok)) ::: List(LeTok)
-      val thi = if (hi.isEmpty) Nil else LeTok :: separate(hi.toList map (tokens(_)),List(CommaTok))
+      val tlo = if (lo.isEmpty) Nil else commas(lo.toList,r) ::: List(Loc(LeTok,r))
+      val thi = if (hi.isEmpty) Nil else Loc(LeTok,r) :: commas(hi.toList,r)
       tlo ::: tokens(v) ::: thi
     //case (v,Capture(vs,t)) => tokens(v) ::: EqTok :: IdentTok("capture(") :: separate(vs.map(tokens) ::: List(tokens(t)),List(CommaTok))
   })

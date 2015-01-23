@@ -7,7 +7,6 @@ import utility.Locations._
 import scala.annotation.tailrec
 
 object Tokens {
-
   sealed abstract class Token {
     def show(implicit f: ShowFlags): String
   }
@@ -195,7 +194,7 @@ object Tokens {
 
   // Convert to a string, adding whitespace between every token
   def showSep[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =
-    tokens(x) map (_.show) mkString " "
+    tokens(x) map (_.x.show) mkString " "
 
   // Convert to a string, adding as little whitespace as possible
   def show[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String = {
@@ -216,7 +215,7 @@ object Tokens {
         }
         x.show + (if (safe(x,y)) "" else " ") + process(ys)
     }
-    process(tokens(x))
+    process(tokens(x) map (_.x))
   }
 
   // Prepare a token stream for parsing.
@@ -225,7 +224,7 @@ object Tokens {
   // 3. Split >> and >>> into >'s and separators.
   // 4. Strip whitespace.
   // 5. Separate out comments to be added back at the end.
-  def prepare(ts: List[Loc[Token]]): Scored[(List[Loc[Token]],Option[EOLCommentTok])] = {
+  def prepare(ts: List[Loc[Token]]): Scored[(List[Loc[Token]],Option[Loc[EOLCommentTok]])] = {
     def expand(ts: List[Loc[Token]]): List[Loc[Token]] = ts flatMap { case Loc(t,r) => (t match {
       case _:SpaceTok => Nil
       case t@IdentTok(s) => List(s match {
@@ -245,7 +244,7 @@ object Tokens {
         fail(s"Token stream contains interior comments:\n  ${ts.reverse mkString "\n  "}")
       else known(expand(ts.reverse))
     ts.reverse match {
-      case (Loc(c:EOLCommentTok,_)) :: s => interior(s) map ((_,Some(c)))
+      case (Loc(c:EOLCommentTok,cr)) :: s => interior(s) map ((_,Some(Loc(c,cr))))
       case s => interior(s) map ((_,None))
     }
   }

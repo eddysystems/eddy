@@ -18,7 +18,9 @@ object Environment {
   // Turn on to skip all approximate lookups
   val exactOnly = false
 
+  // Implicit pretty printing
   private implicit val showFlags = abbrevShowFlags
+  private implicit val showRange = SRange.unknown
 
   // Information about where we are
   // TODO: add information about static scope

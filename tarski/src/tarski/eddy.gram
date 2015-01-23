@@ -7,31 +7,33 @@ preamble package tarski
 preamble import tarski.Tokens._
 preamble import tarski.AST._
 preamble import tarski.Mods._
+preamble import tarski.Arounds._
 preamble import tarski.Operators._
+preamble import utility.Locations._
 
 // Identifiers, including fake keywords
-Ident String
-  IdentTok { $1.name }
-  ElifTok  { $1.s }
-  ThenTok  { "then" }
-  UntilTok { "until" }
-  InTok    { "in" }
-  ThisTok  { "this" }
-  SuperTok { "super" }
+Ident Loc[String]
+  IdentTok { Loc($1.name,$1r) }
+  ElifTok  { Loc($1.s,$1r) }
+  ThenTok  { Loc("then",$1r) }
+  UntilTok { Loc("until",$1r) }
+  InTok    { Loc("in",$1r) }
+  ThisTok  { Loc("this",$1r) }
+  SuperTok { Loc("super",$1r) }
 
 // Modifiers
-Mod Mod
-  AtTok Ident                    { Annotation($2) }
-  PublicTok                      { Public }
-  ProtectedTok                   { Protected }
-  PrivateTok                     { Private }
-  AbstractTok                    { Abstract }
-  StaticTok                      { Static }
-  FinalTok                       { Final }
-  StrictfpTok                    { Strictfp }
-  TransientTok                   { Transient }
-  VolatileTok                    { Volatile }
-  SynchronizedTok                { Synchronized }
+Mod Loc[Mod]
+  AtTok Ident                    { Loc(Annotation($1r,$2.x,$2.r),$r) }
+  PublicTok                      { Loc(Public,$1r) }
+  ProtectedTok                   { Loc(Protected,$1r) }
+  PrivateTok                     { Loc(Private,$1r) }
+  AbstractTok                    { Loc(Abstract,$1r) }
+  StaticTok                      { Loc(Static,$1r) }
+  FinalTok                       { Loc(Final,$1r) }
+  StrictfpTok                    { Loc(Strictfp,$1r) }
+  TransientTok                   { Loc(Transient,$1r) }
+  VolatileTok                    { Loc(Volatile,$1r) }
+  SynchronizedTok                { Loc(Synchronized,$1r) }
 
 // Option
 Option[a] Option[a]
@@ -39,11 +41,11 @@ Option[a] Option[a]
   a                              { Some($1) }
 
 // Lists
-Commas1[a] List[a]
-  a                              { List($1) }
-  a CommaTok Commas1[a]          { $1 :: $3 }
-Commas2[a] List[a]
-  a CommaTok Commas1[a]          { $1 :: $3 }
+Commas1[a] CommaList1[a]
+  a                              { SingleList($1) }
+  a CommaTok Commas1[a]          { $3.preComma($1,$2r) }
+Commas2[a] CommaList2[a]
+  a CommaTok Commas1[a]          { $3.preComma($1,$2r) }
 Juxts1[a] List[a]
   a                              { List($1) }
   a Juxts1[a]                    { $1 :: $2 }
@@ -52,46 +54,46 @@ Juxts2[a] List[a]
 SingleJuxt1[a] KList[a]
   a                              { SingleList($1) }
   Juxts2[a]                      { JuxtList($1) }
-Ands[a] List[a]
-  a                              { List($1) }
-  a AndTok Ands[a]               { $1 :: $3 }
+Ands[a] AndList1[a]
+  a                              { SingleList($1) }
+  a AndTok Ands[a]               { $3.preAnd($1,$2r) }
 List[a] KList[a]
   ""                             { EmptyList }
   List1[a]                       { $1 }
 List1[a] KList[a]
   a                              { SingleList($1) }
-  Commas2[a]                     { CommaList($1) }
+  Commas2[a]                     { $1 }
   Juxts2[a]                      { JuxtList($1) }
 List2[a] KList[a]
-  a CommaTok Commas1[a]          { CommaList($1::$3) }
-  a Juxts1[a]                    { JuxtList($1::$2) }
+  a CommaTok Commas1[a]          { $3.preComma($1,$2r) }
+  a Juxts1[a]                    { JuxtList($1 :: $2) }
 Juxts0[a] List[a]
   ""                             { Nil }
   Juxts1[a]                      { $1 }
-Commas0[a] List[a]
-  ""                             { Nil }
+Commas0[a] CommaList[a]
+  ""                             { EmptyList }
   Commas1[a]                     { $1 }
 
 // Dims
-IdentDims (String,Int)
-  Ident                          { ($1,0) }
-  IdentDims LBrackTok Right      { ($1._1,$1._2+1) }
+IdentDims (Loc[String],ADims)
+  Ident                          { ($1,Nil) }
+  IdentDims LBrackTok Right      { ($1._1,$1._2 ::: List(SGroup($2r,$3.r))) }
 
 // Types.  Most of the logic is shared with expressions.
 Type AExp
   ExpHigh                           { $1 }
-  QuestionTok WildcardBounds        { WildAExp($2,$r) }
-TypeArgs Located[KList[AExp]]
-  LtTok List[Type] GtSep GtTok      { Located($2,$r) }
+  QuestionTok WildcardBounds        { WildAExp($1r,$2) }
+TypeArgs Grouped[KList[AExp]]
+  LtTok List[Type] GtSep GtTok      { Grouped($2,SGroup($1r,$4r)) }
 GtSep Unit
   ""                                { () }
   RShiftSepTok                      { () }
   UnsignedRShiftSepTok              { () }
-WildcardBounds Option[(Bound,AExp)]
+WildcardBounds Option[WildBound]
   ""                                { None }
-  ExtendsTok Type                   { Some((Extends,$2)) }
-  ColonTok Type                     { Some((Extends,$2)) }
-  SuperTok Type                     { Some((Super,$2)) }
+  ExtendsTok Type                   { Some(WildBound(Extends,$1r,$2)) }
+  ColonTok Type                     { Some(WildBound(Extends,$1r,$2)) }
+  SuperTok Type                     { Some(WildBound(Super,$1r,$2)) }
 
 // Type parameters
 //TypeParam
@@ -108,91 +110,91 @@ WildcardBounds Option[(Bound,AExp)]
 
 // Blocks
 Block AStmt
-  StmtTok                        { TokAStmt($1,$r) }
-  LCurlyTok Stmts Right          { BlockAStmt($2,$r) }
+  StmtTok                        { TokAStmt($1,$1r) }
+  LCurlyTok Stmts Right          { BlockAStmt($2,SGroup($1r,$3.r)) }
 Stmts List[AStmt]
   ""                             { Nil }
-  SemiTok Stmts                  { EmptyAStmt :: $2 }
+  SemiTok Stmts                  { EmptyAStmt($1r.before) :: $2 }
   StmtHelper                     { List($1) }
   StmtHelperBS SemiTok Stmts     { $1 :: $3 }
 
 // Statement
 // Suffix BS means before semicolon
 Stmt AStmt
-  SemiTok                                                    { EmptyAStmt }
+  SemiTok                                                    { EmptyAStmt($1r) }
   StmtHelper                                                 { $1 }
   StmtHelperBS SemiTok                                       { $1 }
 MaybeStmt AStmt
-  ""                                                         { HoleAStmt }
+  ""                                                         { HoleAStmt(SRange.empty) }
   Stmt                                                       { $1 }
 StmtHelper AStmt
   StmtHelperBS                                               { $1 }
-  IfTok AfterIfA                                             { $2 setR $r }
-  WhileUntil MaybeParenExp MaybeDo                           { WhileAStmt($2._1,HoleAStmt,$1,$2._2,$r) }
-  ForTok Left ForInfo Right                                  { ForAStmt($3,HoleAStmt,Grouped($2,$4),$r) }
-  ForTok ForInfo                                             { ForAStmt($2,HoleAStmt,NoAround,$r) }
-  SynchronizedTok MaybeParenExp                              { SyncAStmt($2._1,HoleAStmt,$2._2,$r) }
+  IfTok AfterIfA                                             { $2($1r) }
+  WhileUntil MaybeParenExp MaybeDo                           { WhileAStmt($1.r,$1.x,$2._1,$2._2,HoleAStmt($2._2.r.union($3).after)) }
+  ForTok Left ForInfo Right                                  { ForAStmt($1r,$3,Around($2,$4),HoleAStmt($4.r.after)) }
+  ForTok ForInfo                                             { { val ir = $2.r; ForAStmt($1r,$2,NoAround(ir),HoleAStmt(ir.after)) } }
+  SynchronizedTok MaybeParenExp                              { SyncAStmt($1r,$2._1,$2._2,HoleAStmt($2._2.r.after)) }
 StmtHelperBS AStmt
-  Type List1[VarDecl]                                        { VarAStmt(Nil,Some($1),$2,$r) }
-  Juxts1[Mod] Option[Type] List1[VarDecl]                    { VarAStmt($1,$2,$3,$r) }
+  Type List1[VarDecl]                                        { VarAStmt(Nil,Some($1),$2) }
+  Juxts1[Mod] Option[Type] List1[VarDecl]                    { VarAStmt($1,$2,$3) }
   Block                                                      { $1 }
   ExpAssign                                                  { ExpAStmt($1) }
-  AssertTok ExpJuxt                                          { AssertAStmt($2,None,$r) }
-  AssertTok ExpJuxt ColonTok ExpJuxt                         { AssertAStmt($2,Some($4),$r) }
-  BreakTok Option[Ident]                                     { BreakAStmt($2,$r) }
-  ContinueTok Option[Ident]                                  { ContinueAStmt($2,$r) }
-  ReturnTok Option[ExpJuxt]                                  { ReturnAStmt($2,$r) }
-  ThrowTok ExpJuxt                                           { ThrowAStmt($2,$r) }
+  AssertTok ExpJuxt                                          { AssertAStmt($1r,$2,None) }
+  AssertTok ExpJuxt ColonTok ExpJuxt                         { AssertAStmt($1r,$2,Some(($3r:SRange,$4))) }
+  BreakTok Option[Ident]                                     { BreakAStmt($1r,$2) }
+  ContinueTok Option[Ident]                                  { ContinueAStmt($1r,$2) }
+  ReturnTok Option[ExpJuxt]                                  { ReturnAStmt($1r,$2) }
+  ThrowTok ExpJuxt                                           { ThrowAStmt($1r,$2) }
   // LabelStmt
-  IfTok AfterIfB                                             { $2 setR $r }
-  WhileUntil ParenExp MaybeDo Stmt                           { WhileAStmt($2._1,$4,$1,$2._2,$r) }
-  WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($2,$4,$1,NoAround,$r) }
-  WhileUntil ExpAssignNP                                     { WhileAStmt($2,EmptyAStmt,$1,NoAround,$r) }
-  DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($2,$4._1,$3,$4._2,$r) }
-  ForTok Left ForInfo Right Stmt                             { ForAStmt($3,$5,Grouped($2,$4),$r) }
-  ForTok ForInfo DoTok Stmt                                  { ForAStmt($2,$4,NoAround,$r) }
-  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($2._1,$3,$2._2,$r) }
+  IfTok AfterIfB                                             { $2($1r) }
+  WhileUntil ParenExp MaybeDo Stmt                           { WhileAStmt($1.r,$1.x,$2._1,$2._2,$4) }
+  WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($1.r,$1.x,$2,NoAround($4.r),$4) }
+  WhileUntil ExpAssignNP                                     { { val er = $2.r; WhileAStmt($1.r,$1.x,$2,NoAround(er),EmptyAStmt(er.after)) } }
+  DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($1r,$2,$3.r,$3.x,$4._1,$4._2) }
+  ForTok Left ForInfo Right Stmt                             { ForAStmt($1r,$3,Around($2,$4),$5) }
+  ForTok ForInfo DoTok Stmt                                  { ForAStmt($1r,$2,NoAround($2.r),$4) }
+  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($1r,$2._1,$2._2,$3) }
   // Try
   // Switch
-AfterIf IfsAStmt
+AfterIf PreIf
   AfterIfA                                                   { $1 }
   AfterIfB                                                   { $1 }
-AfterIfA IfsAStmt
-  MaybeParenExp MaybeThen                                    { IfAStmt($1._1,HoleAStmt,$1._2,$r) }
-  ParenExp MaybeThen MaybeStmt ElseTok                       { IfElseAStmt($1._1,$3,HoleAStmt,$1._2,$r) }
-  ExpAssignNP ThenTok MaybeStmt ElseTok                      { IfElseAStmt($1,$3,HoleAStmt,NoAround,$r) }
-AfterIfB IfsAStmt
-  ParenExp MaybeThen Stmt                                    { IfAStmt($1._1,$3,$1._2,$r) }
-  ExpAssignNP ThenTok Stmt                                   { IfAStmt($1,$3,NoAround,$r) }
-  ExpAssignNP Block                                          { IfAStmt($1,$2,NoAround,$r) }
-  ExpAssignNP                                                { IfAStmt($1,EmptyAStmt,NoAround,$r) }
-  ExpAssignNP                                                { IfElseAStmt($1,EmptyAStmt,HoleAStmt,NoAround,$r) }
-  ParenExp MaybeThen MaybeStmt ElseTok Stmt                  { IfElseAStmt($1._1,$3,$5,$1._2,$r) }
-  ParenExp MaybeThen MaybeStmt ElifTok AfterIf               { IfElseAStmt($1._1,$3,$5,$1._2,$r) }
-  ExpAssignNP ThenTok MaybeStmt ElseTok Stmt                 { IfElseAStmt($1,$3,$5,NoAround,$r) }
-  ExpAssignNP ThenTok MaybeStmt ElifTok AfterIf              { IfElseAStmt($1,$3,$5,NoAround,$r) }
-VarDecl (String,Int,Option[AExp])
-  IdentDims                      { ($1._1,$1._2,None) }
-  IdentDims EqTok ExpCommas      { ($1._1,$1._2,Some($3)) }
-WhileUntil Boolean
-  WhileTok                                                   { false }
-  UntilTok                                                   { true }
-MaybeThen Unit
-  ""                                                         { () }
-  ThenTok                                                    { () }
-MaybeDo Unit
-  ""                                                         { () }
-  DoTok                                                      { () }
+AfterIfA PreIf
+  MaybeParenExp MaybeThen                                    { PreIf(ir => IfAStmt(ir,$1._1,$1._2,HoleAStmt($1._2.r.union($2).after))) }
+  ParenExp MaybeThen MaybeStmt ElseTok                       { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,HoleAStmt($4r.after))) }
+  ExpAssignNP ThenTok MaybeStmt ElseTok                      { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,HoleAStmt($4r.after))) }
+AfterIfB PreIf
+  ParenExp MaybeThen Stmt                                    { PreIf(ir => IfAStmt(ir,$1._1,$1._2,$3)) }
+  ExpAssignNP ThenTok Stmt                                   { PreIf(ir => IfAStmt(ir,$1,NoAround($1.r),$3)) }
+  ExpAssignNP Block                                          { PreIf(ir => IfAStmt(ir,$1,NoAround($1.r),$2)) }
+  ExpAssignNP                                                { { val er = $1.r; PreIf(ir => IfAStmt(ir,$1,NoAround(er),EmptyAStmt(er.after))) } }
+  ExpAssignNP                                                { { val er = $1.r; PreIf(ir => IfElseAStmt(ir,$1,NoAround(er),EmptyAStmt(er.after),er.after,HoleAStmt(er.after))) } }
+  ParenExp MaybeThen MaybeStmt ElseTok Stmt                  { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$5)) }
+  ParenExp MaybeThen MaybeStmt ElifTok AfterIf               { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$5($4r))) }
+  ExpAssignNP ThenTok MaybeStmt ElseTok Stmt                 { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$5)) }
+  ExpAssignNP ThenTok MaybeStmt ElifTok AfterIf              { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$5($4r))) }
+VarDecl AVarDecl
+  IdentDims                      { AVarDecl($1._1.x,$1._1.r,$1._2,None) }
+  IdentDims EqTok ExpCommas      { AVarDecl($1._1.x,$1._1.r,$1._2,Some(($2r:SRange,$3))) }
+WhileUntil Loc[Boolean]
+  WhileTok                                                   { Loc(false,$1r) }
+  UntilTok                                                   { Loc(true,$1r) }
+MaybeThen Option[SRange]
+  ""                                                         { None }
+  ThenTok                                                    { Some($1r) }
+MaybeDo Option[SRange]
+  ""                                                         { None }
+  DoTok                                                      { Some($1r) }
 ForInfo ForInfo
-  Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { For($1,$3,$5,$r) }
-  Juxts0[Mod] Option[Type] IdentDims ForeachSep ExpAssign                       { Foreach($1,$2,$3._1,$3._2,$5,$r) }
-ForeachSep Unit
-  ColonTok                                                   { () }
-  InTok                                                      { () }
+  Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { For($1,$2r,$3,$4r,$5) }
+  Juxts0[Mod] Option[Type] IdentDims ForeachSep ExpAssign                       { Foreach($1,$2,$3._1.x,$3._1.r,$3._2,$4,$5) }
+ForeachSep Long
+  ColonTok                                                   { $1r }
+  InTok                                                      { $1r }
 ParenExp (AExp,Around)
-  Left ExpAssign Right                                       { ($2,Grouped($1,$3)) }
+  Left ExpAssign Right                                       { ($2,Around($1,$3)) }
 MaybeParenExp (AExp,Around)
-  ExpAssignNP                                                { ($1,NoAround) }
+  ExpAssignNP                                                { ($1,NoAround($1.r)) }
   ParenExp                                                   { $1 }
 
 // Expressions, lowest to highest precedence
@@ -201,17 +203,17 @@ MaybeParenExp (AExp,Around)
 // TODO new Exp ClassBody
 ExpAssign AExp
   ExpCommas                                                 { $1 }
-  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2,$1,$3,$r) }
+  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2.x,$2.r,$1,$3) }
 ExpAssignNC AExp
   ExpBinary                                                 { $1 }
-  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2,$1,$3,$r) }
+  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2.x,$2.r,$1,$3) }
 ExpAssignNP AExp
   ExpBinaryNP                                               { $1 }
-  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2,$1,$3,$r) }
+  ExpJuxt AssignOp ExpAssign                                { AssignAExp($2.x,$2.r,$1,$3) }
 
 ExpCommas AExp
   ExpBinary                                                 { $1 }
-  Commas2[ExpBinary]                                        { ArrayAExp(CommaList($1),NoAround,$r) }
+  Commas2[ExpBinary]                                        { ArrayAExp($1,NoAround($1.list.head.r union $1.list.last.r)) }
 
 alias EJ ExpJuxt
 alias ExpBinary   ExpCond[ExpJuxt]
@@ -219,111 +221,111 @@ alias ExpBinaryNJ ExpCond[ExpWild]
 alias ExpBinaryNP ExpCond[ExpJuxtNP]
 ExpCond[a] AExp
   ExpOrOr[a]                                                { $1 }
-  ExpOrOr[EJ] QuestionTok ExpAssign ColonTok ExpCond[EJ]    { CondAExp($1,$3,$5,$r) }
+  ExpOrOr[EJ] QuestionTok ExpAssign ColonTok ExpCond[EJ]    { CondAExp($1,$2r,$3,$4r,$5) }
 ExpOrOr[a] AExp
   ExpAndAnd[a]                                              { $1 }
-  ExpOrOr[EJ] OrOrTok ExpAndAnd[EJ]                         { BinaryAExp(OrOrOp,$1,$3,$r) }
+  ExpOrOr[EJ] OrOrTok ExpAndAnd[EJ]                         { BinaryAExp(OrOrOp,$2r,$1,$3) }
 ExpAndAnd[a] AExp
   ExpOr[a]                                                  { $1 }
-  ExpAndAnd[EJ] AndAndTok ExpOr[EJ]                         { BinaryAExp(AndAndOp,$1,$3,$r) }
+  ExpAndAnd[EJ] AndAndTok ExpOr[EJ]                         { BinaryAExp(AndAndOp,$2r,$1,$3) }
 ExpOr[a] AExp
   ExpXor[a]                                                 { $1 }
-  ExpOr[EJ] OrTok ExpXor[EJ]                                { BinaryAExp(OrOp,$1,$3,$r) }
+  ExpOr[EJ] OrTok ExpXor[EJ]                                { BinaryAExp(OrOp,$2r,$1,$3) }
 ExpXor[a] AExp
   ExpAnd[a]                                                 { $1 }
-  ExpXor[EJ] XorTok ExpAnd[EJ]                              { BinaryAExp(XorOp,$1,$3,$r) }
+  ExpXor[EJ] XorTok ExpAnd[EJ]                              { BinaryAExp(XorOp,$2r,$1,$3) }
 ExpAnd[a] AExp
   ExpEq[a]                                                  { $1 }
-  ExpAnd[EJ] AndTok ExpEq[EJ]                               { BinaryAExp(AndOp,$1,$3,$r) }
+  ExpAnd[EJ] AndTok ExpEq[EJ]                               { BinaryAExp(AndOp,$2r,$1,$3) }
 ExpEq[a] AExp
   ExpRel[a]                                                 { $1 }
-  ExpEq[EJ] EqEqTok ExpRel[EJ]                              { BinaryAExp(EqOp,$1,$3,$r) }
-  ExpEq[EJ] NeTok ExpRel[EJ]                                { BinaryAExp(NeOp,$1,$3,$r) }
+  ExpEq[EJ] EqEqTok ExpRel[EJ]                              { BinaryAExp(EqOp,$2r,$1,$3) }
+  ExpEq[EJ] NeTok ExpRel[EJ]                                { BinaryAExp(NeOp,$2r,$1,$3) }
 ExpRel[a] AExp
   ExpShift[a]                                               { $1 }
-  ExpRel[EJ] LtTok ExpShift[EJ]                             { BinaryAExp(LtOp,$1,$3,$r) }
-  ExpRel[EJ] GtTok ExpShift[EJ]                             { BinaryAExp(GtOp,$1,$3,$r) }
-  ExpRel[EJ] LeTok ExpShift[EJ]                             { BinaryAExp(LeOp,$1,$3,$r) }
-  ExpRel[EJ] GeTok ExpShift[EJ]                             { BinaryAExp(GeOp,$1,$3,$r) }
-  ExpRel[EJ] InstanceofTok Type                             { InstanceofAExp($1,$3,$r) }
+  ExpRel[EJ] LtTok ExpShift[EJ]                             { BinaryAExp(LtOp,$2r,$1,$3) }
+  ExpRel[EJ] GtTok ExpShift[EJ]                             { BinaryAExp(GtOp,$2r,$1,$3) }
+  ExpRel[EJ] LeTok ExpShift[EJ]                             { BinaryAExp(LeOp,$2r,$1,$3) }
+  ExpRel[EJ] GeTok ExpShift[EJ]                             { BinaryAExp(GeOp,$2r,$1,$3) }
+  ExpRel[EJ] InstanceofTok Type                             { InstanceofAExp($1,$2r,$3) }
 ExpShift[a] AExp
   ExpAdd[a]                                                 { $1 }
-  ExpShift[EJ] LShiftTok ExpAdd[EJ]                         { BinaryAExp(LShiftOp,$1,$3,$r) }
-  ExpShift[EJ] GtTok RShiftSepTok GtTok ExpAdd[EJ]          { BinaryAExp(RShiftOp,$1,$5,$r) }
-  ExpShift[EJ] GtTok UnsignedRShiftSepTok GtTok UnsignedRShiftSepTok GtTok ExpAdd[EJ] { BinaryAExp(UnsignedRShiftOp,$1,$7,$r) }
+  ExpShift[EJ] LShiftTok ExpAdd[EJ]                         { BinaryAExp(LShiftOp,$2r,$1,$3) }
+  ExpShift[EJ] GtTok RShiftSepTok GtTok ExpAdd[EJ]          { BinaryAExp(RShiftOp,$2r union $4r,$1,$5) }
+  ExpShift[EJ] GtTok UnsignedRShiftSepTok GtTok UnsignedRShiftSepTok GtTok ExpAdd[EJ] { BinaryAExp(UnsignedRShiftOp,$2r union $6r,$1,$7) }
 ExpAdd[a] AExp
   ExpMul[a]                                                 { $1 }
-  ExpAdd[EJ] PlusTok ExpMul[a]                              { BinaryAExp(AddOp,$1,$3,$r) }
-  ExpAdd[EJ] MinusTok ExpMul[a]                             { BinaryAExp(SubOp,$1,$3,$r) }
+  ExpAdd[EJ] PlusTok ExpMul[a]                              { BinaryAExp(AddOp,$2r,$1,$3) }
+  ExpAdd[EJ] MinusTok ExpMul[a]                             { BinaryAExp(SubOp,$2r,$1,$3) }
 ExpMul[a] AExp
   ExpUnary[a]                                               { $1 }
-  ExpMul[EJ] MulTok ExpUnary[a]                             { BinaryAExp(MulOp,$1,$3,$r) }
-  ExpMul[EJ] DivTok ExpUnary[a]                             { BinaryAExp(DivOp,$1,$3,$r) }
-  ExpMul[EJ] ModTok ExpUnary[a]                             { BinaryAExp(ModOp,$1,$3,$r) }
+  ExpMul[EJ] MulTok ExpUnary[a]                             { BinaryAExp(MulOp,$2r,$1,$3) }
+  ExpMul[EJ] DivTok ExpUnary[a]                             { BinaryAExp(DivOp,$2r,$1,$3) }
+  ExpMul[EJ] ModTok ExpUnary[a]                             { BinaryAExp(ModOp,$2r,$1,$3) }
 ExpUnary[a] AExp
   a                                                         { $1 }
-  ExpUnary[EJ] PostOp                                       { UnaryAExp($2,$1,$r) }
-  PreOp ExpUnary[EJ]                                        { UnaryAExp($1,$2,$r) }
-  LParenTok Type Right ExpUnary[EJ]                         { CastAExp($2,$4,$r) }
+  ExpUnary[EJ] PostOp                                       { UnaryAExp($2.x,$2.r,$1) }
+  PreOp ExpUnary[EJ]                                        { UnaryAExp($1.x,$1.r,$2) }
+  LParenTok Type Right ExpUnary[EJ]                         { CastAExp($2,Around(Paren,$1r,$3),$4) }
 
 ExpJuxt AExp
   ExpWild                                                   { $1 }
-  ExpWild SingleJuxt1[ExpWildNA]                            { ApplyAExp($1,$2,NoAround,$r) }
+  ExpWild SingleJuxt1[ExpWildNA]                            { ApplyAExp($1,$2,NoAround($2.list.head.r union $2.list.last.r)) }
 ExpJuxtNP AExp
   ExpWildNP                                                 { $1 }
-  ExpWild SingleJuxt1[ExpWildNA]                            { ApplyAExp($1,$2,NoAround,$r) }
+  ExpWild SingleJuxt1[ExpWildNA]                            { ApplyAExp($1,$2,NoAround($2.list.head.r union $2.list.last.r)) }
 
 ExpWild AExp
   ExpHigh                                                   { $1 }
-  QuestionTok WildcardBounds                                { WildAExp($2,$r) }
+  QuestionTok WildcardBounds                                { WildAExp($1r,$2) }
 ExpWildNA AExp
   ExpHighNA                                                 { $1 }
-  QuestionTok WildcardBounds                                { WildAExp($2,$r) }
+  QuestionTok WildcardBounds                                { WildAExp($1r,$2) }
 ExpWildNP AExp
   ExpHighNP                                                 { $1 }
-  QuestionTok WildcardBounds                                { WildAExp($2,$r) }
+  QuestionTok WildcardBounds                                { WildAExp($1r,$2) }
 
 ExpHigh AExp
   ExpParens                                                 { $1 }
   ExpHighNP                                                 { $1 }
 ExpHighNP AExp
   ExpHighNA                                                 { $1 }
-  LeftNP Right                                              { ArrayAExp(EmptyList,     Grouped($1,$2),$r) }
-  LeftNP ExpBinaryNJ Right                                  { ArrayAExp(SingleList($2),Grouped($1,$3),$r) }
-  LeftNP Commas2[ExpBinary] Right                           { ArrayAExp(CommaList($2), Grouped($1,$3),$r) }
-  LeftNP Juxts2[ExpWild] Right                              { ArrayAExp(JuxtList($2),  Grouped($1,$3),$r) }
+  LeftNP Right                                              { ArrayAExp(EmptyList,     Around($1,$2)) }
+  LeftNP ExpBinaryNJ Right                                  { ArrayAExp(SingleList($2),Around($1,$3)) }
+  LeftNP Commas2[ExpBinary] Right                           { ArrayAExp($2,            Around($1,$3)) }
+  LeftNP Juxts2[ExpWild] Right                              { ArrayAExp(JuxtList($2),  Around($1,$3)) }
 ExpParens AExp
-  LParenTok ExpAssignNC Right                               { ParenAExp($2,           Grouped(Paren,$3),$r) }
-  LParenTok Right                                           { ArrayAExp(EmptyList,    Grouped(Paren,$2),$r) }
-  LParenTok Commas2[ExpBinary] Right                        { ArrayAExp(CommaList($2),Grouped(Paren,$3),$r) }
-  LParenTok Juxts2[ExpWild] Right                           { ArrayAExp(JuxtList($2), Grouped(Paren,$3),$r) }
+  LParenTok ExpAssignNC Right                               { ParenAExp($2,           Around(Paren,$1r,$3)) }
+  LParenTok Right                                           { ArrayAExp(EmptyList,    Around(Paren,$1r,$2)) }
+  LParenTok Commas2[ExpBinary] Right                        { ArrayAExp($2,           Around(Paren,$1r,$3)) }
+  LParenTok Juxts2[ExpWild] Right                           { ArrayAExp(JuxtList($2), Around(Paren,$1r,$3)) }
 ExpHighNA AExp
   ExpNew                                                    { $1 }
-  ExpHigh Left List[ExpAssignNC] Right                      { ApplyAExp($1,$3,Grouped($2,$4),$r) }
+  ExpHigh Left List[ExpAssignNC] Right                      { ApplyAExp($1,$3,Around($2,$4)) }
 ExpNew AExp
   ExpPrimary                                                { $1 }
-  TypeArgs ExpPrimary                                       { TypeApplyAExp($2,$1.x,$1.r,false,$r) }
-  NewTok Option[TypeArgs] ExpPrimary                        { NewAExp($2,$3,$r) }
+  TypeArgs ExpPrimary                                       { TypeApplyAExp($2,$1.x,$1.a,after=false) }
+  NewTok Option[TypeArgs] ExpPrimary                        { NewAExp($1r,$2,$3) }
 ExpPrimary AExp
   Lit                                                       { $1 }
-  Ident                                                     { NameAExp($1,$r) }
-  ExpHigh DotTok Option[TypeArgs] Ident                     { FieldAExp($1,$3,$4,$r) }
-  ExpHigh TypeArgs                                          { TypeApplyAExp($1,$2.x,$2.r,true,$r) }
+  Ident                                                     { NameAExp($1.x,$1.r) }
+  ExpHigh DotTok Option[TypeArgs] Ident                     { FieldAExp($1,$2r,$3,$4.x,$4.r) }
+  ExpHigh TypeArgs                                          { TypeApplyAExp($1,$2.x,$2.a,after=true) }
 
 // TODO: ExpHigh ColonColonTok Option[TypeArgs] Ident       { MethodRefAExp($1,$3,$4,$r) }
 // TODO: ExpHigh ColonColonTok Option[TypeArgs] NewTok      { NewRefAExp($1,$3,$r) }
 
-Left Group
-  LParenTok { Paren }
-  LBrackTok { Brack }
-  LCurlyTok { Curly }
-Right Group
-  RParenTok { Paren }
-  RBrackTok { Brack }
-  RCurlyTok { Curly }
-LeftNP Group
-  LBrackTok { Brack }
-  LCurlyTok { Curly }
+Left Loc[Group]
+  LParenTok { Loc(Paren,$r) }
+  LBrackTok { Loc(Brack,$r) }
+  LCurlyTok { Loc(Curly,$r) }
+Right Loc[Group]
+  RParenTok { Loc(Paren,$r) }
+  RBrackTok { Loc(Brack,$r) }
+  RCurlyTok { Loc(Curly,$r) }
+LeftNP Loc[Group]
+  LBrackTok { Loc(Brack,$r) }
+  LCurlyTok { Loc(Curly,$r) }
 
 Lit ALit
   IntLitTok     { IntALit($1.s,$r) }
@@ -333,28 +335,28 @@ Lit ALit
   CharLitTok    { CharALit($1.s,$r) }
   StringLitTok  { StringALit($1.s,$r) }
 
-PostOp UnaryOp
-  PlusPlusTok    { PostIncOp }
-  MinusMinusTok  { PostDecOp }
+PostOp Loc[UnaryOp]
+  PlusPlusTok    { Loc(PostIncOp,$r) }
+  MinusMinusTok  { Loc(PostDecOp,$r) }
 
-PreOp UnaryOp
-  PlusPlusTok    { PreIncOp }
-  MinusMinusTok  { PreDecOp }
-  PlusTok        { PosOp }
-  MinusTok       { NegOp }
-  CompTok        { CompOp }
-  NotTok         { NotOp }
+PreOp Loc[UnaryOp]
+  PlusPlusTok    { Loc(PreIncOp,$r) }
+  MinusMinusTok  { Loc(PreDecOp,$r) }
+  PlusTok        { Loc(PosOp,$r) }
+  MinusTok       { Loc(NegOp,$r) }
+  CompTok        { Loc(CompOp,$r) }
+  NotTok         { Loc(NotOp,$r) }
 
-AssignOp Option[AssignOp]
-  EqTok                { None }
-  MulEqTok             { Some(MulOp) }
-  DivEqTok             { Some(DivOp) }
-  ModEqTok             { Some(ModOp) }
-  PlusEqTok            { Some(AddOp) }
-  MinusEqTok           { Some(SubOp) }
-  LShiftEqTok          { Some(LShiftOp) }
-  RShiftEqTok          { Some(RShiftOp) }
-  UnsignedRShiftEqTok  { Some(UnsignedRShiftOp) }
-  AndEqTok             { Some(AndOp) }
-  XorEqTok             { Some(XorOp) }
-  OrEqTok              { Some(OrOp) }
+AssignOp Loc[Option[AssignOp]]
+  EqTok                { Loc(None,$r) }
+  MulEqTok             { Loc(Some(MulOp),$r) }
+  DivEqTok             { Loc(Some(DivOp),$r) }
+  ModEqTok             { Loc(Some(ModOp),$r) }
+  PlusEqTok            { Loc(Some(AddOp),$r) }
+  MinusEqTok           { Loc(Some(SubOp),$r) }
+  LShiftEqTok          { Loc(Some(LShiftOp),$r) }
+  RShiftEqTok          { Loc(Some(RShiftOp),$r) }
+  UnsignedRShiftEqTok  { Loc(Some(UnsignedRShiftOp),$r) }
+  AndEqTok             { Loc(Some(AndOp),$r) }
+  XorEqTok             { Loc(Some(XorOp),$r) }
+  OrEqTok              { Loc(Some(OrOp),$r) }

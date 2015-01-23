@@ -44,7 +44,7 @@ object Memory {
     x foreach (x => y.add(safe(x)))
     S(y)
   }
-  implicit def safeSLoc(x: SLoc) = S(x.x:java.lang.Integer)
+  implicit def safeSLoc(x: SLoc) = S(x.raw:java.lang.Integer)
   implicit def safeLocated[A](x: Loc[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"lo"->safe(x.r.lo),"hi"->safe(x.r.hi)).asJava)
   implicit def safeAlt[A](x: Alt[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"p"->safe(x.p)).asJava)
   implicit def safeToken(x: Token) = S(Map("c"->x.getClass.getName,"s"->x.show).asJava)

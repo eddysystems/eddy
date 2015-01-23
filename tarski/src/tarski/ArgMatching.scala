@@ -7,7 +7,9 @@ import tarski.JavaScores._
 import tarski.Types._
 import tarski.Semantics.denoteValue
 import tarski.Tokens._
+import tarski.Arounds._
 import utility.Utility._
+import utility.Locations._
 import scala.annotation.tailrec
 
 object ArgMatching {
@@ -20,7 +22,7 @@ object ArgMatching {
   }
 
   // If specified, expects constraints the return type, but only if there are no unused arguments.
-  def fiddleCall[A](f: Callable, args: Exps, expects: Option[Type], auto: Boolean, cont: (ApplyExp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
+  def fiddleCall[A](f: Callable, args: Exps, a: SGroup, expects: Option[Type], auto: Boolean, cont: (ApplyExp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
     // Should we find missing arguments in the environment?
     val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
@@ -28,7 +30,7 @@ object ArgMatching {
     val na = args.size
     def process(k: Int, targs: List[TypeArg], used: List[Exp], unused: Exps): Scored[A] = {
       if (k == n)
-        cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,targs,hide=true),used,auto),unused)
+        cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,targs,a,hide=true),used,a,auto),unused)
       else {
         def add(x: Exp, xs: List[Scored[Exp]]): Scored[A] = {
           val args = used :+ x
@@ -59,15 +61,15 @@ object ArgMatching {
         }
         // If desired, find values from the scope that fit
         val options1: Opts = if (!useEnv) options0 else biased(Pr.addArg,
-          env.byItem(f.params(k).item) flatMap (denoteValue(_,0)) flatMap (add(_,unused))) :: options0
+          env.byItem(f.params(k).item) flatMap (denoteValue(_,a.r,0)) flatMap (add(_,unused))) :: options0
         multiple(options1)
       }
     }
     def processNullary: Scored[A] = // Special case nullary functions to make sure we do at least one inference round
-      if (f.tparams.size == 0) cont(ApplyExp(f,Nil,auto),args)
+      if (f.tparams.size == 0) cont(ApplyExp(f,Nil,a,auto),args)
       else resolveOptions(List(f),Nil,if (args.isEmpty) expects else None) match {
         case Nil => fail(s"Can't apply $f to no arguments")
-        case List((f0,ts)) if f eq f0 => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts,hide=true),Nil,auto),args)
+        case List((f0,ts)) if f eq f0 => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts,a,hide=true),Nil,a,auto),args)
         case _ => impossible
       }
     if (!useEnv && n > na) fail(s"Too few arguments for function $f: $na < $n")

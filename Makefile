@@ -10,10 +10,10 @@ all: $(PARSE) $(ACTIONS)
 jar: eddy.jar
 
 $(PARSE): $(AMBIGUITY) $(GRAM)
-	java -jar $(AMBIGUITY) $(GRAM) > $(PARSE)
+	java -jar $(AMBIGUITY) $(GRAM) > $@
 
 $(ACTIONS): $(AMBIGUITY) $(GRAM)
-	java -jar $(AMBIGUITY) -a $(GRAM) > $(ACTIONS)
+	java -jar $(AMBIGUITY) -a $(GRAM) > $@
 
 .PHONY: commit
 commit: 

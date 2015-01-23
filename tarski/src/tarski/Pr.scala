@@ -1,7 +1,8 @@
 package tarski
 
 import utility.JavaUtils.poissonPDF
-import tarski.AST.CommaList
+import tarski.AST._
+import tarski.Arounds._
 import tarski.Denotations.Exp
 import tarski.Items.{ClassMember, FieldItem, MethodItem, TypeItem}
 import tarski.Scores._
@@ -127,12 +128,12 @@ object Pr {
   // denoteExp(AExp)
   val staticFieldExpWithObject = Prob("static field with object",.7)
   val fieldExp = base
-  def callExp(list: AST.KList[AST.AExp], around: AST.Around) =
-    if (around == AST.ParenAround && (list.list.size < 2 || list.isInstanceOf[CommaList[_]])) base
+  def callExp(list: KList[AExp], around: Around) =
+    if (around.isParens && (list.list.size < 2 || list.isInstanceOf[CommaList[_]])) base
     else Prob(s"call (list $list, around $around)",.6)
-  def indexCallExp(list: AST.KList[AST.AExp], around: AST.Around) =
-    if (around == AST.BrackAround && list.list.size == 1) base
-    else if (around == AST.BrackAround) Prob(s"multiple index call ${list.list.size}",.6)
+  def indexCallExp(list: KList[AExp], around: Around) =
+    if (around.isBracks && list.list.size == 1) base
+    else if (around.isBracks) Prob(s"multiple index call ${list.list.size}",.6)
     else Prob(s"weird index call ${list.list.size} $around",.5)
   val unaryExp = base // should be a function of operator and types
   val binaryExpCastZero = Prob("binary cast zero",.1) // Replace x == 0 with x == null or x == false

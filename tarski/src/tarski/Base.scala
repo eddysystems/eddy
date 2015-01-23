@@ -5,9 +5,13 @@ import tarski.Denotations.{BooleanLit, NullLit}
 import tarski.Environment.{TwoEnv, Env}
 import tarski.Items._
 import tarski.Types._
+import utility.Locations.SRange
 import utility.Utility._
 
 object Base {
+  // Base items have unknown location
+  private val r = SRange.unknown
+
   // Basic packages
   val JavaPkg = RootPackage("java")
   val JavaLangPkg = ChildPackage(JavaPkg,"lang")
@@ -159,9 +163,9 @@ object Base {
   object ubCharItem    extends LangTypeItem { def ty = CharType }
 
   // Literals
-  val trueLit = LitValue(BooleanLit(true))
-  val falseLit = LitValue(BooleanLit(false))
-  val nullLit = LitValue(NullLit)
+  val trueLit = LitValue(BooleanLit(true,r))
+  val falseLit = LitValue(BooleanLit(false,r))
+  val nullLit = LitValue(NullLit(r))
 
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)

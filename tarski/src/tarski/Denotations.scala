@@ -1,7 +1,9 @@
 package tarski
 
 import utility.Utility._
+import utility.Locations._
 import tarski.Base._
+import tarski.Arounds._
 import tarski.Items._
 import tarski.Operators._
 import tarski.Types._
@@ -32,6 +34,12 @@ object Denotations {
     def discards = x match {
       case None => Nil
       case Some(x) => x.discards
+    }
+  }
+  implicit class DiscardsQualifier[A <: HasDiscards](val x: Option[(A,SRange)]) extends AnyVal {
+    def discards = x match {
+      case None => Nil
+      case Some((x,_)) => x.discards
     }
   }
 
@@ -68,7 +76,7 @@ object Denotations {
   }
 
   // Callables
-  sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasDiscard[Callable] {
+  sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasDiscard[Callable] with HasRange {
     def tparams: List[TypeVar]
     def params: List[Type]
     def callItem: TypeItem
@@ -83,7 +91,8 @@ object Denotations {
       case ds => DiscardCallableDen(ds,this)
     }
   }
-  case class TypeApply(c: NotTypeApply, ts: List[TypeArg], hide: Boolean) extends Callable {
+  case class TypeApply(c: NotTypeApply, ts: List[TypeArg], a: SGroup, hide: Boolean) extends Callable {
+    def r = c.r union a.r
     def tparams = Nil
     lazy val params = {
       // TODO: Map.empty may be wrong here
@@ -96,14 +105,16 @@ object Denotations {
       case Nil => result
       case _ => throw new RuntimeException("TypeApply already has type arguments")
     }
-    def strip = TypeApply(c.strip,ts,hide)
+    def strip = TypeApply(c.strip,ts,a,hide)
     def discards = c.discards
     def discard(ds: List[Stmt]) = ds match {
       case Nil => this
-      case ds => TypeApply(c.discard(ds),ts,hide)
+      case ds => TypeApply(c.discard(ds),ts,a,hide)
     }
   }
-  case class MethodDen(x: Option[Exp], f: MethodItem) extends NotTypeApply {
+  case class MethodDen(x: Option[Exp], f: MethodItem, fr: SRange) extends NotTypeApply {
+    def r = fr unionR x
+    def dot = fr.before
     private lazy val parentEnv: Tenv = x match {
       case _ if f.isStatic => Map.empty
       case None => Map.empty
@@ -115,9 +126,10 @@ object Denotations {
     def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
     def discards = x.discards
-    def strip = MethodDen(x map (_.strip),f)
+    def strip = MethodDen(x map (_.strip),f,fr)
   }
-  case class LocalMethodDen(f: MethodItem) extends NotTypeApply {
+  case class LocalMethodDen(f: MethodItem, fr: SRange) extends NotTypeApply {
+    def r = fr
     def tparams = f.tparams
     def params = f.params
     def result = f.retVal
@@ -126,7 +138,8 @@ object Denotations {
     def discards = Nil
     def strip = this
   }
-  case class ForwardDen(x: ThisOrSuper, f: ConstructorItem) extends NotTypeApply {
+  case class ForwardDen(x: ThisOrSuper, xr: SRange, f: ConstructorItem) extends NotTypeApply {
+    def r = xr
     def tparams = f.tparams
     def params = {
       implicit val env: Tenv = x.ty.env
@@ -139,7 +152,9 @@ object Denotations {
     def strip = this
   }
   // parent is the parent of the class being created, i.e. in "new A<X>.B<Y>.C(x)", parent is A<X>.B<Y>
-  case class NewDen(parent: Option[ClassType], f: ConstructorItem, classArgs: Option[List[TypeArg]] = None) extends NotTypeApply {
+  case class NewDen(nr: SRange, parent: Option[ClassType], f: ConstructorItem, fr: SRange,
+                    classArgs: Option[Grouped[List[TypeArg]]] = None) extends NotTypeApply {
+    def r = nr union fr unionR classArgs
     private lazy val env: Tenv = {
       val parentEnv: Tenv = parent match {
         case None => Map.empty
@@ -147,7 +162,7 @@ object Denotations {
       }
       classArgs match {
         case None => parentEnv
-        case Some(ts) => capture(f.parent.tparams,ts,parentEnv)._1
+        case Some(ts) => capture(f.parent.tparams,ts.x,parentEnv)._1
       }
     }
     lazy val tparams = classArgs match {
@@ -157,15 +172,23 @@ object Denotations {
     lazy val params = f.params map (_.substitute(env))
     lazy val result = f.parent.inside.substitute(env)
     def callItem = f.parent
-    def callType(ts: List[TypeArg]) = f.parent.generic(classArgs getOrElse ts.take(f.parent.arity), parent match {
-      case Some(p) => p
-      case None => f.parent.parent.raw // TODO: check that this is right
-    })
+    def callType(ts: List[TypeArg]) = {
+      val args = classArgs match {
+        case None => ts.take(f.parent.arity)
+        case Some(a) => a.x
+      }
+      val par = parent match {
+        case Some(p) => p
+        case None => f.parent.parent.raw // TODO: check that this is right
+      }
+      f.parent.generic(args,par)
+    }
     def discards = Nil
     def strip = this
   }
   // Evaluate and discard s, then be f
   case class DiscardCallableDen(s: List[Stmt], c: NotTypeApply) extends NotTypeApply {
+    def r = c.r
     def tparams = c.tparams
     def params = c.params
     def result = c.result
@@ -176,19 +199,23 @@ object Denotations {
   }
 
   // Add type arguments to a Callable without checking for correctness
-  def uncheckedAddTypeArgs(f: Callable, ts: List[TypeArg], hide: Boolean): Callable = f match {
+  def uncheckedAddTypeArgs(f: Callable, ts: List[TypeArg], a: SGroup, hide: Boolean): Callable = f match {
     case _ if ts.isEmpty => f
     case _:TypeApply => impossible
-    case NewDen(p,f,None) => val (ts0,ts1) = ts splitAt f.parent.arity
-                             uncheckedAddTypeArgs(NewDen(p,f,Some(ts0)),ts1,hide)
-    case f:NotTypeApply => TypeApply(f,ts,hide)
+    case NewDen(nr,p,f,fr,None) => val (ts0,ts1) = ts splitAt f.parent.arity
+                                   uncheckedAddTypeArgs(NewDen(nr,p,f,fr,Some(Grouped(ts0,a))),ts1,a,hide)
+    case f:NotTypeApply => TypeApply(f,ts,a,hide)
   }
 
-  type Dims = Int
-  type VarDecl = (Local,Dims,Option[Exp]) // name,dims,init
+  type Dims = List[SGroup]
+  case class VarDecl(x: Local, xr: SRange, d: Dims, i: Option[(SRange,Exp)]) extends HasDiscards with HasRange {
+    def r = i match { case None => xr; case Some((_,i)) => xr union i.r }
+    def discards = mapOrElse(i)(_._2.discards,Nil)
+    def strip = VarDecl(x,xr,d,i map {case (e,i) => (e,i.strip)})
+  }
 
   // Statements
-  sealed abstract class Stmt extends HasDiscard[Stmt] {
+  sealed abstract class Stmt extends HasDiscard[Stmt] with HasRange {
     def discard(ds: List[Stmt]) = ds match {
       case Nil => this
       case ds => DiscardStmt(ds,this)
@@ -198,98 +225,117 @@ object Denotations {
   sealed trait ForInit extends HasDiscards {
     def strip: ForInit
   }
-  case object EmptyStmt extends Stmt {
+  case class EmptyStmt(r: SRange) extends Stmt {
     def discards = Nil
     def strip = this
   }
-  case object HoleStmt extends Stmt {
+  case class HoleStmt(r: SRange) extends Stmt {
     def discards = Nil
     def strip = this
   }
-  case class VarStmt(t: Type, vs: List[VarDecl], m: List[Mod] = Nil) extends Stmt with ForInit {
-    def discards = vs flatMap (_._3.discards)
-    def strip = VarStmt(t,vs map { case (v,n,e) => (v,n,e map (_.strip)) },m)
+  case class VarStmt(t: Type, tr: SRange, vs: List[VarDecl], m: Mods = Nil) extends Stmt with ForInit {
+    def r = tr unionR vs unionR m
+    def discards = vs flatMap (_.discards)
+    def strip = VarStmt(t,tr,vs map (_.strip),m)
   }
   case class ExpStmt(e: StmtExp) extends Stmt {
+    def r = e.r
     def discards = e.discards
     def strip = ExpStmt(e.strip)
   }
-  case class BlockStmt(b: List[Stmt]) extends Stmt {
+  case class BlockStmt(b: List[Stmt], a: SGroup) extends Stmt {
+    def r = a.lr
     def discards = b flatMap (_.discards)
-    def strip = BlockStmt(b map (_.strip))
+    def strip = BlockStmt(b map (_.strip),a)
   }
-  case class AssertStmt(c: Exp, m: Option[Exp]) extends Stmt {
-    def discards = m match { case None => c.discards; case Some(m) => m.discards ::: c.discards }
-    def strip = AssertStmt(c.strip,m map (_.strip))
+  case class AssertStmt(ar: SRange, c: Exp, m: Option[(SRange,Exp)]) extends Stmt {
+    def r = ar union c.r union m.map(_._2.r)
+    def discards = m match { case None => c.discards; case Some((_,m)) => m.discards ::: c.discards }
+    def strip = AssertStmt(ar,c.strip,m map {case (r,m) => (r,m.strip)})
   }
-  case class BreakStmt(label: Option[Label]) extends Stmt {
+  case class BreakStmt(br: SRange, label: Option[Loc[Label]]) extends Stmt {
+    def r = br unionR label
     def discards = Nil
     def strip = this
   }
-  case class ContinueStmt(label: Option[Label]) extends Stmt {
+  case class ContinueStmt(cr: SRange, label: Option[Loc[Label]]) extends Stmt {
+    def r = cr unionR label
     def discards = Nil
     def strip = this
   }
-  case class ReturnStmt(e: Option[Exp]) extends Stmt {
+  case class ReturnStmt(rr: SRange, e: Option[Exp]) extends Stmt {
+    def r = rr unionR e
     def discards = e match { case None => Nil; case Some(e) => e.discards }
-    def strip = ReturnStmt(e map (_.strip))
+    def strip = ReturnStmt(rr,e map (_.strip))
   }
-  case class ThrowStmt(e: Exp) extends Stmt {
+  case class ThrowStmt(tr: SRange, e: Exp) extends Stmt {
+    def r = tr union e.r
     def discards = e.discards
-    def strip = ThrowStmt(e.strip)
+    def strip = ThrowStmt(tr,e.strip)
   }
-  case class IfStmt(c: Exp, t: Stmt) extends Stmt {
+  case class IfStmt(ir: SRange, c: Exp, a: SGroup, x: Stmt) extends Stmt {
+    def r = ir union x.r
     def discards = c.discards
-    def strip = IfStmt(c.strip,t)
+    def strip = IfStmt(ir,c.strip,a,x)
   }
-  case class IfElseStmt(c: Exp, t: Stmt, f: Stmt) extends Stmt {
+  case class IfElseStmt(ir: SRange, c: Exp, a: SGroup, x: Stmt, er: SRange, y: Stmt) extends Stmt {
+    def r = ir union y.r
     def discards = c.discards
-    def strip = IfElseStmt(c.strip,t,f)
+    def strip = IfElseStmt(ir,c.strip,a,x,er,y)
   }
-  case class WhileStmt(c: Exp, s: Stmt) extends Stmt {
+  case class WhileStmt(wr: SRange, c: Exp, a: SGroup, s: Stmt) extends Stmt {
+    def r = wr union s.r
     def discards = c.discards
-    def strip = WhileStmt(c.strip,s)
+    def strip = WhileStmt(wr,c.strip,a,s)
   }
-  case class DoStmt(s: Stmt, c: Exp) extends Stmt {
+  case class DoStmt(dr: SRange, s: Stmt, wr: SRange, c: Exp, a: SGroup) extends Stmt {
+    def r = dr union a.r
     def discards = c.discards
-    def strip = DoStmt(s,c.strip)
+    def strip = DoStmt(dr,s,wr,c.strip,a)
   }
-  case class ForStmt(i: ForInit, c: Option[Exp], u: List[Exp], s: Stmt) extends Stmt {
+  case class ForStmt(fr: SRange, i: ForInit, c: Option[Exp], sr: SRange, u: List[Exp], a: SGroup, s: Stmt) extends Stmt {
+    def r = fr union s.r
     def discards = i.discards
-    def strip = ForStmt(i.strip,c,u,s)
+    def strip = ForStmt(fr,i.strip,c,sr,u,a,s)
   }
-  case class ForExps(i: List[Exp]) extends ForInit {
+  case class ForExps(i: List[Exp], sr: SRange) extends ForInit {
     def discards = i flatMap (_.discards)
-    def strip = ForExps(i map (_.strip))
+    def strip = ForExps(i map (_.strip),sr)
   }
-  case class ForeachStmt(t: Type, v: Local, e: Exp, s: Stmt) extends Stmt {
+  case class ForeachStmt(fr: SRange, m: Mods, t: Type, tr: SRange, v: Local, vr: SRange, e: Exp, a: SGroup, s: Stmt) extends Stmt {
+    def r = fr union s.r
     def discards = e.discards
-    def strip = ForeachStmt(t,v,e.strip,s)
+    def strip = ForeachStmt(fr,m,t,tr,v,vr,e.strip,a,s)
   }
-  case class SyncStmt(e: Exp, s: Stmt) extends Stmt {
+  case class SyncStmt(sr: SRange, e: Exp, a: SGroup, s: Stmt) extends Stmt {
+    def r = sr union s.r
     def discards = e.discards
-    def strip = SyncStmt(e.strip,s)
+    def strip = SyncStmt(sr,e.strip,a,s)
   }
-  case class Catch(m: List[Mod], ts: List[ClassItem], v: Local, n: Dims, s: Stmt)
-  case class TryStmt(s: Stmt, cs: List[Catch], f: Option[Stmt]) extends Stmt {
+  case class Catch(m: Mods, ts: List[ClassItem], tr: SRange, v: Local, vr: SRange, n: Dims, s: Stmt) extends HasRange {
+    def r = s.r unionR m union tr union vr
+  }
+  case class TryStmt(tr: SRange, s: Stmt, cs: List[Catch], f: Option[Stmt]) extends Stmt {
+    def r = tr union s.r unionR cs unionR f
     def discards = Nil
     def strip = this
   }
-  case class CommentStmt(c: CommentTok) extends Stmt {
+  case class CommentStmt(c: CommentTok, r: SRange) extends Stmt {
     def discards = Nil
     def strip = this
   }
-  case class TokStmt(t: StmtTok) extends Stmt {
+  case class TokStmt(t: StmtTok, r: SRange) extends Stmt {
     def discards = Nil
     def strip = this
   }
   case class DiscardStmt(ds: List[Stmt], s: Stmt) extends Stmt {
+    def r = s.r
     def discards = ds ::: s.discards
     def strip = s.strip
   }
 
   // It's all expressions from here
-  sealed abstract class Exp extends ExpOrType with ExpOrCallable with HasDiscard[Exp] {
+  sealed abstract class Exp extends ExpOrType with ExpOrCallable with HasDiscard[Exp] with HasRange {
     def ty: Type
     def item: TypeItem // Faster version of ty.item
     def discard(ds: List[Stmt]) = ds match {
@@ -307,91 +353,131 @@ object Denotations {
   }
 
   // Literals
-  sealed abstract class Lit extends Exp with NoDiscardExp {
+  sealed abstract class Lit extends Exp with NoDiscardExp with HasRange {
     def show: String
   }
-  case class ByteLit(b: Byte, show: String) extends Lit     { def ty = ByteType;    def item = ubByteItem }
-  case class ShortLit(s: Short, show: String) extends Lit   { def ty = ShortType;   def item = ubShortItem }
-  case class IntLit(i: Int, show: String) extends Lit       { def ty = IntType;     def item = ubIntItem }
-  case class LongLit(l: Long, show: String) extends Lit     { def ty = LongType;    def item = ubLongItem }
-  case class StringLit(s: String, show: String) extends Lit { def ty = StringType;  def item = StringItem }
-  case class FloatLit(f: Float, show: String) extends Lit   { def ty = FloatType;   def item = ubFloatItem }
-  case class DoubleLit(d: Double, show: String) extends Lit { def ty = DoubleType;  def item = ubDoubleItem }
-  case class CharLit(c: Char, show: String) extends Lit     { def ty = CharType;    def item = ubCharItem }
-  case class BooleanLit(b: Boolean) extends Lit             { def ty = BooleanType; def item = ubBooleanItem
-                                                              def show = if (b) "true" else "false" }
-  case object NullLit extends Lit                           { def ty = NullType;    def item = NullType.item
-                                                              def show = "null" }
+  case class ByteLit(b: Byte, show: String, r: SRange) extends Lit {
+    def ty = ByteType
+    def item = ubByteItem
+  }
+  case class ShortLit(s: Short, show: String, r: SRange) extends Lit {
+    def ty = ShortType
+    def item = ubShortItem
+  }
+  case class IntLit(i: Int, show: String, r: SRange) extends Lit {
+    def ty = IntType
+    def item = ubIntItem
+  }
+  case class LongLit(l: Long, show: String, r: SRange) extends Lit {
+    def ty = LongType
+    def item = ubLongItem
+  }
+  case class StringLit(s: String, show: String, r: SRange) extends Lit {
+    def ty = StringType
+    def item = StringItem
+  }
+  case class FloatLit(f: Float, show: String, r: SRange) extends Lit {
+    def ty = FloatType
+    def item = ubFloatItem
+  }
+  case class DoubleLit(d: Double, show: String, r: SRange) extends Lit {
+    def ty = DoubleType
+    def item = ubDoubleItem
+  }
+  case class CharLit(c: Char, show: String, r: SRange) extends Lit {
+    def ty = CharType
+    def item = ubCharItem
+  }
+  case class BooleanLit(b: Boolean, r: SRange) extends Lit {
+    def ty = BooleanType
+    def item = ubBooleanItem
+    def show = if (b) "true" else "false"
+  }
+  case class NullLit(r: SRange) extends Lit {
+    def ty = NullType
+    def item = NullType.item
+    def show = "null"
+  }
 
   // Expressions
-  case class LocalExp(x: Local) extends Exp with NoDiscardExp {
+  case class LocalExp(x: Local, r: SRange) extends Exp with NoDiscardExp {
     def item = x.item
     def ty = x.ty
   }
-  case class FieldExp(x: Option[Exp], field: FieldItem) extends Exp {
-    def item = field.item
-    def ty = if (field.isStatic || x.isEmpty) field.inside else {
+  case class FieldExp(x: Option[Exp], f: FieldItem, fr: SRange) extends Exp {
+    def r = fr unionR x
+    def dot = fr.before
+    def item = f.item
+    def ty = if (f.isStatic || x.isEmpty) f.inside else {
       val t = x.get.ty
-      val fp = field.parent
+      val fp = f.parent
       collectOne(supers(t)){
-        case t:ClassType if t.item==fp => field.inside.substitute(t.env)
-      }.getOrElse(throw new RuntimeException(s"Field $field not found in $t"))
+        case t:ClassType if t.item==fp => f.inside.substitute(t.env)
+      }.getOrElse(throw new RuntimeException(s"Field $f not found in $t"))
     }
     def discards = x.discards
-    def strip = FieldExp(x map (_.strip),field)
+    def strip = FieldExp(x map (_.strip),f,fr)
   }
-  case class ThisExp(t: ThisItem) extends Exp with NoDiscardExp {
+  case class ThisExp(t: ThisItem, r: SRange) extends Exp with NoDiscardExp {
     def item = t.item
     def ty = t.ty
   }
   // t is the type super is used in, t.base is the type of this expression
-  case class SuperExp(s: SuperItem) extends Exp with NoDiscardExp {
+  case class SuperExp(s: SuperItem, r: SRange) extends Exp with NoDiscardExp {
     def item = s.item
     def ty = s.ty
   }
-  case class CastExp(ty: Type, e: Exp) extends Exp {
+  case class CastExp(ty: Type, a: SGroup, e: Exp) extends Exp {
+    def r = a.l union e.r
     def item = ty.item
     def discards = e.discards
-    def strip = CastExp(ty,e.strip)
+    def strip = CastExp(ty,a,e.strip)
   }
   sealed abstract class UnaryExp extends Exp {
     def op: UnaryOp
+    def opr: SRange
     def e: Exp
+    def r = opr union e.r
     def ty = unaryType(op,e.ty) getOrElse (throw new RuntimeException("type error"))
     def item = ty.item
     def discards = e.discards
   }
-  case class ImpExp(op: ImpOp, e: Exp) extends UnaryExp with StmtExp {
-    def strip = ImpExp(op,e.strip)
+  case class ImpExp(op: ImpOp, opr: SRange, e: Exp) extends UnaryExp with StmtExp {
+    def strip = ImpExp(op,opr,e.strip)
   }
-  case class NonImpExp(op: NonImpOp, e: Exp) extends UnaryExp {
-    def strip = NonImpExp(op,e.strip)
+  case class NonImpExp(op: NonImpOp, opr: SRange, e: Exp) extends UnaryExp {
+    def strip = NonImpExp(op,opr,e.strip)
   }
-  case class BinaryExp(op: BinaryOp, e0: Exp, e1: Exp) extends Exp {
+  case class BinaryExp(op: BinaryOp, opr: SRange, e0: Exp, e1: Exp) extends Exp {
+    def r = e0.r union e1.r
     def ty = binaryType(op,e0.ty,e1.ty) getOrElse (throw new RuntimeException("type error"))
     def item = ty.item
     def discards = e0.discards ::: e1.discards
-    def strip = BinaryExp(op,e0.strip,e1.strip)
+    def strip = BinaryExp(op,opr,e0.strip,e1.strip)
   }
-  case class AssignExp(op: Option[AssignOp], left: Exp, right: Exp) extends StmtExp {
+  case class AssignExp(op: Option[AssignOp], opr: SRange, left: Exp, right: Exp) extends StmtExp {
+    def r = left.r union right.r
     def item = left.item
     def ty = left.ty
     def discards = left.discards ::: right.discards
-    def strip = AssignExp(op,left.strip,right.strip)
+    def strip = AssignExp(op,opr,left.strip,right.strip)
   }
-  case class ParenExp(e: Exp) extends Exp {
+  case class ParenExp(e: Exp, a: SGroup) extends Exp {
+    def r = a.lr
     def item = e.item
     def ty = e.ty
     def discards = e.discards
-    def strip = ParenExp(e.strip)
+    def strip = ParenExp(e.strip,a)
   }
-  case class ApplyExp(f: Callable, args: List[Exp], auto: Boolean) extends StmtExp {
+  case class ApplyExp(f: Callable, args: List[Exp], a: SGroup, auto: Boolean) extends StmtExp {
+    def r = f.r union a.r
     def item = f.callItem
     def ty = f.callType(Nil)
     def discards = f.discards ::: args flatMap (_.discards)
-    def strip = ApplyExp(f.strip,args map (_.strip),auto)
+    def strip = ApplyExp(f.strip,args map (_.strip),a,auto)
   }
-  case class IndexExp(e: Exp, i: Exp) extends Exp {
+  case class IndexExp(e: Exp, i: Exp, a: SGroup) extends Exp {
+    def r = e.r union a.r
     def item = e.ty match {
       case ArrayType(t) => t.item
       case _ => throw new RuntimeException("type error")
@@ -401,27 +487,31 @@ object Denotations {
       case _ => throw new RuntimeException("type error")
     }
     def discards = e.discards ::: i.discards
-    def strip = IndexExp(e.strip,i.strip)
+    def strip = IndexExp(e.strip,i.strip,a)
   }
-  case class CondExp(c: Exp, t: Exp, f: Exp, ty: Type) extends Exp {
+  case class CondExp(c: Exp, qr: SRange, x: Exp, cr: SRange, y: Exp, ty: Type) extends Exp {
+    def r = c.r union y.r
     def item = ty.item
-    def discards = c.discards ::: t.discards ::: f.discards
-    def strip = CondExp(c.strip,t.strip,f.strip,ty)
+    def discards = c.discards ::: x.discards ::: y.discards
+    def strip = CondExp(c.strip,qr,x.strip,cr,y.strip,ty)
   }
-  case class ArrayExp(t: Type, i: List[Exp]) extends StmtExp { // t is the inner type
+  case class ArrayExp(t: Type, i: List[Exp], a: SGroup) extends StmtExp { // t is the inner type
+    def r = a.lr
     def item = ArrayItem
     def ty = ArrayType(t)
     def discards = i flatMap (_.discards)
-    def strip = ArrayExp(t,i map (_.strip))
+    def strip = ArrayExp(t,i map (_.strip),a)
   }
-  case class EmptyArrayExp(t: Type, i: List[Exp]) extends StmtExp { // new t[i]
+  case class EmptyArrayExp(t: Type, i: List[Grouped[Exp]]) extends StmtExp { // new t[i]
+    def r = i.head.r union i.last.r
     def item = ArrayItem
     def ty = i.foldLeft(t)((t,i) => ArrayType(t))
-    def discards = i flatMap (_.discards)
-    def strip = EmptyArrayExp(t,i map (_.strip))
+    def discards = i flatMap (_.x.discards)
+    def strip = EmptyArrayExp(t,i map (_ map (_.strip)))
   }
   // Evaluate and discard s, then evaluate and return e
   case class DiscardExp(s: List[Stmt], e: Exp) extends Exp {
+    def r = e.r
     def item = e.item
     def ty = e.ty
     def discards = s ::: e.discards
@@ -437,12 +527,12 @@ object Denotations {
   def noEffects(e: Exp): Boolean = e match {
     case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp|_:DiscardExp => false
-    case FieldExp(None,_) => true
-    case FieldExp(Some(x),_) => noEffects(x)
-    case NonImpExp(op,x) => pure(op) && noEffects(x)
-    case BinaryExp(op,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
-    case ParenExp(x) => noEffects(x)
-    case CondExp(c,x,y,_) => noEffects(c) && noEffects(x) && noEffects(y)
+    case FieldExp(None,_,_) => true
+    case FieldExp(Some(x),_,_) => noEffects(x)
+    case NonImpExp(op,_,x) => pure(op) && noEffects(x)
+    case BinaryExp(op,_,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
+    case ParenExp(x,_) => noEffects(x)
+    case CondExp(c,_,x,_,y,_) => noEffects(c) && noEffects(x) && noEffects(y)
   }
   def pure(op: UnaryOp) = !op.isInstanceOf[ImpOp]
   def pure(op: BinaryOp, x: Type, y: Type) = (x,y) match {
@@ -459,24 +549,35 @@ object Denotations {
     case e:StmtExp => List(ExpStmt(e))
     case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => Nil
     case _:CastExp|_:IndexExp => Nil
-    case FieldExp(None,_) => Nil
-    case FieldExp(Some(x),_) => effects(x)
-    case NonImpExp(_,x) => effects(x)
-    case BinaryExp(_,x,y) => effects(x)++effects(y)
-    case CondExp(c,x,y,_) => List(IfElseStmt(c,blocked(effects(x)),blocked(effects(y))))
-    case ParenExp(x) => effects(x)
+    case FieldExp(None,_,_) => Nil
+    case FieldExp(Some(x),_,_) => effects(x)
+    case NonImpExp(_,_,x) => effects(x)
+    case BinaryExp(_,_,x,y) => effects(x)++effects(y)
+    case CondExp(c,qr,x,er,y,_) => (effects(x),effects(y)) match {
+      case (Nil,Nil) => Nil
+      case (ex,Nil) => List(IfStmt(qr,c,SGroup.approx(c.r),blocked(ex)))
+      case (Nil,ey) => List(IfStmt(qr,xor(true,c),SGroup.approx(c.r),blocked(ey)))
+      case (ex,ey) => List(IfElseStmt(qr,c,SGroup.approx(c.r),blocked(ex),er,blocked(ey)))
+    }
+    case ParenExp(x,_) => effects(x)
     case DiscardExp(ds,e) => ds++effects(e)
   }
 
   def blocked(ss: List[Stmt]): Stmt = ss match {
-    case Nil => EmptyStmt
+    case Nil => impossible // EmptyStmt(r)
     case List(s) => s
-    case ss => BlockStmt(ss)
+    case ss => BlockStmt(ss,SGroup.approx(ss.head.r union ss.last.r))
   }
 
   def needBlock(s: Stmt): Stmt = s match {
     case _:BlockStmt => s
-    case TokStmt(t) if t.blocked => s
-    case _ => BlockStmt(List(s))
+    case TokStmt(t,_) if t.blocked => s
+    case _ => BlockStmt(List(s),SGroup.approx(s.r))
   }
+
+  def xor(x: Boolean, y: Exp): Exp =
+    if (x) y match {
+      case BooleanLit(y,r) => BooleanLit(!y,r)
+      case _ => NonImpExp(NotOp,y.r.before,y)
+    } else y
 }

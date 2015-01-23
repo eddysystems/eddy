@@ -4,6 +4,7 @@ import utility.Locations._
 import utility.Utility._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
+import tarski.Arounds._
 import tarski.Base._
 import tarski.Denotations._
 import tarski.Environment.{Env, PlaceInfo}
@@ -13,8 +14,17 @@ import tarski.Types._
 import scala.language.implicitConversions
 
 object TestUtils {
-  // AST implicit conversions
+  // Location implicit conversions
   private val r = SRange.unknown
+  private val a = SGroup.unknown
+  implicit def toLoc[A](x: A): Loc[A] = Loc(x,r)
+  implicit def toGrouped[A](x: A): Grouped[A] = Grouped(x,a)
+  implicit def toGroupLocs(n: Int): List[SGroup] = List.fill(n)(a)
+
+  // Empty lists
+  implicit def toEmptyList(xs: List[Nothing]): EmptyList.type = EmptyList
+
+  // AST implicit conversions
   implicit def toAExp(i: Int): AExp = IntALit(i.toString,r)
   implicit def toAExp(s: String): AExp = NameAExp(s,r)
   implicit def toAExp(b: Boolean): AExp = NameAExp(if (b) "true" else "false",r)
@@ -24,26 +34,28 @@ object TestUtils {
   implicit def toAStmt(e: AExp): AStmt = ExpAStmt(e)
   implicit def toAStmts(e: AExp): List[AStmt] = List(ExpAStmt(e))
   implicit def toAStmts(s: AStmt): List[AStmt] = List(s)
+  implicit def toAStmtsC(e: AExp): CommaList[AStmt] = SingleList(ExpAStmt(e))
+  implicit def toAStmtsC(s: AStmt): CommaList[AStmt] = SingleList(s)
   implicit def toAExp(t: LangType): AExp = NameAExp(t.name,r)
   implicit def toAExps[A](xs: KList[A])(implicit to: A => AExp): KList[AExp] = xs map to
-  implicit def toAExps[A](x: A)(implicit to: A => AExp): KList[AExp] = SingleList(to(x))
+  implicit def toAExps[A](x: A)(implicit to: A => AExp): SingleList[AExp] = SingleList(to(x))
   implicit def toAVarDecls(v: AVarDecl): KList[AVarDecl] = SingleList(v)
 
   // Denotation implicit conversions
-  implicit def toExp(b: Boolean): Exp = BooleanLit(b)
-  implicit def toExp(i: Int): Exp = IntLit(i,i.toString)
-  implicit def toExp(i: Long): Exp = LongLit(i,s"${i}L")
-  implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'")
-  implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString)
-  implicit def toExp(x: Local): Exp = LocalExp(x)
-  implicit def toExp(x: ThisItem): Exp = ThisExp(x)
+  implicit def toExp(b: Boolean): Exp = BooleanLit(b,r)
+  implicit def toExp(i: Int): Exp = IntLit(i,i.toString,r)
+  implicit def toExp(i: Long): Exp = LongLit(i,s"${i}L",r)
+  implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'",r)
+  implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString,r)
+  implicit def toExp(x: Local): Exp = LocalExp(x,r)
+  implicit def toExp(x: ThisItem): Exp = ThisExp(x,r)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
   implicit def toExps(e: Exp): List[Exp] = List(e)
   implicit def toOExp[A](x: A)(implicit to: A => Exp): Option[Exp] = Some(to(x))
   implicit def toOExp(e: Exp): Option[Exp] = Some(e)
 
   // Callable implicit conversions
-  implicit def toCall(x: MethodItem): NotTypeApply = if (x.isStatic) MethodDen(None,x) else impossible
+  implicit def toCall(x: MethodItem): NotTypeApply = if (x.isStatic) MethodDen(None,x,r) else impossible
 
   // Type implicit conversions
   implicit def toType(c: ClassItem): ClassType = c.simple
@@ -56,10 +68,10 @@ object TestUtils {
   implicit def toStmts(s: Stmt): List[Stmt] = List(s)
 
   // Variable declarations, for statements, etc.
-  implicit def toVarDecl[A](v: (Local,A))(implicit to: A => Exp): VarDecl = (v._1,0,Some(to(v._2)))
+  implicit def toVarDecl[A](v: (Local,A))(implicit to: A => Exp): VarDecl = VarDecl(v._1,r,Nil,Some(r,to(v._2)))
   implicit def toVarDecls[A](v: A)(implicit to: A => VarDecl): List[VarDecl] = List(to(v))
-  implicit def toForInit(n: List[Nothing]): ForInit = ForExps(Nil)
-  implicit def toForInit(e: Exp): ForInit = ForExps(List(e))
+  implicit def toForInit(n: List[Nothing]): ForInit = ForExps(Nil,r)
+  implicit def toForInit(e: Exp): ForInit = ForExps(List(e),r)
 
     // Inside a function with a bunch of locals
   def localEnv(locals: Item*): Env = {

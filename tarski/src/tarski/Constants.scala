@@ -225,20 +225,20 @@ object Constants {
 
   def toCon(e: Exp): OptionCon = e match {
     // Literals
-    case StringLit(v,_) => StringCon(v)
-    case BooleanLit(v) => BooleanCon(v)
-    case CharLit(v,_) => CharCon(v)
-    case ByteLit(v,_) => ByteCon(v)
-    case ShortLit(v,_) => ShortCon(v)
-    case IntLit(v,_) => IntCon(v)
-    case LongLit(v,_) => LongCon(v)
-    case FloatLit(v,_) => FloatCon(v)
-    case DoubleLit(v,_) => DoubleCon(v)
-    case NullLit => NotCon
+    case StringLit(v,_,_) => StringCon(v)
+    case BooleanLit(v,_) => BooleanCon(v)
+    case CharLit(v,_,_) => CharCon(v)
+    case ByteLit(v,_,_) => ByteCon(v)
+    case ShortLit(v,_,_) => ShortCon(v)
+    case IntLit(v,_,_) => IntCon(v)
+    case LongLit(v,_,_) => LongCon(v)
+    case FloatLit(v,_,_) => FloatCon(v)
+    case DoubleLit(v,_,_) => DoubleCon(v)
+    case NullLit(_) => NotCon
     // Possibly constant environment values
-    case LocalExp(_)|FieldExp(_,_) => NotCon // TODO: Handle these
+    case _:LocalExp|_:FieldExp => NotCon // TODO: Handle these
     // Expressions which might be constant
-    case CastExp(t,e) => t match {
+    case CastExp(t,_,e) => t match {
       case StringType => toCon(e) match {
         case e:StringCon => e
         case _ => NotCon
@@ -258,7 +258,7 @@ object Constants {
       })
       case _ => NotCon
     }
-    case NonImpExp(op,e) => toPrim(e,e => op match {
+    case NonImpExp(op,_,e) => toPrim(e,e => op match {
       case PosOp => e match {
         case e:NumCon => e
         case _ => error
@@ -276,7 +276,7 @@ object Constants {
         case _ => error
       }
     })
-    case BinaryExp(op,x,y) => to(x,x => to(y,y => {
+    case BinaryExp(op,_,x,y) => to(x,x => to(y,y => {
       op match {
         case AddOp if x.isStr || y.isStr => StringCon(x.toStr+y.toStr)
         case MulOp|DivOp|ModOp|AddOp|SubOp => (x,y) match {
@@ -346,7 +346,7 @@ object Constants {
         }
       }
     }))
-    case CondExp(c,x,y,r) => toPrim(c,c => to(x,x => to(y,y => c match {
+    case CondExp(c,_,x,_,y,r) => toPrim(c,c => to(x,x => to(y,y => c match {
       case BooleanCon(c) => r match {
         case StringType => StringCon((if (c) x else y).toStr)
         case BooleanType => if (c) x else y
@@ -355,7 +355,7 @@ object Constants {
       }
       case _ => error
     })))
-    case ParenExp(e) => toCon(e)
+    case ParenExp(e,_) => toCon(e)
     // Everything else is definitely nonconstant
     case _ => NotCon
   }

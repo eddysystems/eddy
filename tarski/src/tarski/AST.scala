@@ -1,6 +1,7 @@
 package tarski
 
-import tarski.Mods.Mod
+import tarski.Arounds._
+import tarski.Mods._
 import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
 import tarski.Tokens.StmtTok
 import utility.Locations._
@@ -11,94 +12,119 @@ object AST {
   sealed abstract class Bound
   case object Extends extends Bound
   case object Super extends Bound
-
-  sealed abstract class KList[+A] {
-    def list: List[A]
-    def map[B](f: A => B): KList[B]
-    def size = list.size
-  }
-  case object EmptyList extends KList[Nothing] {
-    def list = Nil
-    def map[B](f: Nothing => B) = EmptyList
-  }
-  case class SingleList[+A](x: A) extends KList[A] {
-    def list = List(x)
-    def map[B](f: A => B) = SingleList(f(x))
-  }
-  case class CommaList[+A](list: List[A]) extends KList[A] {
-    def map[B](f: A => B) = CommaList(list map f)
-  }
-  case class JuxtList[+A](list: List[A]) extends KList[A] {
-    def map[B](f: A => B) = CommaList(list map f)
-  }
-  case class AndList[+A](list: List[A]) extends KList[A] {
-    def map[B](f: A => B) = CommaList(list map f)
-  }
-  object CommaList { def apply[A](x0: A, x1: A, xs: A*): CommaList[A] = CommaList(x0::x1::xs.toList) }
-  object JuxtList  { def apply[A](x0: A, x1: A, xs: A*): JuxtList[A]  =  JuxtList(x0::x1::xs.toList) }
-  object AndList   { def apply[A](x0: A, x1: A, xs: A*): AndList[A]   =   AndList(x0::x1::xs.toList) }
-
-  sealed abstract class Group
-  case object Paren extends Group
-  case object Brack extends Group
-  case object Curly extends Group
-  sealed abstract class Around
-  case object NoAround extends Around
-  case class Grouped(l: Group, r: Group) extends Around
-  val ParenAround = Grouped(Paren,Paren)
-  val BrackAround = Grouped(Brack,Brack)
-  val CurlyAround = Grouped(Curly,Curly)
+  case class WildBound(b: Bound, br: SRange, t: AExp)
 
   type Block = List[AStmt]
-  type ADims = Int
-  type AVarDecl = (Name,ADims,Option[AExp])
+  type ADims = List[SGroup]
+  case class AVarDecl(x: Name, xr: SRange, n: ADims, i: Option[(SRange,AExp)]) extends HasRange {
+    def r = i match { case None => xr; case Some((_,e)) => xr union e.r }
+  }
 
-  sealed abstract class AStmt
-  sealed abstract class AStmtLoc extends AStmt with HasRange
-  case object EmptyAStmt extends AStmt
-  case object HoleAStmt extends AStmt
-  case class VarAStmt(m: List[Mod], t: Option[AExp], v: KList[AVarDecl], r: SRange) extends AStmtLoc
-  case class BlockAStmt(b: Block, r: SRange) extends AStmtLoc
-  case class TokAStmt(b: StmtTok, r: SRange) extends AStmtLoc
-  case class ExpAStmt(e: AExp) extends AStmtLoc { def r = e.r }
-  case class AssertAStmt(cond: AExp, msg: Option[AExp], r: SRange) extends AStmtLoc
-  case class BreakAStmt(label: Option[Name], r: SRange) extends AStmtLoc
-  case class ContinueAStmt(label: Option[Name], r: SRange) extends AStmtLoc
-  case class ReturnAStmt(e: Option[AExp], r: SRange) extends AStmtLoc
-  case class ThrowAStmt(e: AExp, r: SRange) extends AStmtLoc
-  case class SyncAStmt(e: AExp, s: AStmt, a: Around, r: SRange) extends AStmtLoc
-  sealed trait IfsAStmt extends AStmtLoc with SetRange[IfsAStmt]
-  case class IfAStmt(cond: AExp, t: AStmt, a: Around, r: SRange) extends IfsAStmt {
-    def setR(r: SRange) = IfAStmt(cond,t,a,r)
+  sealed abstract class AStmt extends HasRange
+  case class EmptyAStmt(r: SRange) extends AStmt
+  case class HoleAStmt(r: SRange) extends AStmt
+  case class VarAStmt(m: Mods, t: Option[AExp], v: KList[AVarDecl]) extends AStmt {
+    def r = v.list.last.r unionR m unionR t
   }
-  case class IfElseAStmt(cond: AExp, t: AStmt, f: AStmt, a: Around, r: SRange) extends IfsAStmt {
-    def setR(r: SRange) = IfElseAStmt(cond,t,f,a,r)
+  case class BlockAStmt(b: Block, a: SGroup) extends AStmt {
+    def r = a.lr
   }
-  case class WhileAStmt(cond: AExp, s: AStmt, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
-  case class DoAStmt(s: AStmt, cond: AExp, flip: Boolean, a: Around, r: SRange) extends AStmtLoc
-  case class ForAStmt(i: ForInfo, s: AStmt, a: Around, r: SRange) extends AStmtLoc
+  case class TokAStmt(b: StmtTok, r: SRange) extends AStmt
+  case class ExpAStmt(e: AExp) extends AStmt {
+    def r = e.r
+  }
+  case class AssertAStmt(ar: SRange, cond: AExp, msg: Option[(SRange,AExp)]) extends AStmt {
+    def r = msg match { case None => ar; case Some((_,e)) => ar union e.r }
+  }
+  case class BreakAStmt(br: SRange, label: Option[Loc[Name]]) extends AStmt {
+    def r = br unionR label
+  }
+  case class ContinueAStmt(cr: SRange, label: Option[Loc[Name]]) extends AStmt {
+    def r = cr unionR label
+  }
+  case class ReturnAStmt(rr: SRange, e: Option[AExp]) extends AStmt {
+    def r = rr unionR e
+  }
+  case class ThrowAStmt(tr: SRange, e: AExp) extends AStmt {
+    def r = tr union e.r
+  }
+  case class SyncAStmt(sr: SRange, e: AExp, a: Around, s: AStmt) extends AStmt {
+    def r = sr union s.r
+  }
+  case class PreIf(f: SRange => AStmt) { // For use in the parser.  TODO: Remove once the generator handles function types
+    def apply(ir: SRange) = f(ir)
+  }
+  case class IfAStmt(ir: SRange, cond: AExp, a: Around, x: AStmt) extends AStmt {
+    def r = ir union x.r
+  }
+  case class IfElseAStmt(ir: SRange, cond: AExp, a: Around, x: AStmt, er: SRange, y: AStmt) extends AStmt {
+    def r = ir union y.r
+  }
+  case class WhileAStmt(wr: SRange, flip: Boolean, cond: AExp, a: Around, s: AStmt) extends AStmt {
+    def r = wr union s.r
+  }
+  case class DoAStmt(dr: SRange, s: AStmt, wr: SRange, flip: Boolean, cond: AExp, a: Around) extends AStmt {
+    def r = dr union a.r
+  }
+  case class ForAStmt(fr: SRange, i: ForInfo, a: Around, s: AStmt) extends AStmt {
+    def r = fr union s.r
+  }
 
   sealed abstract class ForInfo extends HasRange
-  case class For(i: List[AStmt], cond: Option[AExp], u: List[AExp], r: SRange) extends ForInfo
-  case class Foreach(m: List[Mod], t: Option[AExp], v: Name, n: ADims, e: AExp, r: SRange) extends ForInfo
+  case class For(i: CommaList[AStmt], sr0: SRange, cond: Option[AExp], sr1: SRange, u: CommaList[AExp]) extends ForInfo {
+    def r = sr0 union sr1 unionR i.list unionR u.list
+  }
+  case class Foreach(m: Mods, t: Option[AExp], v: Name, vr: SRange, n: ADims, cr: SRange, e: AExp) extends ForInfo {
+    def r = vr unionR m unionR t union e.r
+  }
 
   sealed abstract class AExp extends HasRange
   case class NameAExp(name: Name, r: SRange) extends AExp
-  case class ParenAExp(e: AExp, a: Grouped, r: SRange) extends AExp
-  case class FieldAExp(e: AExp, t: Option[Loc[KList[AExp]]], f: Name, r: SRange) extends AExp
-  case class MethodRefAExp(e: AExp, t: Option[Loc[KList[AExp]]], f: Name, r: SRange) extends AExp
-  case class NewRefAExp(e: AExp, t: Option[Loc[KList[AExp]]], r: SRange) extends AExp
-  case class TypeApplyAExp(e: AExp, t: KList[AExp], tr: SRange, after: Boolean, r: SRange) extends AExp // after ? A<T> : <T>A
-  case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around, r: SRange) extends AExp
-  case class NewAExp(t: Option[Loc[KList[AExp]]], e: AExp, r: SRange) extends AExp
-  case class WildAExp(b: Option[(Bound,AExp)], r: SRange) extends AExp
-  case class UnaryAExp(op: UnaryOp, e: AExp, r: SRange) extends AExp
-  case class BinaryAExp(op: BinaryOp, e0: AExp, e1: AExp, r: SRange) extends AExp
-  case class CastAExp(t: AExp, e: AExp, r: SRange) extends AExp
-  case class CondAExp(cond: AExp, t: AExp, f: AExp, r: SRange) extends AExp
-  case class AssignAExp(op: Option[AssignOp], left: AExp, right: AExp, r: SRange) extends AExp
-  case class ArrayAExp(e: KList[AExp], a: Around, r: SRange) extends AExp
-  case class InstanceofAExp(e: AExp, t: AExp, r: SRange) extends AExp
+  case class ParenAExp(e: AExp, a: YesAround) extends AExp {
+    def r = a.a.r
+  }
+  case class FieldAExp(e: AExp, dot: SRange, t: Option[Grouped[KList[AExp]]], f: Name, fr: SRange) extends AExp {
+    def r = e.r union fr
+  }
+  case class MethodRefAExp(e: AExp, ccr: SRange, t: Option[Grouped[KList[AExp]]], f: Name, fr: SRange) extends AExp {
+    def r = e.r union fr
+  }
+  case class NewRefAExp(e: AExp, cc: SRange, t: Option[Grouped[KList[AExp]]], newr: SRange) extends AExp {
+    def r = e.r union newr
+  }
+  case class TypeApplyAExp(e: AExp, t: KList[AExp], tr: SGroup, after: Boolean) extends AExp { // after ? A<T> : <T>A
+    def r = e.r union tr.lr
+  }
+  case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around) extends AExp {
+    def r = e.r union l.r
+  }
+  case class NewAExp(newr: SRange, t: Option[Grouped[KList[AExp]]], e: AExp) extends AExp {
+    def r = newr union e.r
+  }
+  case class WildAExp(qr: SRange, b: Option[WildBound]) extends AExp {
+    def r = b match { case None => qr; case Some(WildBound(_,_,t)) => qr union t.r }
+  }
+  case class UnaryAExp(op: UnaryOp, opr: SRange, e: AExp) extends AExp {
+    def r = opr union e.r
+  }
+  case class BinaryAExp(op: BinaryOp, opr: SRange, e0: AExp, e1: AExp) extends AExp {
+    def r = e0.r union e1.r
+  }
+  case class CastAExp(t: AExp, a: YesAround, e: AExp) extends AExp {
+    def r = a.a.l union e.r
+  }
+  case class CondAExp(cond: AExp, qr: SRange, t: AExp, cr: SRange, f: AExp) extends AExp {
+    def r = cond.r union f.r
+  }
+  case class AssignAExp(op: Option[AssignOp], opr: SRange, left: AExp, right: AExp) extends AExp {
+    def r = left.r union right.r
+  }
+  case class ArrayAExp(e: KList[AExp], a: Around) extends AExp {
+    def r = a.r
+  }
+  case class InstanceofAExp(e: AExp, ir: SRange, t: AExp) extends AExp {
+    def r = e.r union t.r
+  }
 
   sealed abstract class ALit extends AExp
   case class IntALit(v: String, r: SRange) extends ALit

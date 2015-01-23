@@ -3,6 +3,7 @@ package tarski
 import utility.Locations._
 import utility.Utility._
 import tarski.AST._
+import tarski.Arounds._
 import tarski.Lexer._
 import tarski.Operators._
 import tarski.Scores._
@@ -14,10 +15,15 @@ import org.testng.annotations.Test
 import org.testng.AssertJUnit._
 
 class TestParse {
-  val r = SRange.unknown
-  val p = ParenAround
+  implicit val r = SRange.unknown
+  val a = SGroup.unknown
+  val parens = YesAround(Paren,Paren,a)
+  val bracks = YesAround(Brack,Brack,a)
+  val curlys = YesAround(Curly,Curly,a)
+  def commas[A](x0: A, x1: A, xs: A*): CommaList[A] = CommaList2(x0::x1::xs.toList,List.fill(xs.size+1)(r))
+  def juxts [A](x0: A, x1: A, xs: A*): JuxtList[A]  = JuxtList  (x0::x1::xs.toList)
   def noLoc[A](x: Loc[A]): Loc[A] = Loc(x.x,r)
-  def clean(s: String): String = s.replaceAllLiterally(",SRange(-1,-1)","")
+  def clean(s: String): String = s.replaceAllLiterally(",SRange.unknown","").replaceAllLiterally("SRange.unknown,","")
   implicit val showFlags = abbrevShowFlags
 
   @Test
@@ -52,8 +58,8 @@ class TestParse {
   @Test
   def pretty(): Unit = {
     def check(s: String, e: AExp) = assertEquals(s,show(e))
-    def add(x: AExp, y: AExp) = BinaryAExp(AddOp,x,y,r)
-    def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,x,y,r)
+    def add(x: AExp, y: AExp) = BinaryAExp(AddOp,r,x,y)
+    def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,r,x,y)
 
     check("1 + 2 + 3",     add(add(1,2),3))
     check("1 + (2 + 3)", add(1,add(2,3)))
@@ -103,83 +109,84 @@ class TestParse {
   @Test
   def nestApply() =
     testAST("x = A(Object())",
-      AssignAExp(None,"x",ApplyAExp("A",ApplyAExp("Object",EmptyList,p,r),p,r),r),
-      AssignAExp(None,"x",ApplyAExp("A",JuxtList("Object",ArrayAExp(EmptyList,p,r)),p,r),r))
+      AssignAExp(None,r,"x",ApplyAExp("A",ApplyAExp("Object",EmptyList,parens),parens)),
+      AssignAExp(None,r,"x",ApplyAExp("A",juxts("Object",ArrayAExp(EmptyList,parens)),parens)))
 
   @Test
   def primTypes() =
     for (t <- List(VoidType,ByteType,ShortType,IntType,LongType,FloatType,DoubleType,CharType))
       testAST(show(t)+" x",
-        VarAStmt(Nil,t,("x",0,None),r),
-        ApplyAExp(t,"x",NoAround,r))
+        VarAStmt(Nil,t,AVarDecl("x",r,0,None)),
+        ApplyAExp(t,"x",NoAround(r)))
 
   @Test
   def varArray() =
-    testAST("int x[]",VarAStmt(Nil,IntType,("x",1,None),r),
-                      ApplyAExp("int",SingleList(ApplyAExp("x",EmptyList,BrackAround,r)),NoAround,r))
+    testAST("int x[]",VarAStmt(Nil,IntType,AVarDecl("x",r,1,None)),
+                      ApplyAExp("int",SingleList(ApplyAExp("x",EmptyList,bracks)),NoAround(r)))
 
   @Test def varField() = testAST("X().Y y",
-    ApplyAExp("X",JuxtList(FieldAExp(ArrayAExp(EmptyList,ParenAround,r),None,"Y",r),"y"),NoAround,r),
-    ApplyAExp(FieldAExp(ApplyAExp("X",EmptyList,ParenAround,r),None,"Y",r),SingleList("y"),NoAround,r),
-    VarAStmt(Nil,FieldAExp(ApplyAExp("X",EmptyList,ParenAround,r),None,"Y",r),SingleList(("y",0,None)),r))
+    ApplyAExp("X",juxts(FieldAExp(ArrayAExp(EmptyList,parens),r,None,"Y",r),"y"),NoAround(r)),
+    ApplyAExp(FieldAExp(ApplyAExp("X",EmptyList,parens),r,None,"Y",r),SingleList("y"),NoAround(r)),
+    VarAStmt(Nil,FieldAExp(ApplyAExp("X",EmptyList,parens),r,None,"Y",r),AVarDecl("y",r,0,None)))
 
   // Precedence
-  def add(x: AExp, y: AExp) = BinaryAExp(AddOp,x,y,r)
-  def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,x,y,r)
+  def add(x: AExp, y: AExp) = BinaryAExp(AddOp,r,x,y)
+  def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,r,x,y)
   @Test def addMul() = testAST("1 + 2 * 3", add(1,mul(2,3)))
   @Test def mulAdd() = testAST("1 * 2 + 3", add(mul(1,2),3))
 
   // Compound statements
   val t = NameAExp("true",r)
-  val e = EmptyAStmt
-  val h = HoleAStmt
-  @Test def ifStmt()      = testAST("if (true);",IfAStmt(t,e,ParenAround,r))
-  @Test def ifBare()      = testAST("if true;",IfAStmt(t,e,NoAround,r),IfElseAStmt(t,e,h,NoAround,r))
-  @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(t,h,h,ParenAround,r))
-  @Test def whileBare()   = testAST("while true;", WhileAStmt(t,e,false,NoAround,r))
-  @Test def doWhileBare() = testAST("do; while true", DoAStmt(e,t,false,NoAround,r))
-  @Test def whileHole()   = testAST("while true", WhileAStmt(t,h,false,NoAround,r), WhileAStmt(t,e,false,NoAround,r))
-  @Test def untilHole()   = testAST("until true", WhileAStmt(t,h,true,NoAround,r), WhileAStmt(t,e,true,NoAround,r),
-                                                  ApplyAExp("until",SingleList(true),NoAround,r),
-                                                  VarAStmt(Nil,"until",SingleList(("true",0,None)),r))
-  @Test def forever()     = testAST("for (;;);", ForAStmt(For(Nil,None,Nil,r),e,ParenAround,r))
-  @Test def foreverHole() = testAST("for (;;)", ForAStmt(For(Nil,None,Nil,r),h,ParenAround,r))
+  val e = EmptyAStmt(r)
+  val h = HoleAStmt(r)
+  val he = HoleAStmt(SRange.empty)
+  @Test def ifStmt()      = testAST("if (true);",IfAStmt(r,t,parens,e))
+  @Test def ifBare()      = testAST("if true;",IfAStmt(r,t,NoAround(r),e),IfElseAStmt(r,t,NoAround(r),e,r,h))
+  @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(r,t,parens,he,r,h))
+  @Test def whileBare()   = testAST("while true;", WhileAStmt(r,false,t,NoAround(r),e))
+  @Test def doWhileBare() = testAST("do; while true", DoAStmt(r,e,r,false,t,NoAround(r)))
+  @Test def whileHole()   = testAST("while true", WhileAStmt(r,false,t,NoAround(r),h), WhileAStmt(r,false,t,NoAround(r),e))
+  @Test def untilHole()   = testAST("until true", WhileAStmt(r,true,t,NoAround(r),h), WhileAStmt(r,true,t,NoAround(r),e),
+                                                  ApplyAExp("until",SingleList(true),NoAround(r)),
+                                                  VarAStmt(Nil,"until",AVarDecl("true",r,0,None)))
+  @Test def forever()     = testAST("for (;;);", ForAStmt(r,For(Nil,r,None,r,Nil),parens,e))
+  @Test def foreverHole() = testAST("for (;;)", ForAStmt(r,For(Nil,r,None,r,Nil),parens,h))
   @Test def forSimple()   = testAST("for (x=7;true;x++)",
-    ForAStmt(For(AssignAExp(None,"x",7,r),Some(t),UnaryAExp(PostIncOp,"x",r),r),h,ParenAround,r))
+    ForAStmt(r,For(AssignAExp(None,r,"x",7),r,Some(t),r,UnaryAExp(PostIncOp,r,"x")),parens,h))
 
   @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
-    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp("X",EmptyList,ParenAround,r),ParenAround,r),None,"f",r),EmptyList,ParenAround,r)))
+    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp("X",EmptyList,parens),parens),r,None,"f",r),EmptyList,parens)))
 
   @Test def weirdParens() = testAST("([{)]}",
-    ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,Grouped(Curly,Paren),r)),BrackAround,r),Grouped(Paren,Curly),r))
+    ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,YesAround(Curly,Paren,a))),bracks),YesAround(Paren,Curly,a)))
 
-  @Test def thisForward() = testAST("this()",ApplyAExp("this",EmptyList,ParenAround,r))
-  @Test def superForward() = testAST("super()",ApplyAExp("super",EmptyList,ParenAround,r))
+  @Test def thisForward() = testAST("this()",ApplyAExp("this",EmptyList,parens))
+  @Test def superForward() = testAST("super()",ApplyAExp("super",EmptyList,parens))
 
   @Test def arrayVar() = {
-    val rhs = ArrayAExp(CommaList(1,2,3),CurlyAround,r)
+    val rhs = ArrayAExp(commas(1,2,3),curlys)
     testAST("int[] x = {1,2,3}",
-      VarAStmt(Nil,ApplyAExp("int",EmptyList,BrackAround,r),SingleList(("x",0,Some(rhs))),r),
-      AssignAExp(None,ApplyAExp(ApplyAExp("int",EmptyList,BrackAround,r),SingleList("x"),NoAround,r),rhs,r))
+      VarAStmt(Nil,ApplyAExp("int",EmptyList,bracks),AVarDecl("x",r,0,Some(r,rhs))),
+      AssignAExp(None,r,ApplyAExp(ApplyAExp("int",EmptyList,bracks),SingleList("x"),NoAround(r)),rhs))
   }
 
   @Test def genericType() =
     testASTPossible("X<String,A<String>> x = null",
-      VarAStmt(Nil,TypeApplyAExp(NameAExp("X",r),CommaList("String",TypeApplyAExp("A","String",r,true,r)),r,true,r),
-        SingleList(("x",0,Some(NameAExp("null",r)))),r))
+      VarAStmt(Nil,TypeApplyAExp(NameAExp("X",r),commas("String",TypeApplyAExp("A","String",a,true)),a,true),
+        AVarDecl("x",r,0,Some(r,NameAExp("null",r)))))
 
   // We lex >> into GtTok GtNoSepTok GtTok.  Make sure we don't screw it up.
-  @Test def rshift() = testAST("x >> y",BinaryAExp(RShiftOp,"x","y",r))
-  @Test def urshift() = testAST("x >>> y",BinaryAExp(UnsignedRShiftOp,"x","y",r))
+  @Test def rshift() = testAST("x >> y",BinaryAExp(RShiftOp,r,"x","y"))
+  @Test def urshift() = testAST("x >>> y",BinaryAExp(UnsignedRShiftOp,r,"x","y"))
   @Test def rshiftSep() = testAST("x > > y")
   @Test def urshiftSep() = testAST("x >> > y")
 
   @Test def juxt() = testAST("a b c",
-    ApplyAExp("a",JuxtList("b","c"),NoAround,r),
-    VarAStmt(Nil,"a",JuxtList(("b",0,None),("c",0,None)),r))
+    ApplyAExp("a",juxts("b","c"),NoAround(r)),
+    VarAStmt(Nil,"a",juxts(AVarDecl("b",r,0,None),AVarDecl("c",r,0,None))))
 
   @Test def twoTypeArgs() =
-    testAST("new<C>A<B>",NewAExp(Some(Loc(SingleList("C"),r)),TypeApplyAExp("A","B",r,true,r),r),
-                         NewAExp(None,TypeApplyAExp(TypeApplyAExp("A","C",r,false,r),"B",r,true,r),r),
-                         TypeApplyAExp(NewAExp(Some(Loc(SingleList("C"),r)),"A",r),"B",r,true,r))
+    testAST("new<C>A<B>",NewAExp(r,Some(Grouped(SingleList("C"),a)),TypeApplyAExp("A","B",a,true)),
+                         NewAExp(r,None,TypeApplyAExp(TypeApplyAExp("A","C",a,false),"B",a,true)),
+                         TypeApplyAExp(NewAExp(r,Some(Grouped(SingleList("C"),a)),"A"),"B",a,true))
 }

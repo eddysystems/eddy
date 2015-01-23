@@ -73,11 +73,6 @@ object Grammar {
     if (prodOnly.size > 0)
       throw new RuntimeException(s"nonterminals $prodOnly have productions but not types")
 
-    // Hack: types must not contain TypeArgs
-    for ((s,t) <- G.types)
-      if (t.contains("TypeArgs"))
-        throw new RuntimeException(s"type $s: $t looks bad")
-
     // Hack: nonterminals must not end in Tok
     def isTok(s: Symbol) = s.endsWith("Tok") && s.forall(_.isLetterOrDigit)
     for (s <- G.types.keys)
@@ -153,7 +148,7 @@ object Grammar {
 
   def binarize(G: Grammar): Grammar = {
     def sym(ss: List[Symbol]) = ss mkString "__"
-    def split(n: Symbol, t: Type, p: List[Symbol], a: Action): (List[(Symbol,Type)],List[(Symbol,Prod)]) = {
+    def split(indent: String, n: Symbol, t: Type, p: List[Symbol], a: Action): (List[(Symbol,Type)],List[(Symbol,Prod)]) = {
       val d = divide(G,p)
       if (d._2.size <= 2)
         (List((n,t)),List((n,(p,a))))
@@ -172,33 +167,46 @@ object Grammar {
           (p0,p1)
         }
         val k = p0.size
-        def sub(p: List[Symbol]): (Symbol,Int=>String,(List[(Symbol,Type)],List[(Symbol,Prod)])) = p match {
-          case List(x) => (x,i=>"",(Nil,Nil))
+        def sub(ii: Int, p: List[(Symbol,Boolean)]): (Symbol,(Int,Boolean)=>String,(List[(Symbol,Type)],List[(Symbol,Prod)])) = p match {
+          case List((x,_)) => (x,(i,r)=>if (r) "r" else "",(Nil,Nil))
           case _ =>
-            val n = sym(p)
-            def tup(ss: List[String]) = ss match {
+            val n = sym(p map (_._1))
+            def tup(nil: String, ss: List[String]): String = ss match {
+              case Nil => nil
               case List(s) => s
               case _ => s"(${ss mkString ","})"
             }
-            val t = tup(p collect {case s if !G.isSimple(s) => G.ty(s)})
-            val a = tup(p.zipWithIndex collect {case (s,i) if !G.isSimple(s) => "$"+(i+1)})
-            def fj(j: Int) =
-              if (G.isSimple(p(j-1))) throw new RuntimeException("Binarize: bad action")
-              else if ((p count (!G.isSimple(_))) == 1) ""
-              else "._"+(1+(p take j-1 count (!G.isSimple(_))))
-            (n,fj,split(n,t,p,a))
+            val single = p.count(_._2)==1
+            val t = tup("Unit",p collect {case (s,true) => if (G.isSimple(s)) "Long"
+                                                           else { val t = G.ty(s); if (G.isToken(s)) s"Loc[$t]" else t }})
+            val a = tup("()",p.zipWithIndex collect {case ((s,true),i) =>
+              val x = "$"+(i+1)
+              if (G.isSimple(s)) x+"r"
+              else if (G.isToken(s)) s"Loc($x,${x}r)"
+              else x
+            })
+            def fj(j: Int, r: Boolean) = p(j)._1 match {
+              case s if !r && G.isSimple(s) => throw new RuntimeException(s"Bad action: s $s, a $a, jr $j$r")
+              case _ if single => ""
+              case s => val k = "._"+(1+(p take j count (_._2)))
+                        if (r && !G.isSimple(s)) k+".r" else k
+            }
+            (n,fj,split(indent+"  ",n,t,p map (_._1),a))
         }
-        val (n0,f0,(t0,r0)) = sub(p0)
-        val (n1,f1,(t1,r1)) = sub(p1)
+        def used(di: Int)(si: (Symbol,Int)): (Symbol,Boolean) =
+          (si._1,("""\$"""+(si._2+di)+"""(?:r\b|(?!\d))""").r.findFirstIn(a).nonEmpty)
+        val (n0,f0,(t0,r0)) = sub(0,p0.zipWithIndex map used(1))
+        val (n1,f1,(t1,r1)) = sub(1,p1.zipWithIndex map used(1+p0.size))
         def convert(m: scala.util.matching.Regex.Match): String = {
           val i = m.group(1).toInt
-          if (i-1 < k) "\\$1"+f0(i) else "\\$2"+f1(i-k)
+          val r = m.group(2).nonEmpty
+          if (i-1 < k) "\\$1"+f0(i-1,r) else "\\$2"+f1(i-k-1,r)
         }
-        val r = (n,(List(n0,n1),"""\$(\d+)""".r.replaceAllIn(a,convert(_))))
+        val r = (n,(List(n0,n1),"""\$(?:(\d+)(r?))""".r.replaceAllIn(a,convert(_))))
         ((n,t)::t0:::t1,r::r0:::r1)
       }
     }
-    val info = for ((n,ps) <- G.prods.toList; (p,a) <- ps) yield split(n,G.types(n),p,a)
+    val info = for ((n,ps) <- G.prods.toList; (p,a) <- ps) yield split("",n,G.types(n),p,a)
     val types = info.map(_._1).flatten.toMap
     val prods = toMapSet(info.map(_._2).flatten)
     G.modify(types,prods)

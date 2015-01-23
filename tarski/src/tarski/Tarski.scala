@@ -98,13 +98,14 @@ object Tarski {
 
   def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
     prepare(tokens) flatMap { case (ts,c) =>
+      val comments = c.toList map {case Loc(c,r) => CommentStmt(c,r)}
       val asts = Mismatch.repair(ts) flatMap (ts => {
         val asts = ParseEddy.parse(ts)
         for (a <- asts; n = asts.count(a==_); if n > 1)
           throw new RuntimeException(s"AST duplicated $n times: $a")
         uniform(Pr.parse,asts,"Parse failed")
       })
-      asts flatMap (denoteStmts(_)(env)) map {case (env,ss) => (env,ss ::: c.toList.map(CommentStmt))}
+      asts flatMap (denoteStmts(_)(env)) map {case (env,ss) => (env,ss ::: comments)}
     }
   }
 }

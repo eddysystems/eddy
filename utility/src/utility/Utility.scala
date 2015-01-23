@@ -24,6 +24,11 @@ object Utility {
     None
   }
 
+  def mapOrElse[A,B](x: Option[A])(f: A => B, y: B): B = x match {
+    case None => y
+    case Some(x) => f(x)
+  }
+
   def toMapList[A,B](c: Iterable[(A,B)]): Map[A,List[B]] = {
     val m = mutable.Map[A,List[B]]()
     c.foreach { case (a,b) => m.update(a, b :: m.getOrElse(a,Nil)) }
