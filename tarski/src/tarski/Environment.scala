@@ -55,6 +55,8 @@ object Environment {
     def place: PlaceInfo
     def move(to: PlaceInfo): Env
 
+    def checkThread() = {}
+
     // Add more objects
     def extend(things: Array[Item], scope: Map[Item,Int]): Env
 
@@ -126,9 +128,9 @@ object Environment {
     }
 
     // Get exact and typo probabilities for string queries
-    def _exactQuery(typed: Array[Char]): List[Item]
-    def _typoQuery(typed: Array[Char]): List[Alt[Item]]
-    def _collect[A](typed: Array[Char], error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
+    protected def _exactQuery(typed: Array[Char]): List[Item]
+    protected def _typoQuery(typed: Array[Char]): List[Alt[Item]]
+    protected def _collect[A](typed: Array[Char], error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[A]): Scored[A] = is match {
         case Nil => s
         case i::is => exact(is,if (filter.isDefinedAt(i)) bestThen(Pr.exact,filter.apply(i),s) else s)
@@ -140,7 +142,7 @@ object Environment {
       exact(_exactQuery(typed),if (exactOnly) fail(error)
                                else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error)))
     }
-    def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
+    protected def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
         case Nil => s
         case i::is => exact(is,bestThen(Pr.exact,i,s))
@@ -153,21 +155,15 @@ object Environment {
                                else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error))) flatMap f
     }
 
-    // Convenience aliases taking String
+    // Convenience aliases taking String (only used in tests)
     @inline final def exactQuery(typed: String): List[Item] = _exactQuery(typed.toCharArray)
     @inline final def typoQuery(typed: String): List[Alt[Item]] = _typoQuery(typed.toCharArray)
 
     @inline final def collect[A](typed: String, error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
-      // make sure an interrupted thread dies quickly
-      if (Thread.currentThread().isInterrupted)
-        throw new ThreadDeath
       _collect(typed.toCharArray,error,filter)
     }
-    @inline final def flatMap[A](typed: String, error: => String, f: Item => Scored[A]): Scored[A] = {
-      // make sure an interrupted thread dies quickly
-      if (Thread.currentThread().isInterrupted)
-        throw new ThreadDeath
-      _flatMap(typed.toCharArray,error,f)
+    @inline final def flatMap[A](typed: String, error: => String, filter: Item => Scored[A]): Scored[A] = {
+      _flatMap(typed.toCharArray,error,filter)
     }
 
     // Lookup by type.item
@@ -193,20 +189,23 @@ object Environment {
                       private val vTrie: Trie[Item], // rebuilt all the time, including by this Env's functions returning new Envs (small)
                       private val dByItem: java.util.Map[TypeItem,Array[Value]],
                       private val vByItem: java.util.Map[TypeItem,Array[Value]],
-                      scope: Map[Item,Int], place: PlaceInfo) extends Env {
+                      scope: Map[Item,Int], place: PlaceInfo,
+                      checkThreadRunnable: Runnable) extends Env {
+
+    override def checkThread() = checkThreadRunnable.run()
 
     val emptyValues = new Array[Value](0)
 
-    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,scope,to)
+    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,scope,to,checkThreadRunnable)
 
     // Enter and leave block scopes
     override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
                                            scope map { case (i,n) => (i,n+1) },
-                                           place)
+                                           place, checkThreadRunnable)
 
     override def popScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
                                            scope collect { case (i,n) if n>1 => (i,n-1) },
-                                           place)
+                                           place, checkThreadRunnable)
 
     // Lookup by type.item
     override def byItem(t: TypeItem): Scored[Value] = {
@@ -220,7 +219,7 @@ object Environment {
 
     // Add more objects
     override def extend(things: Array[Item], scope: Map[Item, Int]): Env =
-      ThreeEnv(sTrie,dTrie,vTrie ++ things,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place)
+      ThreeEnv(sTrie,dTrie,vTrie ++ things,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place,checkThreadRunnable)
 
     // Slow, use only for tests
     def allLocalItems: Array[Item] = (dTrie.values filter (!_.deleted)) ++ vTrie.values
@@ -236,12 +235,18 @@ object Environment {
       }
     }
 
-    override def _exactQuery(typed: Array[Char]): List[Item] =
+    protected override def _exactQuery(typed: Array[Char]): List[Item] = {
+      // pause a thread (to wait for, say, a WriteAction) if requested, or kill it if needed
+      checkThread
       (sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)) filter (_.accessible(place))
+    }
 
     // Get exact and typo probabilities for string queries
-    override def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
+    protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = {
+      // pause a thread (to wait for, say, a WriteAction) if requested, or kill it if needed
+      checkThread
       (sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)) filter (_.x.accessible(place))
+    }
   }
 
   // Store two tries and two byItems: one large one for globals, one small one for locals.
@@ -290,10 +295,10 @@ object Environment {
 
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly (requires word database?)
-    def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
+    protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
       (trie1.typoQuery(typed)++trie0.typoQuery(typed)) filter (_.x.accessible(place))
 
-    def _exactQuery(typed: Array[Char]): List[Item] =
+    protected override def _exactQuery(typed: Array[Char]): List[Item] =
       (trie1.exact(typed) ++ trie0.exact(typed)) filter (_.accessible(place))
 
     def byItem(t: TypeItem): Scored[Value] = {

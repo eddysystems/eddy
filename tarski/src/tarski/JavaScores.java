@@ -28,12 +28,11 @@ public class JavaScores {
   static final boolean trackProbabilities = false;
   static double pp(double x) { return x; }
   static double pmul(double x, double y) { return x*y; }
-  static double pmax(double x, double y) { return Math.max(x,y); }
   static public Scores.Error ppretty(double x) { return new OneError(""+x); }
   /**/
 
-  // Named probabilities.  Very expensive, so enable only for debugging.
   /*
+  // Named probabilities.  Very expensive, so enable only for debugging.
   static abstract public class DebugProb {
     final double prob;
     DebugProb(double prob) { this.prob = prob; }
@@ -66,23 +65,9 @@ public class JavaScores {
       if (y instanceof MulProb) ((MulProb)y).flatten(es); else if (!y.known()) es.add(y.pretty());
     }
   }
-  static final class MaxProb extends DebugProb {
-    final DebugProb x,y;
-    MaxProb(DebugProb x, DebugProb y) { super(Math.max(x.prob,y.prob); this.x = x; this.y = y; }
-    final public Scores.Error pretty() {
-      final ArrayList<Scores.Error> es = new ArrayList<Scores.Error>();
-      flatten(es);
-      return nest("max : "+prob,es.toArray(new Scores.Error[es.size()]));
-    }
-    private void flatten(ArrayList<Scores.Error> es) {
-      if (x instanceof MaxProb) ((MaxProb)x).flatten(es); else es.add(x.pretty());
-      if (y instanceof MaxProb) ((MaxProb)y).flatten(es); else es.add(y.pretty());
-    }
-  }
   static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
   static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
-  static DebugProp pmax(DebugProb x, DebugProb y) { return new MaxProb(x,y); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
   static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
   /**/

@@ -68,9 +68,7 @@ object Tries {
 
     // Lookup a string approximately only (ignoring exact matches)
     @inline def typoQuery(typed: Array[Char]): List[Alt[V]] = {
-      val expected = typed.length * Pr.typingErrorRate
-      val maxErrors = Pr.poissonQuantile(expected,Pr.minimumProbability) // Never discards anything because it has too few errors
-      JavaTrie.levenshteinLookup(structure, values, typed, maxErrors, expected, Pr.minimumProbability)
+      JavaTrie.levenshteinLookup(structure, values, typed, Pr.maxTypos(typed.length), Pr.expectedTypos(typed.length), Pr.minimumProbability)
     }
 
     // The two keys are assumed equal
@@ -98,9 +96,7 @@ object Tries {
     }
 
     override def typoQuery(typed: Array[Char]): List[Alt[V]] = {
-      val expected = typed.length * Pr.typingErrorRate
-      val maxErrors = Pr.poissonQuantile(expected,Pr.minimumProbability) // Never discards anything because it has too few errors
-      JavaTrie.levenshteinLookupGenerated(structure, lookup, typed, maxErrors, expected, Pr.minimumProbability)
+      JavaTrie.levenshteinLookupGenerated(structure, lookup, typed, Pr.maxTypos(typed.length), Pr.expectedTypos(typed.length), Pr.minimumProbability)
     }
   }
 

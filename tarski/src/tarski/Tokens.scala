@@ -47,6 +47,7 @@ object Tokens {
   }
   sealed abstract class CommentTok extends SpaceTok
   case class WhitespaceTok(s: String) extends SpaceTok
+  case class IllegalTok(s: String) extends SpaceTok // non-ASCII character outside identifiers or literals, we consider them space for now
   case class EOLCommentTok(s: String) extends CommentTok
   case class CCommentTok(s: String) extends CommentTok
 
@@ -196,27 +197,27 @@ object Tokens {
   def showSep[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =
     tokens(x) map (_.x.show) mkString " "
 
-  // Convert to a string, adding as little whitespace as possible
-  def show[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String = {
-    def process(ts: List[Token]): String = ts match {
-      case Nil => ""
-      case x::Nil => x.show
-      case x::(ys@(y::_)) =>
-        def safe(x: Token, y: Token) = (x,y) match {
-          case (_:WhitespaceTok,_)|(_,_:WhitespaceTok) => true
-          case (LParenTok|LBrackTok,_) => true
-          case (_,RParenTok|RBrackTok) => true
-          case (_:IdentTok,LParenTok|LBrackTok) => true
-          case (_:IdentTok|QuestionTok,LtTok|GtTok)|(LtTok|GtTok,_:IdentTok|QuestionTok) => true
-          case (GtTok,GtTok|LParenTok) => true
-          case (_,DotTok)|(DotTok,_) => true
-          case (_,SemiTok) => true
-          case _ => false
-        }
-        x.show + (if (safe(x,y)) "" else " ") + process(ys)
-    }
-    process(tokens(x) map (_.x))
+  def print(ts: List[Token])(implicit f: ShowFlags): String = ts match {
+    case Nil => ""
+    case x::Nil => x.show
+    case x::(ys@(y::_)) =>
+      def safe(x: Token, y: Token) = (x,y) match {
+        case (_:WhitespaceTok,_)|(_,_:WhitespaceTok) => true
+        case (LParenTok|LBrackTok,_) => true
+        case (_,RParenTok|RBrackTok) => true
+        case (_:IdentTok,LParenTok|LBrackTok) => true
+        case (_:IdentTok|QuestionTok,LtTok|GtTok)|(LtTok|GtTok,_:IdentTok|QuestionTok) => true
+        case (GtTok,GtTok|LParenTok) => true
+        case (_,DotTok)|(DotTok,_) => true
+        case (_,SemiTok) => true
+        case _ => false
+      }
+      x.show + (if (safe(x,y)) "" else " ") + print(ys)
   }
+
+  // Convert to a string, adding as little whitespace as possible
+  def show[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =
+    print(tokens(x) map (_.x))
 
   // Prepare a token stream for parsing.
   // 1. Turn matching identifiers into fake keywords.

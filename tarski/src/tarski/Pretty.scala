@@ -47,6 +47,7 @@ object Pretty {
     //   5:  bad right associative
     def prec = x & ~7
     def assoc = x & 7
+
     override def toString = fixityNames(this)+"Fix"
   }
   private val fixityNames = mutable.Map[Fixity,String]()

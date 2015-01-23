@@ -1,7 +1,10 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
+import com.intellij.openapi.progress.ProcessCanceledException;
+import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.DumbService;
+import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Computable;
 import com.intellij.psi.*;
@@ -14,9 +17,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import tarski.*;
+
 import java.util.*;
+
 import static com.eddysystems.eddy.engine.Utility.log;
 import static com.eddysystems.eddy.engine.Utility.logError;
+import static java.lang.Thread.sleep;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
 
@@ -187,7 +193,7 @@ public class JavaEnvironment {
     converter = new Converter(this, items, localItems, addedItems);
   }
 
-  public void initialize() {
+  public void initialize(@Nullable ProgressIndicator indicator) {
     pushScope("make base environment");
     try {
       // add base items
@@ -207,8 +213,14 @@ public class JavaEnvironment {
         }
       });
 
-      // takes care of read action business inside
-      storeProjectClassInfo(classNames);
+      if (indicator != null)
+        indicator.setIndeterminate(false);
+
+      // takes care of read action business inside (this is where all the work happens)
+      storeProjectClassInfo(classNames, indicator);
+
+      if (indicator != null)
+        indicator.setIndeterminate(true);
 
       DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() { @Override public void run() {
         buildDynamicEnv();
@@ -325,7 +337,19 @@ public class JavaEnvironment {
     return t;
   }
 
-  private void storeProjectClassInfo(List<String> classNames) {
+  private static boolean _writeActionWaiting = false;
+  public static synchronized void writeActionWaiting() {
+    _writeActionWaiting = true;
+  }
+  private static synchronized boolean checkClearWriteActionWaiting() {
+    if (_writeActionWaiting) {
+      _writeActionWaiting = false;
+      return true;
+    } else
+      return false;
+  }
+
+  private void storeProjectClassInfo(List<String> classNames, @Nullable ProgressIndicator indicator) {
     pushScope("store project classes");
     try {
       final GlobalSearchScope scope = ProjectScope.getContentScope(project);
@@ -345,18 +369,55 @@ public class JavaEnvironment {
         }
       };
 
-      for (final String s : classNames) {
-        DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() { @Override public void run() {
-          try {
-            cache.processClassesWithName(s, proc, scope, filter);
-          } catch (AssertionError e) {
-            // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
-            if (utility.Utility.fromScalaPlugin(e)) logError("storeProjectClassInfo()",e);
-            else throw e;
+      final Utility.SmartReadLock lock = new Utility.SmartReadLock(project);
+      int i = 0;
+      double n = classNames.size();
+      try {
+        long lockTime;
+        for (final String s : classNames) {
+          if (indicator != null) {
+            indicator.checkCanceled();
+            indicator.setFraction(i++/n);
           }
-        }});
+
+          // pretend we're doing a big read action here, if we get stumped by a dump mode, repeat until it passes
+          boolean done = false;
+          while (!done) {
+            done = true;
+            lock.acquire();
+            lockTime = System.nanoTime();
+            try {
+              cache.processClassesWithName(s, proc, scope, filter);
+            } catch (AssertionError e) {
+              // If we're in the Scala plugin, log and squash the error. Don't retry. Otherwise, rethrow.
+              if (utility.Utility.fromScalaPlugin(e)) {
+                logError("storeProjectClassInfo()",e);
+              }
+              else throw e;
+            } catch (IndexNotReadyException e) {
+              // we entered a dumb mode while processing this name, simply try again
+              done = false;
+            } finally {
+              // only release the lock if a write action is trying to start
+              if (checkClearWriteActionWaiting()) {
+                lock.release();
+                // yield to other threads to start the write action
+                try {
+                  sleep(0);
+                } catch (InterruptedException e) {
+                  throw new ProcessCanceledException();
+                }
+              }
+            }
+          }
+        }
+      } finally {
+        // make sure the lock is released
+        lock.release();
       }
-    } finally { popScope(); }
+    } finally {
+      popScope();
+    }
   }
 
   private static List<Items.Item> pruneItems(Collection<Items.Item> items) {
@@ -416,7 +477,7 @@ public class JavaEnvironment {
     }
 
     final Items.Item[] newArray = pruned.toArray(new Items.Item[pruned.size()]);
-    return Tarski.environment(sTrie, dt, Tarski.makeTrie(newArray), dbi, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
+    return Tarski.environment(sTrie, dt, Tarski.makeTrie(newArray), dbi, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo, EddyThread.getThreadChecker());
   }
 
   synchronized void addItem(PsiElement elem) {

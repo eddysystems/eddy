@@ -76,10 +76,10 @@ class TestDen {
   def testFail(input: String, bound: Double = -1)(implicit env: Env): Unit = {
     @tailrec def checkFail[A,B](s: Scored[A], bound: Double = -1)(f: A => B): Unit = if (s.p > bound) s match {
       case s:LazyScored[A] => checkFail(s force bound,bound)(f)
-      case Best(p,x,_) => throw new AssertionError(s"\nExpected probability <= $bound, got\n  $p : ${f(x)}")
+      case Best(p,x,_) => throw new AssertionError(s"\nExpected probability <= $bound for $input, got\n  $p : ${f(x)}")
       case _:EmptyOrBad => ()
     }
-    checkFail(fix(lex(input)),bound)(_._2)
+    checkFail(fix(lex(input)),bound)(x => s"${show(x._2)} (${x._2})")
   }
 
   // Ensure that an option doesn't appear
@@ -652,9 +652,9 @@ class TestDen {
 
     implicit val env = Env(Array(S,T,U,AS,BT,CU,X,Y,f), Map((X,3),(Y,2),(f,2),(S,3),(T,3),(U,3)), PlaceInfo(f))
     // Until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
-    test("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),r,VarDecl(x,r,Nil,None)))
-    test("A<S,S,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),r,VarDecl(x,r,Nil,None))) // Unlikely, but should work
-    def bad(s: String) = testFail(s,bound=1e-4)
+    test("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),r,VarDecl(x,r,0,None)))
+    test("A<S,S,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),r,VarDecl(x,r,0,None))) // Unlikely, but should work
+    def bad(s: String) = testFail(s,bound=3e-4)
     bad("A<S,S,S> x")
     bad("A<S,S,T> x")
     bad("A<S,S,U> x")
@@ -810,9 +810,14 @@ class TestDen {
     lazy val B: ClassItem = NormalClassItem("B",tparams=List(T),base=A.generic(List(T)),constructors=Array(cons))
     lazy val cons = DefaultConstructorItem(B)
     val pre = localEnvWithBase().extendLocal(Array(A,B))
+    implicit val tl = TrackLoc(on=true)
     implicit val env = pre.move(PlaceInfo(pre.place.place,lastEdit=SLoc(22)))
+    def r(lo: Int, hi: Int) = SRange(SLoc(lo),SLoc(hi))
+    def a(lo: Int, hi: Int) = SGroup.approx(r(lo,hi))
     test("A<Integer> x = new B<Long>","x",x =>
-      VarStmt(A.generic(List(LongType.box)),r,(x,ApplyExp(NewDen(r,None,cons,r,Some(Grouped(List(LongType.box),a))),Nil,a,auto=true))))
+      VarStmt(A.generic(List(LongType.box)),r(0,10),
+              VarDecl(x,r(11,12),Nil,Some(r(13,14),
+                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(LongType.box),a(20,26)))),Nil,a(26,26),auto=true)))))
   }
 
   @Test def fixTypeGenericLeftToRight() = {
@@ -829,7 +834,7 @@ class TestDen {
     test("A<Integer> x = new B<Long>","x",x =>
       VarStmt(A.generic(List(IntType.box)),r(0,10),
               VarDecl(x,r(11,12),Nil,Some(r(13,14),
-                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(IntType.box),a(19,20)))),Nil,a(19,20),auto=true)))))
+                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(IntType.box),a(20,20)))),Nil,a(20,20),auto=true)))))
   }
 
   @Test def fillTypeGeneric() = {

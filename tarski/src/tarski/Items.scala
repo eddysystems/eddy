@@ -22,6 +22,7 @@ object Items {
       def qualified: Name = name // Overridden by Member
 
       // false if access restricted by private or protected. lazy classes from the environment override this
+      // items can be accessible but still shadowed or otherwise out of scope.
       def accessible(place: PlaceInfo) = true
     }
 

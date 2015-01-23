@@ -3,15 +3,14 @@ package com.eddysystems.eddy.engine;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
 import com.intellij.psi.*;
-import com.intellij.psi.scope.BaseScopeProcessor;
 import com.intellij.psi.scope.ElementClassHint;
 import com.intellij.psi.scope.JavaScopeProcessorEvent;
 import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
-import tarski.Environment.PlaceInfo;
 import tarski.Environment;
+import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
 import tarski.Types.ClassType;
 
@@ -98,8 +97,6 @@ class EnvironmentProcessor {
       }
     }
 
-    log("added " + locals.size() + " locals");
-
     synchronized(jenv) {
       // .values is undefined if it is modified during iteration.
       localItems.addAll(locals.values());
@@ -131,6 +128,7 @@ class EnvironmentProcessor {
       }
 
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
+      // TODO: only add these until we enter static scope
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
         assert scopeItems.containsKey(c);

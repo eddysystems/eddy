@@ -29,6 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static com.eddysystems.eddy.engine.Utility.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
@@ -119,14 +120,10 @@ public class EddyPlugin implements ProjectComponent {
         env = new JavaEnvironment(project);
         psiListener = new EddyPsiListener(env);
         PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-        env.initialize();
+        env.initialize(indicator);
       } else {
         final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
         String err = "";
-
-        if (sbar != null) {
-          widget.moreBusy();
-        }
 
         try {
           // can't have changes between when we make the environment and when we register the psi listener
@@ -136,7 +133,7 @@ public class EddyPlugin implements ProjectComponent {
             PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
           }});
 
-          env.initialize();
+          env.initialize(indicator);
 
           log("environment initialized");
 
@@ -147,7 +144,6 @@ public class EddyPlugin implements ProjectComponent {
         } finally {
           initializing = false;
           if (sbar != null) {
-            widget.lessBusy();
             if (err.isEmpty())
               sbar.setInfo("eddy initialized.");
             else
@@ -215,7 +211,7 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   public void initComponent() {
-    log("eddy starting: installation " + installKey() + " version " + getVersion() + " build " + getBuild());
+    log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
 
     // register our injector
     project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);

@@ -8,11 +8,12 @@ import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.PopupStep;
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
 import org.jetbrains.annotations.NotNull;
-import tarski.Tokens;
 
 import javax.swing.*;
-import static tarski.Tokens.abbrevShowFlags;
+
+import static com.eddysystems.eddy.engine.Utility.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
+import static tarski.Tokens.abbrevShowFlags;
 
 public class EddyAction implements QuestionAction {
   private final @NotNull Eddy.Output output;
@@ -32,23 +33,8 @@ public class EddyAction implements QuestionAction {
       return "eddy thinks...";
   }
 
-  public double maxProb() {
-    if (output.results.isEmpty())
-      return 0;
-    else
-      return output.results.get(0).p();
-  }
-
-  public double nextProb() {
-    if (output.results.size() > 1) {
-      return output.results.get(1).p();
-    } else {
-      return 0;
-    }
-  }
-
-  public boolean isConfident() {
-    return output.isConfident();
+  public @NotNull Eddy.Output getOutput() {
+    return output;
   }
 
   // return how many net characters were inserted (by how much the line has grown/shrunk)
@@ -71,7 +57,7 @@ public class EddyAction implements QuestionAction {
     else {
       // show selection dialog
       final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy thinks:", output.formats(abbrevShowFlags())) {
+        new BaseListPopupStep<String>("eddy thinks:", output.formats(abbrevShowFlags(), true)) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;
@@ -89,7 +75,10 @@ public class EddyAction implements QuestionAction {
             }
 
             if (finalChoice) {
-              output.apply(selectedValue);
+              if (isDebug()) {
+                output.apply(selectedValue.substring(selectedValue.indexOf(':') + 2));
+              } else
+                output.apply(selectedValue);
               return FINAL_CHOICE;
             }
 

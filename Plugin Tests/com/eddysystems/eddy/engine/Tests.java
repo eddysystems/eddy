@@ -112,7 +112,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       if (lastEdit < 0)
         lastEdit = myFixture.getEditor().getCaretModel().getOffset();
       final Eddy eddy = makeEddy();
-      return eddy.env(eddy.input(myFixture.getEditor()),lastEdit);
+      return eddy.env(eddy.input(),lastEdit);
     } finally { popScope(); }
   }
 
@@ -124,7 +124,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
         lastEdit = myFixture.getEditor().getCaretModel().getOffset();
 
       class TestTake implements Eddy.Take {
-        Eddy.Output output;
+        Eddy.Output output = null;
         @Override public boolean take(Eddy.Output output) {
           this.output = output;
           if (output.results.size() < 4) return false;
@@ -188,12 +188,12 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   private void checkResult(final Eddy.Output output, final String expected) {
     dumpResults(output,expected);
     assertTrue("eddy did not find correct solution: " + expected,
-      output.formats(abbrevShowFlags()).contains(expected));
+      output.formats(abbrevShowFlags(),false).contains(expected));
   }
 
   private void checkBest(final Eddy.Output output, final String best, final double margin, final ShowFlags f) {
     dumpResults(output,best);
-    final List<String> ss = output.formats(f);
+    final List<String> ss = output.formats(f,false);
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
@@ -288,10 +288,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testClosingBrace() {
     pushDebug();
     try {
-      testMargin("closingBrace.java", "nonsense", .9);
-      throw new Eddy.Skip("");
-    } catch (final Eddy.Skip e) {
-      assert e.getMessage().contains("No tokens");
+      assertNull(setupEddy(null, -1, "closingBrace.java"));
     } finally { popDebug(); }
   }
 

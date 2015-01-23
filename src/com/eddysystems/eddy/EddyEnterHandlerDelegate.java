@@ -33,7 +33,7 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
     if (!editor.getDocument().getText(new TextRange(co,nextLine)).trim().isEmpty())
       return Result.Continue;
 
-    if (!action.isConfident())
+    if (!action.getOutput().shouldAutoApply())
       return Result.Continue;
 
     Project project = editor.getProject();

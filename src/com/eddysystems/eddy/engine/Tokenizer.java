@@ -180,7 +180,8 @@ class Tokenizer {
     if (type == JavaTokenType.DOUBLE_COLON) return ColonColonTok$.MODULE$;
     if (type == JavaTokenType.ARROW)        return ArrowTok$.MODULE$;
 
-    if (type == TokenType.WHITE_SPACE) return new WhitespaceTok(elem.getText());
+    if (type == TokenType.WHITE_SPACE)   return new WhitespaceTok(elem.getText());
+    if (type == TokenType.BAD_CHARACTER) return new IllegalTok(elem.getText());
 
     final PsiElement psi = elem.getPsi();
     if (psi instanceof PsiStatement) return new PsiStmtTok((PsiStatement)psi);

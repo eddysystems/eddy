@@ -81,54 +81,6 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     return editor.getCaretModel().getCaretCount() == 1 && EddyPlugin.getInstance(project).isInitialized();
   }
 
-  private static final Object current_eddythread_lock = new Object();
-  private static EddyFileListener current_eddythread_owner = null;
-  private static EddyThread current_eddythread = null;
-
-  private void runEddyThread() {
-    synchronized (current_eddythread_lock) {
-      if (current_eddythread != null) {
-        current_eddythread.interrupt();
-      }
-      current_eddythread = new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
-        @Override public boolean take(Eddy.Output output) {
-          showHint(output);
-          if (output.results.size() >= 4)
-            return true;
-          return false;
-        }
-      });
-      current_eddythread_owner = this;
-      current_eddythread.start();
-    }
-  }
-
-  // True if a thread was actually restarted
-  public static boolean restartEddyThread() {
-    // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
-    synchronized (current_eddythread_lock) {
-      if (current_eddythread != null) {
-        killEddyThread(); // does not reset current_eddythread_owner
-        current_eddythread_owner.runEddyThread();
-        return true;
-      }
-      return false;
-    }
-  }
-
-  // True if a thread was actually killed
-  public static boolean killEddyThread() {
-    // The eddy thread runs in a ReadAction.  Kill it to let the write action start.
-    synchronized (current_eddythread_lock) {
-      if (current_eddythread != null) {
-        current_eddythread.interrupt();
-        current_eddythread = null;
-        return true;
-      }
-      return false;
-    }
-  }
-
   protected void process() {
     if (!enabled()) {
       // check if we're not initialized, and if so, try to reinitialize
@@ -141,7 +93,14 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
       @Override
       public void run() {
-        runEddyThread();
+        EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
+          @Override public boolean take(Eddy.Output output) {
+            showHint(output);
+            if (output.results.size() >= 4)
+              return true;
+            return false;
+          }
+        }));
       }
     });
   }
@@ -176,20 +135,18 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   public void nextResult() {
-    synchronized (current_eddythread_lock) {
-      if (   current_eddythread_owner == this
-          && current_eddythread.output != null
-          && current_eddythread.output.nextBestResult())
-        showHint(current_eddythread.output);
+    synchronized (active_lock) {
+      if (   active_hint_instance == this
+          && active_action.getOutput().nextBestResult())
+        showHint(active_action.getOutput());
     }
   }
 
   public void prevResult() {
-    synchronized (current_eddythread_lock) {
-      if (   current_eddythread_owner == this
-          && current_eddythread.output != null
-          && current_eddythread.output.prevBestResult())
-        showHint(current_eddythread.output);
+    synchronized (active_lock) {
+      if (   active_hint_instance == this
+          && active_action.getOutput().prevBestResult())
+        showHint(active_action.getOutput());
     }
   }
 
@@ -198,9 +155,10 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     if (inChange)
       return;
 
-    // only process on position change if we switched lines
-    // TODO: only process if input changed (ie if we switched statements)
-    if (e.getNewPosition().line != e.getOldPosition().line)
+    // TODO: only process if input changed (if we switched statements?)
+    if (EddyThread.getEddyThread() == null || // process if no thread has ever been started
+        EddyThread.getEddyThread().eddy.getEditor() != this || // process if current thread is for a different editor
+        e.getNewPosition().line != e.getOldPosition().line) // process if we switched lines
       process();
   }
 

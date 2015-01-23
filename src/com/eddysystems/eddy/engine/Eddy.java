@@ -2,9 +2,12 @@ package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
 import com.eddysystems.eddy.PreferencesProvider;
+import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
+import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
+import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -17,6 +20,7 @@ import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import scala.Function3;
 import scala.Unit$;
 import scala.runtime.AbstractFunction3;
@@ -42,8 +46,16 @@ import static utility.Utility.unchecked;
 
 public class Eddy {
   final private Project project;
-  final private Editor editor;
   final private Memory.Info base;
+  final private Editor editor;
+  final private Document document;
+
+  public Editor getEditor() { return editor; }
+  public PsiFile getFile() {
+    final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
+    assert file != null;
+    return file;
+  }
 
   public static class Input {
     final TextRange range;
@@ -56,6 +68,12 @@ public class Eddy {
       this.input = input;
       this.place = place;
       this.before_text = before_text;
+    }
+
+    // compare without considering to whitespace.
+    // TODO: this needs to change once we have a better way of handling comments etc.
+    public boolean sameAsBefore(String after) {
+      return before_text.replaceAll("[\n\t ]+"," ").equals(after.replaceAll("[\n\t ]+"," "));
     }
   }
 
@@ -87,10 +105,15 @@ public class Eddy {
     public String format(final int i, final ShowFlags f) {
       return format(results.get(i).x(),f);
     }
-    public List<String> formats(final ShowFlags f) {
+    public List<String> formats(final ShowFlags f, final boolean probs) {
       final List<String> fs = new ArrayList<String>(results.size());
       for (final Alt<List<ShowStmt>> a : results)
         fs.add(format(a.x(),f));
+      if (probs) {
+        for (int i = 0; i < fs.size(); ++i) {
+          fs.set(i, String.format("%f: %s", results.get(i).p(), fs.get(i)));
+        }
+      }
       return fs;
     }
 
@@ -101,7 +124,7 @@ public class Eddy {
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean shouldShowHint() {
       for (final Alt<List<ShowStmt>> r : results)
-        if (format(r.x(),fullShowFlags()).equals(input.before_text))
+        if (input.sameAsBefore(format(r.x(), fullShowFlags())))
           return false; // We found what's already there
       return !results.isEmpty();
     }
@@ -145,10 +168,10 @@ public class Eddy {
 
     public int autoApply() {
       // Automatically apply the best found result
-      return rawApply(eddy.editor.getDocument(),format(0,abbrevShowFlags()));
+      return rawApply(eddy.document,format(0,abbrevShowFlags()));
     }
 
-    public boolean isConfident() {
+    public boolean shouldAutoApply() {
       // check if we're confident enough to apply the best found result automatically
       double t = PreferencesProvider.getData().getNumericAutoApplyThreshold();
       double f = PreferencesProvider.getData().getNumericAutoApplyFactor();
@@ -162,10 +185,10 @@ public class Eddy {
       return false;
     }
 
-    private int rawApply(final @NotNull Document document, final @NotNull String full) {
-      final int offsetDiff = full.length() - input.range.getLength();
-      log("replacing '" + document.getText(input.range) + "' with '" + full + '\'');
-      document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), full);
+    public int rawApply(final @NotNull Document document, final @NotNull String code) {
+      final int offsetDiff = code.length() - input.range.getLength();
+      document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
+      Memory.log(Memory.eddyAutoApply(eddy.base,input.input,results,code));
       return offsetDiff;
     }
 
@@ -175,17 +198,12 @@ public class Eddy {
         @Override
         public void run() {
           final Editor editor = eddy.editor;
-          final Project project = editor.getProject();
-          final Document document = editor.getDocument();
-          final PsiFile psifile = PsiDocumentManager.getInstance(project).getPsiFile(document);
-          assert psifile != null;
-
-          new WriteCommandAction(project, psifile) {
+          new WriteCommandAction(eddy.project, eddy.getFile()) {
             @Override
             public void run(@NotNull Result result) {
-              final int newOffset = input.range.getEndOffset() + rawApply(document,full);
+              final int newOffset = input.range.getEndOffset() + rawApply(eddy.document,full);
               editor.getCaretModel().moveToOffset(newOffset);
-              PsiDocumentManager.getInstance(project).commitDocument(document);
+              PsiDocumentManager.getInstance(eddy.project).commitDocument(eddy.document);
             }
           }.execute();
         }
@@ -202,24 +220,26 @@ public class Eddy {
   public Eddy(@NotNull final Project project, final Editor editor) {
     this.project = project;
     this.editor = editor;
+    this.document = editor.getDocument();
     this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
   }
 
-  public static class Skip extends Exception {
+  private static class Skip extends Exception {
     public Skip(final String s) {
       super(s);
     }
   }
 
-  // Find the previous or immediately enclosing element
-  private static @NotNull PsiElement previous(final PsiElement e) throws Skip {
+  public static class PsiStructureException extends RuntimeException {
+    public PsiStructureException(final String s) { super(s); }
+  }
+
+  // Find the previous or immediately enclosing element (which may be null if there's no parent)
+  private static @Nullable PsiElement previous(final PsiElement e) throws Skip {
     PsiElement p = e.getPrevSibling();
     if (p != null)
       return p;
-    p = e.getParent();
-    if (p != null)
-      return p;
-    throw new Skip("previous failed: element "+e+" has no previous sibling or parent");
+    return e.getParent();
   }
 
   // Trim a range to not include whitespace
@@ -323,27 +343,21 @@ public class Eddy {
     return true;
   }
 
-  public static Input input(final @NotNull Editor editor) throws Skip {
+  public Input input() throws Skip {
     log("processing eddy...");
-    final Project project = editor.getProject();
-    assert project != null;
-
-    final Document doc = editor.getDocument();
-    final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(doc);
-    if (file == null)
-      throw new Skip("File is null");
-
     // Determine where we are
     final int cursor = editor.getCaretModel().getCurrentCaret().getOffset();
-    final int line = doc.getLineNumber(cursor);
-    final TextRange range = TextRange.create(doc.getLineStartOffset(line), doc.getLineEndOffset(line));
-    log("  processing line " + line + ": " + doc.getText(range));
+    final int line = document.getLineNumber(cursor);
+    final TextRange range = TextRange.create(document.getLineStartOffset(line), document.getLineEndOffset(line));
+    log("  processing line " + line + ": " + document.getText(range));
 
     // Find relevant statements and comments
-    final List<PsiElement> elems = elementsContaining(doc,range,file.findElementAt(cursor));
+    final List<PsiElement> elems = elementsContaining(document,range,getFile().findElementAt(cursor));
     if (elems.isEmpty())
       throw new Skip("Empty statement list");
     final PsiElement place = previous(elems.get(0));
+    if (place == null)
+      throw new PsiStructureException("previous(" + elems.get(0) + ") == null");
 
     // Walk all relevant elements, collecting leaves and atomic code blocks.
     // We walk on AST instead of Psi to get down to the token level.
@@ -368,8 +382,8 @@ public class Eddy {
     // Compute range to be replaced.  We rely on !tokens.isEmpty
     final TextRange trim = Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
-    final String before = doc.getText(trim);
-    log("  before: " + before);
+    final String before = document.getText(trim);
+    log("  before: " + before.replaceAll("[\n\t ]+", " "));
     return new Input(trim,tokens,place,before);
   }
 
@@ -377,13 +391,29 @@ public class Eddy {
     return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place, lastEdit);
   }
 
+  private void updateIntentions() {
+    if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      LaterInvocator.invokeLater(new Runnable() {
+        @Override
+        public void run() {
+          final PsiFile file = getFile();
+          ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
+          ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
+          if (!intentions.isEmpty()) {
+            IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+          }
+        }
+      });
+    }
+  }
+
   public void process(final @NotNull Editor editor, final int lastEdit, final Take takeoutput) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
       final double start = Memory.now();
       Input input;
-      Output output;
       List<Alt<List<ShowStmt>>> results;
+      List<Double> delays = new ArrayList<Double>(4);
       Throwable error;
 
       void compute(final Env env) {
@@ -394,25 +424,37 @@ public class Eddy {
             return reformat(input.place,s,sh,f);
           }
         };
+        final long startTime = System.nanoTime();
         final Tarski.Take take = new Tarski.Take() {
           @Override public boolean take(final List<Alt<List<ShowStmt>>> rs) {
             results = rs;
-            output = new Output(Eddy.this,input,results);
+            double delay = (System.nanoTime() - startTime)/1e9;
+            delays.add(delay);
+            Eddy.Output output = new Output(Eddy.this,input,results);
+            if (isDebug())
+              System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(abbrevShowFlags(),true)));
+
+            updateIntentions();
             return takeoutput.take(output);
           }
         };
         Tarski.fixTake(input.input,env,format,take);
       }
 
-      void unsafe() throws Skip {
-        input = Eddy.input(editor);
-        compute(env(input,lastEdit));
+      void unsafe() {
+        try {
+          input = Eddy.this.input();
+          compute(env(input,lastEdit));
+        } catch (Skip s) {
+          // ignore skipped lines
+          log("skipping: " + s.getMessage());
+        }
       }
 
       void safe() {
         try {
           if (isDebug()) // Run outside try so that we can see inside exceptions
-            unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() throws Skip {
+            unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() {
               unsafe();
               return Unit$.MODULE$;
             }});
@@ -428,7 +470,8 @@ public class Eddy {
         } finally {
           Memory.log(Memory.eddyProcess(base,start,
                                         input==null ? null : input.input,
-                                        results).error(error));
+                                        results,
+                                        delays).error(error));
         }
       }
     }
@@ -444,4 +487,5 @@ public class Eddy {
     CodeStyleManager.getInstance(project).reformat(elem,true);
     return elem.getText();
   }
+
 }
