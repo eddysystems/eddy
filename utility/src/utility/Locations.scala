@@ -11,6 +11,7 @@ object Locations {
   class SLoc(val raw: Int) extends AnyVal {
     def +(d: Int) = SLoc(raw+d)
     def -(d: Int) = SLoc(raw-d)
+    override def toString = if (this == SLoc.unknown) "SLoc.unknown" else s"SLoc($raw)"
   }
   object SLoc {
     val unknown = new SLoc(Int.MaxValue)
