@@ -5,7 +5,7 @@ import tarski.AST.CommaList
 import tarski.Denotations.Exp
 import tarski.Items._
 import tarski.Scores._
-import tarski.Types.{ClassType, Type}
+import tarski.Types.Type
 import tarski.JavaScores._
 
 object Pr {
@@ -13,10 +13,26 @@ object Pr {
   // Minimum probability before an object is considered a match for a query
   val minimumProbability = .01
 
-  // Errors per character
-  val typingErrorRate = .05
+  // this many typos are free (after the blanket Pr.typo penalty), exponential decay after that
+  @inline def expectedTypos(l: Int): Float = Math.min(l/7.0f, 2.0f)
 
-  def normalCDF(mu: Double, sigma: Double, x_in: Double): Double = {
+  // probability reaches .01 at this number of typos
+  @inline def maxTypos(l: Int): Float = { val e = expectedTypos(l); Math.max(e*2,e+1) }
+
+  @inline def typoProbability(d: Double, expected: Double, max: Double): Double =
+    Math.exp(Math.max(0,d-expected)/max * Math.log(minimumProbability))
+
+  // probability we make d errors when typing l characters
+  @inline def typoProbability(d: Double, l: Int): Prob =
+    Prob(s"typo d $d, l $l", typoProbability(d, expectedTypos(l), maxTypos(l)))
+
+
+  /* These errors assume a poisson distribution if typos, which is principled, but a stretch
+
+  // Errors per character
+  private val typingErrorRate = .05
+
+  private def normalCDF(mu: Double, sigma: Double, x_in: Double): Double = {
     val x = (x_in-mu)/sigma
     var sum = x
     var value = x
@@ -28,10 +44,15 @@ object Pr {
   }
 
   // return how many mistakes we can make until the probability drops below a threshold
-  def poissonQuantile(lambda: Double, p: Double): Int = {
+  private def poissonQuantile(lambda: Double, p: Double): Int = {
     var k = math.ceil(lambda).toInt
     while (poissonPDF(lambda,k) > p) k += 1
     k
+  }
+
+  @inline def expectedTypos(l: Int) = Pr.typingErrorRate * l
+  @inline def maxTypos(l: Int) = {
+    Pr.poissonQuantile(expectedTypos(l),Pr.minimumProbability) // Never discards anything because it has too few errors
   }
 
   def typoProbability(d: Double, l: Int): Prob = {
@@ -39,6 +60,8 @@ object Pr {
     // probability we make d errors when typing meant.length characters
     Prob(s"typo d $d, l $l",poissonPDF(e,math.ceil(d).toInt))
   }
+
+  */
 
   def typoProbability(meant: String, typed: String): Prob = {
     val d = JavaTrie.levenshteinDistance(meant.toCharArray, meant.length, typed.toCharArray, typed.length)
@@ -179,7 +202,7 @@ object Pr {
   val forEachArrayNoType = Prob("foreach array no type",.7)
 
   val exact = Prob("exact",1)
-  val typo = Prob("typo",.2)
+  val typo = Prob("typo",.5)
   assert(pp(exact) > pp(typo))
   val objectOfType = base
   val objectOfItem = base

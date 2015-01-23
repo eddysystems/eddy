@@ -66,10 +66,10 @@ class TestDen {
   def testFail(input: String, bound: Double = -1)(implicit env: Env): Unit = {
     @tailrec def checkFail[A,B](s: Scored[A], bound: Double = -1)(f: A => B): Unit = if (s.p > bound) s match {
       case s:LazyScored[A] => checkFail(s force bound,bound)(f)
-      case Best(p,x,_) => throw new AssertionError(s"\nExpected probability <= $bound, got\n  $p : ${f(x)}")
+      case Best(p,x,_) => throw new AssertionError(s"\nExpected probability <= $bound for $input, got\n  $p : ${f(x)}")
       case _:EmptyOrBad => ()
     }
-    checkFail(fix(lex(input)),bound)(_._2)
+    checkFail(fix(lex(input)),bound)(x => s"${show(x._2)} (${x._2})")
   }
 
   // Ensure that an option doesn't appear
@@ -642,7 +642,7 @@ class TestDen {
     // Until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
     test("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),List((x,0,None))))
     test("A<S,S,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),List((x,0,None)))) // Unlikely, but should work
-    def bad(s: String) = testFail(s,bound=1e-4)
+    def bad(s: String) = testFail(s,bound=3e-4)
     bad("A<S,S,S> x")
     bad("A<S,S,T> x")
     bad("A<S,S,U> x")
