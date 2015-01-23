@@ -34,21 +34,27 @@ class TestDen {
   case class TrackLoc(on: Boolean)
   implicit val tl = TrackLoc(on=false)
 
+  // Ideally, we'd run a full fixpoint test on the location tracking to verify that everything flows through correctly.
+  // Unfortunately, we're lazy in several places (new, commas, types), so location tracking is not perfect.  Even weak
+  // fixpoint tests (without location tracking) are useful though, and hopefully we can turn on the full version later.
+  val locationFixpoint = false
+
   def fp(p: Prob) = pp(p) + (if (!trackProbabilities) "" else s"\n${ppretty(p).prefixed("  ")}")
 
   def testHelper[A](input: String, best: Env => A, margin: Double = .9)
                    (implicit env: Env, convert: A => List[Stmt], tl: TrackLoc): Unit = {
-    def ts = lex(input)
+    val ts: Tokens = lex(input)
     val fixes = fix(if (tl.on) ts else ts map (x => Loc(x.x,r)))
     fixes.strict match {
       case e:EmptyOrBad => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.error.prefixed("error: "))
-      case Best(p,(env,s),rest) =>
-        val b = convert(best(env))
-        def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env),showFlags)
+      case Best(p,(env2,s),rest) =>
+        val b = convert(best(env2))
+        def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env2),showFlags)
+        val sb = sh(b)
         if (b != s) {
           val ep = probOf(fixes,env => convert(best(env)))
           throw new AssertionError(s"Denotation test failed:\ninput: $input" +
-                                   s"\nexpected: ${sh(b)}\nactual  : ${sh(s)}" +
+                                   s"\nexpected: $sb\nactual  : ${sh(s)}" +
                                    s"\nexpected p = ${fp(ep)}" +
                                    s"\nactual   p = ${fp(p)}" +
                                    s"\nexpected (full): $b\nactual   (full): $s")
@@ -56,11 +62,30 @@ class TestDen {
           val n = rest.stream.head
           throw new AssertionError(s"Denotation test failed:\ninput: $input" +
                                    s"\nwanted margin $margin, got ${pp(n.dp)} / ${pp(p)} = ${pp(n.dp) / pp(p)}" +
-                                   s"\nbest: ${sh(b)}\nnext: ${sh(n.x._2)}" +
+                                   s"\nbest: $sb\nnext: ${sh(n.x._2)}" +
                                    s"\nbest p = ${fp(p)}" +
                                    s"\nnext p = ${fp(n.dp)}")
-        } else { // Make sure pretty printing works
-          sh(b); ()
+        }
+        // Verify that locations are correctly threaded, by rerunning fix with full locations
+        val ts2 = lex(sb)
+        def ignore(x: Loc[Token]): Boolean = isSpace(x.x) || x.x==HoleTok
+        fix(ts2)(env).strict match {
+          case e:EmptyOrBad => throw new RuntimeException(s"Fixpoint test failed:\n"
+                                                        + s"input: ${print(ts2 map (_.x))}\n"
+                                                        + s"ts2: ${ts2 mkString " "}\n"
+                                                        + s"ts2: ${ts2 filterNot ignore mkString " "}\n"
+                                                        + e.error.prefixed("error: "))
+          case Best(_,(env3,s3),_) =>
+            val ts3 = tokens(s3)(prettyStmts(_)(env3))
+            val i2 = ts2 filterNot ignore
+            val i3 = ts3 filterNot ignore
+            val si2 = i2 map (_.x)
+            val si3 = i3 map (_.x)
+            if (if (locationFixpoint) i2 != i3 else si2 != si3) {
+              println(s"Fixpoint not reached:\nsb = $sb")
+              if (locationFixpoint) assertEquals(i2,i3)
+              else assertEquals(si2,si3)
+            }
         }
     }
   }
@@ -183,7 +208,7 @@ class TestDen {
   @Test
   def makeAndSet() =
     test("x = 1; x = 2", "x", x =>
-      List(VarStmt(IntType,r,(x,1)),
+      List(SemiStmt(VarStmt(IntType,r,(x,1)),r),
            ExpStmt(AssignExp(None,r,x,2))))
 
   @Test
@@ -387,6 +412,7 @@ class TestDen {
   val t = BooleanLit(true,r)
   val f = BooleanLit(false,r)
   val e = EmptyStmt(r)
+  val es = SemiStmt(e,r)
   val h = HoleStmt(r)
   val he = HoleStmt(SRange.empty)
   def testX(input: String, best: (Stmt,Stmt) => Stmt) = {
@@ -394,34 +420,35 @@ class TestDen {
     implicit val env = extraEnv.extendLocal(Array(x))
     test(input,best(AssignExp(None,r,x,1),AssignExp(None,r,x,2)))
   }
-  @Test def ifStmt()       = test ("if (true);", IfStmt(r,t,a,e))
+  @Test def ifStmt()       = test ("if (true);", IfStmt(r,t,a,es))
   @Test def ifHole()       = test ("if (true)", IfStmt(r,t,a,h))
-  @Test def ifBare()       = test ("if true;", IfStmt(r,t,a,e), margin=.99)
+  @Test def ifBare()       = test ("if true;", SemiStmt(IfStmt(r,t,a,e),r), margin=.99)
   @Test def ifBareHole()   = test ("if true", IfStmt(r,t,a,h))
-  @Test def ifThen()       = test ("if true then;", IfStmt(r,t,a,e))
+  @Test def ifThen()       = test ("if true then;", IfStmt(r,t,a,es))
   @Test def ifThenHole()   = test ("if true then", IfStmt(r,t,a,h))
   @Test def ifThenParens() = test ("if (true) then", IfStmt(r,t,a,h))
   @Test def ifElse()       = testX("if (true) x=1 else x=2", (x,y) => IfElseStmt(r,t,a,x,r,y))
   @Test def ifElseHole()   = test ("if (true) else", IfElseStmt(r,t,a,he,r,h))
   @Test def ifThenElse()   = testX("if true then x=1 else x=2", (x,y) => IfElseStmt(r,t,a,x,r,y))
   @Test def elif()         = testX("if (true) x=1 elif (false) x=2", (x,y) => IfElseStmt(r,t,a,x,r,IfStmt(r,f,a,y)))
-  @Test def elifBraces()   = testX("if (true) { x=1; } elif false { x=2 }", (x,y) => IfElseStmt(r,t,a,BlockStmt(x,a),r,IfStmt(r,f,a,BlockStmt(y,a))))
+  @Test def elifBraces()   = testX("if (true) { x=1; } elif false { x=2 }", (x,y) =>
+    IfElseStmt(r,t,a,BlockStmt(SemiStmt(x,r),a),r,IfStmt(r,f,a,BlockStmt(y,a))))
   @Test def ifBraces()     = testX("if true { x=1 }", (x,y) => IfStmt(r,t,a,BlockStmt(x,a)))
 
   // While and do
-  @Test def whileStmt()       = test("while (true);", WhileStmt(r,t,a,e))
+  @Test def whileStmt()       = test("while (true);", WhileStmt(r,t,a,es))
   @Test def whileHole()       = test("while (true)", WhileStmt(r,t,a,h))
-  @Test def whileBare()       = test("while true;", WhileStmt(r,t,a,e))
+  @Test def whileBare()       = test("while true;", SemiStmt(WhileStmt(r,t,a,e),r))
   @Test def whileBareHole()   = test("while true", WhileStmt(r,t,a,h))
   @Test def untilHole()       = test("until true", WhileStmt(r,f,a,h))
-  @Test def doWhile()         = test("do; while (true)", DoStmt(r,e,r,t,a))
+  @Test def doWhile()         = test("do; while (true)", DoStmt(r,es,r,t,a))
   @Test def doWhileHole()     = test("do while (true)", DoStmt(r,he,r,t,a))
-  @Test def doWhileBare()     = test("do; while true", DoStmt(r,e,r,t,a))
+  @Test def doWhileBare()     = test("do; while true", DoStmt(r,es,r,t,a))
   @Test def doWhileHoleBare() = test("do while true", DoStmt(r,he,r,t,a))
   @Test def doUntil()         = test("do until true", DoStmt(r,he,r,f,a))
 
   // For
-  @Test def forever()     = test("for (;;);", ForStmt(r,Nil,None,r,Nil,a,e))
+  @Test def forever()     = test("for (;;);", ForStmt(r,Nil,None,r,Nil,a,es))
   @Test def foreverHole() = test("for (;;)", ForStmt(r,Nil,None,r,Nil,a,h))
   @Test def forSimple()   = test("for (x=7;true;x++)", "x", x =>
     ForStmt(r,VarStmt(IntType,r,(x,7)),Some(t),r,ImpExp(PostIncOp,r,x),a,h))
@@ -439,7 +466,7 @@ class TestDen {
 
     implicit val env = Env(Array(X,cons,f),Map((f,2),(X,3)),PlaceInfo(f))
     // We are not allowed to discard the possible side effects in the X constructor.
-    test("X().f();", List(ExpStmt(ApplyExp(MethodDen(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false),f,r),Nil,a,auto=false))))
+    test("X().f();", SemiStmt(ExpStmt(ApplyExp(MethodDen(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false),f,r),Nil,a,auto=false)),r))
   }
 
   @Test def sideEffectsCons() = {
@@ -468,14 +495,16 @@ class TestDen {
   }
 
   // Synchronized
-  @Test def sync() = test("synchronized null", SyncStmt(r,NullLit(r),a,h))
+  @Test def sync () = test("synchronized null", SyncStmt(r,NullLit(r),a,h))
+  @Test def sync2() = test("synchronized null {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a)))
+  @Test def sync3() = test("synchronized (null) {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a)))
 
   // inserting a cast to bool
-  @Test def insertIntComparison() = test("if 1 then;", IfStmt(r,BinaryExp(NeOp,r,1,0),a,e))
+  @Test def insertIntComparison() = test("if 1 then;", IfStmt(r,BinaryExp(NeOp,r,1,0),a,es))
   @Test def insertRefTypeComparison() = {
     val o = NormalLocal("o",ObjectType,isFinal=true)
     implicit val env = localEnvWithBase(o)
-    test("if o then;", IfStmt(r,BinaryExp(NeOp,r,o,NullLit(r)),a,e))
+    test("if o then;", IfStmt(r,BinaryExp(NeOp,r,o,NullLit(r)),a,es))
   }
 
   @Test def shuffleArgs() = {
@@ -961,8 +990,11 @@ class TestDen {
 
   @Test def comment() = test("x = 1 // blah","x",x => List(VarStmt(IntType,r,(x,1)),CommentStmt(EOLCommentTok("// blah"),r)))
 
-  @Test def finalVar() = test("final x = 1;","x",x => VarStmt(IntType,r,(x,1),List(Final)))
-  @Test def finalVarType() = test("final int x = 1;","x",x => VarStmt(IntType,r,(x,1),List(Final)))
+  @Test def finalVar() = test("final x = 1;","x",x => SemiStmt(VarStmt(IntType,r,(x,1),List(Final)),r))
+  @Test def finalVarType() = test("final int x = 1;","x",x => SemiStmt(VarStmt(IntType,r,(x,1),List(Final)),r))
 
   @Test def instanceofTest(): Unit = notImplemented
+
+  @Test def verboseArray() = test("int[] x = new int[]{1,2,3}","x",x =>
+    VarStmt(ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ArrayExp(ArrayType(IntType),List(1,2,3),a)))))
 }

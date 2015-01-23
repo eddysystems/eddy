@@ -225,6 +225,11 @@ object Denotations {
   sealed trait ForInit extends HasDiscards {
     def strip: ForInit
   }
+  case class SemiStmt(s: Stmt, sr: SRange) extends Stmt {
+    def r = s.r union sr
+    def discards = s.discards
+    def strip = SemiStmt(s.strip,sr)
+  }
   case class EmptyStmt(r: SRange) extends Stmt {
     def discards = Nil
     def strip = this

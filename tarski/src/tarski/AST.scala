@@ -21,6 +21,9 @@ object AST {
   }
 
   sealed abstract class AStmt extends HasRange
+  case class SemiAStmt(s: AStmt, sr: SRange) extends AStmt {
+    def r = s.r union sr
+  }
   case class EmptyAStmt(r: SRange) extends AStmt
   case class HoleAStmt(r: SRange) extends AStmt
   case class VarAStmt(m: Mods, t: Option[AExp], v: KList[AVarDecl]) extends AStmt {

@@ -266,14 +266,18 @@ object Pretty {
   })
 
   // AST statements
-  private[this] def semi(r: SRange) = List(Loc(SemiTok,r.after))
   private[this] def hole(r: SRange) = List(Loc(HoleTok,r.after))
-  implicit def prettyAStmt(s: AStmt): FixTokens = {
-    val sem = semi(s.r)
+  implicit def prettyAStmt(s: AStmt): FixTokens = s match {
+    case SemiAStmt(s,sr) => prettyAStmtHelper(s,sr)
+    case _ => prettyAStmtHelper(s,s.r.after)
+  }
+  def prettyAStmtHelper(s: AStmt, sr: SRange): FixTokens = {
+    val sem = List(Loc(SemiTok,sr))
     def key[A](key: Token, kr: SRange, x: Option[A])(implicit p: Pretty[A]): FixTokens =
       (SemiFix, Loc(key,kr) :: (x map (tokens(_)) getOrElse Nil) ::: sem)
     s match {
-      case EmptyAStmt(r) => (SemiFix,semi(r))
+      case SemiAStmt(s,sr) => prettyAStmtHelper(s,sr)
+      case EmptyAStmt(_) => (SemiFix,sem)
       case HoleAStmt(r) => (HighestFix,hole(r))
       case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(v) ::: sem)
       case BlockAStmt(b,a) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
@@ -497,34 +501,39 @@ object Pretty {
   }
   def prettyArrayExp(xs: List[Exp], a: SGroup)(implicit env: Scope): FixTokens =
     (HighestFix, Loc(LCurlyTok,a.l) :: commas(xs)(prettyInit) ::: List(Loc(RCurlyTok,a.r)))
-  implicit def prettyStmt(s: Stmt)(implicit env: Scope): FixTokens = { val sem = semi(s.r); s match {
-    case EmptyStmt(r) => (SemiFix, semi(r))
-    case HoleStmt(r) => (HighestFix, hole(r))
-    case VarStmt(t,tr,vs,m) => implicit val tr_ = tr
-                               (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: commas(vs) ::: sem)
-    case ExpStmt(e) => (SemiFix, tokens(e) ::: sem)
-    case BlockStmt(b,a) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
-    case TokStmt(t,r) => (HighestFix, List(Loc(t,r)))
-    case AssertStmt(ar,c,None) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: sem)
-    case AssertStmt(ar,c,Some((cr,m))) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: Loc(ColonTok,cr) :: tokens(m) ::: sem)
-    case BreakStmt(br,lab)    => (SemiFix, Loc(BreakTok,br)    :: tokens(lab) ::: sem)
-    case ContinueStmt(cr,lab) => (SemiFix, Loc(ContinueTok,cr) :: tokens(lab) ::: sem)
-    case ReturnStmt(rr,None) => (SemiFix, Loc(ReturnTok,rr) :: sem)
-    case ReturnStmt(rr,Some(e)) => (SemiFix, Loc(ReturnTok,rr) :: tokens(e) ::: sem)
-    case ThrowStmt(tr,e) => (SemiFix, Loc(ThrowTok,tr) :: tokens(e) ::: sem)
-    case IfStmt(ir,c,a,x) => (SemiFix, Loc(IfTok,ir) :: parens(c,a) ::: tokens(x))
-    case IfElseStmt(ir,c,a,x,er,y) => (SemiFix, Loc(IfTok,ir) :: parens(c,a) ::: tokens(x) ::: Loc(ElseTok,er) :: tokens(y))
-    case WhileStmt(wr,c,a,x) => (SemiFix, Loc(WhileTok,wr) :: parens(c,a) ::: tokens(x))
-    case DoStmt(dr,x,wr,c,a) => (SemiFix, Loc(DoTok,dr) :: tokens(x) ::: Loc(WhileTok,wr) :: parens(c,a) ::: sem)
-    case ForStmt(fr,i,c,sr,u,a,s) => (SemiFix, Loc(ForTok,fr) :: parens(
-      tokens(i) ::: tokens(c) ::: Loc(SemiTok,sr) :: commas(u),a) ::: tokens(s))
-    case ForeachStmt(fr,m,t,tr,v,vr,e,a,s) => (SemiFix, Loc(ForTok,fr) :: parens(
-      m.map(tokens).flatten ::: prettyType(t)(env,tr)._2 ::: tokens(v.name,vr) ::: Loc(ColonTok,vr) :: tokens(e),a) ::: tokens(s))
-    case SyncStmt(sr,e,a,s) => (SemiFix, Loc(SynchronizedTok,sr) :: parens(e,a) ::: tokens(needBlock(s)))
-    case TryStmt(tr,s,cs,f) => notImplemented // Make sure to call needBlock
-    case CommentStmt(t,r) => (HighestFix,List(Loc(t,r)))
-    case _:DiscardStmt => impossible
-  }}
+  implicit def prettyStmt(s: Stmt)(implicit env: Scope): FixTokens = prettyStmtHelper(s,s.r.after)
+  def prettyStmtHelper(s: Stmt, sr: SRange)(implicit env: Scope): FixTokens = {
+    val sem = List(Loc(SemiTok,sr))
+    s match {
+      case SemiStmt(x,sr) => prettyStmtHelper(x,sr)
+      case EmptyStmt(r) => (SemiFix, sem)
+      case HoleStmt(r) => (HighestFix, hole(r))
+      case VarStmt(t,tr,vs,m) => implicit val tr_ = tr
+                                 (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: commas(vs) ::: sem)
+      case ExpStmt(e) => (SemiFix, tokens(e) ::: sem)
+      case BlockStmt(b,a) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
+      case TokStmt(t,r) => (HighestFix, List(Loc(t,r)))
+      case AssertStmt(ar,c,None) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: sem)
+      case AssertStmt(ar,c,Some((cr,m))) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: Loc(ColonTok,cr) :: tokens(m) ::: sem)
+      case BreakStmt(br,lab)    => (SemiFix, Loc(BreakTok,br)    :: tokens(lab) ::: sem)
+      case ContinueStmt(cr,lab) => (SemiFix, Loc(ContinueTok,cr) :: tokens(lab) ::: sem)
+      case ReturnStmt(rr,None) => (SemiFix, Loc(ReturnTok,rr) :: sem)
+      case ReturnStmt(rr,Some(e)) => (SemiFix, Loc(ReturnTok,rr) :: tokens(e) ::: sem)
+      case ThrowStmt(tr,e) => (SemiFix, Loc(ThrowTok,tr) :: tokens(e) ::: sem)
+      case IfStmt(ir,c,a,x) => (SemiFix, Loc(IfTok,ir) :: parens(c,a) ::: tokens(x))
+      case IfElseStmt(ir,c,a,x,er,y) => (SemiFix, Loc(IfTok,ir) :: parens(c,a) ::: tokens(x) ::: Loc(ElseTok,er) :: tokens(y))
+      case WhileStmt(wr,c,a,x) => (SemiFix, Loc(WhileTok,wr) :: parens(c,a) ::: tokens(x))
+      case DoStmt(dr,x,wr,c,a) => (SemiFix, Loc(DoTok,dr) :: tokens(x) ::: Loc(WhileTok,wr) :: parens(c,a) ::: sem)
+      case ForStmt(fr,i,c,sr,u,a,s) => (SemiFix, Loc(ForTok,fr) :: parens(
+        tokens(i) ::: tokens(c) ::: Loc(SemiTok,sr) :: commas(u),a) ::: tokens(s))
+      case ForeachStmt(fr,m,t,tr,v,vr,e,a,s) => (SemiFix, Loc(ForTok,fr) :: parens(
+        m.map(tokens).flatten ::: prettyType(t)(env,tr)._2 ::: tokens(v.name,vr) ::: Loc(ColonTok,vr) :: tokens(e),a) ::: tokens(s))
+      case SyncStmt(sr,e,a,s) => (SemiFix, Loc(SynchronizedTok,sr) :: parens(e,a) ::: tokens(needBlock(s)))
+      case TryStmt(tr,s,cs,f) => notImplemented // Make sure to call needBlock
+      case CommentStmt(t,r) => (HighestFix,List(Loc(t,r)))
+      case _:DiscardStmt => impossible
+    }
+  }
   implicit def prettyStmts(ss: List[Stmt])(implicit env: Scope): FixTokens = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyVar(v: VarDecl)(implicit env: Scope): FixTokens = v match {
     case VarDecl(x,xr,n,None) => prettyDims(x.name,xr,n)
