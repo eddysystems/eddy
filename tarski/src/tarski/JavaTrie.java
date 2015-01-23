@@ -391,8 +391,8 @@ public class JavaTrie {
             if (p > minProb) {
               V[] vs = (V[])lookup.lookup(name);
               for (V v : vs) {
-                //result.add(new tarski.Scores.Alt<V>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),v)); // Leave this line here for trackProbabilities use
-                result.add(new tarski.Scores.Alt<V>(p,v));
+                result.add(new tarski.Scores.Alt<V>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),v)); // Leave this line here for trackProbabilities use
+                //result.add(new tarski.Scores.Alt<V>(p,v));
               }
             }
           }
@@ -485,8 +485,8 @@ public class JavaTrie {
             final double p = Pr.typoProbability(d, expected, maxDistance); //utility.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
             if (p >= minProb)
               for (int i=lo;i<hi;i++) {
-                //result.add(new tarski.Scores.Alt<V>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),values[i])); // Leave this line here for trackProbabilities use
-                result.add(new tarski.Scores.Alt<V>(p,values[i]));
+                result.add(new tarski.Scores.Alt<V>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),values[i])); // Leave this line here for trackProbabilities use
+                //result.add(new tarski.Scores.Alt<V>(p,values[i]));
               }
           }
         }
