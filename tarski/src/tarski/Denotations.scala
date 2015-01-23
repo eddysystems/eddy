@@ -455,6 +455,13 @@ object Denotations {
     def discards = e0.discards ::: e1.discards
     def strip = BinaryExp(op,opr,e0.strip,e1.strip)
   }
+  case class InstanceofExp(e: Exp, ir: SRange, t: Type, tr: SRange) extends Exp {
+    def r = e.r union tr
+    def ty = BooleanType
+    def item = ubBooleanItem
+    def discards = e.discards
+    def strip = InstanceofExp(e.strip,ir,t,tr)
+  }
   case class AssignExp(op: Option[AssignOp], opr: SRange, left: Exp, right: Exp) extends StmtExp {
     def r = left.r union right.r
     def item = left.item
@@ -530,6 +537,7 @@ object Denotations {
     case FieldExp(None,_,_) => true
     case FieldExp(Some(x),_,_) => noEffects(x)
     case NonImpExp(op,_,x) => pure(op) && noEffects(x)
+    case InstanceofExp(x,_,_,_) => noEffects(x)
     case BinaryExp(op,_,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
     case ParenExp(x,_) => noEffects(x)
     case CondExp(c,_,x,_,y,_) => noEffects(c) && noEffects(x) && noEffects(y)
@@ -548,10 +556,12 @@ object Denotations {
   def effects(e: Exp): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e))
     case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => Nil
-    case _:CastExp|_:IndexExp => Nil
+    case CastExp(_,_,x) => effects(x)
+    case IndexExp(e,i,_) => effects(e)++effects(i)
     case FieldExp(None,_,_) => Nil
     case FieldExp(Some(x),_,_) => effects(x)
     case NonImpExp(_,_,x) => effects(x)
+    case InstanceofExp(x,_,_,_) => effects(x)
     case BinaryExp(_,_,x,y) => effects(x)++effects(y)
     case CondExp(c,qr,x,er,y,_) => (effects(x),effects(y)) match {
       case (Nil,Nil) => Nil

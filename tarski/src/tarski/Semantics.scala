@@ -316,6 +316,17 @@ object Semantics {
       case x => fail(s"${show(e)}: invalid unary ${token(op).show} on type ${show(x.ty)}")
     }
 
+    // TODO: handle final for classes, and implicitly final classes such as enums
+    case InstanceofAExp(e,ir,t) if m.exp => product(denoteRef(e),denoteType(t)) flatMap { case (x,TypeDen(ds,y)) => {
+      val den = InstanceofExp(x,ir,y,t.r).discard(ds)
+      if (isSubtype(x.ty,y)) single(den, Pr.trueInstanceofExp) // x is subtype of y => always true
+      else if (isProperSubtype(y,x.ty)) known(den) // y is subtype of x => proper test
+      else (x.ty,y) match { // no relationship between x and y
+        case (_:ClassType,_:ClassType) => single(den, Pr.falseInstanceofExp) // x and y both classes => always false
+        case _ => known(den) // x or y is an interface => proper test
+      }
+    }}
+
     case BinaryAExp(op,opr,ax,ay) if m.exp => product(denoteExp(ax),denoteExp(ay)) flatMap {case (x,y) => {
       val tx = x.ty
       val ty = y.ty
@@ -535,7 +546,7 @@ object Semantics {
   @tailrec
   def isVariable(e: Exp): Boolean = e match {
     // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
-    case _:Lit|_:ThisExp|_:SuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp|_:ArrayExp|_:EmptyArrayExp => false
+    case _:Lit|_:ThisExp|_:SuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
     case LocalExp(i,_) => !i.isFinal
     case _:CastExp => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5

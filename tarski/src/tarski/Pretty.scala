@@ -418,6 +418,7 @@ object Pretty {
                            fix(PrefixFix, parens(t,a) ::: right(_,x))
     case e:UnaryExp if isPrefix(e.op) => fix(PrefixFix, Loc(token(e.op),e.opr) :: right(_,e.e))
     case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(Loc(token(e.op),e.opr)))
+    case InstanceofExp(x,ir,t,tr) => { implicit val r = tr; fix(RelFix, f => left(f,x) ::: space :: Loc(InstanceofTok,ir) :: space :: right(f,t)) }
     case BinaryExp(op,opr,x,y) => { val (s,t) = prettyBinary(op,opr); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: space :: Loc(token(op),opr) :: space :: right(s,y))
     case ParenExp(x,a) => (HighestFix,parens(x,a))

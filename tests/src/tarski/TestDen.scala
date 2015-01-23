@@ -964,5 +964,10 @@ class TestDen {
   @Test def finalVar() = test("final x = 1;","x",x => VarStmt(IntType,r,(x,1),List(Final)))
   @Test def finalVarType() = test("final int x = 1;","x",x => VarStmt(IntType,r,(x,1),List(Final)))
 
-  @Test def instanceofTest(): Unit = notImplemented
+  @Test def instanceofTest(): Unit = {
+    val a = NormalLocal("a",ObjectType,isFinal=true)
+    val x = NormalLocal("x",BooleanType,isFinal=false)
+    implicit val env = localEnvWithBase(a,x)
+    test("x = a instanceof Object",AssignExp(None, r, x, InstanceofExp(a,r,ObjectType,r)))
+  }
 }

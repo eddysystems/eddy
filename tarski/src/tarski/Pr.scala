@@ -169,6 +169,8 @@ object Pr {
     else if (around.isBracks) Prob(s"multiple index call ${list.list.size}",.6)
     else Prob(s"weird index call ${list.list.size} $around",.5)
   val unaryExp = base // should be a function of operator and types
+  val trueInstanceofExp = Prob("true instanceof test",.5)
+  val falseInstanceofExp = Prob("false instanceof test",.5)
   val binaryExpCastZero = Prob("binary cast zero",.1) // Replace x == 0 with x == null or x == false
   val castExp = base // should be a function of from/to types
   val condExp = base // should be a function of inside types
