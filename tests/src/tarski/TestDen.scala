@@ -188,7 +188,7 @@ class TestDen {
   @Test
   def arrayLiteralAssign(): Unit = {
     val x = NormalLocal("x",ArrayType(IntType),isFinal=false)
-    implicit val env = localEnv(x)
+    implicit val env = localEnvWithBase(x)
     test("x = {1,2,3}", AssignExp(None,r,x,ArrayExp(IntType,List(1,2,3),a)))
   }
 
@@ -196,7 +196,7 @@ class TestDen {
   def arrayLiteral(): Unit = {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = NormalMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)),isStatic=true)
-    implicit val env = Env(Array(Main,f),Map((Main,2),(f,2)),PlaceInfo(f))
+    implicit val env = localEnvWithBase().extend(Array(Main,f),Map((Main,2),(f,2))).move(PlaceInfo(f))
     test("f({1,2,3,4})", ApplyExp(f,List(ArrayExp(IntType,List(1,2,3,4),a)),a,auto=false))
   }
 
@@ -1004,5 +1004,5 @@ class TestDen {
   }
 
   @Test def verboseArray() = test("int[] x = new int[]{1,2,3}","x",x =>
-    VarStmt(ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ArrayExp(ArrayType(IntType),List(1,2,3),a)))))
+    VarStmt(ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2,3),a,auto=false)))))
 }

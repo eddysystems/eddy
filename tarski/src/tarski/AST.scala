@@ -16,6 +16,7 @@ object AST {
 
   type Block = List[AStmt]
   type ADims = List[SGroup]
+  type ADimExps = List[Grouped[Option[AExp]]]
   case class AVarDecl(x: Name, xr: SRange, n: ADims, i: Option[(SRange,AExp)]) extends HasRange {
     def r = i match { case None => xr; case Some((_,e)) => xr union e.r }
   }
@@ -101,8 +102,8 @@ object AST {
   case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around) extends AExp {
     def r = e.r union l.r
   }
-  case class NewAExp(newr: SRange, t: Option[Grouped[KList[AExp]]], e: AExp) extends AExp {
-    def r = newr union e.r
+  case class NewAExp(newr: SRange, t: Option[Grouped[KList[AExp]]], e: AExp, ns: ADimExps = Nil) extends AExp {
+    def r = newr union e.r unionR ns
   }
   case class WildAExp(qr: SRange, b: Option[WildBound]) extends AExp {
     def r = b match { case None => qr; case Some(WildBound(_,_,t)) => qr union t.r }

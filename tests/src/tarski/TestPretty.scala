@@ -95,4 +95,7 @@ class TestPretty {
 
   @Test def prefix() = test("!x",NonImpExp(NotOp,r,NormalLocal("x",BooleanType)))
   @Test def postfix() = test("x++",ImpExp(PostIncOp,r,NormalLocal("x",IntType)))
+
+  @Test def newArray() = test("new int[]{1,2}",ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2),a,auto=false))
+  @Test def newArrayN() = test("new int[2][]",ApplyExp(NewArrayDen(r,IntType,r,List(Grouped(2:Exp,a)),List(a)),Nil,a,auto=false))
 }

@@ -75,9 +75,12 @@ Commas0[a] CommaList[a]
   Commas1[a]                     { $1 }
 
 // Dims
-IdentDims (Loc[String],ADims)
-  Ident                          { ($1,Nil) }
-  IdentDims LBrackTok Right      { ($1._1,$1._2 ::: List(SGroup($2r,$3.r))) }
+Dims List[SGroup]
+  ""                                           { Nil }
+  LBrackTok Right Dims                         { SGroup($1r,$2.r) :: $3 }
+DimExps List[Grouped[Option[AExp]]]
+  ""                                           { Nil }
+  LBrackTok Option[ExpAssign] Right DimExps    { Grouped($2,SGroup($1r,$3.r)) :: $4 }
 
 // Types.  Most of the logic is shared with expressions.
 Type AExp
@@ -174,8 +177,8 @@ AfterIfB PreIf
   ExpAssignNP ThenTok MaybeStmt ElseTok Stmt                 { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$5)) }
   ExpAssignNP ThenTok MaybeStmt ElifTok AfterIf              { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$5($4r))) }
 VarDecl AVarDecl
-  IdentDims                      { AVarDecl($1._1.x,$1._1.r,$1._2,None) }
-  IdentDims EqTok ExpCommas      { AVarDecl($1._1.x,$1._1.r,$1._2,Some(($2r:SRange,$3))) }
+  Ident Dims                     { AVarDecl($1.x,$1.r,$2,None) }
+  Ident Dims EqTok ExpCommas     { AVarDecl($1.x,$1.r,$2,Some(($3r:SRange,$4))) }
 WhileUntil Loc[Boolean]
   WhileTok                                                   { Loc(false,$1r) }
   UntilTok                                                   { Loc(true,$1r) }
@@ -187,7 +190,7 @@ MaybeDo Option[SRange]
   DoTok                                                      { Some($1r) }
 ForInfo ForInfo
   Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { For($1,$2r,$3,$4r,$5) }
-  Juxts0[Mod] Option[Type] IdentDims ForeachSep ExpAssign                       { Foreach($1,$2,$3._1.x,$3._1.r,$3._2,$4,$5) }
+  Juxts0[Mod] Option[Type] Ident Dims ForeachSep ExpAssign                      { Foreach($1,$2,$3.x,$3.r,$4,$5,$6) }
 ForeachSep Long
   ColonTok                                                   { $1r }
   InTok                                                      { $1r }
@@ -290,22 +293,24 @@ ExpHigh AExp
   ExpHighNP                                                 { $1 }
 ExpHighNP AExp
   ExpHighNA                                                 { $1 }
-  LeftNP Right                                              { ArrayAExp(EmptyList,     Around($1,$2)) }
-  LeftNP ExpBinaryNJ Right                                  { ArrayAExp(SingleList($2),Around($1,$3)) }
-  LeftNP Commas2[ExpBinary] Right                           { ArrayAExp($2,            Around($1,$3)) }
-  LeftNP Juxts2[ExpWild] Right                              { ArrayAExp(JuxtList($2),  Around($1,$3)) }
+  LeftNP ArrayInterior Right                                { ArrayAExp($2,Around($1,$3)) }
 ExpParens AExp
-  LParenTok ExpAssignNC Right                               { ParenAExp($2,           Around(Paren,$1r,$3)) }
-  LParenTok Right                                           { ArrayAExp(EmptyList,    Around(Paren,$1r,$2)) }
-  LParenTok Commas2[ExpBinary] Right                        { ArrayAExp($2,           Around(Paren,$1r,$3)) }
-  LParenTok Juxts2[ExpWild] Right                           { ArrayAExp(JuxtList($2), Around(Paren,$1r,$3)) }
+  LParenTok ExpAssignNC Right                               { ParenAExp($2,Around(Paren,$1r,$3)) }
+  LParenTok ArrayInteriorN1 Right                           { ArrayAExp($2,Around(Paren,$1r,$3)) }
+ArrayInterior KList[AExp]
+  ExpBinaryNJ                                               { SingleList($1) }
+  ArrayInteriorN1                                           { $1 }
+ArrayInteriorN1 KList[AExp]
+  ""                                                        { EmptyList }
+  Commas2[ExpBinary]                                        { $1 }
+  Juxts2[ExpWild]                                           { JuxtList($1) }
 ExpHighNA AExp
   ExpNew                                                    { $1 }
   ExpHigh Left List[ExpAssignNC] Right                      { ApplyAExp($1,$3,Around($2,$4)) }
 ExpNew AExp
   ExpPrimary                                                { $1 }
   TypeArgs ExpPrimary                                       { TypeApplyAExp($2,$1.x,$1.a,after=false) }
-  NewTok Option[TypeArgs] ExpPrimary                        { NewAExp($1r,$2,$3) }
+  NewTok Option[TypeArgs] ExpPrimary DimExps                { NewAExp($1r,$2,$3,$4) }
 ExpPrimary AExp
   Lit                                                       { $1 }
   Ident                                                     { NameAExp($1.x,$1.r) }

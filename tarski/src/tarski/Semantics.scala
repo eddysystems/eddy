@@ -240,7 +240,7 @@ object Semantics {
         val mx = m.onlyTyCall | (if (m.exp) CallMode else NoMode)
         val p = x match {
           case x:TypeApplyAExp if after && !x.after => Pr.badNestedTypeArgs
-          case NewAExp(_,_,_) if after => Pr.badNewInsideTypeArgs
+          case _:NewAExp if after => Pr.badNewInsideTypeArgs
           case _ => Pr.reasonable
         }
         biased(p,fixCall(m,expects,addTypeArgs(denote(x,mx),ts,tr)))
@@ -248,8 +248,20 @@ object Semantics {
     }
 
     // Explicit new
-    case NewAExp(nr,ts,x) if m.callExp =>
+    case NewAExp(_,Some(_),_,_::_) => fail(s"${show(e)}: Array creation doesn't take type arguments")
+    case NewAExp(nr,ts,x,Nil) if m.callExp =>
       fixCall(m,expects,biasedNotNew(m,addTypeArgs(denoteNew(x),ts).asInstanceOf[Scored[Callable]]))
+    case NewAExp(nr,None,x,ns) if m.callExp =>
+      // Split ns into [e] and [] parts
+      val (is,ds) = takeCollect(ns){case Grouped(Some(i),a) => denoteExp(i) flatMap denoteIndex map (Grouped(_,a))}
+      // The rest of ds should be expression free
+      if (ds exists (_.x.nonEmpty)) fail(s"${show(e)}: In array creation, [size] should come before []")
+      else {
+        val as = ds map (_.a)
+        fixCall(m,expects,product(denoteType(x),product(is)) map {case (at,is) =>
+          NewArrayDen(nr,at.beneath,x.r,is,as)
+        })
+      }
 
     // Application
     case ApplyAExp(f,EmptyList,a) if a.isBracks && m==TypeMode =>
@@ -262,7 +274,16 @@ object Semantics {
       // Either array index or call
       val call = biased(Pr.callExp(xsn,around), fs flatMap {
         case f:TypeDen => known(f.array) // t[]
-        case f:Callable => ArgMatching.fiddleCall(f,args,around.a,expects,auto=false,ArgMatching.useAll)
+        case f:Callable =>
+          def array(t: Type): Scored[ApplyExp] = {
+            def error = s"Expected array element type $t"
+            product(args map (_ filter (assignsTo(_,t),error))) map (ApplyExp(f,_,around.a,auto=false))
+          }
+          f match {
+            case f:NewArrayDen => array(f.t)
+            case DiscardCallableDen(_,f:NewArrayDen) => array(f.t)
+            case _ => ArgMatching.fiddleCall(f,args,around.a,expects,auto=false,ArgMatching.useAll)
+          }
         case f:Exp => fail(s"Expressions are not callable, f = $f")
         case f:PackageDen => fail(s"Packages are not callable, f = $f")
       })

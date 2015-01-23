@@ -186,6 +186,17 @@ object Denotations {
     def discards = Nil
     def strip = this
   }
+  case class NewArrayDen(nr: SRange, t: Type, tr: SRange, ns: List[Grouped[Exp]], ds: List[SGroup]) extends NotTypeApply {
+    def r = nr unionR ns union ds
+    lazy val result = arrays(t,ns.size+ds.size)
+    def callItem = ArrayItem
+    def callType(ts: List[TypeArg]) = { assert(ts.isEmpty); result }
+    def tparams = Nil
+    def params = if (ns.nonEmpty) Nil
+                 else throw new RuntimeException("Should be variadic, but we don't handle that yet")
+    def discards = ns.map(_.x.discards).flatten
+    def strip = NewArrayDen(nr,t,tr,ns map (_ map (_.strip)),ds)
+  }
   // Evaluate and discard s, then be f
   case class DiscardCallableDen(s: List[Stmt], c: NotTypeApply) extends NotTypeApply {
     def r = c.r
@@ -196,6 +207,7 @@ object Denotations {
     def callType(ts: List[TypeArg]) = c.callType(ts)
     def discards = s ::: c.discards
     def strip = c.strip
+    override def discard(s2: List[Stmt]) = DiscardCallableDen(s2:::s,c)
   }
 
   // Add type arguments to a Callable without checking for correctness

@@ -122,6 +122,8 @@ object Pretty {
     Loc(LParenTok,a.l) :: x ::: List(Loc(RParenTok,a.r))
   def parens[A](x: A, a: SGroup)(implicit p: Pretty[A]): Tokens =
     Loc(LParenTok,a.l) :: tokens(x) ::: List(Loc(RParenTok,a.r))
+  def curlys(x: Tokens, a: SGroup): Tokens =
+    Loc(LCurlyTok,a.l) :: x ::: List(Loc(RCurlyTok,a.r))
   def typeBracket[A](x: A, a: SGroup)(implicit p: Pretty[A]): Tokens =
     Loc(LtTok,a.l) :: tokens(x) ::: List(Loc(GtTok,a.r))
   private[this] val newLeft = Loc(LParenTok,SRange.empty)
@@ -244,7 +246,10 @@ object Pretty {
     case NewRefAExp(e,cc,t,nr) => fix(FieldFix, left(_,e) ::: Loc(ColonColonTok,cc) :: tokens(t) ::: List(Loc(NewTok,nr)))
     case TypeApplyAExp(e,t,tr,true)  => fix(ApplyFix, left(_,e) ::: typeBracket(t,tr))
     case TypeApplyAExp(e,t,tr,false) => fix(ApplyFix, typeBracket(t,tr) ::: right(_,e))
-    case NewAExp(nr,t,e) => fix(NewFix, Loc(NewTok,nr) :: tokens(t) ::: right(_,e))
+    case NewAExp(nr,t,e,ns) => (NewFix, Loc(NewTok,nr) :: tokens(t) ::: (ns match {
+      case Nil => right(NewFix,e)
+      case ns => tokens(e) ::: (ns map { case Grouped(n,a) => Loc(LBrackTok,a.l) :: tokens(n) ::: List(Loc(RBrackTok,a.r)) }).flatten
+    }))
     case WildAExp(qr,None) => (HighestFix, List(Loc(QuestionTok,qr)))
     case WildAExp(qr,Some(WildBound(b,br,t))) => fix(WildFix, Loc(QuestionTok,qr) :: Loc(token(b),br) :: right(_,t))
     case UnaryAExp(op,opr,e) if isPrefix(op) => fix(PrefixFix, Loc(token(op),opr) :: right(_,e))
@@ -426,6 +431,8 @@ object Pretty {
     case BinaryExp(op,opr,x,y) => { val (s,t) = prettyBinary(op,opr); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: space :: Loc(token(op),opr) :: space :: right(s,y))
     case ParenExp(x,a) => (HighestFix,parens(x,a))
+    case ApplyExp(f@NewArrayDen(_,_,_,Nil,_),as,a,_) => (ApplyFix, tokens(f) ::: curlys(commas(as),a))
+    case ApplyExp(f:NewArrayDen,Nil,a,_) => pretty(f)
     case ApplyExp(f,as,a,_) => (ApplyFix, tokens(f) ::: parens(commas(as),a))
     case FieldExp(None,f,fr) => prettyItem(f)(env,fr)
     case e@FieldExp(Some(x),f,fr) => prettyField(x,e.dot,f,fr)
@@ -485,6 +492,12 @@ object Pretty {
       case TypeApply(ForwardDen(x,xr,c),ts,a,_) => forward(x,xr,c,Some(Grouped(ts,a)))
       case           DiscardCallableDen(ds,f) => above(ds,f)
       case TypeApply(DiscardCallableDen(ds,f),ts,a,h) => above(ds,TypeApply(f,ts,a,h))
+      case TypeApply(_:NewArrayDen,_,_,_) => impossible
+      case NewArrayDen(nr,t,tr,ns,ds) =>
+        implicit val tr_ = tr
+        (NewFix,Loc(NewTok,nr) :: tokens(t)
+          ::: ns.map{case Grouped(n,a) => Loc(LBrackTok,a.l) :: tokens(n) ::: List(Loc(RBrackTok,a.r))}.flatten
+          ::: ds.map{               a  => Loc(LBrackTok,a.l) ::               List(Loc(RBrackTok,a.r))}.flatten)
     }
   }
   def tokensTypeArgs(ts: List[TypeArg], a: => SGroup)(implicit env: Scope): Tokens = ts match {

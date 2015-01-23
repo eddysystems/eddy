@@ -102,6 +102,15 @@ object Utility {
     Literal(Constant(raw)).toString
   }
 
+  // Apply a partial function as much as we can to the front of a list
+  def takeCollect[A,B](xs: List[A])(f: PartialFunction[A,B]): (List[B],List[A]) = {
+    @tailrec def loop(xs: List[A], bs: List[B]): (List[B],List[A]) = xs match {
+      case x::xs if f.isDefinedAt(x) => loop(xs,f(x)::bs)
+      case xs => (bs.reverse,xs)
+    }
+    loop(xs,Nil)
+  }
+
   // Iterate a function until referential equality fixpoint is reached
   def fixRef[A <: AnyRef](x: A)(f: A => A): A = {
     val fx = f(x)

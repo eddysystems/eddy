@@ -6,7 +6,7 @@ import utility.Utility._
 object Parse {
   // Code generation combinators
   type Code = List[String]
-  def indent(c: Code) = c.map("  "+_)
+  def indent(c: Code) = c.map(s => if (s.isEmpty) "" else "  "+s)
 
   def block(start: String, body: Code, brace: Boolean = true, alwaysBrace: Boolean = false): Code = {
     if (brace && (alwaysBrace || body.size > 1))

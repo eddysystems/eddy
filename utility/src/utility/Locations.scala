@@ -33,6 +33,11 @@ object Locations {
       case None => this
       case Some(y) => this union y
     }
+    def union(y: List[SGroup]): SRange = y match {
+      case Nil => this
+      case List(y) => this union y.lr
+      case y::ys => this union y.lr union ys.last.lr
+    }
     def unionR[A <: HasRange with AnyRef](y: Option[A]): SRange = y match {
       case None => this
       case Some(y) => this union y.r

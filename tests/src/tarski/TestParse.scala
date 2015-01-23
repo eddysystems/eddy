@@ -192,7 +192,8 @@ class TestParse {
                          NewAExp(r,None,TypeApplyAExp(TypeApplyAExp("A","C",a,false),"B",a,true)),
                          TypeApplyAExp(NewAExp(r,Some(Grouped(SingleList("C"),a)),"A"),"B",a,true))
 
-  @Test def verboseArray() = testAST("new int[]{1,2,3}")
+  @Test def verboseArray() = testASTPossible("new int[]{1,2,3}",
+    ApplyAExp(NewAExp(r,None,"int",List(Grouped(None,a))),commas(1,2,3),curlys))
 
   @Test def booleanEqTrue() = testAST("boolean x = true;",
     SemiAStmt(VarAStmt(Nil,"boolean",AVarDecl("x",r,0,Some(r,"true":AExp))),r),
