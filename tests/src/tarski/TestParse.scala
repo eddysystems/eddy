@@ -138,24 +138,26 @@ class TestParse {
   // Compound statements
   val t = NameAExp("true",r)
   val e = EmptyAStmt(r)
+  val es = SemiAStmt(e,r)
   val h = HoleAStmt(r)
   val he = HoleAStmt(SRange.empty)
-  @Test def ifStmt()      = testAST("if (true);",IfAStmt(r,t,parens,e))
-  @Test def ifBare()      = testAST("if true;",IfAStmt(r,t,NoAround(r),e),IfElseAStmt(r,t,NoAround(r),e,r,h))
+  @Test def ifStmt()      = testAST("if (true);",IfAStmt(r,t,parens,es))
+  @Test def ifBare()      = testAST("if true;",SemiAStmt(IfAStmt(r,t,NoAround(r),e),r),
+                                               SemiAStmt(IfElseAStmt(r,t,NoAround(r),e,r,h),r))
   @Test def ifElseHole()  = testAST("if (true) else", IfElseAStmt(r,t,parens,he,r,h))
-  @Test def whileBare()   = testAST("while true;", WhileAStmt(r,false,t,NoAround(r),e))
-  @Test def doWhileBare() = testAST("do; while true", DoAStmt(r,e,r,false,t,NoAround(r)))
+  @Test def whileBare()   = testAST("while true;", SemiAStmt(WhileAStmt(r,false,t,NoAround(r),e),r))
+  @Test def doWhileBare() = testAST("do; while true", DoAStmt(r,es,r,false,t,NoAround(r)))
   @Test def whileHole()   = testAST("while true", WhileAStmt(r,false,t,NoAround(r),h), WhileAStmt(r,false,t,NoAround(r),e))
   @Test def untilHole()   = testAST("until true", WhileAStmt(r,true,t,NoAround(r),h), WhileAStmt(r,true,t,NoAround(r),e),
                                                   ApplyAExp("until",SingleList(true),NoAround(r)),
                                                   VarAStmt(Nil,"until",AVarDecl("true",r,0,None)))
-  @Test def forever()     = testAST("for (;;);", ForAStmt(r,For(Nil,r,None,r,Nil),parens,e))
+  @Test def forever()     = testAST("for (;;);", ForAStmt(r,For(Nil,r,None,r,Nil),parens,es))
   @Test def foreverHole() = testAST("for (;;)", ForAStmt(r,For(Nil,r,None,r,Nil),parens,h))
   @Test def forSimple()   = testAST("for (x=7;true;x++)",
     ForAStmt(r,For(AssignAExp(None,r,"x",7),r,Some(t),r,UnaryAExp(PostIncOp,r,"x")),parens,h))
 
   @Test def staticMethodOfObject() = testASTPossible("(X()).f();",
-    ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp("X",EmptyList,parens),parens),r,None,"f",r),EmptyList,parens)))
+    SemiAStmt(ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp("X",EmptyList,parens),parens),r,None,"f",r),EmptyList,parens)),r))
 
   @Test def weirdParens() = testAST("([{)]}",
     ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,YesAround(Curly,Paren,a))),bracks),YesAround(Paren,Curly,a)))
@@ -189,4 +191,9 @@ class TestParse {
     testAST("new<C>A<B>",NewAExp(r,Some(Grouped(SingleList("C"),a)),TypeApplyAExp("A","B",a,true)),
                          NewAExp(r,None,TypeApplyAExp(TypeApplyAExp("A","C",a,false),"B",a,true)),
                          TypeApplyAExp(NewAExp(r,Some(Grouped(SingleList("C"),a)),"A"),"B",a,true))
+
+  @Test def verboseArray() = testAST("new int[]{1,2,3}")
+
+  @Test def booleanEqTrue() = testAST("boolean x = true;",
+    SemiAStmt(VarAStmt(Nil,"boolean",AVarDecl("x",r,0,Some(r,"true":AExp))),r))
 }

@@ -2754,7 +2754,7 @@ class ParseEddy {
         final long s1 = slices.get(iStmtHelperBS<<24|lo<<12|hi-1);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Stmt0((AStmt)values.get((int)(s1>>32)+k)));
+            values.add(Stmt0((AStmt)values.get((int)(s1>>32)+k),ranges[hi-1]));
         }
       }
       if (hi-lo>=1) {
@@ -2828,7 +2828,7 @@ class ParseEddy {
             final long s3 = slices.get(iStmts<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(Stmts0((AStmt)values.get((int)(s1>>32)+k1),(List)values.get((int)(s3>>32)+k3)));
+                values.add(Stmts0((AStmt)values.get((int)(s1>>32)+k1),(List)values.get((int)(s3>>32)+k3),ranges[j]));
             }
           }
         }

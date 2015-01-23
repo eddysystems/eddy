@@ -1,6 +1,7 @@
 package tarski
 
 import tarski.Environment.PlaceInfo
+import utility.Locations.SRange
 import utility.Utility._
 import tarski.AST._
 import tarski.Base._
@@ -324,7 +325,8 @@ object Items {
       def item = inside.item
       def isStatic: Boolean
     }
-    case class LitValue(x: Lit) extends Value {
+    case class LitValue(f: SRange => Lit) extends Value {
+      private[this] val x = f(SRange.unknown)
       val name = x.show
       val ty = x.ty
       val item = x.item

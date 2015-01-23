@@ -191,9 +191,9 @@ object ParseEddyActions {
   def TypeArgs0(x2: KList[AExp], x1r: Range, x4r: Range): Grouped[KList[AExp]] = Grouped(x2,SGroup(x1r,x4r))
   def ExpOr_ExpJuxt0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(OrOp,x2r,x1,x3)
   def ExpOr_ExpJuxt1(x1: AExp): AExp = x1
-  def Stmt0(x1: AStmt): AStmt = x1
+  def Stmt0(x1: AStmt, x2r: Range): AStmt = SemiAStmt(x1,x2r)
   def Stmt1(x1: AStmt): AStmt = x1
-  def Stmt2(x1r: Range): AStmt = EmptyAStmt(x1r)
+  def Stmt2(x1r: Range): AStmt = SemiAStmt(EmptyAStmt(x1r.before),x1r)
   def MaybeParenExp__MaybeDo0(x1: (AExp,Around), x2: Option[SRange]): ((AExp,Around),Option[SRange]) = (x1,x2)
   def Juxts2_VarDecl0(x1: AVarDecl, x2: List[AVarDecl]): List[AVarDecl] = x1 :: x2
   def MaybeThen0(x1r: Range): Option[SRange] = Some(x1r)
@@ -298,9 +298,9 @@ object ParseEddyActions {
   def AfterIfA1(x1: (AExp,Around), x2: (AStmt,Long)): PreIf = PreIf(ir => IfElseAStmt(ir,x1._1,x1._2,x2._1,x2._2,HoleAStmt(x2._2.after)))
   def AfterIfA2(x1: (AExp,Around), x2: Option[SRange]): PreIf = PreIf(ir => IfAStmt(ir,x1._1,x1._2,HoleAStmt(x1._2.r.union(x2).after)))
   def LParenTok__Type0(x2: AExp, x1r: Range): (Long,AExp) = (x1r,x2)
-  def Stmts0(x1: AStmt, x3: List[AStmt]): List[AStmt] = x1 :: x3
+  def Stmts0(x1: AStmt, x3: List[AStmt], x2r: Range): List[AStmt] = SemiAStmt(x1,x2r) :: x3
   def Stmts1(x1: AStmt): List[AStmt] = List(x1)
-  def Stmts2(x2: List[AStmt], x1r: Range): List[AStmt] = EmptyAStmt(x1r.before) :: x2
+  def Stmts2(x2: List[AStmt], x1r: Range): List[AStmt] = SemiAStmt(EmptyAStmt(x1r.before),x1r) :: x2
   def Stmts3(): List[AStmt] = Nil
   def AssignOp__ExpAssign0(x1: Loc[Option[AssignOp]], x2: AExp): (Loc[Option[AssignOp]],AExp) = (x1,x2)
   def ExpRel_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GtOp,x2r,x1,x3)

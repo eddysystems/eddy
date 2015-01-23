@@ -105,7 +105,7 @@ object Semantics {
     case ts =>
       val n = ts.list.size
       val use = product(fs flatMap (prepareTypeArgs(n,a,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
-      use ++ biased(Pr.ignoreTypeArgs(env.place.lastEditIn(a.r)),fs)
+      use ++ biased(Pr.ignoreTypeArgs(env.place.lastEditIn(a.lr)),fs)
   }
   def addTypeArgs(fs: Scored[Den], ts: Option[Grouped[KList[AExp]]])(implicit env: Env): Scored[Den] = ts match {
     case None => fs
@@ -153,7 +153,7 @@ object Semantics {
 
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
-      case LitValue(x) => known(x)
+      case LitValue(f) => known(f(ir))
       case i:FieldItem => if (env.inScope(i)) known(FieldExp(None,i,ir))
                           else if (i.isStatic) single(FieldExp(None,i,ir),
                             if (inClass(env.place.place,i.parent)) Pr.outOfScope
@@ -594,6 +594,10 @@ object Semantics {
   def denoteStmt(s: AStmt)(env: Env): Scored[(Env,List[Stmt])] = {
     implicit val imp = env
     s match {
+      case SemiAStmt(x,sr) => denoteStmt(x)(env) map {case (env,ss) => (env,ss.reverse match {
+        case Nil => Nil
+        case s::ss => (SemiStmt(s,sr)::ss).reverse
+      })}
       case EmptyAStmt(r) => single((env,List(EmptyStmt(r))),Pr.emptyStmt)
       case HoleAStmt(r) => single((env,List(HoleStmt(r))),Pr.holeStmt)
       case TokAStmt(t,r) => known(env,List(TokStmt(t,r)))

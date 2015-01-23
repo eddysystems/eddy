@@ -114,16 +114,16 @@ Block AStmt
   LCurlyTok Stmts Right          { BlockAStmt($2,SGroup($1r,$3.r)) }
 Stmts List[AStmt]
   ""                             { Nil }
-  SemiTok Stmts                  { EmptyAStmt($1r.before) :: $2 }
+  SemiTok Stmts                  { SemiAStmt(EmptyAStmt($1r.before),$1r) :: $2 }
   StmtHelper                     { List($1) }
-  StmtHelperBS SemiTok Stmts     { $1 :: $3 }
+  StmtHelperBS SemiTok Stmts     { SemiAStmt($1,$2r) :: $3 }
 
 // Statement
 // Suffix BS means before semicolon
 Stmt AStmt
-  SemiTok                                                    { EmptyAStmt($1r) }
+  SemiTok                                                    { SemiAStmt(EmptyAStmt($1r.before),$1r) }
   StmtHelper                                                 { $1 }
-  StmtHelperBS SemiTok                                       { $1 }
+  StmtHelperBS SemiTok                                       { SemiAStmt($1,$2r) }
 MaybeStmt AStmt
   ""                                                         { HoleAStmt(SRange.empty) }
   Stmt                                                       { $1 }

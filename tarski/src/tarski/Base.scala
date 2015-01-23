@@ -9,9 +9,6 @@ import utility.Locations.SRange
 import utility.Utility._
 
 object Base {
-  // Base items have unknown location
-  private val r = SRange.unknown
-
   // Basic packages
   val JavaPkg = RootPackage("java")
   val JavaLangPkg = ChildPackage(JavaPkg,"lang")
@@ -163,9 +160,9 @@ object Base {
   object ubCharItem    extends LangTypeItem { def ty = CharType }
 
   // Literals
-  val trueLit = LitValue(BooleanLit(true,r))
-  val falseLit = LitValue(BooleanLit(false,r))
-  val nullLit = LitValue(NullLit(r))
+  val trueLit = LitValue(BooleanLit(true,_))
+  val falseLit = LitValue(BooleanLit(false,_))
+  val nullLit = LitValue(NullLit(_))
 
   // Basic callables for test use
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)

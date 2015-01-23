@@ -11,6 +11,9 @@ object Locations {
   class SLoc(val raw: Int) extends AnyVal {
     def +(d: Int) = SLoc(raw+d)
     def -(d: Int) = SLoc(raw-d)
+    def min(x: SLoc) = SLoc(Math.min(raw,x.raw))
+    def max(x: SLoc) = SLoc(Math.max(raw,x.raw))
+    override def toString = if (this == SLoc.unknown) "SLoc.unknown" else s"SLoc($raw)"
   }
   object SLoc {
     val unknown = new SLoc(Int.MaxValue)
@@ -56,8 +59,8 @@ object Locations {
   // Left and right locations for a grouping
   case class SGroup(raw: Long) extends AnyVal {
     def lr = new SRange(raw)
-    def l = if (known) SRange(lr.lo,lr.lo+1) else SRange.unknown
-    def r = if (known) SRange(lr.hi-1,lr.hi) else SRange.unknown
+    def l = if (known) SRange(lr.lo,(lr.lo+1) min lr.hi) else SRange.unknown
+    def r = if (known) SRange(lr.lo max (lr.hi-1),lr.hi) else SRange.unknown
     private def known: Boolean = this != SGroup.unknown
     override def toString = if (!known) "SGroup.unknown"
                             else s"SGroup(${lr.lo.raw},${lr.hi.raw})"

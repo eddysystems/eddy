@@ -209,7 +209,7 @@ object Tokens {
         case (_:IdentTok|QuestionTok,LtTok|GtTok)|(LtTok|GtTok,_:IdentTok|QuestionTok) => true
         case (GtTok,GtTok|LParenTok) => true
         case (_,DotTok)|(DotTok,_) => true
-        case (_,SemiTok) => true
+        case (_,SemiTok|CommaTok) => true
         case _ => false
       }
       x.show + (if (safe(x,y)) "" else " ") + print(ys)
