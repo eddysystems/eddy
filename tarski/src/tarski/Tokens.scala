@@ -54,7 +54,6 @@ object Tokens {
   // Keywords: 3.9
   case object AbstractTok extends FixedToken("abstract")
   case object AssertTok extends FixedToken("assert")
-  case object BooleanTok extends FixedToken("boolean")
   case object BreakTok extends FixedToken("break")
   case object CaseTok extends FixedToken("case")
   case object CatchTok extends FixedToken("catch")
@@ -96,15 +95,16 @@ object Tokens {
   case object WhileTok extends FixedToken("while")
 
   // Keywords that we parse as identifiers
-  case object ByteTok   extends ToIdentToken { def s = "byte" }
-  case object CharTok   extends ToIdentToken { def s = "char" }
-  case object DoubleTok extends ToIdentToken { def s = "double" }
-  case object FloatTok  extends ToIdentToken { def s = "float" }
-  case object IntTok    extends ToIdentToken { def s = "int" }
-  case object LongTok   extends ToIdentToken { def s = "long" }
-  case object NullTok   extends ToIdentToken { def s = "null" }
-  case object ShortTok  extends ToIdentToken { def s = "short" }
-  case object VoidTok   extends ToIdentToken { def s = "void" }
+  case object BooleanTok extends ToIdentToken { def s = "boolean" }
+  case object ByteTok    extends ToIdentToken { def s = "byte" }
+  case object CharTok    extends ToIdentToken { def s = "char" }
+  case object DoubleTok  extends ToIdentToken { def s = "double" }
+  case object FloatTok   extends ToIdentToken { def s = "float" }
+  case object IntTok     extends ToIdentToken { def s = "int" }
+  case object LongTok    extends ToIdentToken { def s = "long" }
+  case object NullTok    extends ToIdentToken { def s = "null" }
+  case object ShortTok   extends ToIdentToken { def s = "short" }
+  case object VoidTok    extends ToIdentToken { def s = "void" }
 
   // Fake keywords.  These are not actual Java reserved words, but they are used in the grammar.
   sealed trait FakeToken extends Token

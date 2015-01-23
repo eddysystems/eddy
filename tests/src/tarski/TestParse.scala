@@ -195,5 +195,6 @@ class TestParse {
   @Test def verboseArray() = testAST("new int[]{1,2,3}")
 
   @Test def booleanEqTrue() = testAST("boolean x = true;",
-    SemiAStmt(VarAStmt(Nil,"boolean",AVarDecl("x",r,0,Some(r,"true":AExp))),r))
+    SemiAStmt(VarAStmt(Nil,"boolean",AVarDecl("x",r,0,Some(r,"true":AExp))),r),
+    SemiAStmt(AssignAExp(None,r,ApplyAExp("boolean","x",NoAround(r)),"true"),r))
 }
