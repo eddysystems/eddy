@@ -105,7 +105,7 @@ object Semantics {
     case ts =>
       val n = ts.list.size
       val use = product(fs flatMap (prepareTypeArgs(n,a,_)),product(ts.list map denoteTypeArg) map aboves) flatMap { case (f,ts) => f(ts) }
-      use ++ biased(Pr.ignoreTypeArgs(env.place.lastEditIn(a.r)),fs)
+      use ++ biased(Pr.ignoreTypeArgs(env.place.lastEditIn(a.lr)),fs)
   }
   def addTypeArgs(fs: Scored[Den], ts: Option[Grouped[KList[AExp]]])(implicit env: Env): Scored[Den] = ts match {
     case None => fs
