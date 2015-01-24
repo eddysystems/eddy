@@ -27,7 +27,7 @@ class Test { // top-level, static
     class Local { // not static, but in scope because static scope starts later, and we should have This and Super for it
       int local_i; // not static, but in scope because static scope starts later
       void test2() {
-        <caret>
+        local_i = 0<caret>
       }
     }
   }

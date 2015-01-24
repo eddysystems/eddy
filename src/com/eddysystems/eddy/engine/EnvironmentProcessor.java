@@ -188,7 +188,7 @@ class EnvironmentProcessor {
     }
 
     private boolean inStaticScope(int level) {
-      return staticScopeLevel <= level;
+      return inStaticScope() && staticScopeLevel <= level;
     }
 
     // Things that are in scope (not all these are accessible! things may be private, or not static while we are)
