@@ -42,11 +42,11 @@ class EnvironmentProcessor {
   // add to locals what you find in scope. There may be several threads writing to locals at the same time.
   public EnvironmentProcessor(final @NotNull Project project, final @NotNull JavaEnvironment jenv,
                               final Map<PsiElement,Item> locals, final @NotNull PsiElement place,
-                              final int lastEdit, final boolean honorPrivate) {
+                              final int lastEdit) {
     final Place where = new Place(project,place);
 
     // Walk up the PSI tree, also processing import statements
-    final Processor P = new Processor(where,honorPrivate);
+    final Processor P = new Processor(where);
     PsiScopesUtil.treeWalkUp(P, place, place.getContainingFile());
     this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
   }
@@ -128,20 +128,24 @@ class EnvironmentProcessor {
       }
 
       // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
-      // TODO: only add these until we enter static scope
       if (place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
         final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
         assert scopeItems.containsKey(c);
         final int p = scopeItems.get(c);
-        final ThisItem ti = new ThisItem(c);
-        localItems.add(ti);
-        scopeItems.put(ti,p);
 
-        final ClassType s = c.base();
-        assert s.item().isClass();
-        final SuperItem si = new SuperItem(s);
-        localItems.add(si);
-        scopeItems.put(si,p);
+        // add this and super only if we're not in static scope
+        if (!P.inStaticScope(p)) {
+          log("making 'this' and 'super' for " + c);
+          final ThisItem ti = new ThisItem(c);
+          localItems.add(ti);
+          scopeItems.put(ti,p);
+
+          final ClassType s = c.base();
+          assert s.item().isClass();
+          final SuperItem si = new SuperItem(s);
+          localItems.add(si);
+          scopeItems.put(si,p);
+        }
       }
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
@@ -174,11 +178,18 @@ class EnvironmentProcessor {
 
   private static final class Processor implements PsiScopeProcessor {
     private final @NotNull Place place;
-    private final boolean honorPrivate;
 
     // State for walking
     private int currentLevel = 0;
-    private boolean inStaticScope = false;
+    private int staticScopeLevel = -1; // level at which we're in static scope (and should stop generating this and super)
+
+    private boolean inStaticScope() {
+      return staticScopeLevel != -1; // if it's been set, ever, we're in static scope.
+    }
+
+    private boolean inStaticScope(int level) {
+      return staticScopeLevel <= level;
+    }
 
     // Things that are in scope (not all these are accessible! things may be private, or not static while we are)
     private final List<Shadow<PsiPackage>> packages = new SmartList<Shadow<PsiPackage>>();
@@ -186,9 +197,8 @@ class EnvironmentProcessor {
     private final List<Shadow<PsiVariable>> variables = new SmartList<Shadow<PsiVariable>>();
     private final List<Shadow<PsiMethod>> methods = new SmartList<Shadow<PsiMethod>>();
 
-    Processor(final @NotNull Place place, final boolean honorPrivate) {
+    Processor(final @NotNull Place place) {
       this.place = place;
-      this.honorPrivate = honorPrivate;
     }
 
     // Hints
@@ -207,14 +217,13 @@ class EnvironmentProcessor {
     }
 
     @Override public boolean execute(final @NotNull PsiElement element, final ResolveState state) {
-      // if we are in static scope, a class member has to be declared static for us to see it
-      // TODO: we should add these either way, and let the semantics logic take care of static scoping
-      if (element instanceof PsiField || element instanceof PsiMethod) {
-        if (inStaticScope && !((PsiMember)element).hasModifierProperty(PsiModifier.STATIC))
+      // if we are in static scope, field or method has to be static for us to see it
+      if (element instanceof PsiField || element instanceof PsiMethod)
+        if (inStaticScope() && !Place.isStatic(element)) {
           return true;
       }
 
-      if (honorPrivate && place.isInaccessible((PsiModifierListOwner)element)) {
+      if (place.isInaccessible((PsiModifierListOwner)element)) {
         //log("rejecting " + element + " because it is inaccessible");
         return true;
       }
@@ -234,15 +243,15 @@ class EnvironmentProcessor {
 
     @Override public final void handleEvent(final @NotNull Event event, final Object associated) {
       if (event == JavaScopeProcessorEvent.START_STATIC) {
-        //log("starting static scope");
-        inStaticScope = true;
+        log("starting static scope at " + currentLevel);
+        staticScopeLevel = currentLevel;
       } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
         if (associated instanceof PsiAnonymousClass)
           classes.add(new Shadow<PsiClass>((PsiClass)associated,currentLevel));
-        //log("switching context: " + associated);
+        log("switching context: " + associated);
       } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
         currentLevel++;
-        //log("change level to " + currentLevel + ", associated " + associated);
+        log("change level to " + currentLevel + ", associated " + associated);
       }
     }
   }

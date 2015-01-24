@@ -24,7 +24,7 @@ class Place {
     placeClass = PsiTreeUtil.getParentOfType(place, PsiClass.class, false);
     pkg = getPackage(file, project);
 
-    //System.out.println("Place at: " + place + " in class " + placeClass + " in package " + pkg + " in file " + file + " in project " + project);
+    //log("Place at: " + place + " in class " + placeClass + " in package " + pkg + " in file " + file + " in project " + project);
   }
 
   static class UnexpectedContainerError extends RuntimeException {
@@ -111,14 +111,26 @@ class Place {
     return epkg == pkg;
   }
 
+  static boolean isStatic(PsiElement element) {
+    if (element instanceof PsiField || element instanceof PsiMethod) {
+      return ((PsiModifierListOwner)element).hasModifierProperty(PsiModifier.STATIC);
+    } else if (element instanceof PsiClass) {
+      PsiClass cls = (PsiClass)element;
+      return cls.getContainingClass() == null || cls.isInterface() || cls.isEnum() || cls.hasModifierProperty(PsiModifier.STATIC); // enums, interfaces, and top-level classes are implicitly static
+    } else if (element instanceof PsiPackage) {
+      return true;
+    }
+
+    return false;
+  }
+
   // true if the element cannot be accessed from this place because it is inside an inaccessible element, because
   // it is private (and this is not inside the containing class), or because it is protected or package-local and
   // this is not within an inheriting class or the same package.
-  boolean isInaccessible(PsiModifierListOwner element) {
+
+  boolean isInaccessible(PsiModifierListOwner element) { // class, field, or method
     // TODO: this does not fully take into account the crazier access rules for protected members (6.6.1/6.6.2)
     // TODO: this deserves some unit tests, must be multi-package
-
-    // if place is null, and noPrivate is true, then we check whether we
 
     PsiElement container;
     try {

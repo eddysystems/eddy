@@ -28,23 +28,22 @@ import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.collection.JavaConversions;
 import tarski.Environment;
 import tarski.Environment.Env;
 import tarski.Items;
 import tarski.Items.Item;
 import tarski.JavaScores;
 import tarski.Scores.Alt;
-import tarski.Tokens.ShowFlags;
 import tarski.Tarski.ShowStmt;
+import tarski.Tokens.ShowFlags;
 import tarski.Types;
 
 import java.util.List;
 
-import static tarski.Tokens.fullShowFlags;
+import static com.eddysystems.eddy.engine.Utility.*;
 import static tarski.Tokens.abbrevShowFlags;
-import static com.eddysystems.eddy.engine.Utility.log;
-import static com.eddysystems.eddy.engine.Utility.pushDebug;
-import static com.eddysystems.eddy.engine.Utility.popDebug;
+import static tarski.Tokens.fullShowFlags;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
 
@@ -440,7 +439,66 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     Item L1 = env.exactQuery("Local1").head();
     assertTrue(env.scope().contains(L1));
 
-    // TODO: add tests for static visibility, more thorough tests of package local and protected visibility
+    // TODO: more thorough tests of package local and protected visibility
+  }
+
+  public void testStaticScope() throws Exception {
+    final Env env = setupEnv(-1, "test/staticScope.java");
+
+    class Check {
+
+      Item find(String name) {
+        // find the item of that name that's in the "test" package
+        scala.collection.immutable.List<Item> items = env.exactQuery(name);
+        for (Item item : JavaConversions.asJavaIterable(items)) {
+          if (item.qualified().startsWith("test.")) {
+            return item;
+          } else {
+            log("ignoring item " + item + " qualified name " + item.qualified());
+          }
+        }
+        assertFalse("did not find local item with name " + name, true);
+        return null;
+      }
+
+      void inScope(String name) {
+        Item item = find(name);
+        assertTrue("item " + item + " is not in scope, but should be", env.inScope(item));
+      }
+      void notInScope(String name) {
+        Item item = find(name);
+        assertFalse("item " + item + " is in scope, but shouldn't be", env.inScope(item));
+      }
+
+      Check() {
+        inScope("X");
+        inScope("Y");
+        inScope("Z");
+        inScope("E");
+        inScope("I");
+        inScope("static_i");
+        notInScope("i");
+        inScope("static_f");
+        notInScope("f");
+        inScope("Test");
+        inScope("test");
+        inScope("Local");
+        inScope("local_i");
+        inScope("test2");
+
+        // check that only Local gets a ThisItem
+        boolean found = false;
+        for (scala.Tuple2<Item,Object> tup: JavaConversions.asJavaIterable(env.scope())) {
+          Item it = tup._1();
+          if (it instanceof Items.ThisItem) {
+            assertEquals("expected no this except for Local", ((Items.ThisItem) it).item(), env.exactQuery("Local").head());
+            found = true;
+          }
+        }
+        assertTrue("could not find ThisItem for Local", found);
+      }
+    }
+    new Check();
   }
 
   public void testLibraryObject() {

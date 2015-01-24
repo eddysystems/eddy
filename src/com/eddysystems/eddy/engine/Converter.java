@@ -361,12 +361,13 @@ class Converter {
      public Items.Package pkg() { return (Items.Package)converter.addContainer(Place.getElementPackage(elem, converter.project)); }
    }
 
-   static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent, CachedNameItem, SettableFinalItem {
+   static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent, CachedNameItem, SettableFinalItem, SettableStaticItem {
      @NotNull final Converter env;
      @NotNull final PsiClassReferenceType cls;
 
      @NotNull final Parent _parent;
      boolean _isFinal = false;
+     boolean _isStatic = false;
      scala.collection.immutable.List<TypeArg> _targs;
      scala.collection.immutable.List<TypeVar> _tparams = null;
      ClassItem _resolved = null;
@@ -381,8 +382,10 @@ class Converter {
        PsiPackage pkg = Place.getElementPackage(cls.getReference(), env.project);
        _parent = parent == null ? pkg == null ? LocalPkg$.MODULE$ : (tarski.Items.Package)env.addContainer(pkg) : parent;
 
-       if (cls instanceof PsiModifierListOwner)
+       if (cls instanceof PsiModifierListOwner) {
          _isFinal = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.FINAL);
+         _isStatic = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.STATIC);
+       }
 
        List<TypeArg> jargs = new SmartList<TypeArg>();
        for (PsiType arg : cls.getParameters())
@@ -394,6 +397,7 @@ class Converter {
      public boolean isClass() { return true; }
      public boolean isEnum() { return false; }
      public boolean isFinal() { return _isFinal; }
+     public boolean isStatic() { return _isStatic; }
      public ParentItem parent() { return _parent.item(); }
      public ClassType base() { return ObjectType$.MODULE$; }
      public scala.collection.immutable.List<RefType> supers() { return _supers; }
@@ -441,6 +445,10 @@ class Converter {
 
      public void setFinal(boolean f) {
         _isFinal = f;
+     }
+
+     public void setStatic(boolean f) {
+        _isStatic = f;
       }
    }
 
@@ -556,11 +564,12 @@ class Converter {
      }
    }
 
-   static protected class LazyClass extends ClassItem implements PsiEquivalent, ReferencingItem, CachedNameItem, CachedConstructorsItem, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem {
+   static protected class LazyClass extends ClassItem implements PsiEquivalent, ReferencingItem, CachedNameItem, CachedConstructorsItem, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem, SettableStaticItem {
      private final Converter env;
      private final PsiClass cls;
      private final ParentItem _parent;
      private boolean _isFinal;
+     private boolean _isStatic;
      private String _name;
 
      // Lazy fields
@@ -576,6 +585,7 @@ class Converter {
        this._name = cls.getName();
        this._parent = parent;
        this._isFinal = cls.hasModifierProperty(PsiModifier.FINAL);
+       this._isStatic = Place.isStatic(cls);
      }
 
      public String toString() { return "LazyClass:" + _name; }
@@ -593,6 +603,8 @@ class Converter {
      public boolean isFinal() {
         return _isFinal;
       }
+
+     public boolean isStatic() { return _isStatic; }
 
      public boolean isClass() {
         return !cls.isInterface();
@@ -723,6 +735,8 @@ class Converter {
      public void setFinal(boolean b) {
         _isFinal = b;
       }
+
+     public void setStatic(boolean f) { _isStatic = f; }
 
      public void refreshName() {
         _name = cls.getName();

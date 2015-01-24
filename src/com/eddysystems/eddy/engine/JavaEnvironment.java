@@ -461,7 +461,7 @@ public class JavaEnvironment {
     }
 
     // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
-    EnvironmentProcessor ep = new EnvironmentProcessor(project, this, scopeItems, place, lastEdit, true);
+    EnvironmentProcessor ep = new EnvironmentProcessor(project, this, scopeItems, place, lastEdit);
 
     final List<Items.Item> pruned = pruneItems(ep.localItems);
 

@@ -23,8 +23,6 @@ object Environment {
   private implicit val showRange = SRange.unknown
 
   // Information about where we are
-  // TODO: add information about static scope
-  // TODO: add information about whether we're in a spot where we can delegate constructor calls
   case class PlaceInfo(place: ParentItem, exactPlace: PsiElement = null,
                        breakable: Boolean = false,
                        continuable: Boolean = false,
@@ -39,7 +37,6 @@ object Environment {
       case cons:ConstructorItem => c==cons.parent.base.item && c.constructors.length>0
       case _ => false
     }
-    // TODO: in static scope?
 
     def lastEditIn(r: SRange): Boolean = r contains lastEdit
   }

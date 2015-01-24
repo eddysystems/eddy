@@ -129,6 +129,7 @@ object Items {
       def isClass: Boolean // true for class, false for interface
       def isEnum: Boolean // true only for descendants of Enum<E>
       def isFinal: Boolean
+      def isStatic: Boolean
       def base: ClassType
       def supers: List[RefType]
 
@@ -185,6 +186,7 @@ object Items {
       val fieldNames: java.util.Set[String] = new java.util.HashSet[String]()
       var constructors: Array[ConstructorItem] = noConstructors
       def declaresField(kid: Name) = fieldNames.contains(kid)
+      override def isStatic = true // only top-level classes in base
     }
 
     case object ObjectItem extends BaseItem {
@@ -216,6 +218,7 @@ object Items {
       def isClass = false
       def isEnum = false
       def isFinal = false
+      def isStatic = true
       def declaresField(kid: Name) = fields contains kid
       lazy val constructors = _constructors
 
@@ -237,7 +240,7 @@ object Items {
 
     class NormalClassItem(val name: Name, val parent: ParentItem = LocalPkg, val tparams: List[TypeVar] = Nil,
                           val base: ClassType = ObjectType, val interfaces: List[ClassType] = Nil,
-                          val isFinal: Boolean = false, val fields: Set[String] = Set(),
+                          val isFinal: Boolean = false, val isStatic: Boolean = false, val fields: Set[String] = Set(),
                           _constructors: => Array[ConstructorItem] = noConstructors) extends ClassItem {
       def supers = base :: interfaces
       def superItems = supers map (_.item)
@@ -260,9 +263,9 @@ object Items {
     object NormalClassItem {
       def apply(name: Name, parent: ParentItem = LocalPkg, tparams: List[TypeVar] = Nil,
                 base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
-                isFinal: Boolean = false, fields: Set[String] = Set(),
+                isFinal: Boolean = false, isStatic: Boolean=false, fields: Set[String] = Set(),
                 constructors: => Array[ConstructorItem] = noConstructors): ClassItem =
-        new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,fields,constructors)
+        new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,isStatic,fields,constructors)
     }
 
     case object ArrayItem extends RefTypeItem {
@@ -290,7 +293,7 @@ object Items {
     trait Member extends Item with PackageOrMember {
       def name: Name
       def parent: ParentItem // Package, class, or callable
-      override def qualified = parent.qualified + "." + name
+      override def qualified = { val pq = parent.qualified; if (pq.isEmpty) name else pq + "." + name }
     }
     trait ClassMember extends Member {
       def parent: ClassItem

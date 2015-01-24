@@ -1,5 +1,7 @@
 package tarski
 
+import java.lang.AssertionError
+
 import tarski.Mods.Final
 import utility.Locations._
 import utility.Utility._
@@ -319,9 +321,9 @@ class TestDen {
     val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, Set("f"))
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, false, Set("f"))
     val Xf = NormalFieldItem("f",Q.simple,X,true)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, Set("f"))
+    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, false, Set("f"))
     val Yf = NormalFieldItem("f",R.simple,Y,true)
 
     val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
@@ -353,9 +355,9 @@ class TestDen {
     val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
     val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
 
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, Set("f"))
+    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, false, Set("f"))
     val Xf = NormalFieldItem("f",Q.simple,X,true)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, Set("f"))
+    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, false, Set("f"))
     val Yf = NormalFieldItem("f",R.simple,Y,true)
 
     val m = NormalMethodItem("m", Y, Nil, VoidType, List(Q.simple), false)
@@ -1005,4 +1007,52 @@ class TestDen {
 
   @Test def verboseArray() = test("int[] x = new int[]{1,2,3}","x",x =>
     VarStmt(ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2,3),a,auto=false)))))
+
+  @Test def testTest(): Unit = {
+    val X = NormalClassItem("X",LocalPkg)
+    lazy val Y: ClassItem = NormalClassItem("Y",X,isStatic=false,constructors=Array(Yc))
+    lazy val Yc = NormalConstructorItem(Y,Nil,Nil)
+    val f = NormalMethodItem("f",X,Nil,VoidType,Nil,isStatic=true)
+    val x = NormalLocal("x",X.inside,isFinal=false)
+    implicit val env = Env(Array(X,Y,f,x),Map(X->3,Y->3,f->3,x->1),PlaceInfo(f))
+
+    // one of these must fail, but not both
+    val input = "new Y()"
+    val exp = ApplyExp(NewDen(r,None,Yc,r),Nil,a,auto=false)
+    var count = 0
+    try {
+      test(input, exp)
+    } catch {
+      case e:AssertionError => { println(e.getMessage); count += 1 }
+    }
+    try {
+      testAvoid(input, exp)
+    } catch {
+      case e:AssertionError => { println(e.getMessage); count += 1 }
+    }
+    assert(count == 1, "one of test and testAvoid must fail, but not " + (if (count == 0) "neither" else "both"))
+  }
+
+  @Test def qualifiedNew(): Unit = {
+    /*
+      class X {
+        class Y {}
+
+        static void f() {
+          X x = new X();
+          new Y()<caret> // => x.new Y();
+        }
+      }
+    */
+
+    val X = NormalClassItem("X",LocalPkg)
+    lazy val Y: ClassItem = NormalClassItem("Y",X,isStatic=false,constructors=Array(Yc))
+    lazy val Yc = NormalConstructorItem(Y,Nil,Nil)
+    val f = NormalMethodItem("f",X,Nil,VoidType,Nil,isStatic=true)
+    val x = NormalLocal("x",X.inside,isFinal=false)
+    implicit val env = Env(Array(X,Y,f,x),Map(X->3,Y->3,f->3,x->1),PlaceInfo(f))
+    testAvoid("new Y()", ApplyExp(NewDen(r,None,Yc,r),Nil,a,auto=false))
+    // TODO: NewDen needs an optional qualifying value expression for this to work.
+    notImplemented
+  }
 }
