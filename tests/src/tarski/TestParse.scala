@@ -200,20 +200,20 @@ class TestParse {
     SemiAStmt(AssignAExp(None,r,ApplyAExp("boolean","x",NoAround(r)),"true"),r))
 
   @Test def tryFinallyStmt() = testAST("try x = 1 finally ",
-    TryAStmt(r,AssignAExp(None,r,"x",1), Nil, Some(HoleAStmt(SRange.empty))))
+    TryAStmt(r,AssignAExp(None,r,"x",1), Nil, Some((r,HoleAStmt(SRange.empty)))))
   @Test def tryFinallyStmt2() = testAST("try { x = 1 } finally { x = 2 } ",
-    TryAStmt(r,BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",1))),a), Nil, Some(BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",2))),a))))
+    TryAStmt(r,BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",1))),a), Nil, Some((r,BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",2))),a)))))
 
   @Test def tryCatchStmt() = testAST("try x = 1 catch ... ",
-    TryAStmt(r,AssignAExp(None,r,"x",1), List((CatchInfo(r,None,None,r,NoAround(r),colon=false),HoleAStmt(SRange.empty))), None))
-  @Test def tryCatchStmt2() = testAST("try { x = 1 } catch (Exception e) ",
+    TryAStmt(r,AssignAExp(None,r,"x",1), List((CatchInfo(r,Nil,None,None,NoAround(r),colon=false),HoleAStmt(SRange.empty))), None))
+  @Test def tryCatchStmt2() = testAST("try { x = 1 } catch (final Exception e) ",
     TryAStmt(r,BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",1))),a),
-             List((CatchInfo(r,Some(NameAExp("Exception",r)),Some("e"),r,Around(Loc(Arounds.Paren,r),Loc(Arounds.Paren,r)),colon=false),
+             List((CatchInfo(r,List(Loc(Mods.Final,r)),Some(NameAExp("Exception",r)),Some("e"),Around(Loc(Arounds.Paren,r),Loc(Arounds.Paren,r)),colon=false),
              HoleAStmt(SRange.empty))), None))
   @Test def tryCatchStmt3() = testAST("try { x = 1 } catch (e: Exception) { x = 2 }",
     TryAStmt(r,BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",1))),a),
-             List((CatchInfo(r,Some(NameAExp("Exception",r)),Some("e"),r,Around(Loc(Arounds.Paren,r),Loc(Arounds.Paren,r)),colon=true),
+             List((CatchInfo(r,Nil,Some(NameAExp("Exception",r)),Some("e"),Around(Loc(Arounds.Paren,r),Loc(Arounds.Paren,r)),colon=true),
              BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",2))),a))), None))
   @Test def tryCatchFinallyStmt() = testAST("try x = 1 finally ",
-    TryAStmt(r,AssignAExp(None,r,"x",1), Nil, Some(HoleAStmt(SRange.empty))))
+    TryAStmt(r,AssignAExp(None,r,"x",1), Nil, Some(r,HoleAStmt(SRange.empty))))
 }

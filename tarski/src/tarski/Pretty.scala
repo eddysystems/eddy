@@ -269,9 +269,14 @@ object Pretty {
     case None => Nil
     case Some(Grouped(t,a)) => typeBracket(t,a)
   })
+  implicit def prettyCatchInfo(c: CatchInfo): FixTokens = (SemiFix, List(Loc(CatchTok,c.cr), Loc(LParenTok,c.a.a.l)) ::: c.ms.flatMap(tokens) ::: tokens(c.t) ::: c.i.toList.flatMap(x => tokens(x.x,x.r)) ::: List(Loc(RParenTok,c.a.a.r)))
 
   // AST statements
   private[this] def hole(r: SRange) = List(Loc(HoleTok,r.after))
+  private[this] def needABlock(s: AStmt) = s match {
+    case BlockAStmt(_,_)|HoleAStmt(_) => s
+    case _ => BlockAStmt(List(s),SGroup(s.r.before,s.r.after))
+  }
   implicit def prettyAStmt(s: AStmt): FixTokens = s match {
     case SemiAStmt(s,sr) => prettyAStmtHelper(s,sr)
     case _ => prettyAStmtHelper(s,s.r.after)
@@ -300,7 +305,7 @@ object Pretty {
       case WhileAStmt(wr,flip,c,a,s) => (SemiFix, whileUntil(wr,flip) :: around(c,a)._2 ::: tokens(s))
       case DoAStmt(dr,s,wr,flip,c,a) => (SemiFix, Loc(DoTok,dr) :: tokens(s) ::: whileUntil(wr,flip) :: around(c,a)._2 ::: sem)
       case ForAStmt(fr,i,a,s) => (SemiFix, Loc(ForTok,fr) :: around(i,a)._2 ::: tokens(s))
-      case TryAStmt(_,_,_,_) => notImplemented
+      case TryAStmt(tr,s,cs,f) => (SemiFix, Loc(TryTok,tr) :: tokens(needABlock(s)) ::: cs.flatMap({case (ci,cs) => tokens(ci) ::: tokens(needABlock(cs))}) ::: f.toList.flatMap({case(fr,fs) => Loc(FinallyTok,fr) :: tokens(needABlock(fs))} ))
     }
   }
   def whileUntil(r: SRange, flip: Boolean): Loc[Token]= Loc(if (flip) UntilTok else WhileTok,r)

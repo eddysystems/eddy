@@ -32,7 +32,6 @@ object ParseEddyActions {
   def ExpHighNA1(x1: AExp): AExp = x1
   def MaybeThen__MaybeStmt__ElseTok0(x2: AStmt, x3r: Range): (AStmt,Long) = (x2,x3r)
   def Right__ExpUnary_ExpJuxt0(x1: Loc[Group], x2: AExp): (Loc[Group],AExp) = (x1,x2)
-  def CatchTok__Left__Ident0(x2: Loc[Group], x3: Loc[String], x1r: Range): (Long,Loc[Group],Loc[String]) = (x1r,x2,x3)
   def Right__MaybeStmt0(x1: Loc[Group], x2: AStmt): (Loc[Group],AStmt) = (x1,x2)
   def ExpAssign0(x1: AExp, x2: (Loc[Option[AssignOp]],AExp)): AExp = AssignAExp(x2._1.x,x2._1.r,x1,x2._2)
   def ExpAssign1(x1: AExp): AExp = x1
@@ -56,7 +55,6 @@ object ParseEddyActions {
   def ExpAdd_ExpWild2(x1: AExp): AExp = x1
   def Option_Ident0(x1: Loc[String]): Option[Loc[String]] = Some(x1)
   def Option_Ident1(): Option[Loc[String]] = None
-  def CatchTok__Type0(x2: AExp, x1r: Range): (Long,AExp) = (x1r,x2)
   def Juxts2_ExpAssignNC0(x1: AExp, x2: List[AExp]): List[AExp] = x1 :: x2
   def ExpCond_ExpWild0(x1: AExp, x2: (Long,AExp,Long,AExp)): AExp = CondAExp(x1,x2._1,x2._2,x2._3,x2._4)
   def ExpCond_ExpWild1(x1: AExp): AExp = x1
@@ -79,8 +77,7 @@ object ParseEddyActions {
   def AssignOp11(r: Range): Loc[Option[AssignOp]] = Loc(Some(XorOp),r)
   def ExpCommas0(x1: CommaList2[AExp]): AExp = ArrayAExp(x1,NoAround(x1.list.head.r union x1.list.last.r))
   def ExpCommas1(x1: AExp): AExp = x1
-  def EllipsisTok__Right__MaybeStmt0(x2: Loc[Group], x3: AStmt, x1r: Range): (Long,Loc[Group],AStmt) = (x1r,x2,x3)
-  def CatchTok__Left__Type0(x2: Loc[Group], x3: AExp, x1r: Range): (Long,Loc[Group],AExp) = (x1r,x2,x3)
+  def EllipsisTok__Right__MaybeStmt0(x2: Loc[Group], x3: AStmt): (Loc[Group],AStmt) = (x2,x3)
   def ForInfo__Right0(x1: ForInfo, x2: Loc[Group]): (ForInfo,Loc[Group]) = (x1,x2)
   def ExpOrOr_ExpJuxt0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(OrOrOp,x2r,x1,x3)
   def ExpOrOr_ExpJuxt1(x1: AExp): AExp = x1
@@ -95,7 +92,7 @@ object ParseEddyActions {
   def CatchBlocks0(x1: (CatchInfo,AStmt), x2: List[(CatchInfo,AStmt)]): List[(CatchInfo,AStmt)] = x1 :: x2
   def CatchBlocks1(): List[(CatchInfo,AStmt)] = Nil
   def MaybeStmt__ElseTok__Stmt0(x1: AStmt, x3: AStmt, x2r: Range): (AStmt,Long,AStmt) = (x1,x2r,x3)
-  def CatchBlocks__Option_FinallyBlock0(x1: List[(CatchInfo,AStmt)], x2: Option[AStmt]): (List[(CatchInfo,AStmt)],Option[AStmt]) = (x1,x2)
+  def CatchBlocks__Option_FinallyBlock0(x1: List[(CatchInfo,AStmt)], x2: Option[(SRange,AStmt)]): (List[(CatchInfo,AStmt)],Option[(SRange,AStmt)]) = (x1,x2)
   def ForTok__Left__ForInfo0(x2: Loc[Group], x3: ForInfo, x1r: Range): (Long,Loc[Group],ForInfo) = (x1r,x2,x3)
   def VarDecl0(x1: Loc[String], x2: (List[SGroup],Long,AExp)): AVarDecl = AVarDecl(x1.x,x1.r,x2._1,Some((x2._2:SRange,x2._3)))
   def VarDecl1(x1: Loc[String], x2: List[SGroup]): AVarDecl = AVarDecl(x1.x,x1.r,x2,None)
@@ -123,7 +120,7 @@ object ParseEddyActions {
   def StmtHelperBS8(x2: AExp, x1r: Range): AStmt = AssertAStmt(x1r,x2,None)
   def StmtHelperBS9(x1: AStmt): AStmt = x1
   def StmtHelperBS10(x1: List[Loc[Mod]], x2: (Option[AExp],KList[AVarDecl])): AStmt = VarAStmt(x1,x2._1,x2._2)
-  def StmtHelperBS11(x1: (Long,AStmt), x2: (List[(CatchInfo,AStmt)],Option[AStmt])): AStmt = TryAStmt(x1._1,x1._2,x2._1,x2._2)
+  def StmtHelperBS11(x1: (Long,AStmt), x2: (List[(CatchInfo,AStmt)],Option[(SRange,AStmt)])): AStmt = TryAStmt(x1._1,x1._2,x2._1,x2._2)
   def StmtHelperBS12(x1: (Loc[Boolean],(AExp,Around)), x2: AStmt): AStmt = WhileAStmt(x1._1.r,x1._1.x,x1._2._1,x1._2._2,x2)
   def StmtHelperBS13(x2: PreIf, x1r: Range): AStmt = x2(x1r)
   def StmtHelperBS14(x1: AExp): AStmt = ExpAStmt(x1)
@@ -153,12 +150,13 @@ object ParseEddyActions {
   def Commas1_Type1(x1: AExp): CommaList1[AExp] = SingleList(x1)
   def ParenExp0(x1: Loc[Group], x2: (AExp,Loc[Group])): (AExp,Around) = (x2._1,Around(x1,x2._2))
   def TryTok__Stmt0(x2: AStmt, x1r: Range): (Long,AStmt) = (x1r,x2)
-  def FinallyBlock0(x2: AStmt): AStmt = x2
+  def FinallyBlock0(x2: AStmt, x1r: Range): (SRange,AStmt) = (x1r,x2)
   def ExpShift_ExpJuxt0(x1: AExp, x7: AExp, x2r: Range, x6r: Range): AExp = BinaryAExp(UnsignedRShiftOp,x2r union x6r,x1,x7)
   def ExpShift_ExpJuxt1(x1: AExp, x5: AExp, x2r: Range, x4r: Range): AExp = BinaryAExp(RShiftOp,x2r union x4r,x1,x5)
   def ExpShift_ExpJuxt2(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LShiftOp,x2r,x1,x3)
   def ExpShift_ExpJuxt3(x1: AExp): AExp = x1
   def Ident__MaybeStmt0(x1: Loc[String], x2: AStmt): (Loc[String],AStmt) = (x1,x2)
+  def CatchTok__Left__Ident__ColonTok__Juxts0_Mod0(x1: (Long,Loc[Group]), x2: (Loc[String],List[Loc[Mod]])): (Long,Loc[Group],Loc[String],List[Loc[Mod]]) = (x1._1,x1._2,x2._1,x2._2)
   def Option_TypeArgs0(x1: Grouped[KList[AExp]]): Option[Grouped[KList[AExp]]] = Some(x1)
   def Option_TypeArgs1(): Option[Grouped[KList[AExp]]] = None
   def Juxts1_ExpWild0(x1: AExp, x2: List[AExp]): List[AExp] = x1 :: x2
@@ -207,7 +205,6 @@ object ParseEddyActions {
   def Stmt0(x1: AStmt, x2r: Range): AStmt = SemiAStmt(x1,x2r)
   def Stmt1(x1: AStmt): AStmt = x1
   def Stmt2(x1r: Range): AStmt = SemiAStmt(EmptyAStmt(x1r.before),x1r)
-  def ColonTok__Type0(x2: AExp): AExp = x2
   def MaybeParenExp__MaybeDo0(x1: (AExp,Around), x2: Option[SRange]): ((AExp,Around),Option[SRange]) = (x1,x2)
   def Juxts2_VarDecl0(x1: AVarDecl, x2: List[AVarDecl]): List[AVarDecl] = x1 :: x2
   def MaybeThen0(x1r: Range): Option[SRange] = Some(x1r)
@@ -239,8 +236,8 @@ object ParseEddyActions {
   def Juxts1_ExpAssignNC1(x1: AExp): List[AExp] = List(x1)
   def ExpAnd_ExpJuxtNP0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(AndOp,x2r,x1,x3)
   def ExpAnd_ExpJuxtNP1(x1: AExp): AExp = x1
-  def Option_FinallyBlock0(x1: AStmt): Option[AStmt] = Some(x1)
-  def Option_FinallyBlock1(): Option[AStmt] = None
+  def Option_FinallyBlock0(x1: (SRange,AStmt)): Option[(SRange,AStmt)] = Some(x1)
+  def Option_FinallyBlock1(): Option[(SRange,AStmt)] = None
   def ExpAdd_ExpJuxt0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(SubOp,x2r,x1,x3)
   def ExpAdd_ExpJuxt1(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(AddOp,x2r,x1,x3)
   def ExpAdd_ExpJuxt2(x1: AExp): AExp = x1
@@ -249,6 +246,7 @@ object ParseEddyActions {
   def ExpMul_ExpJuxt1(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(DivOp,x2r,x1,x3)
   def ExpMul_ExpJuxt2(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(MulOp,x2r,x1,x3)
   def ExpMul_ExpJuxt3(x1: AExp): AExp = x1
+  def Type__Right__MaybeStmt0(x1: AExp, x2: (Loc[Group],AStmt)): (AExp,Loc[Group],AStmt) = (x1,x2._1,x2._2)
   def CatchTok__Left0(x2: Loc[Group], x1r: Range): (Long,Loc[Group]) = (x1r,x2)
   def List1_Type0(x1: List[AExp]): KList[AExp] = JuxtList(x1)
   def List1_Type1(x1: CommaList2[AExp]): KList[AExp] = x1
@@ -280,9 +278,9 @@ object ParseEddyActions {
   def ExpAssignNP__DoTok__Stmt0(x1: AExp, x3: AStmt): (AExp,AStmt) = (x1,x3)
   def NewTok__Option_TypeArgs0(x2: Option[Grouped[KList[AExp]]], x1r: Range): (Long,Option[Grouped[KList[AExp]]]) = (x1r,x2)
   def DoTok__MaybeStmt0(x2: AStmt, x1r: Range): (Long,AStmt) = (x1r,x2)
-  def ColonTok__Type__Right__MaybeStmt0(x1: AExp, x2: (Loc[Group],AStmt)): (AExp,Loc[Group],AStmt) = (x1,x2._1,x2._2)
   def Juxts0_Mod0(x1: List[Loc[Mod]]): List[Loc[Mod]] = x1
   def Juxts0_Mod1(): List[Loc[Mod]] = Nil
+  def CatchTok__Ident__ColonTok__Juxts0_Mod0(x2: Loc[String], x4: List[Loc[Mod]], x1r: Range): (Long,Loc[String],List[Loc[Mod]]) = (x1r,x2,x4)
   def ExpShift_ExpWild0(x1: AExp, x7: AExp, x2r: Range, x6r: Range): AExp = BinaryAExp(UnsignedRShiftOp,x2r union x6r,x1,x7)
   def ExpShift_ExpWild1(x1: AExp, x5: AExp, x2r: Range, x4r: Range): AExp = BinaryAExp(RShiftOp,x2r union x4r,x1,x5)
   def ExpShift_ExpWild2(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LShiftOp,x2r,x1,x3)
@@ -295,6 +293,7 @@ object ParseEddyActions {
   def ExpRel_ExpJuxt3(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GeOp,x2r,x1,x3)
   def ExpRel_ExpJuxt4(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LeOp,x2r,x1,x3)
   def ExpRel_ExpJuxt5(x1: AExp): AExp = x1
+  def Juxts0_Mod__Type0(x1: List[Loc[Mod]], x2: AExp): (List[Loc[Mod]],AExp) = (x1,x2)
   def ExpRel_ExpJuxtNP0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GtOp,x2r,x1,x3)
   def ExpRel_ExpJuxtNP1(x1: AExp, x3: AExp, x2r: Range): AExp = InstanceofAExp(x1,x2r,x3)
   def ExpRel_ExpJuxtNP2(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LtOp,x2r,x1,x3)
@@ -308,6 +307,7 @@ object ParseEddyActions {
   def ExpNew1(x1: Grouped[KList[AExp]], x2: AExp): AExp = TypeApplyAExp(x2,x1.x,x1.a,after=false)
   def ExpNew2(x1: AExp): AExp = x1
   def Right__DimExps0(x1: Loc[Group], x2: List[Grouped[Option[AExp]]]): (Loc[Group],List[Grouped[Option[AExp]]]) = (x1,x2)
+  def Ident__ColonTok__Juxts0_Mod0(x1: Loc[String], x3: List[Loc[Mod]]): (Loc[String],List[Loc[Mod]]) = (x1,x3)
   def Juxts1_Type0(x1: AExp, x2: List[AExp]): List[AExp] = x1 :: x2
   def Juxts1_Type1(x1: AExp): List[AExp] = List(x1)
   def Right__Stmt0(x1: Loc[Group], x2: AStmt): (Loc[Group],AStmt) = (x1,x2)
@@ -317,6 +317,7 @@ object ParseEddyActions {
   def AfterIfA1(x1: (AExp,Around), x2: (AStmt,Long)): PreIf = PreIf(ir => IfElseAStmt(ir,x1._1,x1._2,x2._1,x2._2,HoleAStmt(x2._2.after)))
   def AfterIfA2(x1: (AExp,Around), x2: Option[SRange]): PreIf = PreIf(ir => IfAStmt(ir,x1._1,x1._2,HoleAStmt(x1._2.r.union(x2).after)))
   def LParenTok__Type0(x2: AExp, x1r: Range): (Long,AExp) = (x1r,x2)
+  def CatchTok__Left__Juxts0_Mod__Type0(x1: (Long,Loc[Group]), x2: (List[Loc[Mod]],AExp)): (Long,Loc[Group],List[Loc[Mod]],AExp) = (x1._1,x1._2,x2._1,x2._2)
   def Stmts0(x1: AStmt, x3: List[AStmt], x2r: Range): List[AStmt] = SemiAStmt(x1,x2r) :: x3
   def Stmts1(x1: AStmt): List[AStmt] = List(x1)
   def Stmts2(x2: List[AStmt], x1r: Range): List[AStmt] = SemiAStmt(EmptyAStmt(x1r.before),x1r) :: x2
@@ -360,6 +361,7 @@ object ParseEddyActions {
   def ExpWildNA0(x2: Option[WildBound], x1r: Range): AExp = WildAExp(x1r,x2)
   def ExpWildNA1(x1: AExp): AExp = x1
   def WhileUntil__ParenExp0(x1: Loc[Boolean], x2: (AExp,Around)): (Loc[Boolean],(AExp,Around)) = (x1,x2)
+  def CatchTok__Juxts0_Mod__Type0(x2: List[Loc[Mod]], x3: AExp, x1r: Range): (Long,List[Loc[Mod]],AExp) = (x1r,x2,x3)
   def Commas1_VarDecl0(x1: AVarDecl, x3: CommaList1[AVarDecl], x2r: Range): CommaList1[AVarDecl] = x3.preComma(x1,x2r)
   def Commas1_VarDecl1(x1: AVarDecl): CommaList1[AVarDecl] = SingleList(x1)
   def Block0(x2: List[AStmt], x3: Loc[Group], x1r: Range): AStmt = BlockAStmt(x2,SGroup(x1r,x3.r))
@@ -373,13 +375,12 @@ object ParseEddyActions {
   def ExpXor_ExpJuxt1(x1: AExp): AExp = x1
   def ArrayInterior0(x1: KList[AExp]): KList[AExp] = x1
   def ArrayInterior1(x1: AExp): KList[AExp] = SingleList(x1)
-  def ColonTok__Type__MaybeStmt0(x2: AExp, x3: AStmt): (AExp,AStmt) = (x2,x3)
-  def CatchBlock0(x1: (Long,Loc[Group],Loc[String]), x2: (AExp,Loc[Group],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,Some(x2._1),Some(x1._3.x),x1._3.r,Around(x1._2,x2._2),true),x2._3)
-  def CatchBlock1(x3: AStmt, x1r: Range, x2r: Range): (CatchInfo,AStmt) = (CatchInfo(x1r,None,None,x2r,NoAround(x2r),false),x3)
-  def CatchBlock2(x1: (Long,Loc[String]), x2: (AExp,AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,Some(x2._1),Some(x1._2.x),x1._2.r,NoAround(x1._2.r union x2._1.r),true),x2._2)
-  def CatchBlock3(x1: (Long,Loc[Group]), x2: (Long,Loc[Group],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,None,None,x2._1,Around(x1._2,x2._2),false),x2._3)
-  def CatchBlock4(x1: (Long,AExp), x2: (Loc[String],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,Some(x1._2),Some(x2._1.x),x2._1.r,NoAround(x1._2.r union x2._1.r),false),x2._2)
-  def CatchBlock5(x1: (Long,Loc[Group],AExp), x2: (Loc[String],Loc[Group],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,Some(x1._3),Some(x2._1.x),x2._1.r,Around(x1._2,x2._2),false),x2._3)
+  def CatchBlock0(x1: (Long,Loc[Group],List[Loc[Mod]],AExp), x2: (Loc[String],Loc[Group],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,x1._3,Some(x1._4),Some(x2._1),Around(x1._2,x2._2),false),x2._3)
+  def CatchBlock1(x1: (Long,Loc[String],List[Loc[Mod]]), x2: (AExp,AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,x1._3,Some(x2._1),Some(x1._2),NoAround(x1._2.r union x2._1.r),true),x2._2)
+  def CatchBlock2(x1: (Long,Loc[Group],Loc[String],List[Loc[Mod]]), x2: (AExp,Loc[Group],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,x1._4,Some(x2._1),Some(x1._3),Around(x1._2,x2._2),true),x2._3)
+  def CatchBlock3(x3: AStmt, x1r: Range, x2r: Range): (CatchInfo,AStmt) = (CatchInfo(x1r,Nil,None,None,NoAround(x2r),false),x3)
+  def CatchBlock4(x1: (Long,Loc[Group]), x2: (Loc[Group],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,Nil,None,None,Around(x1._2,x2._1),false),x2._2)
+  def CatchBlock5(x1: (Long,List[Loc[Mod]],AExp), x2: (Loc[String],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,x1._2,Some(x1._3),Some(x2._1),NoAround(x1._2.headOption.map(_.r).getOrElse(x1._3.r) union x2._1.r),false),x2._2)
   def Ident0(x1r: Range): Loc[String] = Loc("until",x1r)
   def Ident1(x1r: Range): Loc[String] = Loc("in",x1r)
   def Ident2(x1r: Range): Loc[String] = Loc("then",x1r)
@@ -391,6 +392,7 @@ object ParseEddyActions {
   def ForeachSep1(x1r: Range): Long = x1r
   def Commas0_ExpAssignNC0(x1: CommaList1[AExp]): CommaList[AExp] = x1
   def Commas0_ExpAssignNC1(): CommaList[AExp] = EmptyList
+  def Type__MaybeStmt0(x1: AExp, x2: AStmt): (AExp,AStmt) = (x1,x2)
   def ExpCond_ExpJuxt0(x1: AExp, x2: (Long,AExp,Long,AExp)): AExp = CondAExp(x1,x2._1,x2._2,x2._3,x2._4)
   def ExpCond_ExpJuxt1(x1: AExp): AExp = x1
   def ExpAssignNP0(x1: AExp, x2: (Loc[Option[AssignOp]],AExp)): AExp = AssignAExp(x2._1.x,x2._1.r,x1,x2._2)
@@ -398,7 +400,6 @@ object ParseEddyActions {
   def SemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC0(x2: Option[AExp], x4: CommaList[AExp], x1r: Range, x3r: Range): (Long,Option[AExp],Long,CommaList[AExp]) = (x1r,x2,x3r,x4)
   def ExpCond_ExpJuxtNP0(x1: AExp, x2: (Long,AExp,Long,AExp)): AExp = CondAExp(x1,x2._1,x2._2,x2._3,x2._4)
   def ExpCond_ExpJuxtNP1(x1: AExp): AExp = x1
-  def CatchTok__Ident0(x2: Loc[String], x1r: Range): (Long,Loc[String]) = (x1r,x2)
   def ExpPrimary__DimExps0(x1: AExp, x2: List[Grouped[Option[AExp]]]): (AExp,List[Grouped[Option[AExp]]]) = (x1,x2)
   def Commas2_VarDecl0(x1: AVarDecl, x3: CommaList1[AVarDecl], x2r: Range): CommaList2[AVarDecl] = x3.preComma(x1,x2r)
   def WhileUntil__MaybeParenExp0(x1: Loc[Boolean], x2: (AExp,Around)): (Loc[Boolean],(AExp,Around)) = (x1,x2)

@@ -203,14 +203,15 @@ CatchBlocks List[(CatchInfo,AStmt)]
   ""                                                         { Nil }
   CatchBlock CatchBlocks                                     { $1 :: $2 }
 CatchBlock (CatchInfo,AStmt)
-  CatchTok EllipsisTok MaybeStmt                             { (CatchInfo($1r,None,None,$2r,NoAround($2r),false),$3) }
-  CatchTok Left EllipsisTok Right MaybeStmt                  { (CatchInfo($1r,None,None,$3r,Around($2,$4),false),$5) }
-  CatchTok Type Ident MaybeStmt                              { (CatchInfo($1r,Some($2),Some($3.x),$3.r,NoAround($2r union $3r),false),$4) }
-  CatchTok Left Type Ident Right MaybeStmt                   { (CatchInfo($1r,Some($3),Some($4.x),$4.r,Around($2,$5),false),$6) }
-  CatchTok Ident ColonTok Type MaybeStmt                     { (CatchInfo($1r,Some($4),Some($2.x),$2.r,NoAround($2r union $4r),true),$5) }
-  CatchTok Left Ident ColonTok Type Right MaybeStmt          { (CatchInfo($1r,Some($5),Some($3.x),$3.r,Around($2,$6),true),$7) }
-FinallyBlock AStmt
-  FinallyTok MaybeStmt                                       { $2 }
+// technically, the catch parameter looks like it can be an array, but that's useless because arrays are not Throwable, so it cannot.
+  CatchTok EllipsisTok MaybeStmt                             { (CatchInfo($1r,Nil,None,None,NoAround($2r),false),$3) }
+  CatchTok Left EllipsisTok Right MaybeStmt                  { (CatchInfo($1r,Nil,None,None,Around($2,$4),false),$5) }
+  CatchTok Juxts0[Mod] Type Ident MaybeStmt                  { (CatchInfo($1r,$2,Some($3),Some($4),NoAround($2.headOption.map(_.r).getOrElse($3r) union $4r),false),$5) }
+  CatchTok Left Juxts0[Mod] Type Ident Right MaybeStmt       { (CatchInfo($1r,$3,Some($4),Some($5),Around($2,$6),false),$7) }
+  CatchTok Ident ColonTok Juxts0[Mod] Type MaybeStmt         { (CatchInfo($1r,$4,Some($5),Some($2),NoAround($2r union $5r),true),$6) }
+  CatchTok Left Ident ColonTok Juxts0[Mod] Type Right MaybeStmt { (CatchInfo($1r,$5,Some($6),Some($3),Around($2,$7),true),$8) }
+FinallyBlock (SRange,AStmt)
+  FinallyTok MaybeStmt                                       { ($1r,$2) }
 
 // Expressions, lowest to highest precedence
 // Suffixes: NJ is no juxtaposition, NC is no commas, NA is no args, NP is no parens (or commas)

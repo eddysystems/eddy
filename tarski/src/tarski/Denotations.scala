@@ -329,10 +329,10 @@ object Denotations {
     def discards = e.discards
     def strip = SyncStmt(sr,e.strip,a,s)
   }
-  case class Catch(m: Mods, ts: List[ClassItem], tr: SRange, v: Local, vr: SRange, n: Dims, s: Stmt) extends HasRange {
+  case class CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: Stmt) extends HasRange {
     def r = s.r unionR m union tr union vr
   }
-  case class TryStmt(tr: SRange, s: Stmt, cs: List[Catch], f: Option[Stmt]) extends Stmt {
+  case class TryStmt(tr: SRange, s: Stmt, cs: List[CatchBlock], f: Option[Stmt]) extends Stmt {
     def r = tr union s.r unionR cs unionR f
     def discards = Nil
     def strip = this

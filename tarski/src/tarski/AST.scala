@@ -55,8 +55,8 @@ object AST {
   case class SyncAStmt(sr: SRange, e: AExp, a: Around, s: AStmt) extends AStmt {
     def r = sr union s.r
   }
-  case class TryAStmt(tr: SRange, s: AStmt, cs: List[(CatchInfo,AStmt)],fs: Option[AStmt]) extends AStmt {
-    def r = tr union fs.getOrElse(cs.lastOption.getOrElse((Nil,s))._2).r
+  case class TryAStmt(tr: SRange, s: AStmt, cs: List[(CatchInfo,AStmt)],f: Option[(SRange,AStmt)]) extends AStmt {
+    def r = tr union f.map(_._1).getOrElse(cs.lastOption.getOrElse((Nil,s))._2.r)
   }
   case class PreIf(f: SRange => AStmt) { // For use in the parser.  TODO: Remove once the generator handles function types
     def apply(ir: SRange) = f(ir)
@@ -77,10 +77,9 @@ object AST {
     def r = fr union s.r
   }
 
-  case class CatchInfo(cr: SRange, t: Option[AExp], i: Option[Name], ir: SRange, a: Around, colon: Boolean) extends HasRange {
+  case class CatchInfo(cr: SRange, ms: List[Loc[Mod]], t: Option[AExp], i: Option[Loc[Name]], a: Around, colon: Boolean) extends HasRange {
     def r = cr union a.r
   }
-
   sealed abstract class ForInfo extends HasRange
   case class For(i: CommaList[AStmt], sr0: SRange, cond: Option[AExp], sr1: SRange, u: CommaList[AExp]) extends ForInfo {
     def r = sr0 union sr1 unionR i.list unionR u.list
