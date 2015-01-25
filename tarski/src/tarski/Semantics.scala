@@ -504,6 +504,7 @@ object Semantics {
                           else single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
           }
           val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
+            // TODO: if f is not static, it requires an object to qualify the new (which can be one of our ThisItems)
             case f:ClassItem if f.constructors(env.place).length>0 =>
               val cons = uniformGood(Pr.constructor,f.constructors(env.place))
               fixCall(mc,expects,x match {

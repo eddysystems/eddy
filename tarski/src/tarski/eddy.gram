@@ -157,7 +157,7 @@ StmtHelperBS AStmt
   ForTok Left ForInfo Right Stmt                             { ForAStmt($1r,$3,Around($2,$4),$5) }
   ForTok ForInfo DoTok Stmt                                  { ForAStmt($1r,$2,NoAround($2.r),$4) }
   SynchronizedTok MaybeParenExp Block                        { SyncAStmt($1r,$2._1,$2._2,$3) }
-  // Try
+  TryTok Stmt CatchBlocks Option[FinallyBlock]               { TryAStmt($1r,$2,$3,$4) }
   // Switch
 AfterIf PreIf
   AfterIfA                                                   { $1 }
@@ -199,6 +199,18 @@ ParenExp (AExp,Around)
 MaybeParenExp (AExp,Around)
   ExpAssignNP                                                { ($1,NoAround($1.r)) }
   ParenExp                                                   { $1 }
+CatchBlocks List[(CatchInfo,AStmt)]
+  ""                                                         { Nil }
+  CatchBlock CatchBlocks                                     { $1 :: $2 }
+CatchBlock (CatchInfo,AStmt)
+  CatchTok EllipsisTok MaybeStmt                             { (CatchInfo($1r,None,None,$2r,NoAround($2r),false),$3) }
+  CatchTok Left EllipsisTok Right MaybeStmt                  { (CatchInfo($1r,None,None,$3r,Around($2,$4),false),$5) }
+  CatchTok Type Ident MaybeStmt                              { (CatchInfo($1r,Some($2),Some($3.x),$3.r,NoAround($2r union $3r),false),$4) }
+  CatchTok Left Type Ident Right MaybeStmt                   { (CatchInfo($1r,Some($3),Some($4.x),$4.r,Around($2,$5),false),$6) }
+  CatchTok Ident ColonTok Type MaybeStmt                     { (CatchInfo($1r,Some($4),Some($2.x),$2.r,NoAround($2r union $4r),true),$5) }
+  CatchTok Left Ident ColonTok Type Right MaybeStmt          { (CatchInfo($1r,Some($5),Some($3.x),$3.r,Around($2,$6),true),$7) }
+FinallyBlock AStmt
+  FinallyTok MaybeStmt                                       { $2 }
 
 // Expressions, lowest to highest precedence
 // Suffixes: NJ is no juxtaposition, NC is no commas, NA is no args, NP is no parens (or commas)
