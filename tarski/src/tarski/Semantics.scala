@@ -760,6 +760,7 @@ object Semantics {
           }
         })
       })
+      case TryAStmt(_,_,_,_) => notImplemented
     }
   }
 

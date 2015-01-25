@@ -300,6 +300,7 @@ object Pretty {
       case WhileAStmt(wr,flip,c,a,s) => (SemiFix, whileUntil(wr,flip) :: around(c,a)._2 ::: tokens(s))
       case DoAStmt(dr,s,wr,flip,c,a) => (SemiFix, Loc(DoTok,dr) :: tokens(s) ::: whileUntil(wr,flip) :: around(c,a)._2 ::: sem)
       case ForAStmt(fr,i,a,s) => (SemiFix, Loc(ForTok,fr) :: around(i,a)._2 ::: tokens(s))
+      case TryAStmt(_,_,_,_) => notImplemented
     }
   }
   def whileUntil(r: SRange, flip: Boolean): Loc[Token]= Loc(if (flip) UntilTok else WhileTok,r)
