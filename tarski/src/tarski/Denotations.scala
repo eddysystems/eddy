@@ -1,5 +1,6 @@
 package tarski
 
+import tarski.AST.Name
 import utility.Utility._
 import utility.Locations._
 import tarski.Base._
@@ -329,10 +330,10 @@ object Denotations {
     def discards = e.discards
     def strip = SyncStmt(sr,e.strip,a,s)
   }
-  case class CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: Stmt) extends HasRange {
+  case class CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: BlockStmt) extends HasRange {
     def r = s.r unionR m union tr union vr
   }
-  case class TryStmt(tr: SRange, s: Stmt, cs: List[CatchBlock], f: Option[(SRange,Stmt)]) extends Stmt {
+  case class TryStmt(tr: SRange, s: BlockStmt, cs: List[CatchBlock], f: Option[(SRange,BlockStmt)]) extends Stmt {
     def r = tr union s.r unionR cs unionR (f map (_._2))
     def discards = Nil
     def strip = this
@@ -607,4 +608,5 @@ object Denotations {
       case BooleanLit(y,r) => BooleanLit(!y,r)
       case _ => NonImpExp(NotOp,y.r.before,y)
     } else y
+
 }
