@@ -760,7 +760,38 @@ object Semantics {
           }
         })
       })
-      case TryAStmt(_,_,_,_) => notImplemented
+      case TryAStmt(tr,ts,cs,f) => {
+        def makeBlock(ss: List[Stmt], sr: SRange): BlockStmt =
+          if (ss.size == 1 && ss.head.isInstanceOf[BlockStmt]) ss.head.asInstanceOf[BlockStmt]
+          else BlockStmt(ss,SGroup(sr.before,sr.after))
+
+        // CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: Stmt)
+        def catchBlocks(cs: List[(CatchInfo,AStmt)]): Scored[List[CatchBlock]] =
+          product(cs map {
+            case (CatchInfo(cr,mods,typ,id,around,colon),s) => {
+              val t: Scored[TypeDen] = if (typ.isDefined)
+                denoteType(typ.get).filter({ case TypeDen(_,t) => isThrowable(t.item) }, "must be Throwable")
+              else
+                listGood(List(Alt(Pr.ellipsisCatchException,TypeDen(Nil,Base.ExceptionType)),
+                              Alt(Pr.ellipsisCatchThrowable,TypeDen(Nil,Base.ThrowableType))))
+              val tr = if (typ.isDefined) typ.get.r else around.a.l.after
+              val name: String = if (id.isDefined) id.get.x else "$$$eddy_ignored_exception$$$"
+              val idr = if (id.isDefined) id.get.r else around.a.r.before
+              val env_gens = env.newVariable(name,mods.map(_.x).contains(Mods.Final))
+              // for each type, make the inner statement
+              product(env_gens,t) flatMap { case (env_gen,tden) =>
+                val (local_env,v) = env_gen(tden.beneath)
+                val cs: Scored[Stmt] = denoteStmt(s)(local_env) map { case (e,ss) => makeBlock(ss,s.r) }
+                cs flatMap { s => known(CatchBlock(mods, tr, v, idr, s)) }
+              }
+          }})
+
+        def sden: Scored[(Env,List[Stmt])] = denoteStmt(ts)(imp)
+        def csden: Scored[List[CatchBlock]] = catchBlocks(cs)
+        def fden: Scored[Option[(SRange,Stmt)]] = product(f map { case (r,fs) => denoteStmt(fs)(imp) map { case (e,ss) => (r,makeBlock(ss,fs.r)) } })
+        val stmt: Scored[Stmt] = product(sden,csden,fden) map { case ((_,ss),cbs,fo) => TryStmt(tr,makeBlock(ss,s.r),cbs,fo) }
+        stmt map (s => (env,List(s)))
+      }
     }
   }
 

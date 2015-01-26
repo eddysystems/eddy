@@ -203,6 +203,8 @@ object Pr {
   val expForStmt = Prob("exp for stmt",.9)
   val blockForStmt = Prob("block for stmt",.6)
   val forEachArrayNoType = Prob("foreach array no type",.7)
+  val ellipsisCatchException = Prob("ellipsis catching Exception", .8)
+  val ellipsisCatchThrowable = Prob("ellipsis catching Throwable", .3)
 
   val exact = Prob("exact",1)
   val typo = Prob("typo",.5)

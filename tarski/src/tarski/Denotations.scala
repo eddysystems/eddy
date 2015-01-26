@@ -332,8 +332,8 @@ object Denotations {
   case class CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: Stmt) extends HasRange {
     def r = s.r unionR m union tr union vr
   }
-  case class TryStmt(tr: SRange, s: Stmt, cs: List[CatchBlock], f: Option[Stmt]) extends Stmt {
-    def r = tr union s.r unionR cs unionR f
+  case class TryStmt(tr: SRange, s: Stmt, cs: List[CatchBlock], f: Option[(SRange,Stmt)]) extends Stmt {
+    def r = tr union s.r unionR cs unionR (f map (_._2))
     def discards = Nil
     def strip = this
   }

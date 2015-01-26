@@ -60,11 +60,17 @@ object Base {
   case object ThrowableItem extends SimpleClassItem {
     def name = "Throwable"
     val base = ObjectType
-    val interfaces = Nil
-    val supers = List(base)
+    val interfaces = List(SerializableType)
+    val supers = base :: interfaces
     val superItems = supers map (_.item)
     def isFinal = false
   }
+
+  val ThrowableType = ThrowableItem.simple
+  val ErrorItem = NormalClassItem("Error", JavaLangPkg, base=ThrowableItem.simple)
+  val ErrorType = ErrorItem.simple
+  val ExceptionItem = NormalClassItem("Exception",JavaLangPkg, base=ThrowableItem.simple)
+  val ExceptionType = ExceptionItem.simple
 
   // Iterable
   case object IterableItem extends BaseItem {
@@ -181,6 +187,8 @@ object Base {
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
     // Interfaces
     CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem,
+    // exception base classes
+    ThrowableItem, ErrorItem, ExceptionItem,
     // Constructors
     ObjectConsItem,
     // Literals
