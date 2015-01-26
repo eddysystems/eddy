@@ -106,8 +106,12 @@ object Pretty {
   def pretty[A](x: A)(implicit p: Pretty[A]): FixTokens = p(x)
   def tokens[A](x: A)(implicit p: Pretty[A]): Tokens = p(x)._2
 
+  // Whitespace
+  private[this] val spaceRaw = WhitespaceTok(" ")
+  def spaceBefore(r: SRange): Loc[Token] = Loc(spaceRaw,r.before)
+  def spaceAround(t: Token, r: SRange): Tokens = List(Loc(spaceRaw,r.before),Loc(t,r),Loc(spaceRaw,r.after))
+
   // Pretty printing utilities
-  val space = Loc(WhitespaceTok(" "),SRange.empty)
   implicit def prettyToken(x: Loc[Token]): FixTokens = (HighestFix,List(x))
   def around[A](x: A, a: Around)(implicit p: Pretty[A]): FixTokens = {
     val t = pretty(x)
@@ -126,16 +130,21 @@ object Pretty {
     Loc(LCurlyTok,a.l) :: x ::: List(Loc(RCurlyTok,a.r))
   def typeBracket[A](x: A, a: SGroup)(implicit p: Pretty[A]): Tokens =
     Loc(LtTok,a.l) :: tokens(x) ::: List(Loc(GtTok,a.r))
-  private[this] val newLeft = Loc(LParenTok,SRange.empty)
-  private[this] val newRight = List(Loc(RParenTok,SRange.empty))
-  def parensIf[A](x: A, prec: Int)(implicit p: Pretty[A]): Tokens = {
+  def parensIf[A](x: A, prec: Int, rl: SRange, rr: SRange)(implicit p: Pretty[A]): Tokens = {
     val (f,ts) = p(x)
-    if (prec < f.prec) ts else newLeft :: ts ::: newRight
+    if (prec < f.prec) ts
+    else Loc(LParenTok,rl) :: ts ::: List(Loc(RParenTok,rr))
   }
   def toInt(b: Boolean): Int = if (b) 1 else 0
-  def left [A](slot: Fixity, x: A)(implicit p: Pretty[A]): Tokens = parensIf(x,slot.prec-toInt(slot.assoc==2))
-  def right[A](slot: Fixity, x: A)(implicit p: Pretty[A]): Tokens = parensIf(x,slot.prec-toInt(slot.assoc==4))
-  def non  [A](slot: Fixity, x: A)(implicit p: Pretty[A]): Tokens = parensIf(x,slot.prec)
+  def left [A](slot: Fixity, x: A, rl: SRange, rr: SRange)(implicit p: Pretty[A]): Tokens =
+    parensIf(x,slot.prec-toInt(slot.assoc==2),rl,rr)
+  def right[A](slot: Fixity, x: A, rl: SRange, rr: SRange)(implicit p: Pretty[A]): Tokens =
+    parensIf(x,slot.prec-toInt(slot.assoc==4),rl,rr)
+  def non  [A](slot: Fixity, x: A, rl: SRange, rr: SRange)(implicit p: Pretty[A]): Tokens =
+    parensIf(x,slot.prec,rl,rr)
+  def left [A <: HasRange](slot: Fixity, x: A)(implicit p: Pretty[A]): Tokens = { val r = x.r; left (slot,x,r.before,r.after) }
+  def right[A <: HasRange](slot: Fixity, x: A)(implicit p: Pretty[A]): Tokens = { val r = x.r; right(slot,x,r.before,r.after) }
+  def non  [A <: HasRange](slot: Fixity, x: A)(implicit p: Pretty[A]): Tokens = { val r = x.r; non  (slot,x,r.before,r.after) }
   private def fix[A](s: Fixity, f: Fixity => A) = (s,f(s))
 
   // Names
@@ -154,32 +163,33 @@ object Pretty {
   }
 
   // Lists
-  def separate[A](xs: List[A], s: Fixity, sep: Loc[Token])(implicit p: Pretty[A]): Tokens = xs match {
+  // TODO
+  def separateApprox[A](xs: List[A], s: Fixity, sep: Token, r: SRange)(implicit p: Pretty[A]): Tokens = xs match {
     case Nil => Nil
     case List(x) => pretty(x)._2
-    case x::y => non(s,x) ::: sep :: separate(y,s,sep)
+    case x::y => non(s,x,r,r) ::: Loc(sep,r) :: separateApprox(y,s,sep,r)
   }
-  def separate[A <: HasRange](xs: List[A], s: Fixity, sep: Token)(implicit p: Pretty[A]): Tokens = xs match {
+  def separateAfter[A <: HasRange](xs: List[A], s: Fixity, sep: Token)(implicit p: Pretty[A]): Tokens = xs match {
     case Nil => Nil
     case List(x) => pretty(x)._2
-    case x::y => non(s,x) ::: Loc(sep,x.r.after) :: (separate[A](y,s,sep) : Tokens)
+    case x::y => non(s,x) ::: Loc(sep,x.r.after) :: separateAfter[A](y,s,sep)
   }
-  def separate[A](xs: List[A], s: Fixity, sep: Token, rs: List[SRange])(implicit p: Pretty[A]): Tokens = (xs,rs) match {
+  def separate[A <: HasRange](xs: List[A], s: Fixity, sep: Token, rs: List[SRange])(implicit p: Pretty[A]): Tokens = (xs,rs) match {
     case (Nil,Nil) => Nil
     case (List(x),Nil) => pretty(x)._2
     case (x::y,xr::yr) => non(s,x) ::: Loc(sep,xr) :: separate(y,s,sep,yr)
     case _ => impossible
   }
-  def commas[A](xs: List[A], r: SRange)(implicit p: Pretty[A]): Tokens = separate(xs,CommaListFix,Loc(CommaTok,r))
-  def commas[A <: HasRange](xs: List[A])(implicit p: Pretty[A]): Tokens = separate(xs,CommaListFix,CommaTok)
-  def ands[A](xs: List[A], r: SRange)(implicit p: Pretty[A]): FixTokens = (AndListFix,separate(xs,AndListFix,Loc(AndTok,r)))
-  def ands[A <: HasRange](xs: List[A])(implicit p: Pretty[A]): FixTokens = (AndListFix,separate(xs,AndListFix,AndTok))
-  implicit def prettyList[A](k: KList[A])(implicit p: Pretty[A]): FixTokens = k match {
+  def commasApprox[A](xs: List[A], r: SRange)(implicit p: Pretty[A]): Tokens = separateApprox(xs,CommaListFix,CommaTok,r)
+  def commas[A <: HasRange](xs: List[A])(implicit p: Pretty[A]): Tokens = separateAfter(xs,CommaListFix,CommaTok)
+  def andsApprox[A](xs: List[A], r: SRange)(implicit p: Pretty[A]): FixTokens = (AndListFix,separateApprox(xs,AndListFix,AndTok,r))
+  def ands[A <: HasRange](xs: List[A])(implicit p: Pretty[A]): FixTokens = (AndListFix,separateAfter(xs,AndListFix,AndTok))
+  implicit def prettyList[A <: HasRange](k: KList[A])(implicit p: Pretty[A]): FixTokens = k match {
     case EmptyList => (LowestExpFix,Nil)
     case SingleList(x) => pretty(x)
     case CommaList2(xs,rs) => fix(CommaListFix,separate(xs,_,CommaTok,rs))
     case AndList2(xs,rs) => fix(AndListFix,separate(xs,_,AndTok,rs))
-    case JuxtList(xs) => fix(JuxtFix,separate(xs,_,space))
+    case JuxtList(xs) => fix(JuxtFix,separateAfter(xs,_,spaceRaw))
   }
 
   // Operators
@@ -257,7 +267,7 @@ object Pretty {
     case BinaryAExp(op,opr,x,y) => { val (s,t) = prettyBinary(op,opr); (s, left(s,x) ::: t ::: right(s,y)) }
     case CastAExp(t,a,e) => (PrefixFix, around(t,a)._2 ::: right(PrefixFix,e))
     case CondAExp(c,qr,x,cr,y) => fix(CondFix, s => left(s,c) ::: Loc(QuestionTok,qr) :: tokens(x) ::: Loc(ColonTok,cr) :: right(s,y))
-    case AssignAExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: space :: Loc(token(op),opr) :: space :: right(s,y))
+    case AssignAExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: spaceAround(token(op),opr) ::: right(s,y))
     case ArrayAExp(xs,a) => around(xs,a)
     case ApplyAExp(e,xs,a) => {
       val s = a match { case NoAround(_) => JuxtFix; case _ => ApplyFix }
@@ -289,7 +299,7 @@ object Pretty {
       case SemiAStmt(s,sr) => prettyAStmtHelper(s,sr)
       case EmptyAStmt(_) => (SemiFix,sem)
       case HoleAStmt(r) => (HighestFix,hole(r))
-      case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: tokens(v) ::: sem)
+      case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: spaceBefore(v.list.head.r) :: tokens(v) ::: sem)
       case BlockAStmt(b,a) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
       case TokAStmt(b,r) => (HighestFix, List(Loc(b,r)))
       case ExpAStmt(e) => (SemiFix, tokens(e) ::: sem)
@@ -312,7 +322,7 @@ object Pretty {
   implicit def prettyAStmts(ss: List[AStmt]): FixTokens = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyAVar(d: AVarDecl): FixTokens = d match {
     case AVarDecl(x,xr,n,None) => prettyDims(x,xr,n)
-    case AVarDecl(x,xr,n,Some((eqr,e))) => fix(AssignFix, prettyDims(x,xr,n)._2 ::: space :: Loc(EqTok,eqr) :: space :: right(_,e))
+    case AVarDecl(x,xr,n,Some((eqr,e))) => fix(AssignFix, prettyDims(x,xr,n)._2 ::: spaceAround(EqTok,eqr) ::: right(_,e))
   }
   implicit def prettyFor(i: ForInfo): FixTokens = (LowestExpFix,i match {
     case For(i,_,c,r1,u) => tokens(i) ::: tokens(c) ::: Loc(SemiTok,r1) :: tokens(u)
@@ -383,16 +393,16 @@ object Pretty {
     case NullType => prettyName("nulltype",r)
     case t:ClassType => prettyClassType(t)
     case x:TypeVar => prettyTypeVar(x)
-    case IntersectType(ts) => ands(ts.toList,r)
+    case IntersectType(ts) => andsApprox(ts.toList,r)
     case ArrayType(t) => (ApplyFix, tokens(t) ::: List(Loc(LBrackTok,r),Loc(RBrackTok,r)))
     case _ => impossible // Otherwise, Scala warns about nonexhaustive match for _: this.<local child>
   }
   implicit def prettyClassType(t: ClassType)(implicit env: Scope, r: SRange): FixTokens =
     if (t.args.isEmpty) pretty(t.item)
-    else (ApplyFix, tokens(t.item) ::: Loc(LtTok,r) :: commas(t.args,r) ::: List(Loc(GtTok,r)))
+    else (ApplyFix, tokens(t.item) ::: Loc(LtTok,r) :: commasApprox(t.args,r) ::: List(Loc(GtTok,r)))
   implicit def prettyTypeArg(t: TypeArg)(implicit env: Scope, r: SRange): FixTokens = {
     val question = Loc(QuestionTok,r)
-    def wild(t: RefType, d: Token): FixTokens = fix(WildFix, question :: Loc(d,r) :: right(_,t))
+    def wild(t: RefType, d: Token): FixTokens = fix(WildFix, question :: Loc(d,r) :: right(_,t,r,r))
     t match {
       case t:RefType => pretty(t)
       case WildSub(t) if t == ObjectType => (HighestFix,List(question))
@@ -433,9 +443,9 @@ object Pretty {
                            fix(PrefixFix, parens(t,a) ::: right(_,x))
     case e:UnaryExp if isPrefix(e.op) => fix(PrefixFix, Loc(token(e.op),e.opr) :: right(_,e.e))
     case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(Loc(token(e.op),e.opr)))
-    case InstanceofExp(x,ir,t,tr) => { implicit val r = tr; fix(RelFix, f => left(f,x) ::: space :: Loc(InstanceofTok,ir) :: space :: right(f,t)) }
+    case InstanceofExp(x,ir,t,tr) => { implicit val r = tr; fix(RelFix, f => left(f,x) ::: spaceAround(InstanceofTok,ir) ::: right(f,t,r,r)) }
     case BinaryExp(op,opr,x,y) => { val (s,t) = prettyBinary(op,opr); (s, left(s,x) ::: t ::: right(s,y)) }
-    case AssignExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: space :: Loc(token(op),opr) :: space :: right(s,y))
+    case AssignExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: spaceAround(token(op),opr) ::: right(s,y))
     case ParenExp(x,a) => (HighestFix,parens(x,a))
     case ApplyExp(f@NewArrayDen(_,_,_,Nil,_),as,a,_) => (ApplyFix, tokens(f) ::: curlys(commas(as),a))
     case ApplyExp(f:NewArrayDen,Nil,a,_) => pretty(f)
@@ -463,9 +473,9 @@ object Pretty {
     case CondExp(c,qr,x,cr,y,_) => fix(CondFix, s => left(s,c) ::: Loc(QuestionTok,qr) :: tokens(x) ::: Loc(ColonTok,cr) :: right(s,y))
   }
   implicit def prettyCallable(call: Callable)(implicit env: Scope): FixTokens = {
-    def method[A](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
+    def method[A <: HasRange](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
       fix(FieldFix,left(_,x) ::: Loc(DotTok,dot) :: tokens(f.name,fr))
-    def methodTs[A](x: A, dot: SRange, ts: List[TypeArg], a: SGroup, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
+    def methodTs[A <: HasRange](x: A, dot: SRange, ts: List[TypeArg], a: SGroup, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
       fix(FieldFix,left(_,x) ::: Loc(DotTok,dot) :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
     def gnu(nr: SRange, p: Option[ClassType], c: ConstructorItem, cr: SRange,
             ts0: Option[Grouped[List[TypeArg]]], ts1: List[TypeArg], a1: => SGroup): FixTokens = {
@@ -509,7 +519,7 @@ object Pretty {
   def tokensTypeArgs(ts: List[TypeArg], a: => SGroup)(implicit env: Scope): Tokens = ts match {
     case Nil => Nil
     case ts => implicit val tr = a.r
-               Loc(LtTok,a.l) :: commas(ts,tr) ::: List(Loc(GtTok,a.r))
+               Loc(LtTok,a.l) :: commasApprox(ts,tr) ::: List(Loc(GtTok,a.r))
   }
   def tokensTypeArgs(ts: Option[Grouped[List[TypeArg]]])(implicit env: Scope): Tokens = ts match {
     case None => Nil
@@ -529,7 +539,7 @@ object Pretty {
       case EmptyStmt(r) => (SemiFix, sem)
       case HoleStmt(r) => (HighestFix, hole(r))
       case VarStmt(t,tr,vs,m) => implicit val tr_ = tr
-                                 (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: space :: commas(vs) ::: sem)
+                                 (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: spaceBefore(vs.head.r) :: commas(vs) ::: sem)
       case ExpStmt(e) => (SemiFix, tokens(e) ::: sem)
       case BlockStmt(b,a) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
       case TokStmt(t,r) => (HighestFix, List(Loc(t,r)))
@@ -550,7 +560,6 @@ object Pretty {
         m.map(tokens).flatten ::: prettyType(t)(env,tr)._2 ::: tokens(v.name,vr) ::: Loc(ColonTok,vr) :: tokens(e),a) ::: tokens(s))
       case SyncStmt(sr,e,a,s) => (SemiFix, Loc(SynchronizedTok,sr) :: parens(e,a) ::: tokens(needBlock(s)))
       case TryStmt(tr,s,cs,f) => notImplemented // Make sure to call needBlock
-      case CommentStmt(t,r) => (HighestFix,List(Loc(t,r)))
       case _:DiscardStmt => impossible
     }
   }
@@ -558,7 +567,7 @@ object Pretty {
   implicit def prettyVar(v: VarDecl)(implicit env: Scope): FixTokens = v match {
     case VarDecl(x,xr,n,None) => prettyDims(x.name,xr,n)
     case VarDecl(x,xr,n,Some((eq,i))) => fix(AssignFix, prettyDims(x.name,xr,n)._2
-      ::: space :: Loc(EqTok,eq) :: space :: right(_,i)(prettyInit))
+      ::: spaceAround(EqTok,eq) ::: right(_,i)(prettyInit))
   }
   implicit def prettyForInit(i: ForInit)(implicit env: Scope): FixTokens = i match {
     case v: VarStmt => prettyStmt(v)
@@ -581,7 +590,7 @@ object Pretty {
       val r = SRange.unknown
       val semi = Loc(SemiTok,r)
       (HighestFix,Loc(IdentTok("Above"),r) :: Loc(LParenTok,r) ::
-        separate(ds,SemiFix,SemiTok) ::: Loc(SemiTok,r) :: tokens(x) ::: List(Loc(RParenTok,r)))
+        separateAfter(ds,SemiFix,SemiTok) ::: Loc(SemiTok,r) :: tokens(x) ::: List(Loc(RParenTok,r)))
   }
   implicit def prettyDen(x: Den)(implicit env: Scope): FixTokens = x match {
     case x:Exp => prettyExp(x)

@@ -9,6 +9,7 @@ object Locations {
 
   // Single source location
   class SLoc(val raw: Int) extends AnyVal {
+    def <=(x: SLoc) = raw <= x.raw
     def +(d: Int) = SLoc(raw+d)
     def -(d: Int) = SLoc(raw-d)
     def min(x: SLoc) = SLoc(Math.min(raw,x.raw))
@@ -27,6 +28,7 @@ object Locations {
     def hi: SLoc = new SLoc((raw>>>32).toInt)
     def before: SRange = if (normal) SRange(lo,lo) else this
     def after: SRange  = if (normal) SRange(hi,hi) else this
+    def size: Int = if (normal) hi.raw-lo.raw else 0
 
     def union(y: SRange): SRange = new SRange(unionHelper(raw,y.raw))
     def union(y: Option[SRange]): SRange = y match {

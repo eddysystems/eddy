@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Denotations.{CommentStmt, Stmt}
+import tarski.Denotations.Stmt
 import tarski.Environment.{ThreeEnv, PlaceInfo, Env}
 import tarski.Items.{Value, TypeItem, Item}
 import tarski.Scores._
@@ -59,6 +59,7 @@ object Tarski {
               format: (Stmt,String,ShowFlags) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
+    val sp = spaces(toks)
 
     println("input: " + Tokens.print(toks map (_.x))(abbrevShowFlags))
 
@@ -86,7 +87,8 @@ object Tarski {
       val sh = s map (s => {
         val abbrev   = show(s)(Pretty.prettyStmt(_)(env),abbrevShowFlags).trim
         val sentinel = show(s)(Pretty.prettyStmt(_)(env),sentinelShowFlags).trim
-        val full     = show(s)(Pretty.prettyStmt(_)(env),fullShowFlags)
+        val tokens   = insertSpaces(Pretty.tokens(s)(Pretty.prettyStmt(_)(env)),sp)
+        val full     = Tokens.print(tokens map (_.x))(fullShowFlags)
         ShowStmt(show=abbrev,den=s.toString,
           full=format(s,full,fullShowFlags),
           abbrev=ShowFlags.replaceSentinels(format(s,sentinel,sentinelShowFlags)).replaceAll("""\s+"""," "))
@@ -103,15 +105,12 @@ object Tarski {
   }
 
   def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
-    prepare(tokens) flatMap { case (ts,c) =>
-      val comments = c.toList map {case Loc(c,r) => CommentStmt(c,r)}
-      val asts = Mismatch.repair(ts) flatMap (ts => {
-        val asts = ParseEddy.parse(ts)
-        for (a <- asts; n = asts.count(a==_); if n > 1)
-          throw new RuntimeException(s"AST duplicated $n times: $a")
-        uniform(Pr.parse,asts,"Parse failed")
-      })
-      asts flatMap (denoteStmts(_)(env)) map {case (env,ss) => (env,ss ::: comments)}
-    }
+    val asts = Mismatch.repair(prepare(tokens)) flatMap (ts => {
+      val asts = ParseEddy.parse(ts)
+      for (a <- asts; n = asts.count(a==_); if n > 1)
+        throw new RuntimeException(s"AST duplicated $n times: $a")
+      uniform(Pr.parse,asts,"Parse failed")
+    })
+    asts flatMap (denoteStmts(_)(env))
   }
 }

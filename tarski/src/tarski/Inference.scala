@@ -25,12 +25,12 @@ object Inference {
   private implicit val emptyEnv = Env(Array(),Map.empty)
   private implicit val r = SRange.unknown
   implicit def prettyBounds(bs: Bounds): (Fixity,Tokens) = (HighestFix, Loc(IdentTok("Bounds"),r)
-    :: Loc(LParenTok,r) :: commas(bs.toList,r) ::: List(Loc(RParenTok,r)))
+    :: Loc(LParenTok,r) :: commasApprox(bs.toList,r) ::: List(Loc(RParenTok,r)))
   implicit def prettyBound(vb: (Var,Bound)): (Fixity,Tokens) = (HighestFix, vb match {
     case (v,Fixed(t)) => tokens(v) ::: Loc(EqTok,r) :: tokens(t)
     case (v,Bounded(lo,hi)) =>
-      val tlo = if (lo.isEmpty) Nil else commas(lo.toList,r) ::: List(Loc(LeTok,r))
-      val thi = if (hi.isEmpty) Nil else Loc(LeTok,r) :: commas(hi.toList,r)
+      val tlo = if (lo.isEmpty) Nil else commasApprox(lo.toList,r) ::: List(Loc(LeTok,r))
+      val thi = if (hi.isEmpty) Nil else Loc(LeTok,r) :: commasApprox(hi.toList,r)
       tlo ::: tokens(v) ::: thi
     //case (v,Capture(vs,t)) => tokens(v) ::: EqTok :: IdentTok("capture(") :: separate(vs.map(tokens) ::: List(tokens(t)),List(CommaTok))
   })

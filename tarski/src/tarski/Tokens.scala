@@ -1,8 +1,8 @@
 package tarski
 
 import tarski.Pretty._
-import tarski.Scores._
 import utility.Locations._
+import utility.Utility._
 
 import scala.annotation.tailrec
 
@@ -191,8 +191,6 @@ object Tokens {
     def show(implicit f: ShowFlags): String
   }
 
-  def isSpace(t: Token) = t.isInstanceOf[SpaceTok]
-
   // Convert to a string, adding whitespace between every token
   def showSep[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =
     tokens(x) map (_.x.show) mkString " "
@@ -220,33 +218,52 @@ object Tokens {
     print(tokens(x) map (_.x))
 
   // Prepare a token stream for parsing.
+  // 0. Drop whitespace.
   // 1. Turn matching identifiers into fake keywords.
   // 2. Turn some keywords into identifiers.
   // 3. Split >> and >>> into >'s and separators.
-  // 4. Strip whitespace.
-  // 5. Separate out comments to be added back at the end.
-  def prepare(ts: List[Loc[Token]]): Scored[(List[Loc[Token]],Option[Loc[EOLCommentTok]])] = {
-    def expand(ts: List[Loc[Token]]): List[Loc[Token]] = ts flatMap { case Loc(t,r) => (t match {
-      case _:SpaceTok => Nil
-      case t@IdentTok(s) => List(s match {
-        case "then" => ThenTok
-        case "until" => UntilTok
-        case "elif"|"elsif"|"elseif" => ElifTok(s)
-        case "in" => InTok
-        case _ => t
-      })
-      case t:ToIdentToken => List(IdentTok(t.s))
-      case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
-      case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
-      case t => List(t)
-    }) map (Loc(_,r))}
-    def interior(ts: List[Loc[Token]]): Scored[List[Loc[Token]]] =
-      if (ts exists (_.x.isInstanceOf[CommentTok]))
-        fail(s"Token stream contains interior comments:\n  ${ts.reverse mkString "\n  "}")
-      else known(expand(ts.reverse))
-    ts.reverse match {
-      case (Loc(c:EOLCommentTok,cr)) :: s => interior(s) map ((_,Some(Loc(c,cr))))
-      case s => interior(s) map ((_,None))
+  def prepare(ts: List[Loc[Token]]): List[Loc[Token]] = ts flatMap { case Loc(t,r) => (t match {
+    case _:SpaceTok => Nil
+    case t@IdentTok(s) => List(s match {
+      case "then" => ThenTok
+      case "until" => UntilTok
+      case "elif"|"elsif"|"elseif" => ElifTok(s)
+      case "in" => InTok
+      case _ => t
+    })
+    case t:ToIdentToken => List(IdentTok(t.s))
+    case RShiftTok => List(GtTok,RShiftSepTok,GtTok)
+    case UnsignedRShiftTok => List(GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
+    case t => List(t)
+  }) map (Loc(_,r))}
+
+  // Check for spaces
+  def isSpace(t: Token): Boolean = t.isInstanceOf[SpaceTok]
+  def isSpace(t: Loc[Token]): Boolean = isSpace(t.x)
+
+  // Extract spaces from a token stream
+  def spaces(ts: List[Loc[Token]]): List[Loc[SpaceTok]] = ts collect { case Loc(s:SpaceTok,r) => Loc(s,r) }
+
+  // Interleave whitespace back into a token stream in the right places
+  def insertSpaces(ts: List[Loc[Token]], sp: List[Loc[SpaceTok]]): List[Loc[Token]] = {
+    // Replace any SRange.empty occurrences with previous.after or next.before, in that order
+    val tsa = ts.filterNot(t => isSpace(t) && t.r.size==0).toArray;
+    {
+      var default = SRange.unknown
+      val is = (0 until tsa.length).toList
+      for (i <- is ::: is.reverse) {
+        if (tsa(i).r == SRange.empty) tsa(i) = Loc(tsa(i).x,default)
+        else default = tsa(i).r
+      }
     }
+    // Place each space after the last token that is before it
+    val spots = tsa.map(List(_)) ++ Array(Nil)
+    for (s <- sp.reverse) {
+      @tailrec def loop(i: Int): Unit =
+        if (i == 0 || tsa(i-1).r.hi <= s.r.lo) spots(i) = s :: spots(i)
+        else loop(i-1)
+      loop(tsa.length)
+    }
+    spots.toList.flatten
   }
 }
