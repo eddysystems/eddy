@@ -15,7 +15,6 @@ import tarski.Lexer._
 import tarski.Operators._
 import tarski.Pretty._
 import tarski.Scores._
-import tarski.Tarski.fix
 import tarski.TestUtils._
 import tarski.Tokens._
 import tarski.Types._
@@ -41,12 +40,14 @@ class TestDen {
   // fixpoint tests (without location tracking) are useful though, and hopefully we can turn on the full version later.
   val locationFixpoint = false
 
+  def fixFlags(ts: Tokens)(implicit env: Env, fl: Flags): Scored[(Env,List[Stmt])] =
+    Tarski.fix(if (fl.trackLoc) ts else ts map (x => Loc(x.x,r)))
+
   def fp(p: Prob) = pp(p) + (if (!trackProbabilities) "" else s"\n${ppretty(p).prefixed("  ")}")
 
   def testHelper[A](input: String, best: Env => A, margin: Double = .9)
                    (implicit env: Env, convert: A => List[Stmt], fl: Flags): Unit = {
-    val ts: Tokens = lex(input)
-    val fixes = fix(if (fl.trackLoc) ts else ts map (x => Loc(x.x,r)))
+    val fixes = fixFlags(lex(input))
     fixes.strict match {
       case e:EmptyOrBad => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.error.prefixed("error: "))
       case Best(p,(env2,s),rest) =>
@@ -72,7 +73,7 @@ class TestDen {
           // Verify that locations are correctly threaded, by rerunning fix with full locations
           val ts2 = lex(sb)
           def ignore(x: Loc[Token]): Boolean = isSpace(x.x) || x.x==HoleTok
-          fix(ts2)(env).strict match {
+          Tarski.fix(ts2)(env).strict match {
             case e:EmptyOrBad => throw new RuntimeException(s"Fixpoint test failed:\n"
                                                           + s"input: ${print(ts2 map (_.x))}\n"
                                                           + s"ts2: ${ts2 mkString " "}\n"
@@ -102,19 +103,19 @@ class TestDen {
     testHelper(input, env => best(env.exactLocal(x),env.exactLocal(y)))
 
   // Ensure that all options have probability at most bound
-  def testFail(input: String, bound: Double = -1)(implicit env: Env): Unit = {
+  def testFail(input: String, bound: Double = -1)(implicit env: Env, fl: Flags): Unit = {
     @tailrec def checkFail[A,B](s: Scored[A], bound: Double = -1)(f: A => B): Unit = if (s.p > bound) s match {
       case s:LazyScored[A] => checkFail(s force bound,bound)(f)
       case Best(p,x,_) => throw new AssertionError(s"\nExpected probability <= $bound for $input, got\n  $p : ${f(x)}")
       case _:EmptyOrBad => ()
     }
-    checkFail(fix(lex(input)),bound)(x => s"${show(x._2)} (${x._2})")
+    checkFail(fixFlags(lex(input)),bound)(x => s"${show(x._2)} (${x._2})")
   }
 
   // Ensure that an option doesn't appear
-  def testAvoid[A](input: String, bad: A)(implicit env: Env, convert: A => List[Stmt]): Unit = {
+  def testAvoid[A](input: String, bad: A)(implicit env: Env, convert: A => List[Stmt], fl: Flags): Unit = {
     val b = convert(bad)
-    val p = probOf(fix(lex(input)),b)
+    val p = probOf(fixFlags(lex(input)),b)
     if (pp(p) >= 0)
       throw new AssertionError(s"Avoidance test failed:\ninput: $input" +
                                s"\nbad: ${show(b)}" +
@@ -533,7 +534,7 @@ class TestDen {
     val f = NormalMethodItem("f", X, Nil, VoidType, Nil, isStatic=true)
     val x = NormalLocal("x", BooleanType, isFinal=false)
     implicit val env = baseEnv.extend(Array(P,Z,Zx,Y,Yx,X,Xx,f,x),Map((Y,3),(X,3),(Xx,2),(f,2),(x,1))).move(PlaceInfo(f))
-    val fixes = fix(lex("x = true") map (x => Loc(x.x,r)))
+    val fixes = fixFlags(lex("x = true"))
     // make sure that local x is the most likely, then X.x (shadowed, but in scope), then Y.x (not in scope), then Z.x (different package)
     def set(e: Exp): List[Stmt] = AssignExp(None,r,e,true)
     val px  = pp(probOf(fixes,set(x)))
