@@ -609,4 +609,13 @@ object Denotations {
       case _ => NonImpExp(NotOp,y.r.before,y)
     } else y
 
+  // find all locals declared somewhere in here
+  def locals(s: Stmt): List[Local] = s match {
+    case BlockStmt(b,_) => b flatMap locals
+    case VarStmt(_,_,vs,_) => vs map (_.x)
+    case ForStmt(_,i@VarStmt(_,_,_,_),_,_,_,_,fs) => locals(i) ::: locals(fs)
+    case ForStmt(_,_,_,_,_,_,fs) => locals(fs)
+    case ForeachStmt(_,_,_,_,v,_,_,_,fs) => v :: locals(fs)
+    case TryStmt(_,ts,cs,fs) => locals(ts) ::: (cs flatMap { case CatchBlock(_,_,v,_,s) => v :: locals(s) }) ::: fs.toList.flatMap(x => locals(x._2))
+  }
 }
