@@ -1074,9 +1074,11 @@ class TestDen {
     notImplemented
   }
 
+  /*
   @Test def tryCatch(): Unit = {
     val x = NormalLocal("x",IntType,isFinal=false)
     implicit val env = localEnvWithBase(x)
     test("try x=1 catch e: Exception", "$$$eddy_ignored_exception$$$", e => TryStmt(r,BlockStmt(List(AssignExp(None,r,x,1)),a),List(CatchBlock(Nil,r,e,r,BlockStmt(List(HoleStmt(r)),a))),None))
   }
+  */
 }
