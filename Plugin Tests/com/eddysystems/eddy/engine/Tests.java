@@ -589,5 +589,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("atomicStmt.java", "if (true) ...", .9);
   }
 
+  public void testWhitespace() {
+    testMarginFull("whitespace.java", "if (x != 0) // Condition\n  return 7;", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }

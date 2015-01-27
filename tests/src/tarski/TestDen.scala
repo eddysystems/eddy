@@ -70,7 +70,7 @@ class TestDen {
         if (fl.fixpoint) {
           // Verify that locations are correctly threaded, by rerunning fix with full locations
           val ts2 = lex(sb)
-          def ignore(x: Loc[Token]): Boolean = isSpace(x.x) || x.x==HoleTok
+          def ignore(x: Loc[Token]): Boolean = isSpace(x) || x.x==HoleTok
           Tarski.fix(ts2)(env).strict match {
             case e:EmptyOrBad => throw new RuntimeException(s"Fixpoint test failed:\n"
                                                           + s"input: ${print(ts2 map (_.x))}\n"
@@ -133,6 +133,25 @@ class TestDen {
   }
   def probOf(s: Scored[(Env,List[Stmt])], a: List[Stmt]): Prob =
     probOf(s,env => a)
+  
+  def testSpace(input: String, output: String)(implicit env: Env): Unit = {
+    val ts = lex(input)
+    val sp = spaces(ts)
+    Tarski.fix(ts).strict match {
+      case e:EmptyOrBad => throw new AssertionError(s"Space test failed:\ninput: $input\n"+e.error.prefixed("error: "))
+      case Best(_,(env2,ss),_) =>
+        val ts2 = tokens(ss)(prettyStmts(_)(env2))
+        val raw = insertSpaces(ts2,sp) map (_.x)
+        val got = print(raw)(fullShowFlags)
+        if (got != output)
+          throw new AssertionError(s"Space test failed:\n" +
+                                   s"input:  $input\n" +
+                                   s"output: $output\n" +
+                                   s"got:    $got\n" +
+                                   s"tokens: ${raw mkString " "}\n" +
+                                   s"spaces: ${sp mkString " "}")
+    }
+  }
 
   def assertFinal(v: Local) =
     assert(v.isFinal)
@@ -560,8 +579,7 @@ class TestDen {
       val t = A.generic(List(w))
       val x = NormalLocal("x",t,isFinal=true)
       implicit val env = localEnv(A,x,F,f)
-      test("f(x) // "+w,List(ExpStmt(ApplyExp(TypeApply(f,List(t),a,hide=true),List(x),a,auto=false)),
-                             CommentStmt(EOLCommentTok("// "+w),r)))
+      test("f(x) // "+w,ExpStmt(ApplyExp(TypeApply(f,List(t),a,hide=true),List(x),a,auto=false)))
     }
   }
 
@@ -992,7 +1010,8 @@ class TestDen {
     test("if (0 == b)",IfStmt(r,BinaryExp(EqOp,r,false,b),a,HoleStmt(r)))
   }
 
-  @Test def comment() = test("x = 1 // blah","x",x => List(VarStmt(IntType,r,(x,1)),CommentStmt(EOLCommentTok("// blah"),r)))
+  @Test def comment() = testSpace("x = 1 // blah","int x = 1; // blah")
+  @Test def comments() = testSpace("/*0*/ x /*1*/ = /*2*/ 1 // 3","/*0*/ int x /*1*/ = /*2*/ 1; // 3")
 
   @Test def finalVar() = test("final x = 1;","x",x => SemiStmt(VarStmt(IntType,r,(x,1),List(Final)),r))
   @Test def finalVarType() = test("final int x = 1;","x",x => SemiStmt(VarStmt(IntType,r,(x,1),List(Final)),r))

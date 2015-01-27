@@ -49,6 +49,7 @@ object Lexer {
       else throw new RuntimeException("unclosed: "+escape(s))
     val patterns: List[(String,String => Token)] = List(
       """//[^\n]*""" -> EOLCommentTok,
+      """/\*(?:[^*]|[\r\n]|\*(?!/))*\*/""" -> CCommentTok, // See http://ostermiller.org/findcomment.html
       fixedMap.keys.map(Pattern.quote).mkString("|") -> fixedMap,
       """\s+"""    -> WhitespaceTok, // 3.6
       """[a-zA-Z$][\w$]*""" -> IdentTok, // 3.8
@@ -68,9 +69,6 @@ object Lexer {
   }
 
   def lex(input: String): List[Loc[Token]] = {
-    // TODO: Handle comments
-    if ("""/\*""".r.findFirstIn(input).isDefined)
-      throw new RuntimeException("Not implemented: multiline comments, input "+escape(input))
     def loop(lo: Int, s: String, ts: List[Loc[Token]]): List[Loc[Token]] = if (s.isEmpty) ts else {
       def longest(n: Int, best: Option[Match]): Option[Match] = {
         if (n > s.length) best

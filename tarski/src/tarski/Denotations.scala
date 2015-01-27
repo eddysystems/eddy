@@ -338,10 +338,6 @@ object Denotations {
     def discards = Nil
     def strip = this
   }
-  case class CommentStmt(c: CommentTok, r: SRange) extends Stmt {
-    def discards = Nil
-    def strip = this
-  }
   case class TokStmt(t: StmtTok, r: SRange) extends Stmt {
     def discards = Nil
     def strip = this

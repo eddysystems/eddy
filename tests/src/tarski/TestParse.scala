@@ -26,8 +26,7 @@ class TestParse {
   def clean(s: String): String = s.replaceAllLiterally(",SRange.unknown","").replaceAllLiterally("SRange.unknown,","")
   implicit val showFlags = abbrevShowFlags
 
-  @Test
-  def lexer(): Unit = {
+  @Test def lexer(): Unit = {
     // Utilities
     def spaced(ts: List[Token]): List[Token] = ts match {
       case Nil|List(_) => ts
@@ -46,17 +45,22 @@ class TestParse {
 
     // We lex >> into GtTok RShiftSepTok GtTok.  Make sure we don't screw it up.
     def prep(s: String, ts: Token*) =
-      assertEquals(ts.toList,prepare(lex(s)).stream.head.x._1 map (_.x))
+      assertEquals(ts.toList,prepare(lex(s)) map (_.x))
     prep(">",GtTok)
     prep(">>",GtTok,RShiftSepTok,GtTok)
     prep(">>>",GtTok,UnsignedRShiftSepTok,GtTok,UnsignedRShiftSepTok,GtTok)
     prep("> >",GtTok,GtTok)
     prep("> > >",GtTok,GtTok,GtTok)
     prep("> >>",GtTok,GtTok,RShiftSepTok,GtTok)
+
+    // Comments
+    def com(s: String, ts: Token*) = assertEquals(ts.toList,lex(s) map (_.x))
+    com("/* blah */",CCommentTok("/* blah */"))
+    com("/* 0 */ /* 1 */",CCommentTok("/* 0 */"),WhitespaceTok(" "),CCommentTok("/* 1 */"))
+    com(""""/**/"""",StringLitTok(""""/**/""""))
   }
 
-  @Test
-  def pretty(): Unit = {
+  @Test def pretty(): Unit = {
     def check(s: String, e: AExp) = assertEquals(s,show(e))
     def add(x: AExp, y: AExp) = BinaryAExp(AddOp,r,x,y)
     def mul(x: AExp, y: AExp) = BinaryAExp(MulOp,r,x,y)
@@ -69,13 +73,7 @@ class TestParse {
     check("(1 + 2) * 3", mul(add(1,2),3))
   }
 
-  def prep(s: String): List[Loc[Token]] = prepare(lex(s) map noLoc).all match {
-    case Left(_) => throw new RuntimeException("prepare failed")
-    case Right(ss) => ss.toList match {
-      case List(Alt(p,(ts,None))) if pp(p)==1 => ts
-      case _ => throw new RuntimeException("prepare failed")
-    }
-  }
+  def prep(s: String): List[Loc[Token]] = prepare(lex(s) map noLoc)
 
   def testAST(s: String, ss: List[AStmt]*): Unit = {
     val tokens = prep(s)

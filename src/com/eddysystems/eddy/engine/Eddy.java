@@ -24,7 +24,6 @@ import org.jetbrains.annotations.Nullable;
 import scala.Function3;
 import scala.Unit$;
 import scala.runtime.AbstractFunction3;
-import tarski.Denotations.CommentStmt;
 import tarski.Denotations.Stmt;
 import tarski.Environment.Env;
 import tarski.Memory;
@@ -493,8 +492,6 @@ public class Eddy {
   // The string should be a single syntactically valid statement
   private String reformat(final PsiElement place, final @NotNull Stmt s,
                           final @NotNull String show, final ShowFlags f) {
-    if (s instanceof CommentStmt)
-      return ((CommentStmt)s).c().show(f);
     PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(show,place);
     CodeStyleManager.getInstance(project).reformat(elem,true);
     return elem.getText();
