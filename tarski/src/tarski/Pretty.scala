@@ -158,7 +158,7 @@ object Pretty {
 
   // Options
   implicit def prettyOption[A](x: Option[A])(implicit p: Pretty[A]): FixTokens = x match {
-    case None => Nil
+    case None => (HighestFix,Nil)
     case Some(x) => p(x)
   }
 
@@ -531,49 +531,56 @@ object Pretty {
   }
   def prettyArrayExp(xs: List[Exp], a: SGroup)(implicit env: Scope): FixTokens =
     (HighestFix, Loc(LCurlyTok,a.l) :: commas(xs)(prettyInit) ::: List(Loc(RCurlyTok,a.r)))
-  implicit def prettyStmt(s: Stmt)(implicit env: Scope): FixTokens = prettyStmtHelper(s,s.r.after)
-  def prettyStmtHelper(s: Stmt, sr: SRange)(implicit env: Scope): FixTokens = {
+  implicit def prettyStmt(s: Stmt): FixTokens = prettyStmtHelper(s,s.r.after)
+  def prettyStmtHelper(s: Stmt, sr: SRange): FixTokens = {
     val sem = List(Loc(SemiTok,sr))
+    implicit val env = s.env
     s match {
       case SemiStmt(x,sr) => prettyStmtHelper(x,sr)
-      case EmptyStmt(r) => (SemiFix, sem)
-      case HoleStmt(r) => (HighestFix, hole(r))
-      case VarStmt(t,tr,vs,m) => implicit val tr_ = tr
-                                 (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: spaceBefore(vs.head.r) :: commas(vs) ::: sem)
-      case ExpStmt(e) => (SemiFix, tokens(e) ::: sem)
-      case BlockStmt(b,a) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
-      case TokStmt(t,r) => (HighestFix, List(Loc(t,r)))
-      case AssertStmt(ar,c,None) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: sem)
-      case AssertStmt(ar,c,Some((cr,m))) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: Loc(ColonTok,cr) :: tokens(m) ::: sem)
-      case BreakStmt(br,lab)    => (SemiFix, Loc(BreakTok,br)    :: tokens(lab) ::: sem)
-      case ContinueStmt(cr,lab) => (SemiFix, Loc(ContinueTok,cr) :: tokens(lab) ::: sem)
-      case ReturnStmt(rr,None) => (SemiFix, Loc(ReturnTok,rr) :: sem)
-      case ReturnStmt(rr,Some(e)) => (SemiFix, Loc(ReturnTok,rr) :: tokens(e) ::: sem)
-      case ThrowStmt(tr,e) => (SemiFix, Loc(ThrowTok,tr) :: tokens(e) ::: sem)
+      case EmptyStmt(r,_) => (SemiFix, sem)
+      case HoleStmt(r,_) => (HighestFix, hole(r))
+      case VarStmt(m,t,tr,vs,_) =>
+        implicit val tr_ = tr
+        (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: spaceBefore(vs.head.r) :: commas(vs) ::: sem)
+      case ExpStmt(e,_) => (SemiFix, tokens(e) ::: sem)
+      case BlockStmt(b,a,_) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
+      case MultipleStmt(b) => (SemiFix, tokens(b))
+      case TokStmt(t,r,_) => (HighestFix, List(Loc(t,r)))
+      case AssertStmt(ar,c,None,_) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: sem)
+      case AssertStmt(ar,c,Some((cr,m)),_) => (SemiFix, Loc(AssertTok,ar) :: tokens(c) ::: Loc(ColonTok,cr) :: tokens(m) ::: sem)
+      case BreakStmt(br,lab,_)    => (SemiFix, Loc(BreakTok,br)    :: tokens(lab) ::: sem)
+      case ContinueStmt(cr,lab,_) => (SemiFix, Loc(ContinueTok,cr) :: tokens(lab) ::: sem)
+      case ReturnStmt(rr,None,_) => (SemiFix, Loc(ReturnTok,rr) :: sem)
+      case ReturnStmt(rr,Some(e),_) => (SemiFix, Loc(ReturnTok,rr) :: tokens(e) ::: sem)
+      case ThrowStmt(tr,e,_) => (SemiFix, Loc(ThrowTok,tr) :: tokens(e) ::: sem)
       case IfStmt(ir,c,a,x) => (SemiFix, Loc(IfTok,ir) :: parens(c,a) ::: tokens(x))
       case IfElseStmt(ir,c,a,x,er,y) => (SemiFix, Loc(IfTok,ir) :: parens(c,a) ::: tokens(x) ::: Loc(ElseTok,er) :: tokens(y))
       case WhileStmt(wr,c,a,x) => (SemiFix, Loc(WhileTok,wr) :: parens(c,a) ::: tokens(x))
       case DoStmt(dr,x,wr,c,a) => (SemiFix, Loc(DoTok,dr) :: tokens(x) ::: Loc(WhileTok,wr) :: parens(c,a) ::: sem)
       case ForStmt(fr,i,c,sr,u,a,s) => (SemiFix, Loc(ForTok,fr) :: parens(
         tokens(i) ::: tokens(c) ::: Loc(SemiTok,sr) :: commas(u),a) ::: tokens(s))
-      case ForeachStmt(fr,m,t,tr,v,vr,e,a,s) => (SemiFix, Loc(ForTok,fr) :: parens(
+      case ForeachStmt(fr,m,t,tr,v,vr,e,a,s,_) => (SemiFix, Loc(ForTok,fr) :: parens(
         m.map(tokens).flatten ::: prettyType(t)(env,tr)._2 ::: tokens(v.name,vr) ::: Loc(ColonTok,vr) :: tokens(e),a) ::: tokens(s))
       case SyncStmt(sr,e,a,s) => (SemiFix, Loc(SynchronizedTok,sr) :: parens(e,a) ::: tokens(needBlock(s)))
       case TryStmt(tr,s,cs,f) => notImplemented // Make sure to call needBlock
       case _:DiscardStmt => impossible
     }
   }
-  implicit def prettyStmts(ss: List[Stmt])(implicit env: Scope): FixTokens = (SemiFix, ss.map(tokens(_)).flatten)
-  implicit def prettyVar(v: VarDecl)(implicit env: Scope): FixTokens = v match {
-    case VarDecl(x,xr,n,None) => prettyDims(x.name,xr,n)
-    case VarDecl(x,xr,n,Some((eq,i))) => fix(AssignFix, prettyDims(x.name,xr,n)._2
-      ::: spaceAround(EqTok,eq) ::: right(_,i)(prettyInit))
+  implicit def prettyStmts(ss: List[Stmt]): FixTokens = (SemiFix, ss.map(tokens(_)).flatten)
+  implicit def prettyVar(v: VarDecl): FixTokens = v match {
+    case VarDecl(x,xr,n,None,_) => prettyDims(x.name,xr,n)
+    case VarDecl(x,xr,n,Some((eq,i)),env) =>
+      implicit val imp = env
+      fix(AssignFix, prettyDims(x.name,xr,n)._2
+        ::: spaceAround(EqTok,eq) ::: right(_,i)(prettyInit))
   }
-  implicit def prettyForInit(i: ForInit)(implicit env: Scope): FixTokens = i match {
+  implicit def prettyForInit(i: ForInit): FixTokens = i match {
     case v: VarStmt => prettyStmt(v)
-    case ForExps(es,sr) => (SemiFix, commas(es) ::: List(Loc(SemiTok,sr)))
+    case ForExps(es,sr,env) =>
+      implicit val imp = env
+      (SemiFix, commas(es) ::: List(Loc(SemiTok,sr)))
   }
-  implicit def prettyVarStmt(v: VarStmt)(implicit env: Scope): FixTokens = prettyStmt(v)
+  implicit def prettyVarStmt(v: VarStmt): FixTokens = prettyStmt(v)
 
   // Print a type variable with bound details
   def details(v: TypeVar)(implicit env: Scope, f: ShowFlags): String = {
@@ -584,7 +591,7 @@ object Pretty {
   }
 
   // For debugging use only.  The user should never see.
-  def above[A](ds: List[Stmt], x: A)(implicit p: Pretty[A], env: Scope): FixTokens = ds match {
+  def above[A](ds: List[Stmt], x: A)(implicit p: Pretty[A]): FixTokens = ds match {
     case Nil => pretty(x)
     case ds =>
       val r = SRange.unknown

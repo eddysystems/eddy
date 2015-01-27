@@ -78,9 +78,8 @@ object Environment {
     // for tests
     def allLocalItems: Array[Item]
 
-    // Enter and leave block scopes
+    // Enter a block scope
     def pushScope: Env
-    def popScope: Env
 
     // Add variables and fields.  Each variable is consumed by one of the fs.
     def newVariables[A](names: List[String], isFinal: Boolean, fs: List[(Env,Local) => A]): Scored[List[Type] => (Env,List[A])] = {
@@ -195,13 +194,9 @@ object Environment {
 
     override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,scope,to,checkThreadRunnable)
 
-    // Enter and leave block scopes
+    // Enter a block scope
     override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
                                            scope map { case (i,n) => (i,n+1) },
-                                           place, checkThreadRunnable)
-
-    override def popScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
-                                           scope collect { case (i,n) if n>1 => (i,n-1) },
                                            place, checkThreadRunnable)
 
     // Lookup by type.item
@@ -284,12 +279,6 @@ object Environment {
              scope map { case (i,n) => (i,n+1) },
              place)
 
-    // Leave a block scope
-    def popScope: Env =
-      TwoEnv(trie0,trie1,byItem0,byItem1,
-             scope collect { case (i,n) if n>1 => (i,n-1) },
-             place)
-
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly (requires word database?)
     protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
@@ -307,6 +296,10 @@ object Environment {
               else v1++v0
       uniform(Pr.objectOfItem,v filter (_.accessible(place)),s"Value of item ${show(t)} not found")
     }
+
+    // Used only for tests
+    override def equals(x: Any): Boolean = x.isInstanceOf[TwoEnv]
+    override def toString = "TwoEnv(...)"
   }
 
   // TODO other things that influence probability:

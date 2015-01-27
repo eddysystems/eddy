@@ -41,13 +41,14 @@ object Tarski {
     }
   }
 
-  // (show(s),s.toString,fullFormat,abbrevFormat) for a statement s.  Once we convert Stmt to ShowStmt, Env can be discarded.
-  case class ShowStmt(show: String, den: String, full: String, abbrev: String)
+  // (show(s),s.toString,fullFormat,abbrevFormat) for a list of statements s.
+  // Once we convert Stmt to ShowStmts, Env can be discarded.
+  case class ShowStmts(show: String, den: String, full: String, abbrev: String)
 
   // Java and Scala result types
   type JList[A] = java.util.List[A]
-  type  Results =  List[Alt[ List[ShowStmt]]]
-  type JResults = JList[Alt[JList[ShowStmt]]]
+  type  Results =  List[Alt[ShowStmts]]
+  type JResults = JList[Alt[ShowStmts]]
 
   abstract class Take {
     // Accept some results, returning true if we've had enough.
@@ -56,7 +57,7 @@ object Tarski {
 
   // Feed results to a take instance until it's satisfied
   def fixTake(tokens: java.util.List[Loc[Token]], env: Env,
-              format: (Stmt,String,ShowFlags) => String, take: Take): Unit = {
+              format: (String,ShowFlags) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
     val sp = spaces(toks)
@@ -64,14 +65,13 @@ object Tarski {
     println("input: " + Tokens.print(toks map (_.x))(abbrevShowFlags))
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
-    @tailrec def mergeTake(s: Stream[Alt[List[ShowStmt]]], m: Map[List[String],Alt[List[ShowStmt]]], notify: Boolean): Unit = {
+    @tailrec def mergeTake(s: Stream[Alt[ShowStmts]], m: Map[String,Alt[ShowStmts]], notify: Boolean): Unit = {
       env.checkThread() // check if the thread was interrupted (as the probabilities decline, we hardly ever do env lookups)
-      val rs = (m.toList map {case (_,Alt(p,b)) => Alt(p,b.toList.asJava)} sortBy (-_.p)).asJava
-
+      val rs = (m.values.toList sortBy (-_.p)).asJava
       val done = notify && take.take(rs) // if we shouldn't notify take, it gets no say in whether to continue, there's no new information.
       if (!done && s.nonEmpty) {
         val Alt(p,b) = s.head
-        val a = b map (_.abbrev)
+        val a = b.abbrev
         println(s"found in stream: $p: $a")
         if (m contains a)
           mergeTake(s.tail, m, notify=false)
@@ -83,19 +83,15 @@ object Tarski {
       }
     }
 
-    val sc = r.map { case (env,s) => {
-      val sh = s map (s => {
-        val abbrev   = show(s)(Pretty.prettyStmt(_)(env),abbrevShowFlags).trim
-        val sentinel = show(s)(Pretty.prettyStmt(_)(env),sentinelShowFlags).trim
-        val tokens   = insertSpaces(Pretty.tokens(s)(Pretty.prettyStmt(_)(env)),sp)
-        val full     = Tokens.print(tokens map (_.x))(fullShowFlags)
-        ShowStmt(show=abbrev,den=s.toString,
-          full=format(s,full,fullShowFlags),
-          abbrev=ShowFlags.replaceSentinels(format(s,sentinel,sentinelShowFlags)).replaceAll("""\s+"""," "))
-      })
-      //println(s"$s => ${sh map (_.show)}")
-      sh
-    }}
+    val sc = r map (ss => {
+      val abbrev   = show(ss)(Pretty.prettyStmts,abbrevShowFlags).trim
+      val sentinel = show(ss)(Pretty.prettyStmts,sentinelShowFlags).trim
+      val tokens   = insertSpaces(Pretty.tokens(ss)(Pretty.prettyStmts),sp)
+      val full     = Tokens.print(tokens map (_.x))(fullShowFlags)
+      ShowStmts(show=abbrev,den=ss.toString,
+        full=format(full,fullShowFlags),
+        abbrev=ShowFlags.replaceSentinels(format(sentinel,sentinelShowFlags)).replaceAll("""\s+"""," "))
+    })
     // Complain if there's an error
     if (trackErrors) sc.strict match {
       case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("error: "))
@@ -104,7 +100,7 @@ object Tarski {
     mergeTake(sc.stream, Map.empty, notify=false)
   }
 
-  def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[(Env,List[Stmt])] = {
+  def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[List[Stmt]] = {
     val asts = Mismatch.repair(prepare(tokens)) flatMap (ts => {
       val asts = ParseEddy.parse(ts)
       for (a <- asts; n = asts.count(a==_); if n > 1)

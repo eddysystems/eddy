@@ -91,7 +91,7 @@ class TestPretty {
 
   @Test def cond() = test("true ? 1 : 0",CondExp(true,r,1,r,0,IntType))
 
-  @Test def finalVar() = test("final int x = 1;",VarStmt(IntType,r,(NormalLocal("x",IntType),1),List(Final)))
+  @Test def finalVar() = test("final int x = 1;",VarStmt(List(Final),IntType,r,(NormalLocal("x",IntType),1),env))
 
   @Test def prefix() = test("!x",NonImpExp(NotOp,r,NormalLocal("x",BooleanType)))
   @Test def postfix() = test("x++",ImpExp(PostIncOp,r,NormalLocal("x",IntType)))

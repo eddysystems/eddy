@@ -21,15 +21,17 @@ import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import scala.Function2;
 import scala.Function3;
 import scala.Unit$;
+import scala.runtime.AbstractFunction2;
 import scala.runtime.AbstractFunction3;
 import tarski.Denotations.Stmt;
 import tarski.Environment.Env;
 import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
-import tarski.Tarski.ShowStmt;
+import tarski.Tarski.ShowStmts;
 import tarski.Tokens.ShowFlags;
 import tarski.Tokens.Token;
 import utility.Locations.Loc;
@@ -80,33 +82,26 @@ public class Eddy {
   public static class Output {
     final private Eddy eddy;
     final public Input input;
-    final public List<Alt<List<ShowStmt>>> results;
+    final public List<Alt<ShowStmts>> results;
 
     // Mutable field: which output we've selected.  If we haven't explicitly selected something, offset < 0.
     private int selected = -1;
 
-    Output(final Eddy eddy, final Input input, final List<Alt<List<ShowStmt>>> results) {
+    Output(final Eddy eddy, final Input input, final List<Alt<ShowStmts>> results) {
       this.eddy = eddy;
       this.input = input;
       this.results = results;
     }
 
-    static String format(final List<ShowStmt> ss, final ShowFlags f) {
-      final StringBuilder b = new StringBuilder();
-      for (final ShowStmt s : ss) {
-        if (b.length() > 0)
-          b.append(' ');
-        b.append(f.abbreviate() ? s.abbrev() : s.full());
-      }
-      final String s = b.toString();
-      return f.abbreviate() ? s.trim() : s;
+    static String format(final ShowStmts ss, final ShowFlags f) {
+      return f.abbreviate() ? ss.abbrev() : ss.full();
     }
     public String format(final int i, final ShowFlags f) {
       return format(results.get(i).x(),f);
     }
     public List<String> formats(final ShowFlags f, final boolean probs) {
       final List<String> fs = new ArrayList<String>(results.size());
-      for (final Alt<List<ShowStmt>> a : results)
+      for (final Alt<ShowStmts> a : results)
         fs.add(format(a.x(),f));
       if (probs) {
         for (int i = 0; i < fs.size(); ++i) {
@@ -122,7 +117,7 @@ public class Eddy {
 
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean shouldShowHint() {
-      for (final Alt<List<ShowStmt>> r : results)
+      for (final Alt<ShowStmts> r : results)
         if (input.sameAsBefore(format(r.x(), fullShowFlags())))
           return false; // We found what's already there
       return !results.isEmpty();
@@ -155,7 +150,7 @@ public class Eddy {
     }
 
     private String unabbrev(final String abbrev) {
-      for (final Alt<List<ShowStmt>> r : results)
+      for (final Alt<ShowStmts> r : results)
         if (abbrev.equals(format(r.x(),abbrevShowFlags())))
           return format(r.x(),fullShowFlags());
       throw new RuntimeException("Can't find full version of abbreviated code: "+abbrev);
@@ -411,21 +406,21 @@ public class Eddy {
     class Helper {
       final double start = Memory.now();
       Input input;
-      List<Alt<List<ShowStmt>>> results;
+      List<Alt<ShowStmts>> results;
       List<Double> delays = new ArrayList<Double>(4);
       Throwable error;
 
       void compute(final Env env) {
         if (Thread.currentThread().isInterrupted())
           throw new ThreadDeath();
-        final Function3<Stmt,String,ShowFlags,String> format = new AbstractFunction3<Stmt,String,ShowFlags,String>() {
-          @Override public String apply(final Stmt s, final String sh, final ShowFlags f) {
-            return reformat(input.place,s,sh,f);
+        final Function2<String,ShowFlags,String> format = new AbstractFunction2<String,ShowFlags,String>() {
+          @Override public String apply(final String sh, final ShowFlags f) {
+            return reformat(input.place,sh,f);
           }
         };
         final long startTime = System.nanoTime();
         final Tarski.Take take = new Tarski.Take() {
-          @Override public boolean take(final List<Alt<List<ShowStmt>>> rs) {
+          @Override public boolean take(final List<Alt<ShowStmts>> rs) {
             results = rs;
             double delay = (System.nanoTime() - startTime)/1e9;
             delays.add(delay);
@@ -478,8 +473,7 @@ public class Eddy {
   }
 
   // The string should be a single syntactically valid statement
-  private String reformat(final PsiElement place, final @NotNull Stmt s,
-                          final @NotNull String show, final ShowFlags f) {
+  private String reformat(final PsiElement place, final @NotNull String show, final ShowFlags f) {
     PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(show,place);
     CodeStyleManager.getInstance(project).reformat(elem,true);
     return elem.getText();

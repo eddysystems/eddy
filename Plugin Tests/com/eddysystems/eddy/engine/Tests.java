@@ -35,7 +35,7 @@ import tarski.Items;
 import tarski.Items.Item;
 import tarski.JavaScores;
 import tarski.Scores.Alt;
-import tarski.Tarski.ShowStmt;
+import tarski.Tarski.ShowStmts;
 import tarski.Tokens.ShowFlags;
 import tarski.Types;
 
@@ -128,7 +128,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
           this.output = output;
           if (output.results.size() < 4) return false;
           if (special == null) return true;
-          for (final Alt<List<ShowStmt>> r : output.results)
+          for (final Alt<ShowStmts> r : output.results)
             if (Eddy.Output.format(r.x(),abbrevShowFlags()).equals(special))
               return true;
           return false;
@@ -149,7 +149,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     final String sep = "  -------------------------------";
     log("results:");
     for (int i=0;i<output.results.size();i++) {
-      final Alt<List<ShowStmt>> r = output.results.get(i);
+      final Alt<ShowStmts> r = output.results.get(i);
       final String s = output.format(i,abbrevShowFlags());
       if (i >= 4 && (special==null || !special.equals(s))) continue;
       if (i > 0) log(sep);
@@ -196,7 +196,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
     if (ss.size() >= 2) {
-      final List<Alt<List<ShowStmt>>> rs = output.results;
+      final List<Alt<ShowStmts>> rs = output.results;
       final double p0 = rs.get(0).p(),
                    p1 = rs.get(1).p();
       final String m = "wanted margin "+margin+", got "+p1+" / "+p0+" = "+p1/p0;
@@ -242,7 +242,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testProbLE1() {
     final Eddy.Output output = setupEddy(null,-1,"denote_x.java");
-    for (final Alt<List<ShowStmt>> result : output.results)
+    for (final Alt<ShowStmts> result : output.results)
       assertTrue("Probability > 1", result.p() <= 1.0);
   }
 

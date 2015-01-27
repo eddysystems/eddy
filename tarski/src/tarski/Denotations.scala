@@ -3,7 +3,7 @@ package tarski
 import utility.Utility._
 import utility.Locations._
 import tarski.Base._
-import tarski.Arounds._
+import tarski.Environment.Env
 import tarski.Items._
 import tarski.Operators._
 import tarski.Types._
@@ -219,112 +219,156 @@ object Denotations {
     case f:NotTypeApply => TypeApply(f,ts,a,hide)
   }
 
+  // Variable declarations.  The env is the environment *before* the declaration.
   type Dims = List[SGroup]
-  case class VarDecl(x: Local, xr: SRange, d: Dims, i: Option[(SRange,Exp)]) extends HasDiscards with HasRange {
+  case class VarDecl(x: Local, xr: SRange, d: Dims, i: Option[(SRange,Exp)], env: Env) extends HasDiscards with HasRange {
     def r = i match { case None => xr; case Some((_,i)) => xr union i.r }
     def discards = mapOrElse(i)(_._2.discards,Nil)
-    def strip = VarDecl(x,xr,d,i map {case (e,i) => (e,i.strip)})
+    def strip = VarDecl(x,xr,d,i map {case (e,i) => (e,i.strip)},env)
   }
 
   // Statements
   sealed abstract class Stmt extends HasDiscard[Stmt] with HasRange {
+    def env: Env // The environment *before* the statement
+    def envAfter: Env // The environment *after* the statement
     def discard(ds: List[Stmt]) = ds match {
       case Nil => this
       case ds => DiscardStmt(ds,this)
     }
     def strip: Stmt
+    def flatten: List[Stmt] = List(this) // Flatten MultipleStmts
   }
   sealed trait ForInit extends HasDiscards {
+    def env: Env // The environment *before* the for initializer
+    def envAfter: Env // The environment *after* the for initializer
     def strip: ForInit
   }
   case class SemiStmt(s: Stmt, sr: SRange) extends Stmt {
+    def env = s.env
+    override def envAfter = s.envAfter
     def r = s.r union sr
     def discards = s.discards
     def strip = SemiStmt(s.strip,sr)
   }
-  case class EmptyStmt(r: SRange) extends Stmt {
+  case class EmptyStmt(r: SRange, env: Env) extends Stmt {
+    def envAfter = env
     def discards = Nil
     def strip = this
   }
-  case class HoleStmt(r: SRange) extends Stmt {
+  case class HoleStmt(r: SRange, env: Env) extends Stmt {
+    def envAfter = env
     def discards = Nil
     def strip = this
   }
-  case class VarStmt(t: Type, tr: SRange, vs: List[VarDecl], m: Mods = Nil) extends Stmt with ForInit {
+  case class VarStmt(m: Mods, t: Type, tr: SRange, vs: List[VarDecl], envAfter: Env) extends Stmt with ForInit {
+    var env = vs.head.env
     def r = tr unionR vs unionR m
     def discards = vs flatMap (_.discards)
-    def strip = VarStmt(t,tr,vs map (_.strip),m)
+    def strip = VarStmt(m,t,tr,vs map (_.strip),envAfter)
   }
-  case class ExpStmt(e: StmtExp) extends Stmt {
+  case class ExpStmt(e: StmtExp, env: Env) extends Stmt {
+    def envAfter = env
     def r = e.r
     def discards = e.discards
-    def strip = ExpStmt(e.strip)
+    def strip = ExpStmt(e.strip,env)
   }
-  case class BlockStmt(b: List[Stmt], a: SGroup) extends Stmt {
+  case class BlockStmt(b: List[Stmt], a: SGroup, env: Env) extends Stmt {
+    assert(b forall (!_.isInstanceOf[MultipleStmt]))
+    def envAfter = env
     def r = a.lr
     def discards = b flatMap (_.discards)
-    def strip = BlockStmt(b map (_.strip),a)
+    def strip = BlockStmt(b map (_.strip),a,env)
   }
-  case class AssertStmt(ar: SRange, c: Exp, m: Option[(SRange,Exp)]) extends Stmt {
+  // Like a block statement, but local variables remain in scope afterwards.  Used by effect discarding.
+  case class MultipleStmt(b: List[Stmt]) extends Stmt {
+    assert(b forall (!_.isInstanceOf[MultipleStmt]))
+    def env = b.head.env
+    def envAfter = b.last.envAfter
+    def r = b.head.r union b.last.r
+    def discards = b flatMap (_.discards)
+    def strip = MultipleStmt(b map (_.strip))
+    override def flatten = b
+  }
+  case class AssertStmt(ar: SRange, c: Exp, m: Option[(SRange,Exp)], env: Env) extends Stmt {
+    def envAfter = env
     def r = ar union c.r union m.map(_._2.r)
     def discards = m match { case None => c.discards; case Some((_,m)) => m.discards ::: c.discards }
-    def strip = AssertStmt(ar,c.strip,m map {case (r,m) => (r,m.strip)})
+    def strip = AssertStmt(ar,c.strip,m map {case (r,m) => (r,m.strip)},env)
   }
-  case class BreakStmt(br: SRange, label: Option[Loc[Label]]) extends Stmt {
+  case class BreakStmt(br: SRange, label: Option[Loc[Label]], env: Env) extends Stmt {
+    def envAfter = env
     def r = br unionR label
     def discards = Nil
     def strip = this
   }
-  case class ContinueStmt(cr: SRange, label: Option[Loc[Label]]) extends Stmt {
+  case class ContinueStmt(cr: SRange, label: Option[Loc[Label]], env: Env) extends Stmt {
+    def envAfter = env
     def r = cr unionR label
     def discards = Nil
     def strip = this
   }
-  case class ReturnStmt(rr: SRange, e: Option[Exp]) extends Stmt {
+  case class ReturnStmt(rr: SRange, e: Option[Exp], env: Env) extends Stmt {
+    def envAfter = env
     def r = rr unionR e
     def discards = e match { case None => Nil; case Some(e) => e.discards }
-    def strip = ReturnStmt(rr,e map (_.strip))
+    def strip = ReturnStmt(rr,e map (_.strip),env)
   }
-  case class ThrowStmt(tr: SRange, e: Exp) extends Stmt {
+  case class ThrowStmt(tr: SRange, e: Exp, env: Env) extends Stmt {
+    def envAfter = env
     def r = tr union e.r
     def discards = e.discards
-    def strip = ThrowStmt(tr,e.strip)
+    def strip = ThrowStmt(tr,e.strip,env)
   }
   case class IfStmt(ir: SRange, c: Exp, a: SGroup, x: Stmt) extends Stmt {
+    def env = x.env
+    def envAfter = env
     def r = ir union x.r
     def discards = c.discards
     def strip = IfStmt(ir,c.strip,a,x)
   }
   case class IfElseStmt(ir: SRange, c: Exp, a: SGroup, x: Stmt, er: SRange, y: Stmt) extends Stmt {
+    def env = x.env
+    def envAfter = env
     def r = ir union y.r
     def discards = c.discards
     def strip = IfElseStmt(ir,c.strip,a,x,er,y)
   }
   case class WhileStmt(wr: SRange, c: Exp, a: SGroup, s: Stmt) extends Stmt {
+    def env = s.env
+    def envAfter = env
     def r = wr union s.r
     def discards = c.discards
     def strip = WhileStmt(wr,c.strip,a,s)
   }
   case class DoStmt(dr: SRange, s: Stmt, wr: SRange, c: Exp, a: SGroup) extends Stmt {
+    def env = s.env
+    def envAfter = env
     def r = dr union a.r
     def discards = c.discards
     def strip = DoStmt(dr,s,wr,c.strip,a)
   }
   case class ForStmt(fr: SRange, i: ForInit, c: Option[Exp], sr: SRange, u: List[Exp], a: SGroup, s: Stmt) extends Stmt {
+    def env = i.env
+    def envAfter = env
     def r = fr union s.r
     def discards = i.discards
     def strip = ForStmt(fr,i.strip,c,sr,u,a,s)
   }
-  case class ForExps(i: List[Exp], sr: SRange) extends ForInit {
+  case class ForExps(i: List[Exp], sr: SRange, env: Env) extends ForInit {
+    def envAfter = env
     def discards = i flatMap (_.discards)
-    def strip = ForExps(i map (_.strip),sr)
+    def strip = ForExps(i map (_.strip),sr,env)
   }
-  case class ForeachStmt(fr: SRange, m: Mods, t: Type, tr: SRange, v: Local, vr: SRange, e: Exp, a: SGroup, s: Stmt) extends Stmt {
+  case class ForeachStmt(fr: SRange, m: Mods, t: Type, tr: SRange, v: Local, vr: SRange,
+                         e: Exp, a: SGroup, s: Stmt, env: Env) extends Stmt {
+    def envAfter = env
     def r = fr union s.r
     def discards = e.discards
-    def strip = ForeachStmt(fr,m,t,tr,v,vr,e.strip,a,s)
+    def strip = ForeachStmt(fr,m,t,tr,v,vr,e.strip,a,s,env)
   }
   case class SyncStmt(sr: SRange, e: Exp, a: SGroup, s: Stmt) extends Stmt {
+    def env = s.env
+    def envAfter = env
     def r = sr union s.r
     def discards = e.discards
     def strip = SyncStmt(sr,e.strip,a,s)
@@ -333,18 +377,24 @@ object Denotations {
     def r = s.r unionR m union tr union vr
   }
   case class TryStmt(tr: SRange, s: Stmt, cs: List[CatchBlock], f: Option[Stmt]) extends Stmt {
+    def env = s.env
+    def envAfter = env
     def r = tr union s.r unionR cs unionR f
     def discards = Nil
     def strip = this
   }
-  case class TokStmt(t: StmtTok, r: SRange) extends Stmt {
+  case class TokStmt(t: StmtTok, r: SRange, env: Env) extends Stmt {
+    def envAfter = env
     def discards = Nil
     def strip = this
   }
   case class DiscardStmt(ds: List[Stmt], s: Stmt) extends Stmt {
+    def env = s.env
+    def envAfter = s.env
     def r = s.r
     def discards = ds ::: s.discards
     def strip = s.strip
+    override def flatten = impossible
   }
 
   // It's all expressions from here
@@ -566,8 +616,8 @@ object Denotations {
   }
 
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
-  def effects(e: Exp): List[Stmt] = e match {
-    case e:StmtExp => List(ExpStmt(e))
+  def effects(e: Exp)(implicit env: Env): List[Stmt] = e match {
+    case e:StmtExp => List(ExpStmt(e,env))
     case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => Nil
     case CastExp(_,_,x) => effects(x)
     case IndexExp(e,i,_) => effects(e)++effects(i)
@@ -586,16 +636,24 @@ object Denotations {
     case DiscardExp(ds,e) => ds++effects(e)
   }
 
-  def blocked(ss: List[Stmt]): Stmt = ss match {
-    case Nil => impossible // EmptyStmt(r)
+  def multiple(ss: List[Stmt]): Stmt = ss match {
+    case Nil => impossible
     case List(s) => s
-    case ss => BlockStmt(ss,SGroup.approx(ss.head.r union ss.last.r))
+    case ss => MultipleStmt(ss flatMap (_.flatten))
+  }
+
+  def blocked(s: Stmt): Stmt = blocked(List(s))
+
+  def blocked(ss: List[Stmt]): Stmt = ss flatMap (_.flatten) match {
+    case Nil => impossible
+    case List(s) => s
+    case ss => BlockStmt(ss,SGroup.approx(ss.head.r union ss.last.r),ss.head.env)
   }
 
   def needBlock(s: Stmt): Stmt = s match {
     case _:BlockStmt => s
-    case TokStmt(t,_) if t.blocked => s
-    case _ => BlockStmt(List(s),SGroup.approx(s.r))
+    case TokStmt(t,_,_) if t.blocked => s
+    case _ => BlockStmt(List(s),SGroup.approx(s.r),s.env)
   }
 
   def xor(x: Boolean, y: Exp): Exp =
@@ -603,4 +661,33 @@ object Denotations {
       case BooleanLit(y,r) => BooleanLit(!y,r)
       case _ => NonImpExp(NotOp,y.r.before,y)
     } else y
+  
+  def addSemi(s: Stmt, sr: SRange): Stmt = s match {
+    // Some statements need no semicolon
+    case _:SemiStmt|_:BlockStmt|_:SyncStmt|_:TryStmt => s
+    case TokStmt(t,_,_) if t.blocked => s
+    // For if and similar, add a semicolon to the last substatement
+    case IfStmt(ir,c,a,x) => IfStmt(ir,c,a,addSemi(x,sr))
+    case IfElseStmt(ir,c,a,x,er,y) => IfElseStmt(ir,c,a,x,er,addSemi(y,sr))
+    case WhileStmt(wr,c,a,s) => WhileStmt(wr,c,a,addSemi(s,sr))
+    case ForStmt(fr,i,c,sr,u,a,s) => ForStmt(fr,i,c,sr,u,a,addSemi(s,sr))
+    case ForeachStmt(fr,m,t,tr,v,vr,e,a,s,env) => ForeachStmt(fr,m,t,tr,v,vr,e,a,addSemi(s,sr),env)
+    case DiscardStmt(ds,s) => DiscardStmt(ds,addSemi(s,sr))
+    // Otherwise, add a semicolon
+    case _:EmptyStmt|_:HoleStmt|_:VarStmt|_:ExpStmt|_:AssertStmt|_:BreakStmt|_:ContinueStmt
+        |_:ReturnStmt|_:ThrowStmt|_:DoStmt|_:TokStmt => SemiStmt(s,s.r.after)
+  }
+
+  // Find all locals declared somewhere in here
+  def locals(s: Stmt): List[Local] = s match {
+    case BlockStmt(b,_,_) => b flatMap locals
+    case MultipleStmt(b) => b flatMap locals
+    case VarStmt(_,_,_,vs,_) => vs map (_.x)
+    case ForStmt(_,i:VarStmt,_,_,_,_,fs) => locals(i) ::: locals(fs)
+    case ForStmt(_,_,_,_,_,_,fs) => locals(fs)
+    case ForeachStmt(_,_,_,_,v,_,_,_,fs,_) => v :: locals(fs)
+    case SemiStmt(s,_) => locals(s)
+    case _:TryStmt => notImplemented
+    case _ => Nil
+  }
 }

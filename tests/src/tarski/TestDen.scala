@@ -8,7 +8,7 @@ import utility.Utility._
 import tarski.AST._
 import tarski.Base._
 import tarski.Denotations._
-import tarski.Environment.{Env, PlaceInfo}
+import tarski.Environment._
 import tarski.Items._
 import tarski.JavaScores._
 import tarski.Lexer._
@@ -40,22 +40,23 @@ class TestDen {
   // fixpoint tests (without location tracking) are useful though, and hopefully we can turn on the full version later.
   val locationFixpoint = false
 
-  def fixFlags(ts: Tokens)(implicit env: Env, fl: Flags): Scored[(Env,List[Stmt])] =
+  def fixFlags(ts: Tokens)(implicit env: Env, fl: Flags): Scored[List[Stmt]] =
     Tarski.fix(if (fl.trackLoc) ts else ts map (x => Loc(x.x,r)))
 
   def fp(p: Prob) = pp(p) + (if (!trackProbabilities) "" else s"\n${ppretty(p).prefixed("  ")}")
+  def locs(s: List[Stmt]): Map[Name,Local] = s.flatMap(locals).map(l => (l.name,l)).toMap
 
-  def testHelper[A](input: String, best: Env => A, margin: Double = .9)
+  def testHelper[A](input: String, best: List[Stmt] => A, margin: Double = .9)
                    (implicit env: Env, convert: A => List[Stmt], fl: Flags): Unit = {
     val fixes = fixFlags(lex(input))
     fixes.strict match {
       case e:EmptyOrBad => throw new RuntimeException(s"Denotation test failed:\ninput: $input\n"+e.error.prefixed("error: "))
-      case Best(p,(env2,s),rest) =>
-        val b = convert(best(env2))
-        def sh(s: List[Stmt]) = show(s)(prettyStmts(_)(env2),showFlags)
+      case Best(p,s,rest) =>
+        val b = convert(best(s))
+        def sh(s: List[Stmt]) = show(s)(prettyStmts,showFlags)
         val sb = sh(b)
         if (b != s) {
-          val ep = probOf(fixes,env => convert(best(env)))
+          val ep = probOf(fixes,s => convert(best(s)))
           throw new AssertionError(s"Denotation test failed:\ninput: $input" +
                                    s"\nexpected: $sb\nactual  : ${sh(s)}" +
                                    s"\nexpected p = ${fp(ep)}" +
@@ -65,7 +66,7 @@ class TestDen {
           val n = rest.stream.head
           throw new AssertionError(s"Denotation test failed:\ninput: $input" +
                                    s"\nwanted margin $margin, got ${pp(n.dp)} / ${pp(p)} = ${pp(n.dp) / pp(p)}" +
-                                   s"\nbest: $sb\nnext: ${sh(n.x._2)}" +
+                                   s"\nbest: $sb\nnext: ${sh(n.x)}" +
                                    s"\nbest p = ${fp(p)}" +
                                    s"\nnext p = ${fp(n.dp)}")
         }
@@ -79,8 +80,8 @@ class TestDen {
                                                           + s"ts2: ${ts2 mkString " "}\n"
                                                           + s"ts2: ${ts2 filterNot ignore mkString " "}\n"
                                                           + e.error.prefixed("error: "))
-            case Best(_,(env3,s3),_) =>
-              val ts3 = tokens(s3)(prettyStmts(_)(env3))
+            case Best(_,s3,_) =>
+              val ts3 = tokens(s3)
               val i2 = ts2 filterNot ignore
               val i3 = ts3 filterNot ignore
               val si2 = i2 map (_.x)
@@ -96,11 +97,11 @@ class TestDen {
   }
 
   def test[A](input: String, best: A, margin: Double = .9)(implicit env: Env, c: A => List[Stmt], fl: Flags): Unit =
-    testHelper(input, env => best, margin=margin)
+    testHelper(input, s => best, margin=margin)
   def test[A](input: String, x: Name, best: Local => A)(implicit env: Env, c: A => List[Stmt], fl: Flags): Unit =
-    testHelper(input, env => best(env.exactLocal(x)))
+    testHelper(input, s => best(locs(s)(x)))
   def test[A](input: String, x: Name, y: Name, best: (Local,Local) => A)(implicit env: Env, c: A => List[Stmt], fl: Flags): Unit =
-    testHelper(input, env => best(env.exactLocal(x),env.exactLocal(y)))
+    testHelper(input, s => { val l = locs(s); best(l(x),l(y)) })
 
   // Ensure that all options have probability at most bound
   def testFail(input: String, bound: Double = -1)(implicit env: Env, fl: Flags): Unit = {
@@ -109,7 +110,7 @@ class TestDen {
       case Best(p,x,_) => throw new AssertionError(s"\nExpected probability <= $bound for $input, got\n  $p : ${f(x)}")
       case _:EmptyOrBad => ()
     }
-    checkFail(fixFlags(lex(input)),bound)(x => s"${show(x._2)} (${x._2})")
+    checkFail(fixFlags(lex(input)),bound)(x => s"${show(x)} ($x)")
   }
 
   // Ensure that an option doesn't appear
@@ -123,26 +124,26 @@ class TestDen {
                                s"\nbad (full): $b")
   }
 
-  def probOf(s: Scored[(Env,List[Stmt])], a: Env => List[Stmt]): Prob = {
-    def loop(s: Stream[Alt[(Env,List[Stmt])]]): Prob =
+  def probOf(s: Scored[List[Stmt]], a: List[Stmt] => List[Stmt]): Prob = {
+    def loop(s: Stream[Alt[List[Stmt]]]): Prob =
       if (s.isEmpty) Prob("not found",-1)
       else {
-        val (env,ss) = s.head.x
-        if (a(env) == ss) s.head.dp
+        val ss = s.head.x
+        if (a(ss) == ss) s.head.dp
         else loop(s.tail)
       }
     loop(s.stream)
   }
-  def probOf(s: Scored[(Env,List[Stmt])], a: List[Stmt]): Prob =
-    probOf(s,env => a)
+  def probOf(s: Scored[List[Stmt]], a: List[Stmt]): Prob =
+    probOf(s,s => a)
   
   def testSpace(input: String, output: String)(implicit env: Env): Unit = {
     val ts = lex(input)
     val sp = spaces(ts)
     Tarski.fix(ts).strict match {
       case e:EmptyOrBad => throw new AssertionError(s"Space test failed:\ninput: $input\n"+e.error.prefixed("error: "))
-      case Best(_,(env2,ss),_) =>
-        val ts2 = tokens(ss)(prettyStmts(_)(env2))
+      case Best(_,ss,_) =>
+        val ts2 = tokens(ss)
         val raw = insertSpaces(ts2,sp) map (_.x)
         val got = print(raw)(fullShowFlags)
         if (got != output)
@@ -189,23 +190,23 @@ class TestDen {
 
   @Test
   def variableStmt() =
-    test("x = 1", "x", x => VarStmt(IntType,r,(x,1)))
+    test("x = 1", "x", x => VarStmt(Nil,IntType,r,(x,1),env))
 
   @Test
   def arrayVariableStmtCurly() =
-    test("x = {1,2,3,4}", "x", x => VarStmt(ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a))))
+    test("x = {1,2,3,4}", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
 
   @Test
   def arrayVariableStmtParen() =
-    test("x = (1,2,3,4)", "x", x => VarStmt(ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a))))
+    test("x = (1,2,3,4)", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
 
   @Test
   def arrayVariableStmtBare() =
-    test("x = 1,2,3,4", "x", x => VarStmt(ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a))))
+    test("x = 1,2,3,4", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
 
   @Test
   def arrayVariableStmtBrack() =
-    test("x = [1,2,3,4]", "x", x => VarStmt(ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a))))
+    test("x = [1,2,3,4]", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
 
   @Test
   def arrayLiteralAssign(): Unit = {
@@ -224,7 +225,7 @@ class TestDen {
 
   @Test def arrayType() = {
     implicit val env = localEnvWithBase()
-    test("int[] x = {1,2,3}", "x", x => VarStmt(ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3),a))))
+    test("int[] x = {1,2,3}", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3),a)),env))
   }
 
   @Test def noIndex() = testFail("x = 1[]")
@@ -232,8 +233,8 @@ class TestDen {
   @Test
   def makeAndSet() =
     test("x = 1; x = 2", "x", x =>
-      List(SemiStmt(VarStmt(IntType,r,(x,1)),r),
-           ExpStmt(AssignExp(None,r,x,2))))
+      List(SemiStmt(VarStmt(Nil,IntType,r,(x,1),env),r),
+           ExpStmt(AssignExp(None,r,x,2),env)))
 
   @Test
   def indexExp(): Unit = {
@@ -291,7 +292,7 @@ class TestDen {
   @Test
   def cons(): Unit = {
     implicit val env = localEnvWithBase()
-    test("x = Object()", "x", x => VarStmt(ObjectType,r,(x,ApplyExp(NewDen(r,None,ObjectConsItem,r),Nil,a,auto=false))))
+    test("x = Object()", "x", x => VarStmt(Nil,ObjectType,r,(x,ApplyExp(NewDen(r,None,ObjectConsItem,r),Nil,a,auto=false)),env))
   }
 
   @Test
@@ -301,22 +302,22 @@ class TestDen {
     lazy val AC = NormalConstructorItem(A,Nil,List(T))
     implicit val env = localEnvWithBase().extend(Array(A,AC),Map((A,3),(AC,3)))
     // should result in A<Object> x = new A<Object>(new Object());
-    test("x = A(Object())", "x", x => VarStmt(A.generic(List(ObjectType)),r,
+    test("x = A(Object())", "x", x => VarStmt(Nil,A.generic(List(ObjectType)),r,
       (x,ApplyExp(NewDen(r,None,AC,r,Some(Grouped(List(ObjectType),a))),
-                  List(ApplyExp(NewDen(r,None,ObjectConsItem,r),Nil,a,auto=false)),a,auto=false))))
+                  List(ApplyExp(NewDen(r,None,ObjectConsItem,r),Nil,a,auto=false)),a,auto=false)),env))
   }
 
   @Test
   def varArray() =
-    test("int x[]", "x", x => VarStmt(IntType,r,VarDecl(x,r,1,None)))
+    test("int x[]", "x", x => VarStmt(Nil,IntType,r,VarDecl(x,r,1,None,env),env))
 
   @Test
   def varArrayInit() =
-    test("int x[] = {1,2,3}", "x", x => VarStmt(IntType,r,VarDecl(x,r,1,Some(r,ArrayExp(IntType,List(1,2,3),a)))))
+    test("int x[] = {1,2,3}", "x", x => VarStmt(Nil,IntType,r,VarDecl(x,r,1,Some(r,ArrayExp(IntType,List(1,2,3),a)),env),env))
 
   @Test
   def nullInit() =
-    test("x = null", "x", x => VarStmt(ObjectType,r,(x,NullLit(r))))
+    test("x = null", "x", x => VarStmt(Nil,ObjectType,r,(x,NullLit(r)),env))
 
   @Test
   def inheritanceShadowing(): Unit = {
@@ -424,21 +425,21 @@ class TestDen {
   */
 
   @Test
-  def byteLiteral() = test("byte x = 3", "x", x => VarStmt(ByteType,r,(x,IntLit(3,"3",r))))
+  def byteLiteral() = test("byte x = 3", "x", x => VarStmt(Nil,ByteType,r,(x,IntLit(3,"3",r)),env))
 
   @Test
-  def intLiteral() = test("int x = 3", "x", x => VarStmt(IntType,r,(x,IntLit(3,"3",r))))
+  def intLiteral() = test("int x = 3", "x", x => VarStmt(Nil,IntType,r,(x,IntLit(3,"3",r)),env))
 
   @Test
-  def parens() = test("x = (1)", "x", x => VarStmt(IntType,r,(x,ParenExp(1,a))))
+  def parens() = test("x = (1)", "x", x => VarStmt(Nil,IntType,r,(x,ParenExp(1,a)),env))
 
   // If statements
   val t = BooleanLit(true,r)
   val f = BooleanLit(false,r)
-  val e = EmptyStmt(r)
+  val e = EmptyStmt(r,env)
   val es = SemiStmt(e,r)
-  val h = HoleStmt(r)
-  val he = HoleStmt(SRange.empty)
+  val h = HoleStmt(r,env)
+  val he = HoleStmt(SRange.empty,env)
   def testX(input: String, best: (Stmt,Stmt) => Stmt) = {
     val x = NormalLocal("x",IntType,isFinal=false)
     implicit val env = extraEnv.extendLocal(Array(x))
@@ -446,7 +447,7 @@ class TestDen {
   }
   @Test def ifStmt()       = test ("if (true);", IfStmt(r,t,a,es))
   @Test def ifHole()       = test ("if (true)", IfStmt(r,t,a,h))
-  @Test def ifBare()       = test ("if true;", SemiStmt(IfStmt(r,t,a,e),r), margin=.99)
+  @Test def ifBare()       = test ("if true;", IfStmt(r,t,a,SemiStmt(e,r)), margin=.99)
   @Test def ifBareHole()   = test ("if true", IfStmt(r,t,a,h))
   @Test def ifThen()       = test ("if true then;", IfStmt(r,t,a,es))
   @Test def ifThenHole()   = test ("if true then", IfStmt(r,t,a,h))
@@ -456,13 +457,13 @@ class TestDen {
   @Test def ifThenElse()   = testX("if true then x=1 else x=2", (x,y) => IfElseStmt(r,t,a,x,r,y))
   @Test def elif()         = testX("if (true) x=1 elif (false) x=2", (x,y) => IfElseStmt(r,t,a,x,r,IfStmt(r,f,a,y)))
   @Test def elifBraces()   = testX("if (true) { x=1; } elif false { x=2 }", (x,y) =>
-    IfElseStmt(r,t,a,BlockStmt(SemiStmt(x,r),a),r,IfStmt(r,f,a,BlockStmt(y,a))))
-  @Test def ifBraces()     = testX("if true { x=1 }", (x,y) => IfStmt(r,t,a,BlockStmt(x,a)))
+    IfElseStmt(r,t,a,BlockStmt(SemiStmt(x,r),a,env),r,IfStmt(r,f,a,BlockStmt(y,a,env))))
+  @Test def ifBraces()     = testX("if true { x=1 }", (x,y) => IfStmt(r,t,a,BlockStmt(x,a,env)))
 
   // While and do
   @Test def whileStmt()       = test("while (true);", WhileStmt(r,t,a,es))
   @Test def whileHole()       = test("while (true)", WhileStmt(r,t,a,h))
-  @Test def whileBare()       = test("while true;", SemiStmt(WhileStmt(r,t,a,e),r))
+  @Test def whileBare()       = test("while true;", WhileStmt(r,t,a,SemiStmt(e,r)))
   @Test def whileBareHole()   = test("while true", WhileStmt(r,t,a,h))
   @Test def untilHole()       = test("until true", WhileStmt(r,f,a,h))
   @Test def doWhile()         = test("do; while (true)", DoStmt(r,es,r,t,a))
@@ -475,13 +476,13 @@ class TestDen {
   @Test def forever()     = test("for (;;);", ForStmt(r,Nil,None,r,Nil,a,es))
   @Test def foreverHole() = test("for (;;)", ForStmt(r,Nil,None,r,Nil,a,h))
   @Test def forSimple()   = test("for (x=7;true;x++)", "x", x =>
-    ForStmt(r,VarStmt(IntType,r,(x,7)),Some(t),r,ImpExp(PostIncOp,r,x),a,h))
+    ForStmt(r,VarStmt(Nil,IntType,r,(x,7),env),Some(t),r,ImpExp(PostIncOp,r,x),a,h))
   @Test def forTwo()      = test("for (x=7,y=8.1;true;)", "x", "y", (x,y) =>
-    BlockStmt(List(VarStmt(IntType,r,(x,7)),
-                   VarStmt(DoubleType,r,(y,8.1)),
-                   ForStmt(r,Nil,Some(t),r,Nil,a,h)),a))
+    BlockStmt(List(VarStmt(Nil,IntType,r,(x,7),env),
+                   VarStmt(Nil,DoubleType,r,(y,8.1),env),
+                   ForStmt(r,Nil,Some(t),r,Nil,a,h)),a,env))
   @Test def foreach()     = test("for (x : 1,2)", "x", x => {
-    assertFinal(x); ForeachStmt(r,Nil,IntType,r,x,r,ArrayExp(IntType,List(1,2),a),a,h) })
+    assertFinal(x); ForeachStmt(r,Nil,IntType,r,x,r,ArrayExp(IntType,List(1,2),a),a,h,env) })
 
   @Test def sideEffects() = {
     lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
@@ -490,7 +491,7 @@ class TestDen {
 
     implicit val env = Env(Array(X,cons,f),Map((f,2),(X,3)),PlaceInfo(f))
     // We are not allowed to discard the possible side effects in the X constructor.
-    test("X().f();", SemiStmt(ExpStmt(ApplyExp(MethodDen(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false),f,r),Nil,a,auto=false)),r))
+    test("X().f();", SemiStmt(ExpStmt(ApplyExp(MethodDen(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false),f,r),Nil,a,auto=false),env),r))
   }
 
   @Test def sideEffectsCons() = {
@@ -498,7 +499,7 @@ class TestDen {
     lazy val cons = NormalConstructorItem(X,Nil,Nil)
     val Y = NormalClassItem("Y",X,Nil)
     implicit val env = localEnv(X,cons,Y)
-    test("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false)),VarStmt(Y,r,VarDecl(y,r,Nil,None))))
+    test("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false),env),VarStmt(Nil,Y,r,VarDecl(y,r,Nil,None,env),env)))
   }
 
   @Test def sideEffectsFail() = {
@@ -515,13 +516,13 @@ class TestDen {
 
   @Test def trueTypo() = {
     implicit val env = localEnvWithBase()
-    test("x = tru", "x", x => VarStmt(BooleanType,r,(x,true)))
+    test("x = tru", "x", x => VarStmt(Nil,BooleanType,r,(x,true),env))
   }
 
   // Synchronized
-  @Test def sync () = test("synchronized null", SyncStmt(r,NullLit(r),a,h))
-  @Test def sync2() = test("synchronized null {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a)))
-  @Test def sync3() = test("synchronized (null) {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a)))
+  @Test def sync () = test("synchronized null", SyncStmt(r,NullLit(r),a,BlockStmt(List(h),a,env)))
+  @Test def sync2() = test("synchronized null {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a,env)))
+  @Test def sync3() = test("synchronized (null) {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a,env)))
 
   // inserting a cast to bool
   @Test def insertIntComparison() = test("if 1 then;", IfStmt(r,BinaryExp(NeOp,r,1,0),a,es))
@@ -581,7 +582,7 @@ class TestDen {
       val t = A.generic(List(w))
       val x = NormalLocal("x",t,isFinal=true)
       implicit val env = localEnv(A,x,F,f)
-      test("f(x) // "+w,ExpStmt(ApplyExp(TypeApply(f,List(t),a,hide=true),List(x),a,auto=false)))
+      test("f(x) // "+w,ExpStmt(ApplyExp(TypeApply(f,List(t),a,hide=true),List(x),a,auto=false),env))
     }
   }
 
@@ -664,7 +665,7 @@ class TestDen {
     val X = env.allLocalItems.find(_.name == "X").get.asInstanceOf[NormalClassItem]
     val B = env.allLocalItems.find(_.name == "B").get.asInstanceOf[NormalClassItem]
     test("X<String,B<String>> x = null", "x", x =>
-      VarStmt(X.generic(List(StringType,B.generic(List(StringType)))),r,VarDecl(x,r,Nil,Some(r,NullLit(r)))))
+      VarStmt(Nil,X.generic(List(StringType,B.generic(List(StringType)))),r,VarDecl(x,r,Nil,Some(r,NullLit(r)),env),env))
   }
 
   @Test def genericMethod(): Unit = {
@@ -705,8 +706,8 @@ class TestDen {
 
     implicit val env = Env(Array(S,T,U,AS,BT,CU,X,Y,f), Map((X,3),(Y,2),(f,2),(S,3),(T,3),(U,3)), PlaceInfo(f))
     // Until we make some fiddling happen (in which case this test should test probabilities), only A<S,T,U> should work.
-    test("X<S,T,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),r,VarDecl(x,r,0,None)))
-    test("A<S,S,U> x", "x", x => VarStmt(X.generic(List(S,T,U)),r,VarDecl(x,r,0,None))) // Unlikely, but should work
+    test("X<S,T,U> x", "x", x => VarStmt(Nil,X.generic(List(S,T,U)),r,VarDecl(x,r,0,None,env),env))
+    test("A<S,S,U> x", "x", x => VarStmt(Nil,X.generic(List(S,T,U)),r,VarDecl(x,r,0,None,env),env)) // Unlikely, but should work
     def bad(s: String) = testFail(s,bound=3e-4)
     bad("A<S,S,S> x")
     bad("A<S,S,T> x")
@@ -738,12 +739,12 @@ class TestDen {
 
   @Test def boxInt() = {
     implicit val env = localEnvWithBase()
-    test("Integer x = 1","x",x => VarStmt(IntType.box,r,(x,1)))
+    test("Integer x = 1","x",x => VarStmt(Nil,IntType.box,r,(x,1),env))
   }
 
   @Test def boxByte() = {
     implicit val env = localEnvWithBase()
-    test("Byte x = 1","x",x => VarStmt(ByteType.box,r,(x,1)))
+    test("Byte x = 1","x",x => VarStmt(Nil,ByteType.box,r,(x,1),env))
   }
 
   @Test def fizz() = {
@@ -827,7 +828,7 @@ class TestDen {
     lazy val cons = NormalConstructorItem(A,List(S),Nil)
     implicit val env = localEnv().extend(Array(A,cons,B,C),Map(A->1,B->1,C->1))
     test("x = new<C>A<B>","x",x =>
-      VarStmt(A.generic(List(B)),r,(x,ApplyExp(TypeApply(NewDen(r,None,cons,r,Some(Grouped(List(B),a))),List(C),a,hide=false),Nil,a,auto=true))))
+      VarStmt(Nil,A.generic(List(B)),r,(x,ApplyExp(TypeApply(NewDen(r,None,cons,r,Some(Grouped(List(B),a))),List(C),a,hide=false),Nil,a,auto=true)),env))
   }
 
   @Test def classInPackage() = {
@@ -853,8 +854,8 @@ class TestDen {
     test("t.x = 1",AssignExp(None,r,FieldExp(t,x,r),1))
   }
 
-  @Test def fixType() = test("int x = 1L","x",x => VarStmt(LongType,r,(x,1L)))
-  @Test def fixGarbageType() = test("garbageGarbageGarbage x = 1L","x",x => VarStmt(LongType,r,(x,1L)))
+  @Test def fixType() = test("int x = 1L","x",x => VarStmt(Nil,LongType,r,(x,1L),env))
+  @Test def fixGarbageType() = test("garbageGarbageGarbage x = 1L","x",x => VarStmt(Nil,LongType,r,(x,1L),env))
 
   @Test def fixTypeGenericRightToLeft() = {
     val S = SimpleTypeVar("S")
@@ -868,9 +869,9 @@ class TestDen {
     def r(lo: Int, hi: Int) = SRange(SLoc(lo),SLoc(hi))
     def a(lo: Int, hi: Int) = SGroup.approx(r(lo,hi))
     test("A<Integer> x = new B<Long>","x",x =>
-      VarStmt(A.generic(List(LongType.box)),r(0,10),
+      VarStmt(Nil,A.generic(List(LongType.box)),r(0,10),
               VarDecl(x,r(11,12),Nil,Some(r(13,14),
-                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(LongType.box),a(20,26)))),Nil,a(26,26),auto=true)))))
+                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(LongType.box),a(20,26)))),Nil,a(26,26),auto=true)),env),env))
   }
 
   @Test def fixTypeGenericLeftToRight() = {
@@ -885,9 +886,9 @@ class TestDen {
     def r(lo: Int, hi: Int) = SRange(SLoc(lo),SLoc(hi))
     def a(lo: Int, hi: Int) = SGroup.approx(r(lo,hi))
     test("A<Integer> x = new B<Long>","x",x =>
-      VarStmt(A.generic(List(IntType.box)),r(0,10),
+      VarStmt(Nil,A.generic(List(IntType.box)),r(0,10),
               VarDecl(x,r(11,12),Nil,Some(r(13,14),
-                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(IntType.box),a(20,20)))),Nil,a(20,20),auto=true)))))
+                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(IntType.box),a(20,20)))),Nil,a(20,20),auto=true)),env),env))
   }
 
   @Test def fillTypeGeneric() = {
@@ -898,7 +899,7 @@ class TestDen {
     lazy val cons = DefaultConstructorItem(B)
     implicit val env = localEnvWithBase().extendLocal(Array(A,B))
     test("A<Integer> x = new B","x",x =>
-      VarStmt(A.generic(List(IntType.box)),r,(x,ApplyExp(NewDen(r,None,cons,r,Some(Grouped(List(IntType.box),a))),Nil,a,auto=true))))
+      VarStmt(Nil,A.generic(List(IntType.box)),r,(x,ApplyExp(NewDen(r,None,cons,r,Some(Grouped(List(IntType.box),a))),Nil,a,auto=true)),env))
   }
 
   @Test def fillTypeTernary() = {
@@ -915,8 +916,8 @@ class TestDen {
     test("A<Integer> x = f ? new B : (new C)","x",x => {
       val is = List(IntType.box)
       val t = A.generic(is)
-      VarStmt(t,r,(x,CondExp(f,r,ApplyExp(NewDen(r,None,consB,r,Some(is)),Nil,a,auto=true),
-                               r,ParenExp(ApplyExp(NewDen(r,None,consC,r,Some(is)),Nil,a,auto=true),a),t)))
+      VarStmt(Nil,t,r,(x,CondExp(f,r,ApplyExp(NewDen(r,None,consB,r,Some(is)),Nil,a,auto=true),
+                               r,ParenExp(ApplyExp(NewDen(r,None,consC,r,Some(is)),Nil,a,auto=true),a),t)),env)
     })
   }
 
@@ -933,15 +934,15 @@ class TestDen {
     val x = NormalLocal("x",A,isFinal=true)
     val f = NormalMethodItem("f",NormalClassItem("F"),Nil,A,Nil,isStatic=true)
     implicit val env = Env(Array(A,x),Map(A->2,x->1),PlaceInfo(f))
-    test("return",ReturnStmt(r,x))
+    test("return",ReturnStmt(r,x,env))
   }
 
   @Test def noLabel() = {
     val pre = localEnv()
     def f(b: Boolean, c: Boolean): Unit = {
       implicit val env = pre.move(PlaceInfo(pre.place.place,breakable=b,continuable=c))
-      if (b) test("break",BreakStmt(r,None)) else testFail("break")
-      if (c) test("continue",ContinueStmt(r,None)) else testFail("continue")
+      if (b) test("break",BreakStmt(r,None,env)) else testFail("break")
+      if (c) test("continue",ContinueStmt(r,None,env)) else testFail("continue")
     }
     f(false,false); f(false,true)
     f(true ,false); f(true ,true)
@@ -952,8 +953,8 @@ class TestDen {
       val lab = Label("label",continuable=c)
       implicit val env = pre.extendLocal(Array(lab)).move(PlaceInfo(pre.place.place,breakable=true,continuable=c))
       for (name <- List("label","labl")) {
-        test(s"break $name",BreakStmt(r,Some(lab)))
-        if (c) test(s"continue $name",ContinueStmt(r,Some(lab)))
+        test(s"break $name",BreakStmt(r,Some(lab),env))
+        if (c) test(s"continue $name",ContinueStmt(r,Some(lab),env))
         else testFail(s"continue $name")
       }
     }
@@ -1006,17 +1007,17 @@ class TestDen {
     val x = NormalLocal("x",ObjectType,isFinal=true)
     val b = NormalLocal("b",BooleanType,isFinal=true)
     implicit val env = localEnvWithBase(x,b)
-    test("if (x == 0)",IfStmt(r,BinaryExp(EqOp,r,x,NullLit(r)),a,HoleStmt(r)))
-    test("if (0 != x)",IfStmt(r,BinaryExp(NeOp,r,NullLit(r),x),a,HoleStmt(r)))
-    test("if (b != 0)",IfStmt(r,BinaryExp(NeOp,r,b,false),a,HoleStmt(r)))
-    test("if (0 == b)",IfStmt(r,BinaryExp(EqOp,r,false,b),a,HoleStmt(r)))
+    test("if (x == 0)",IfStmt(r,BinaryExp(EqOp,r,x,NullLit(r)),a,HoleStmt(r,env)))
+    test("if (0 != x)",IfStmt(r,BinaryExp(NeOp,r,NullLit(r),x),a,HoleStmt(r,env)))
+    test("if (b != 0)",IfStmt(r,BinaryExp(NeOp,r,b,false),a,HoleStmt(r,env)))
+    test("if (0 == b)",IfStmt(r,BinaryExp(EqOp,r,false,b),a,HoleStmt(r,env)))
   }
 
   @Test def comment() = testSpace("x = 1 // blah","int x = 1; // blah")
   @Test def comments() = testSpace("/*0*/ x /*1*/ = /*2*/ 1 // 3","/*0*/ int x /*1*/ = /*2*/ 1; // 3")
 
-  @Test def finalVar() = test("final x = 1;","x",x => SemiStmt(VarStmt(IntType,r,(x,1),List(Final)),r))
-  @Test def finalVarType() = test("final int x = 1;","x",x => SemiStmt(VarStmt(IntType,r,(x,1),List(Final)),r))
+  @Test def finalVar() = test("final x = 1;","x",x => SemiStmt(VarStmt(List(Final),IntType,r,(x,1),env),r))
+  @Test def finalVarType() = test("final int x = 1;","x",x => SemiStmt(VarStmt(List(Final),IntType,r,(x,1),env),r))
 
   @Test def instanceofTest(): Unit = {
     val a = NormalLocal("a",ObjectType,isFinal=true)
@@ -1026,7 +1027,7 @@ class TestDen {
   }
 
   @Test def verboseArray() = test("int[] x = new int[]{1,2,3}","x",x =>
-    VarStmt(ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2,3),a,auto=false)))))
+    VarStmt(Nil,ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2,3),a,auto=false)),env),env))
 
   @Test def testTest(): Unit = {
     val X = NormalClassItem("X",LocalPkg)

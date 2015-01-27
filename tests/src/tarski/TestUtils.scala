@@ -62,16 +62,16 @@ object TestUtils {
   implicit def toTypeArgs[A](ts: List[A])(implicit to: A => TypeArg): List[TypeArg] = ts map to
 
   // Statement implicit conversions
-  implicit def toStmt(e: StmtExp): Stmt = ExpStmt(e)
-  implicit def toStmt[A](x: A)(implicit to: A => StmtExp): Stmt = ExpStmt(to(x))
-  implicit def toStmts(e: StmtExp): List[Stmt] = List(ExpStmt(e))
+  implicit def toStmt(e: StmtExp)(implicit env: Env): Stmt = ExpStmt(e,env)
+  implicit def toStmt[A](x: A)(implicit to: A => StmtExp, env: Env): Stmt = ExpStmt(to(x),env)
+  implicit def toStmts(e: StmtExp)(implicit env: Env): List[Stmt] = List(ExpStmt(e,env))
   implicit def toStmts(s: Stmt): List[Stmt] = List(s)
 
   // Variable declarations, for statements, etc.
-  implicit def toVarDecl[A](v: (Local,A))(implicit to: A => Exp): VarDecl = VarDecl(v._1,r,Nil,Some(r,to(v._2)))
+  implicit def toVarDecl[A](v: (Local,A))(implicit to: A => Exp, env: Env): VarDecl = VarDecl(v._1,r,Nil,Some(r,to(v._2)),env)
   implicit def toVarDecls[A](v: A)(implicit to: A => VarDecl): List[VarDecl] = List(to(v))
-  implicit def toForInit(n: List[Nothing]): ForInit = ForExps(Nil,r)
-  implicit def toForInit(e: Exp): ForInit = ForExps(List(e),r)
+  implicit def toForInit(n: List[Nothing])(implicit env: Env): ForInit = ForExps(Nil,r,env)
+  implicit def toForInit(e: Exp)(implicit env: Env): ForInit = ForExps(List(e),r,env)
 
     // Inside a function with a bunch of locals
   def localEnv(locals: Item*): Env = {

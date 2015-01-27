@@ -613,20 +613,17 @@ object Semantics {
   }
 
   // Statements
-  def denoteStmt(s: AStmt)(env: Env): Scored[(Env,List[Stmt])] = {
+  def denoteStmt(s: AStmt)(env: Env): Scored[Stmt] = {
     implicit val imp = env
     s match {
-      case SemiAStmt(x,sr) => denoteStmt(x)(env) map {case (env,ss) => (env,ss.reverse match {
-        case Nil => Nil
-        case s::ss => (SemiStmt(s,sr)::ss).reverse
-      })}
-      case EmptyAStmt(r) => single((env,List(EmptyStmt(r))),Pr.emptyStmt)
-      case HoleAStmt(r) => single((env,List(HoleStmt(r))),Pr.holeStmt)
-      case TokAStmt(t,r) => known(env,List(TokStmt(t,r)))
+      case SemiAStmt(x,sr) => denoteStmt(x)(env) map (addSemi(_,sr))
+      case EmptyAStmt(r) => single(EmptyStmt(r,env),Pr.emptyStmt)
+      case HoleAStmt(r) => single(HoleStmt(r,env),Pr.holeStmt)
+      case TokAStmt(t,r) => known(TokStmt(t,r,env))
       case VarAStmt(m,t,ds) => modifiers(m,Final) flatMap (isFinal => {
         def process(d: AVarDecl)(env: Env, x: Local): Scored[VarDecl] = d match {
-          case AVarDecl(_,xr,k,None) => known(VarDecl(x,xr,k,None))
-          case AVarDecl(_,xr,k,Some((eq,i))) => denoteAssignsTo(i,x.ty) map (i => VarDecl(x,xr,k,Some(eq,i)))
+          case AVarDecl(_,xr,k,None) => known(VarDecl(x,xr,k,None,env))
+          case AVarDecl(_,xr,k,Some((eq,i))) => denoteAssignsTo(i,x.ty)(env) map (i => VarDecl(x,xr,k,Some(eq,i),env))
         }
         val useType = t match {
           case None => Empty
@@ -634,8 +631,8 @@ object Semantics {
             val tr = t.r
             env.newVariables(ds.list map (_.x),isFinal,ds.list map process) flatMap (f =>
               above(denoteType(t)(env) flatMap (at => safe(at.beneath)(t => {
-                val (env,dss) = f(ds.list map {case AVarDecl(_,_,k,_) => arrays(t,k.size)})
-                product(dss) map (ds => (env,VarStmt(t,tr,ds,m).discard(at.discards)))
+                val (after,dss) = f(ds.list map {case AVarDecl(_,_,k,_) => arrays(t,k.size)})
+                product(dss) map (ds => VarStmt(m,t,tr,ds,after).discard(at.discards))
               }))))
         }
         ds.list match {
@@ -649,8 +646,8 @@ object Semantics {
               val goal = t flatMap guessItem
               product(env.newVariable(v,isFinal),denoteExp(e)(env)) flatMap {case (f,e) =>
                 safe(similarBase(e.ty,goal))(t => {
-                  val (env,x) = f(t)
-                  known(env,List(VarStmt(t,tr,List(VarDecl(x,vr,Nil,Some(eq,e))),m)))
+                  val (after,x) = f(t)
+                  known(VarStmt(m,t,tr,List(VarDecl(x,vr,Nil,Some(eq,e),env)),after))
                 })
               }
             })
@@ -660,76 +657,80 @@ object Semantics {
       case ExpAStmt(e) => {
         val er = e.r
         val exps = denoteExp(e) flatMap {
-          case e:StmtExp => known(env,ExpStmt(e))
+          case e:StmtExp => known(ExpStmt(e,env))
           case e => effects(e) match {
             case Nil => fail(s"${show(e)}: has no side effects")
-            case ss => single((env,blocked(ss)),Pr.expStmtsSplit)
+            case ss => single(multiple(ss),Pr.expStmtsSplit)
           }
         }
         above(e match {
           case AssignAExp(None,opr,NameAExp(x,xr),y) => exps ++ biased(Pr.assignmentAsVarStmt,
             product(env.newVariable(x,isFinal=false),denoteExp(y)) flatMap {case (f,y) => safe(y.ty)(t => {
-              val (env,x) = f(t)
-              known(env,VarStmt(t,xr.before,List(VarDecl(x,xr,Nil,Some(opr,y)))))
+              val (after,x) = f(t)
+              known(VarStmt(Nil,t,xr.before,List(VarDecl(x,xr,Nil,Some(opr,y),env)),after))
             })})
           case _ => exps
         })
       }
-      case BlockAStmt(b,a) => denoteStmts(b)(env) flatMap {case (e,ss) => single((e,List(BlockStmt(ss,a))), Pr.blockStmt)}
+      case BlockAStmt(Nil,a) => known(BlockStmt(Nil,a,env))
+      case BlockAStmt(b,a) => denoteStmts(b)(env) flatMap (ss => single(BlockStmt(ss,a,ss.head.env),Pr.blockStmt))
       case AssertAStmt(ar,c,m) =>
         def sm: Scored[Option[(SRange,Exp)]] = m match {
           case None => known(None)
           case Some((cr,m)) => denoteNonVoid(m) map (Some(cr,_))
         }
         biased(Pr.assertStmt,above(productWith(denoteBool(c),sm){case (c,m) =>
-          (env,AssertStmt(ar,c,m))}))
+          AssertStmt(ar,c,m,env)}))
 
       case BreakAStmt(br,l) =>
         if (!env.place.breakable) fail("Cannot break outside of a loop or switch statement.")
         else thread(l){case Loc(l,lr) => env.collect(l,s"Label $l not found",{
-          case l:Label => Loc(l,lr) })} map (l => (env,List(BreakStmt(br,l))))
+          case l:Label => Loc(l,lr) })} map (BreakStmt(br,_,env))
       case ContinueAStmt(cr,l) =>
         if (!env.place.continuable) fail("Cannot continue outside of a loop")
         else thread(l){case Loc(l,lr) => env.collect(l,s"Continuable label $l not found",{
-          case l:Label if l.continuable => Loc(l,lr) })} map (l => (env,List(ContinueStmt(cr,l))))
+          case l:Label if l.continuable => Loc(l,lr) })} map (ContinueStmt(cr,_,env))
 
       case ReturnAStmt(rr,None) => returnType flatMap (r =>
-        if (r==VoidType) known(env,List(ReturnStmt(rr,None)))
+        if (r==VoidType) known(ReturnStmt(rr,None,env))
         else valuesOfItem(r.item,rr,0,"return") flatMap (x =>
-          if (assignsTo(x,r)) known(env,List(ReturnStmt(rr,Some(x))))
+          if (assignsTo(x,r)) known(ReturnStmt(rr,Some(x),env))
           else fail(s"${show(s)}: type ${show(x.ty)} incompatible with return type ${show(r)}")
         )
       )
-      case ReturnAStmt(rr,Some(e)) => above(returnType flatMap (r => denoteAssignsTo(e,r) map (e => (env,ReturnStmt(rr,Some(e))))))
+      case ReturnAStmt(rr,Some(e)) => above(returnType flatMap (r => denoteAssignsTo(e,r) map (e => ReturnStmt(rr,Some(e),env))))
       case ThrowAStmt(tr,e) => above(denoteExp(e) flatMap {e =>
-        if (isThrowable(e.item)) single((env,ThrowStmt(tr,e)), Pr.throwStmt)
+        if (isThrowable(e.item)) single(ThrowStmt(tr,e,env), Pr.throwStmt)
         else fail(s"${show(s)}: type ${e.ty} is not throwable")
       })
       case SyncAStmt(sr,e,a,b) => above(product(denoteRef(e),denoteScoped(b)(env)) flatMap {
-        case (e,(env,b)) => single((env,SyncStmt(sr,e,a.a,b)), Pr.syncStmt) })
+        case (e,b) => single(SyncStmt(sr,e,a.a,needBlock(b)),Pr.syncStmt) })
       case IfAStmt(ir,c,a,x) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {
-        case (c,(env,x)) => single((env,IfStmt(ir,c,a.a,x)), Pr.ifStmt) })
-      case IfElseAStmt(ir,c,a,x,er,y) => above(product(denoteBool(c),denoteScoped(x)(env)) flatMap {case (c,(env,x)) =>
-        denoteScoped(y)(env) flatMap {case (env,y) => single((env,IfElseStmt(ir,c,a.a,x,er,y)), Pr.ifElseStmt) }})
-      case WhileAStmt(wr,flip,c,a,s) => above(product(denoteBool(c),denoteScoped(s)(env)) flatMap {case (c,(env,s)) =>
-        single((env,WhileStmt(wr,xor(flip,c),a.a,s)), Pr.whileStmt) })
-      case DoAStmt(dr,s,wr,flip,c,a) => above(product(denoteScoped(s)(env),denoteBool(c)) flatMap {case ((env,s),c) =>
-        single((env,DoStmt(dr,s,wr,xor(flip,c),a.a)), Pr.doStmt) })
+        case (c,x) => single(IfStmt(ir,c,a.a,x),Pr.ifStmt) })
+      case IfElseAStmt(ir,c,a,x,er,y) => above(product(denoteBool(c),denoteScoped(x)(env),denoteScoped(y)(env)) flatMap {
+        case (c,x,y) => single(IfElseStmt(ir,c,a.a,x,er,y),Pr.ifElseStmt) })
+      case WhileAStmt(wr,flip,c,a,s) => above(product(denoteBool(c),denoteScoped(s)(env)) flatMap {case (c,s) =>
+        single(WhileStmt(wr,xor(flip,c),a.a,s),Pr.whileStmt) })
+      case DoAStmt(dr,s,wr,flip,c,a) => above(product(denoteScoped(s)(env),denoteBool(c)) flatMap {case (s,c) =>
+        single(DoStmt(dr,s,wr,xor(flip,c),a.a),Pr.doStmt) })
       case f@ForAStmt(fr,For(i,sr0,c,sr1,u),a,s) => {
         // Sanitize an initializer into valid Java
         def init(i: List[Stmt]): Scored[(Option[Exp],List[Exp],Stmt) => Stmt] = i match {
           case List(i:VarStmt) => single((c,u,s) => ForStmt(fr,i,c,sr1,u,a.a,s), Pr.forStmt)
-          case _ => allSome(i map {case ExpStmt(e) => Some(e); case _ => None}) match {
-            case Some(es) => single((c,u,s) => ForStmt(fr,ForExps(es,sr0),c,sr1,u,a.a,s), Pr.expForStmt)
-            case None => single((c,u,s) => BlockStmt(i:::List(ForStmt(fr,ForExps(Nil,sr0),c,sr1,u,a.a,s)),SGroup.approx(f.r)), Pr.blockForStmt)
+          case _ => allSome(i map {case ExpStmt(e,_) => Some(e); case _ => None}) match {
+            case Some(es) => single((c,u,s) => ForStmt(fr,ForExps(es,sr0,env),c,sr1,u,a.a,s), Pr.expForStmt)
+            case None => single((c,u,s) => BlockStmt(i:::List(ForStmt(fr,ForExps(Nil,sr0,env),c,sr1,u,a.a,s)),SGroup.approx(f.r),env), Pr.blockForStmt)
           }
         }
-        scoped(env)(env => denoteStmts(i.list)(env) flatMap {case (env,i) => init(i) flatMap (i => {
-          product(thread(c)(c => noAbove(denoteBool(c)(env))),
-                  thread(u.list)(u => noAbove(denoteExp(u)(env))),
-                  denoteScoped(s)(env))
-            .map {case (c,u,(env,s)) => (env,List(i(c,u,s)))}
-        })})
+        val push = env.pushScope
+        denoteStmts(i.list)(push) flatMap (i => init(i) flatMap (f => {
+          val env = i match { case Nil => push; case _ => i.last.envAfter }
+          init(i) flatMap (i =>
+            product(thread(c)(c => noAbove(denoteBool(c)(env))),
+                    thread(u.list)(u => noAbove(denoteExp(u)(env))),
+                    denoteScoped(s)(env))
+              .map {case (c,u,s) => i(c,u,s)})
+        }))
       }
       case ForAStmt(fr,info@Foreach(m,t,v,vr,n,cr,e),a,s) => modifiers(m,Final) flatMap (explicitFinal => {
         val isFinal = explicitFinal || t.isEmpty
@@ -743,9 +744,9 @@ object Semantics {
           isIterable(tc) match {
             case None => fail(s"${show(e)}: type ${show(tc)} is not Iterable or an Array")
             case Some(te) =>
-              def rest(t: Type): Scored[(Env,Stmt)] = {
-                val (env,x) = f(t)
-                denoteStmt(s)(env) map {case (env,s) => (env,ForeachStmt(fr,m,t,tr,x,vr,e,a.a,blocked(s)).discard(at.discards))}
+              def rest(t: Type): Scored[Stmt] = {
+                val (after,x) = f(t)
+                denoteStmt(s)(after.pushScope) map (ForeachStmt(fr,m,t,tr,x,vr,e,a.a,_,env).discard(at.discards))
               }
               t match {
                 case Some(t) =>
@@ -764,23 +765,24 @@ object Semantics {
     }
   }
 
-  def above(s: Scored[(Env,Stmt)]): Scored[(Env,List[Stmt])] = s map { case (env,s) =>
-    s.discards match {
-      case Nil => (env,List(s))
-      case ds => (env,(s.strip::ds).reverse)
-    }}
+  def above(s: Scored[Stmt]): Scored[Stmt] = s map (s => s.discards match {
+    case Nil => s
+    case ds => multiple((s.strip::ds).reverse)
+  })
   def noAbove(s: Scored[Exp]): Scored[Exp] = s flatMap (a =>
     if (a.discards.nonEmpty) fail("No room for above statements in this context")
     else known(a))
 
-  def denoteStmts(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
-    productFoldLeft(env)(s map denoteStmt) map {case (env,ss) => (env,ss.flatten)}
+  def denoteStmts(ss: List[AStmt])(env: Env): Scored[List[Stmt]] = ss match {
+    case Nil => known(Nil)
+    case List(s) => denoteStmt(s)(env) map (_.flatten)
+    case s::ss => denoteStmt(s)(env) flatMap (s => {
+      val sf = s.flatten
+      denoteStmts(ss)(s.envAfter) map (sf:::_)
+    })
+  }
 
   // Statement whose environment is discarded
-  def scoped[A](env: Env)(f: Env => Scored[(Env,A)]): Scored[(Env,A)] =
-    f(env.pushScope) map {case (e,x) => (e.popScope,x)}
-  def denoteScoped(s: AStmt)(env: Env): Scored[(Env,Stmt)] =
-    scoped(env)(denoteStmt(s)(_)) map {case (e,ss) => (e,blocked(ss))}
-  def denoteScoped(s: List[AStmt])(env: Env): Scored[(Env,List[Stmt])] =
-    scoped(env)(denoteStmts(s)(_))
+  def denoteScoped(s: AStmt)(env: Env): Scored[Stmt] =
+    denoteStmt(s)(env.pushScope) map blocked
 }
