@@ -5,6 +5,9 @@ import com.eddysystems.eddy.PreferencesProvider;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.lang.ASTNode;
+import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationType;
+import com.intellij.notification.Notifications;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.application.impl.LaterInvocator;
@@ -23,7 +26,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.Function3;
 import scala.Unit$;
+import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction3;
+import scala.runtime.BoxedUnit;
+import scala.util.Try;
 import tarski.Denotations.Stmt;
 import tarski.Environment.Env;
 import tarski.Memory;
@@ -219,7 +225,21 @@ public class Eddy {
     }
 
     public void logSuggestion(final @NotNull String suggestion) {
-      Memory.log(Memory.eddySuggestion(eddy.base, Memory.now(), input.input, results, suggestion));
+      Memory.log(Memory.eddySuggestion(eddy.base, Memory.now(), input.input, results, suggestion)).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
+        @Override
+        public Void apply(Try<BoxedUnit> v) {
+          final String title, msg;
+          if (v.isSuccess()) {
+            title = "Suggestion processed";
+            msg = "Thank you! Your suggestion will help improve eddy!";
+          } else {
+            title = "Suggestion failed to send";
+            msg = "I'm sorry, your suggestion could not be recorded. Our servers could not be reached.";
+          }
+          Notifications.Bus.notify(new Notification("Eddy", title, msg, NotificationType.INFORMATION), eddy.project);
+          return null;
+        }
+      }, scala.concurrent.ExecutionContext.Implicits$.MODULE$.global());
     }
   }
 

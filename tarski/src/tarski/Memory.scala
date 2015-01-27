@@ -1,6 +1,5 @@
 package tarski
 
-import tarski.Denotations.Stmt
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmt
