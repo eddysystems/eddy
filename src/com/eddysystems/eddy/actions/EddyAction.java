@@ -10,12 +10,19 @@ import com.intellij.openapi.ui.popup.util.BaseListPopupStep;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import java.util.ArrayList;
+import java.util.List;
 
-import static com.eddysystems.eddy.engine.Utility.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
 import static tarski.Tokens.abbrevShowFlags;
 
 public class EddyAction implements QuestionAction {
+
+  private static class ListEntry {
+    String text;
+    int index;
+  }
+
   private final @NotNull Eddy.Output output;
   private final @NotNull Editor editor;
 
@@ -51,13 +58,24 @@ public class EddyAction implements QuestionAction {
     log("executing EddyAction");
 
     if (output.results.size() == 1)
-      output.apply(output.format(0,abbrevShowFlags()));
+      output.apply(0);
     else if (output.single())
       output.applySelected();
     else {
+
+      List<ListEntry> entries = new ArrayList<ListEntry>(output.results.size());
+
+      int i = 0;
+      for (final String s : output.formats(abbrevShowFlags(),true)) {
+        ListEntry le = new ListEntry();
+        le.index = i++;
+        le.text = s;
+        entries.add(le);
+      }
+
       // show selection dialog
-      final BaseListPopupStep<String> step =
-        new BaseListPopupStep<String>("eddy thinks:", output.formats(abbrevShowFlags(), true)) {
+      final BaseListPopupStep<ListEntry> step =
+        new BaseListPopupStep<ListEntry>("eddy thinks:", entries) {
           @Override
           public boolean isAutoSelectionEnabled() {
             return false;
@@ -69,16 +87,13 @@ public class EddyAction implements QuestionAction {
           }
 
           @Override
-          public PopupStep onChosen(final String selectedValue, final boolean finalChoice) {
+          public PopupStep onChosen(final ListEntry selectedValue, final boolean finalChoice) {
             if (selectedValue == null) {
               return FINAL_CHOICE;
             }
 
             if (finalChoice) {
-              if (isDebug()) {
-                output.apply(selectedValue.substring(selectedValue.indexOf(':') + 2));
-              } else
-                output.apply(selectedValue);
+              output.apply(selectedValue.index);
               return FINAL_CHOICE;
             }
 
@@ -86,18 +101,18 @@ public class EddyAction implements QuestionAction {
           }
 
           @Override
-          public boolean hasSubstep(String selectedValue) {
+          public boolean hasSubstep(ListEntry selectedValue) {
             return false;
           }
 
           @NotNull
           @Override
-          public String getTextFor(String value) {
-            return value;
+          public String getTextFor(ListEntry value) {
+            return value.text;
           }
 
           @Override
-          public Icon getIconFor(String value) {
+          public Icon getIconFor(ListEntry value) {
             return null;
           }
         };

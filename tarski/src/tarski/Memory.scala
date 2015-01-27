@@ -35,6 +35,7 @@ object Memory {
   type JList[A] = java.util.List[A]
 
   implicit def safeString(x: String) = S(x)
+  implicit def safeInt(x: Int) = S(x:java.lang.Integer)
   implicit def safeDouble(x: Double) = S(x:java.lang.Double)
   implicit def safeDouble(x: java.lang.Double) = S(x)
   implicit def safeSeq[A](x: Seq[A])(implicit s: Safe[A]) = S(x.map(safe(_)).asJava : java.util.List[Object])
@@ -79,7 +80,7 @@ object Memory {
   }
 
   // Specific kinds of messages
-  def eddyApply(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) =
+  def eddyApply(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: Int) =
     eddyBase(base, start, "Eddy.Apply", input, results)
       .add("choice",choice)
 

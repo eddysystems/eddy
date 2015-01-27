@@ -59,7 +59,7 @@ class EnvironmentProcessor {
     // local variables, parameters, type parameters, as well as protected/private things in scope
     final Converter env = new Converter(jenv,locals);
 
-    log("getting local items...");
+    //log("getting local items...");
 
     // Register locally visible packages
     for (final Shadow<PsiPackage> spkg : P.packages) {
@@ -117,11 +117,11 @@ class EnvironmentProcessor {
           localItems.add(new Label(lab.getLabelIdentifier().getText(),continuable));
         }
         if (place instanceof PsiSwitchStatement) {
-          log("inside switch statement: " + place);
+          //log("inside switch statement: " + place);
           inside_breakable = true;
         }
         if (place instanceof PsiLoopStatement) {
-          log("inside loop statement: " + place);
+          //log("inside loop statement: " + place);
           inside_breakable = true;
           inside_continuable = true;
         }
@@ -135,7 +135,7 @@ class EnvironmentProcessor {
 
         // add this and super only if we're not in static scope
         if (!P.inStaticScope(p)) {
-          log("making 'this' and 'super' for " + c);
+          //log("making 'this' and 'super' for " + c);
           final ThisItem ti = new ThisItem(c);
           localItems.add(ti);
           scopeItems.put(ti,p);
@@ -243,15 +243,15 @@ class EnvironmentProcessor {
 
     @Override public final void handleEvent(final @NotNull Event event, final Object associated) {
       if (event == JavaScopeProcessorEvent.START_STATIC) {
-        log("starting static scope at " + currentLevel);
+        //log("starting static scope at " + currentLevel);
         staticScopeLevel = currentLevel;
       } else if (event == JavaScopeProcessorEvent.SET_CURRENT_FILE_CONTEXT) {
         if (associated instanceof PsiAnonymousClass)
           classes.add(new Shadow<PsiClass>((PsiClass)associated,currentLevel));
-        log("switching context: " + associated);
+        //log("switching context: " + associated);
       } else if (event == JavaScopeProcessorEvent.CHANGE_LEVEL) {
         currentLevel++;
-        log("change level to " + currentLevel + ", associated " + associated);
+        //log("change level to " + currentLevel + ", associated " + associated);
       }
     }
   }

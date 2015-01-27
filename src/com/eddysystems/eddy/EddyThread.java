@@ -65,7 +65,7 @@ public class EddyThread extends Thread {
   // Results, if we've found something
   Eddy.Output output = null;
 
-  EddyThread(final Project project, final Editor editor, final int lastEditLocation, final Eddy.Take cont) {
+  EddyThread(final @NotNull Project project, final @NotNull Editor editor, final int lastEditLocation, final Eddy.Take cont) {
     this.setName("Eddy thread " + getId());
     this.eddy = new Eddy(project,editor);
     this.project = project;

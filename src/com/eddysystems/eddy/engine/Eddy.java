@@ -154,15 +154,8 @@ public class Eddy {
       return format(Math.max(0,selected),abbrevShowFlags());
     }
 
-    public String unabbrev(final String abbrev) {
-      for (final Alt<ShowStmts> r : results)
-        if (abbrev.equals(format(r.x(),abbrevShowFlags())))
-          return format(r.x(),fullShowFlags());
-      throw new RuntimeException("Can't find full version of abbreviated code: "+abbrev);
-    }
-
     public void applySelected() {
-      apply(format(Math.max(0,selected),abbrevShowFlags()));
+      apply(Math.max(0,selected));
     }
 
     public int autoApply() {
@@ -191,8 +184,8 @@ public class Eddy {
       return offsetDiff;
     }
 
-    public void apply(final @NotNull String abbrev) {
-      final String full = unabbrev(abbrev);
+    public void apply(final int index) {
+      final String full = format(results.get(index).x(),fullShowFlags());
       ApplicationManager.getApplication().runWriteAction(new Runnable() {
         @Override
         public void run() {
@@ -207,7 +200,7 @@ public class Eddy {
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,abbrev));
+      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,index));
     }
 
     public void logSuggestion(final @NotNull String suggestion) {
