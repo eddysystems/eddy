@@ -266,66 +266,65 @@ class ParseEddy {
     private static final int iStmts = 112;
     private static final int iOption_ExpAssign = 113;
     private static final int iCommas1_ExpCond_ExpJuxt = 114;
-    private static final int iOption_ExpJuxt = 115;
-    private static final int iExpUnary_ExpWild = 116;
-    private static final int iExpMul_ExpWild = 117;
-    private static final int iExpAdd_ExpWild = 118;
-    private static final int iExpShift_ExpWild = 119;
-    private static final int iExpRel_ExpWild = 120;
-    private static final int iExpEq_ExpWild = 121;
-    private static final int iExpAnd_ExpWild = 122;
-    private static final int iExpXor_ExpWild = 123;
-    private static final int iExpOr_ExpWild = 124;
-    private static final int iExpAndAnd_ExpWild = 125;
-    private static final int iExpOrOr_ExpWild = 126;
-    private static final int iExpCond_ExpWild = 127;
-    private static final int iArrayInterior = 128;
-    private static final int iType = 129;
-    private static final int iType__MaybeStmt = 130;
-    private static final int iJuxts1_Type = 131;
-    private static final int iJuxts0_Mod__Type = 132;
-    private static final int iList1_Type = 133;
-    private static final int iList_Type = 134;
-    private static final int iOption_Type = 135;
-    private static final int iCommas1_Type = 136;
-    private static final int iExpWildNP = 137;
-    private static final int iExpJuxtNP = 138;
-    private static final int iExpUnary_ExpJuxtNP = 139;
-    private static final int iExpMul_ExpJuxtNP = 140;
-    private static final int iExpAdd_ExpJuxtNP = 141;
-    private static final int iExpShift_ExpJuxtNP = 142;
-    private static final int iExpRel_ExpJuxtNP = 143;
-    private static final int iExpEq_ExpJuxtNP = 144;
-    private static final int iExpAnd_ExpJuxtNP = 145;
-    private static final int iExpXor_ExpJuxtNP = 146;
-    private static final int iExpOr_ExpJuxtNP = 147;
-    private static final int iExpAndAnd_ExpJuxtNP = 148;
-    private static final int iExpOrOr_ExpJuxtNP = 149;
-    private static final int iExpCond_ExpJuxtNP = 150;
-    private static final int iExpAssignNP = 151;
-    private static final int iAfterIfB = 152;
-    private static final int iMaybeParenExp = 153;
-    private static final int iMaybeParenExp__MaybeDo = 154;
-    private static final int iAfterIfA = 155;
-    private static final int iAfterIf = 156;
-    private static final int iExpWildNA = 157;
-    private static final int iSingleJuxt1_ExpWildNA = 158;
-    private static final int iJuxts1_ExpWildNA = 159;
-    private static final int iExpPrimary__DimExps = 160;
-    private static final int iIdent__MaybeStmt = 161;
-    private static final int iVarDecl = 162;
-    private static final int iJuxts1_VarDecl = 163;
-    private static final int iCommas1_VarDecl = 164;
-    private static final int iOption_Type__Ident = 165;
-    private static final int iJuxts0_Mod__Option_Type__Ident = 166;
-    private static final int iOption_Ident = 167;
-    private static final int iForeachSep = 168;
-    private static final int iSemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC = 169;
-    private static final int iForInfo = 170;
-    private static final int iCommas2_VarDecl = 171;
-    private static final int iList1_VarDecl = 172;
-    private static final int iOption_Type__List1_VarDecl = 173;
-    private static final int iWhileUntil__MaybeParenExp = 174;
+    private static final int iExpUnary_ExpWild = 115;
+    private static final int iExpMul_ExpWild = 116;
+    private static final int iExpAdd_ExpWild = 117;
+    private static final int iExpShift_ExpWild = 118;
+    private static final int iExpRel_ExpWild = 119;
+    private static final int iExpEq_ExpWild = 120;
+    private static final int iExpAnd_ExpWild = 121;
+    private static final int iExpXor_ExpWild = 122;
+    private static final int iExpOr_ExpWild = 123;
+    private static final int iExpAndAnd_ExpWild = 124;
+    private static final int iExpOrOr_ExpWild = 125;
+    private static final int iExpCond_ExpWild = 126;
+    private static final int iArrayInterior = 127;
+    private static final int iType = 128;
+    private static final int iType__MaybeStmt = 129;
+    private static final int iJuxts1_Type = 130;
+    private static final int iJuxts0_Mod__Type = 131;
+    private static final int iList1_Type = 132;
+    private static final int iList_Type = 133;
+    private static final int iOption_Type = 134;
+    private static final int iCommas1_Type = 135;
+    private static final int iExpWildNP = 136;
+    private static final int iExpJuxtNP = 137;
+    private static final int iExpUnary_ExpJuxtNP = 138;
+    private static final int iExpMul_ExpJuxtNP = 139;
+    private static final int iExpAdd_ExpJuxtNP = 140;
+    private static final int iExpShift_ExpJuxtNP = 141;
+    private static final int iExpRel_ExpJuxtNP = 142;
+    private static final int iExpEq_ExpJuxtNP = 143;
+    private static final int iExpAnd_ExpJuxtNP = 144;
+    private static final int iExpXor_ExpJuxtNP = 145;
+    private static final int iExpOr_ExpJuxtNP = 146;
+    private static final int iExpAndAnd_ExpJuxtNP = 147;
+    private static final int iExpOrOr_ExpJuxtNP = 148;
+    private static final int iExpCond_ExpJuxtNP = 149;
+    private static final int iExpAssignNP = 150;
+    private static final int iAfterIfB = 151;
+    private static final int iMaybeParenExp = 152;
+    private static final int iMaybeParenExp__MaybeDo = 153;
+    private static final int iAfterIfA = 154;
+    private static final int iAfterIf = 155;
+    private static final int iExpWildNA = 156;
+    private static final int iSingleJuxt1_ExpWildNA = 157;
+    private static final int iJuxts1_ExpWildNA = 158;
+    private static final int iExpPrimary__DimExps = 159;
+    private static final int iIdent__MaybeStmt = 160;
+    private static final int iVarDecl = 161;
+    private static final int iJuxts1_VarDecl = 162;
+    private static final int iCommas1_VarDecl = 163;
+    private static final int iOption_Type__Ident = 164;
+    private static final int iJuxts0_Mod__Option_Type__Ident = 165;
+    private static final int iOption_Ident = 166;
+    private static final int iForeachSep = 167;
+    private static final int iSemiTok__Option_ExpAssign__SemiTok__Commas0_ExpAssignNC = 168;
+    private static final int iForInfo = 169;
+    private static final int iCommas2_VarDecl = 170;
+    private static final int iList1_VarDecl = 171;
+    private static final int iOption_Type__List1_VarDecl = 172;
+    private static final int iWhileUntil__MaybeParenExp = 173;
 
     // Determine token types
     private void types() {
@@ -483,9 +482,6 @@ class ParseEddy {
       values.add(Option_ExpAssign1()); // Option_ExpAssign -> "" : None
       slice = (long)next<<32|1; next += 1;
       for (int i=0;i<=n;i++) slices.put(iOption_ExpAssign<<24|i<<12|i,slice);
-      values.add(Option_ExpJuxt1()); // Option_ExpJuxt -> "" : None
-      slice = (long)next<<32|1; next += 1;
-      for (int i=0;i<=n;i++) slices.put(iOption_ExpJuxt<<24|i<<12|i,slice);
       values.add(ArrayInterior0((KList)values.get((int)(slices.get(iArrayInteriorN1<<24)>>32)))); // ArrayInterior -> ArrayInteriorN1 : $1
       slice = (long)next<<32|1; next += 1;
       for (int i=0;i<=n;i++) slices.put(iArrayInterior<<24|i<<12|i,slice);
@@ -620,7 +616,6 @@ class ParseEddy {
         Stmts(lo,hi,range);
         Option_ExpAssign(lo,hi,range);
         Commas1_ExpCond_ExpJuxt(lo,hi,range);
-        Option_ExpJuxt(lo,hi,range);
         ExpUnary_ExpWild(lo,hi,range);
         ExpMul_ExpWild(lo,hi,range);
         ExpAdd_ExpWild(lo,hi,range);
@@ -3050,7 +3045,7 @@ class ParseEddy {
         }
       }
       if (hi-lo>=1 && type[lo]==iReturnTok) {
-        final long s1 = slices.get(iOption_ExpJuxt<<24|lo+1<<12|hi);
+        final long s1 = slices.get(iOption_ExpAssign<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
             values.add(StmtHelperBS16((Option)values.get((int)(s1>>32)+k),ranges[lo]));
@@ -3314,19 +3309,6 @@ class ParseEddy {
       }
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iCommas1_ExpCond_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
-    }
-
-    private void Option_ExpJuxt(final int lo, final int hi, final long range) {
-      final int prev = values.size();
-      if (hi-lo>=1) {
-        final long s1 = slices.get(iExpJuxt<<24|lo<<12|hi);
-        if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(Option_ExpJuxt0((AExp)values.get((int)(s1>>32)+k)));
-        }
-      }
-      final int count = values.size()-prev;
-      if (count != 0) { slices.put(iOption_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
     private void ExpUnary_ExpWild(final int lo, final int hi, final long range) {

@@ -210,7 +210,9 @@ object Tokens {
         case (_,SemiTok|CommaTok) => true
         case _ => false
       }
-      x.show + (if (safe(x,y)) "" else " ") + print(ys)
+      val rest = print(ys)
+      if (f.abbreviate && isSpace(x) && isSpace(y)) rest
+      else x.show + (if (safe(x,y)) rest else " "+rest)
   }
 
   // Convert to a string, adding as little whitespace as possible

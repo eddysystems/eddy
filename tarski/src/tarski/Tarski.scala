@@ -94,7 +94,7 @@ object Tarski {
     })
     // Complain if there's an error
     if (trackErrors) sc.strict match {
-      case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("error: "))
+      case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("  error: "))
       case _:Best[_] => ()
     }
     mergeTake(sc.stream, Map.empty, notify=false)

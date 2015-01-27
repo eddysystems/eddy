@@ -408,8 +408,6 @@ object ParseEddyActions {
   def ExpEq_ExpJuxtNP2(x1: AExp): AExp = x1
   def ExpAnd_ExpJuxt0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(AndOp,x2r,x1,x3)
   def ExpAnd_ExpJuxt1(x1: AExp): AExp = x1
-  def Option_ExpJuxt0(x1: AExp): Option[AExp] = Some(x1)
-  def Option_ExpJuxt1(): Option[AExp] = None
   def Type0(x2: Option[WildBound], x1r: Range): AExp = WildAExp(x1r,x2)
   def Type1(x1: AExp): AExp = x1
 }
