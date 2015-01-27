@@ -35,7 +35,7 @@ class Tokenizer {
       this.psi = stmt;
     }
 
-    public boolean blocked() {
+    public boolean isBlock() {
       return psi instanceof PsiCodeBlock;
     }
 
@@ -47,8 +47,8 @@ class Tokenizer {
     }
 
     public String show(final ShowFlags f) {
-      return f.abbreviate() ? f.valid() ? blocked() ? "{ "+sentinel+" }" : sentinel
-                                        : blocked() ? "{ ... }" : "..."
+      return f.abbreviate() ? f.valid() ? isBlock() ? "{ "+sentinel+" }" : sentinel
+                                        : isBlock() ? "{ ... }" : "..."
                             : psi.getText();
     }
 

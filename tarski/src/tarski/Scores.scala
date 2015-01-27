@@ -314,14 +314,6 @@ object Scores {
     case List(sx) => sx map (List(_))
     case sx :: sxs => sx.productWith(product(sxs))(_::_)
   }
-  // TODO: The only use of this function is a bug.
-  def productWithReversePrefixFilter[A](xs: List[Scored[A]], reverseLastElementLegal: List[A] => Boolean, error: => String): Scored[List[A]] = {
-    def loop(xs: List[Scored[A]]): Scored[List[A]] = xs match {
-      case Nil => knownNil
-      case sx :: sxs => sx.productWith(loop(sxs))(_::_) filter (reverseLastElementLegal,error)
-    }
-    loop(xs.reverse) map (_.reverse)
-  }
   def productFoldLeft[A,E](e: E)(fs: List[E => Scored[(E,A)]]): Scored[(E,List[A])] =
     fs match {
       case Nil => known((e,Nil))

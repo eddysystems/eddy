@@ -1,5 +1,6 @@
 package tarski
 
+import tarski.AST.Name
 import utility.Utility._
 import utility.Locations._
 import tarski.Base._
@@ -231,6 +232,7 @@ object Denotations {
   sealed abstract class Stmt extends HasDiscard[Stmt] with HasRange {
     def env: Env // The environment *before* the statement
     def envAfter: Env // The environment *after* the statement
+    def isBlock: Boolean = false // Are we a block?
     def discard(ds: List[Stmt]) = ds match {
       case Nil => this
       case ds => DiscardStmt(ds,this)
@@ -274,6 +276,7 @@ object Denotations {
   }
   case class BlockStmt(b: List[Stmt], a: SGroup, env: Env) extends Stmt {
     assert(b forall (!_.isInstanceOf[MultipleStmt]))
+    override def isBlock = true
     def envAfter = env
     def r = a.lr
     def discards = b flatMap (_.discards)
@@ -367,6 +370,7 @@ object Denotations {
     def strip = ForeachStmt(fr,m,t,tr,v,vr,e.strip,a,s,env)
   }
   case class SyncStmt(sr: SRange, e: Exp, a: SGroup, s: Stmt) extends Stmt {
+    assert(s.isBlock)
     def env = s.env
     def envAfter = env
     def r = sr union s.r
@@ -374,16 +378,19 @@ object Denotations {
     def strip = SyncStmt(sr,e.strip,a,s)
   }
   case class CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: Stmt) extends HasRange {
+    assert(s.isBlock)
     def r = s.r unionR m union tr union vr
   }
-  case class TryStmt(tr: SRange, s: Stmt, cs: List[CatchBlock], f: Option[Stmt]) extends Stmt {
+  case class TryStmt(tr: SRange, s: Stmt, cs: List[CatchBlock], f: Option[(SRange,Stmt)]) extends Stmt {
+    f foreach {case (_,f) => assert(f.isBlock)}
     def env = s.env
     def envAfter = env
-    def r = tr union s.r unionR cs unionR f
+    def r = tr union s.r unionR cs unionR (f map (_._2))
     def discards = Nil
     def strip = this
   }
   case class TokStmt(t: StmtTok, r: SRange, env: Env) extends Stmt {
+    override def isBlock = t.isBlock
     def envAfter = env
     def discards = Nil
     def strip = this
@@ -650,22 +657,20 @@ object Denotations {
     case ss => BlockStmt(ss,SGroup.approx(ss.head.r union ss.last.r),ss.head.env)
   }
 
-  def needBlock(s: Stmt): Stmt = s match {
-    case _:BlockStmt => s
-    case TokStmt(t,_,_) if t.blocked => s
-    case _ => BlockStmt(List(s),SGroup.approx(s.r),s.env)
-  }
+  def needBlock(s: Stmt): Stmt =
+    if (s.isBlock) s
+    else BlockStmt(List(s),SGroup.approx(s.r),s.env)
 
   def xor(x: Boolean, y: Exp): Exp =
     if (x) y match {
       case BooleanLit(y,r) => BooleanLit(!y,r)
       case _ => NonImpExp(NotOp,y.r.before,y)
     } else y
-  
+
   def addSemi(s: Stmt, sr: SRange): Stmt = s match {
     // Some statements need no semicolon
     case _:SemiStmt|_:BlockStmt|_:SyncStmt|_:TryStmt => s
-    case TokStmt(t,_,_) if t.blocked => s
+    case TokStmt(t,_,_) if t.isBlock => s
     // For if and similar, add a semicolon to the last substatement
     case IfStmt(ir,c,a,x) => IfStmt(ir,c,a,addSemi(x,sr))
     case IfElseStmt(ir,c,a,x,er,y) => IfElseStmt(ir,c,a,x,er,addSemi(y,sr))
@@ -687,7 +692,8 @@ object Denotations {
     case ForStmt(_,_,_,_,_,_,fs) => locals(fs)
     case ForeachStmt(_,_,_,_,v,_,_,_,fs,_) => v :: locals(fs)
     case SemiStmt(s,_) => locals(s)
-    case _:TryStmt => notImplemented
+    case TryStmt(_,ts,cs,fs) => (locals(ts) ::: (cs flatMap { case CatchBlock(_,_,v,_,s) => v :: locals(s) })
+                                            ::: fs.toList.flatMap(x => locals(x._2)))
     case _ => Nil
   }
 }

@@ -5,6 +5,9 @@ import com.eddysystems.eddy.PreferencesProvider;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.lang.ASTNode;
+import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationType;
+import com.intellij.notification.Notifications;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.application.impl.LaterInvocator;
@@ -24,8 +27,11 @@ import org.jetbrains.annotations.Nullable;
 import scala.Function2;
 import scala.Function3;
 import scala.Unit$;
+import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
 import scala.runtime.AbstractFunction3;
+import scala.runtime.BoxedUnit;
+import scala.util.Try;
 import tarski.Denotations.Stmt;
 import tarski.Environment.Env;
 import tarski.Memory;
@@ -71,6 +77,10 @@ public class Eddy {
       this.before_text = before_text;
     }
 
+    public String getText() {
+      return before_text;
+    }
+
     // compare without considering to whitespace.
     // TODO: this needs to change once we have a better way of handling comments etc.
     public boolean sameAsBefore(String after) {
@@ -111,6 +121,10 @@ public class Eddy {
       return fs;
     }
 
+    public String[] getResultSummary() {
+      return formats(new ShowFlags(true,true), true).toArray(new String[results.size()]);
+    }
+
     public boolean foundSomething() {
       return !results.isEmpty();
     }
@@ -149,7 +163,7 @@ public class Eddy {
       return format(Math.max(0,selected),abbrevShowFlags());
     }
 
-    private String unabbrev(final String abbrev) {
+    public String unabbrev(final String abbrev) {
       for (final Alt<ShowStmts> r : results)
         if (abbrev.equals(format(r.x(),abbrevShowFlags())))
           return format(r.x(),fullShowFlags());
@@ -182,7 +196,7 @@ public class Eddy {
     public int rawApply(final @NotNull Document document, final @NotNull String code) {
       final int offsetDiff = code.length() - input.range.getLength();
       document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
-      Memory.log(Memory.eddyAutoApply(eddy.base,input.input,results,code));
+      Memory.log(Memory.eddyAutoApply(eddy.base,Memory.now(),input.input,results,code));
       return offsetDiff;
     }
 
@@ -202,7 +216,25 @@ public class Eddy {
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base,input.input,results,abbrev));
+      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,abbrev));
+    }
+
+    public void logSuggestion(final @NotNull String suggestion) {
+      Memory.log(Memory.eddySuggestion(eddy.base, Memory.now(), input.input, results, suggestion)).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
+        @Override
+        public Void apply(Try<BoxedUnit> v) {
+          final String title, msg;
+          if (v.isSuccess()) {
+            title = "Suggestion processed";
+            msg = "Thank you! Your suggestion will help improve eddy!";
+          } else {
+            title = "Suggestion failed to send";
+            msg = "I'm sorry, your suggestion could not be recorded. Our servers could not be reached.";
+          }
+          Notifications.Bus.notify(new Notification("Eddy", title, msg, NotificationType.INFORMATION), eddy.project);
+          return null;
+        }
+      }, scala.concurrent.ExecutionContext.Implicits$.MODULE$.global());
     }
   }
 
@@ -397,7 +429,7 @@ public class Eddy {
             IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
           }
         }
-      });
+      }, project.getDisposed());
     }
   }
 

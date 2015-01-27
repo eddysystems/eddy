@@ -155,7 +155,16 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childAdded(@NotNull PsiTreeChangeEvent event) {
-    log("child added to " + event.getParent() + ": " + event.getChild());
+    try {
+      log("child added to " + event.getParent() + ": " + event.getChild());
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
+
     PsiElement elem = event.getChild();
 
     // we're invisible to the outside if we're inside a code block, or if we're inside a local class (inside a code block)
@@ -178,7 +187,15 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // for now, whenever the PSI changes, assume our current eddy process is out of date completely
     EddyThread.kill();
 
-    log("child being removed from " + event.getParent() + ": " + event.getChild());
+    try {
+      log("child being removed from " + event.getParent() + ": " + event.getChild());
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
     if (deleteRecursive(event.getChild())) {
       // if the removed child itself was an item we can delete, we're done here.
       return;
@@ -193,7 +210,16 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void childRemoved(@NotNull PsiTreeChangeEvent event) {
     // propagate changes up the tree
-    log("child removed from " + event.getParent() + ": " + event.getChild());
+    try {
+      log("child removed from " + event.getParent() + ": " + event.getChild());
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
+
     if (unprocessed.containsKey(event.getChild())) {
       changeUpward(unprocessed.get(event.getChild()));
       unprocessed.remove(event.getChild());
@@ -211,13 +237,21 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     try {
       np = event.getParent().toString();
     } catch (NullPointerException e) {
-      // Scala plugin likes to throw NullPointerExceptions in toString()
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
     }
     String noc = "<name unavailable>";
     try {
       noc = elem.toString();
     } catch (NullPointerException e) {
-      // Scala plugin likes to throw NullPointerExceptions in toString()
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
     }
     log("child of " + np + ": " + noc + " being replaced with something new");
 
@@ -235,7 +269,15 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childReplaced(@NotNull PsiTreeChangeEvent event) {
-    log("child of " + event.getParent() + ": " + event.getOldChild() + " replaced with " + event.getNewChild());
+    try {
+      log("child of " + event.getParent() + ": " + event.getOldChild() + " replaced with " + event.getNewChild());
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
 
     // whole items, translate to delete/add pair
     PsiElement elem = event.getNewChild();
@@ -267,12 +309,28 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // for now, whenever the PSI changes, assume our current eddy process is out of date completely
     EddyThread.kill();
 
-    log("children of " + event.getParent() + " about to be changed.");
+    try {
+      log("children of " + event.getParent() + " about to be changed.");
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
   }
 
   @Override
   public void childrenChanged(@NotNull PsiTreeChangeEvent event) {
-    log("children of " + event.getParent() + " changed");
+    try {
+      log("children of " + event.getParent() + " changed");
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
     // called once per file if stuff inside the file changed
     // and when there have been a bunch of changes to a node
 
@@ -292,7 +350,15 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // for now, whenever the PSI changes, assume our current eddy process is out of date completely
     EddyThread.kill();
 
-    log("child of " + event.getOldParent() + " moving to " + event.getNewParent() + ": " + event.getChild());
+    try {
+      log("child of " + event.getOldParent() + " moving to " + event.getNewParent() + ": " + event.getChild());
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
 
     // just changing order doesn't affect us
     if (event.getOldParent() == event.getNewParent())
@@ -311,7 +377,15 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void childMoved(@NotNull PsiTreeChangeEvent event) {
     // I've never seen this callback actually happen, may be an optimization over remove/add in special cases
-    log("child of " + event.getOldParent() + " moved to " + event.getNewParent() + ": " + event.getChild());
+    try {
+      log("child of " + event.getOldParent() + " moved to " + event.getNewParent() + ": " + event.getChild());
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
 
     // just changing order doesn't affect us
     if (event.getOldParent() == event.getNewParent())
@@ -335,6 +409,14 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void propertyChanged(@NotNull PsiTreeChangeEvent event) {
     // these are not particularly interesting properties for us
-    log("property " + event.getPropertyName() + " of " + event.getElement() + " changed from " + event.getOldValue() + " to " + event.getNewValue());
+    try {
+      log("property " + event.getPropertyName() + " of " + event.getElement() + " changed from " + event.getOldValue() + " to " + event.getNewValue());
+    } catch (NullPointerException e) {
+      if (utility.Utility.fromScalaPlugin(e)) {
+        // suppress crap that throws null pointer exceptions inside the scala plugin when we evaluate names
+      } else {
+        throw e;
+      }
+    }
   }
 }

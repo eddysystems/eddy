@@ -203,6 +203,10 @@ object Pr {
   val expForStmt = Prob("exp for stmt",.9)
   val blockForStmt = Prob("block for stmt",.6)
   val forEachArrayNoType = Prob("foreach array no type",.7)
+  val ellipsisCatchException = Prob("ellipsis catching Exception", .8)
+  val ellipsisCatchThrowable = Prob("ellipsis catching Throwable", .3)
+  def catchAround(around: Around) = if (around.isParens) base else Prob("no parens in catch", .5)
+  def catchColon(colon: Boolean) = if (colon) Prob("colon type declaration", .7) else base
 
   val exact = Prob("exact",1)
   val typo = Prob("typo",.5)

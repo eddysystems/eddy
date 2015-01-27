@@ -1,6 +1,5 @@
 package tarski
 
-import tarski.Denotations.Stmt
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmts
@@ -66,41 +65,35 @@ object Memory {
     Info(install,Nil).add("version",version)
                      .add("project",project)
 
-  def eddyApplyBase(base: Info, kind: String, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) = {
+  def eddyBase(base: Info, start: Double, kind: String, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[String] = if (results==null) null else results.asScala.map(_.x.den)
     val tokens: Seq[Alt[String]] = if (results==null) null else results.asScala.map(_ map (_.show))
     val formatted: Seq[String]   = if (results==null) null else results.asScala.map(_.x.abbrev)
     base.add("kind",kind)
-        .add("input",input)
-        .add("results",tokens)
-        .add("denotations",denotations) // same order as results
-        .add("formatted",formatted) // same order as results
-        .add("choice",choice)
-  }
-
-  // Specific kinds of messages
-  def eddyApply(base: Info, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) = {
-    eddyApplyBase(base, "Eddy.Apply", input, results, choice);
-  }
-
-  def eddyAutoApply(base: Info, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) = {
-    eddyApplyBase(base, "Eddy.AutoApply", input, results, choice);
-  }
-
-  def eddyProcess(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], delays: JList[java.lang.Double]) = {
-    // Use explicit types to enforce the format of the database
-    val denotations: Seq[String] = if (results==null) null else results.asScala.map(_.x.den)
-    val tokens: Seq[Alt[String]] = if (results==null) null else results.asScala.map(_ map (_.show))
-    val formatted: Seq[String]   = if (results==null) null else results.asScala.map(_.x.abbrev)
-    base.add("kind","Eddy.process")
         .add("start",start)
         .add("input",input)
         .add("results",tokens)
         .add("denotations",denotations) // same order as results
         .add("formatted",formatted) // same order as results
-        .add("delay",delays)
   }
+
+  // Specific kinds of messages
+  def eddyApply(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) =
+    eddyBase(base, start, "Eddy.Apply", input, results)
+      .add("choice",choice)
+
+  def eddyAutoApply(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) =
+    eddyBase(base, start, "Eddy.AutoApply", input, results)
+      .add("choice",choice)
+
+  def eddyProcess(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], delays: JList[java.lang.Double]) =
+    eddyBase(base, start, "Eddy.process", input, results)
+      .add("delay",delays)
+
+  def eddySuggestion(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], suggestion: String) =
+    eddyBase(base, start, "Eddy.suggestion", input, results)
+      .add("suggestion",suggestion)
 
   // Log to DynamoDB
   //   PutItem: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/JavaDocumentAPIItemCRUD.html#PutDocumentAPIJava

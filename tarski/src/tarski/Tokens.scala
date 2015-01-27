@@ -187,7 +187,7 @@ object Tokens {
 
   // Uninterpreted statements and code blocks
   abstract class StmtTok extends Token {
-    def blocked: Boolean
+    def isBlock: Boolean
     def show(implicit f: ShowFlags): String
   }
 
