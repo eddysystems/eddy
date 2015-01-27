@@ -617,5 +617,6 @@ object Denotations {
     case ForStmt(_,_,_,_,_,_,fs) => locals(fs)
     case ForeachStmt(_,_,_,_,v,_,_,_,fs) => v :: locals(fs)
     case TryStmt(_,ts,cs,fs) => locals(ts) ::: (cs flatMap { case CatchBlock(_,_,v,_,s) => v :: locals(s) }) ::: fs.toList.flatMap(x => locals(x._2))
+    case _ => Nil
   }
 }
