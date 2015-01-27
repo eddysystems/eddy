@@ -636,7 +636,7 @@ object Denotations {
     case CondExp(c,qr,x,er,y,_) => (effects(x),effects(y)) match {
       case (Nil,Nil) => Nil
       case (ex,Nil) => List(IfStmt(qr,c,SGroup.approx(c.r),blocked(ex)))
-      case (Nil,ey) => List(IfStmt(qr,xor(true,c),SGroup.approx(c.r),blocked(ey)))
+      case (Nil,ey) => List(IfStmt(qr,not(c),SGroup.approx(c.r),blocked(ey)))
       case (ex,ey) => List(IfElseStmt(qr,c,SGroup.approx(c.r),blocked(ex),er,blocked(ey)))
     }
     case ParenExp(x,_) => effects(x)
@@ -661,11 +661,23 @@ object Denotations {
     if (s.isBlock) s
     else BlockStmt(List(s),SGroup.approx(s.r),s.env)
 
-  def xor(x: Boolean, y: Exp): Exp =
-    if (x) y match {
-      case BooleanLit(y,r) => BooleanLit(!y,r)
-      case _ => NonImpExp(NotOp,y.r.before,y)
-    } else y
+  def xor(x: Boolean, y: Exp): Exp = if (x) not(y) else y
+
+  def not(e: Exp): Exp = e match {
+    case BooleanLit(x,r) => BooleanLit(!x,r)
+    case NonImpExp(NotOp,_,x) => x
+    case BinaryExp(op:CompareOp,r,x,y) =>
+      val flip = op match {
+        case EqOp => NeOp
+        case NeOp => EqOp
+        case LtOp => GeOp
+        case GeOp => LtOp
+        case GtOp => LeOp
+        case LeOp => GtOp
+      }
+      BinaryExp(flip,r,x,y)
+    case _ => NonImpExp(NotOp,e.r.before,e)
+  }
 
   def addSemi(s: Stmt, sr: SRange): Stmt = s match {
     // Some statements need no semicolon

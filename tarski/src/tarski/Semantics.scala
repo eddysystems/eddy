@@ -329,6 +329,7 @@ object Semantics {
         }
       }
 
+    case UnaryAExp(NotOp,_,x) if m.exp => denoteBool(x) map not
     case UnaryAExp(op,opr,x) if m.exp => denoteExp(x) flatMap {
       case x if unaryLegal(op,x.ty) => single(op match {
         case op:ImpOp => ImpExp(op,opr,x)
@@ -348,6 +349,8 @@ object Semantics {
       }
     }}
 
+    case BinaryAExp(op@(AndAndOp|OrOrOp),opr,x,y) if m.exp =>
+      productWith(denoteBool(x),denoteBool(y))((x,y) => BinaryExp(op,opr,x,y))
     case BinaryAExp(op,opr,ax,ay) if m.exp => product(denoteExp(ax),denoteExp(ay)) flatMap {case (x,y) => {
       val tx = x.ty
       val ty = y.ty

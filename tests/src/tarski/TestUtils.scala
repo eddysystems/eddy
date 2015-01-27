@@ -45,8 +45,9 @@ object TestUtils {
   implicit def toExp(b: Boolean): Exp = BooleanLit(b,r)
   implicit def toExp(i: Int): Exp = IntLit(i,i.toString,r)
   implicit def toExp(i: Long): Exp = LongLit(i,s"${i}L",r)
-  implicit def toExp(c: Char): Exp = CharLit(c, "'" + escapeJava(c.toString) + "'",r)
+  implicit def toExp(c: Char): Exp = CharLit(c,"'"+escapeJava(c.toString)+"'",r)
   implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString,r)
+  implicit def toExp(s: String): Exp = StringLit(s,'"'+escapeJava(s)+'"',r)
   implicit def toExp(x: Local): Exp = LocalExp(x,r)
   implicit def toExp(x: ThisItem): Exp = ThisExp(x,r)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to

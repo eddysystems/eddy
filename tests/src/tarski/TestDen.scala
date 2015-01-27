@@ -1114,4 +1114,9 @@ class TestDen {
     implicit val env = localEnvWithBase(x).move(PlaceInfo(f))
     test("return x = 7",ReturnStmt(r,AssignExp(None,r,x,7),env))
   }
+
+  @Test def notInt() = test("x = !7","x",x => VarStmt(Nil,BooleanType,r,
+    (x,BinaryExp(EqOp,r,7,0)),env))
+  @Test def andFix() = test("x = \"s\" && 7","x",x => VarStmt(Nil,BooleanType,r,
+    (x,BinaryExp(AndAndOp,r,BinaryExp(NeOp,r,"s",NullLit(r)),BinaryExp(NeOp,r,7,0))),env))
 }

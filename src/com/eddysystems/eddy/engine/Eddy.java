@@ -77,12 +77,6 @@ public class Eddy {
     public String getText() {
       return before_text;
     }
-
-    // compare without considering to whitespace.
-    // TODO: this needs to change once we have a better way of handling comments etc.
-    public boolean sameAsBefore(String after) {
-      return before_text.replaceAll("[\n\t ]+"," ").equals(after.replaceAll("[\n\t ]+"," "));
-    }
   }
 
   // The results of the interpretation
@@ -129,7 +123,7 @@ public class Eddy {
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean shouldShowHint() {
       for (final Alt<ShowStmts> r : results)
-        if (input.sameAsBefore(format(r.x(), fullShowFlags())))
+        if (r.x().similar(input.input))
           return false; // We found what's already there
       return !results.isEmpty();
     }
