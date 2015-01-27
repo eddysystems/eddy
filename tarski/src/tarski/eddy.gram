@@ -146,7 +146,7 @@ StmtHelperBS AStmt
   AssertTok ExpJuxt ColonTok ExpJuxt                         { AssertAStmt($1r,$2,Some(($3r:SRange,$4))) }
   BreakTok Option[Ident]                                     { BreakAStmt($1r,$2) }
   ContinueTok Option[Ident]                                  { ContinueAStmt($1r,$2) }
-  ReturnTok Option[ExpJuxt]                                  { ReturnAStmt($1r,$2) }
+  ReturnTok Option[ExpAssign]                                { ReturnAStmt($1r,$2) }
   ThrowTok ExpJuxt                                           { ThrowAStmt($1r,$2) }
   // LabelStmt
   IfTok AfterIfB                                             { $2($1r) }

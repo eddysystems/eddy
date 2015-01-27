@@ -210,7 +210,9 @@ object Tokens {
         case (_,SemiTok|CommaTok) => true
         case _ => false
       }
-      x.show + (if (safe(x,y)) "" else " ") + print(ys)
+      val rest = print(ys)
+      if (f.abbreviate && isSpace(x) && isSpace(y)) rest
+      else x.show + (if (safe(x,y)) rest else " "+rest)
   }
 
   // Convert to a string, adding as little whitespace as possible
@@ -267,7 +269,7 @@ object Tokens {
     // Make sure there are newlines after line comments
     def newlines(ts: List[Loc[Token]]): List[Loc[Token]] = ts match {
       case (c@Loc(_:EOLCommentTok,_))::(w@Loc(wt:WhitespaceTok,_))::ts if  wt.s.contains('\n') => c :: w :: newlines(ts)
-      case (c@Loc(_:EOLCommentTok,r))::_::ts => c :: Loc(WhitespaceTok("\n"),r.after) :: newlines(ts)
+      case (c@Loc(_:EOLCommentTok,r))::ts if ts.nonEmpty => c :: Loc(WhitespaceTok("\n"),r.after) :: newlines(ts)
       case t::ts => t :: newlines(ts)
       case Nil => Nil
     }

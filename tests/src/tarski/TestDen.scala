@@ -1082,4 +1082,12 @@ class TestDen {
     test("try x=1 catch e: Exception", "$$$eddy_ignored_exception$$$", e => TryStmt(r,BlockStmt(List(AssignExp(None,r,x,1)),a),List(CatchBlock(Nil,r,e,r,BlockStmt(List(HoleStmt(r)),a))),None))
   }
   */
+
+  @Test def returnAssign() = {
+    val A = NormalClassItem("A")
+    val f = NormalMethodItem("f",A,Nil,IntType,Nil,isStatic=true)
+    val x = NormalLocal("x",IntType,isFinal=false)
+    implicit val env = localEnvWithBase(x).move(PlaceInfo(f))
+    test("return x = 7",ReturnStmt(r,AssignExp(None,r,x,7),env))
+  }
 }

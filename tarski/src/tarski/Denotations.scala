@@ -678,6 +678,7 @@ object Denotations {
     case ForStmt(fr,i,c,sr,u,a,s) => ForStmt(fr,i,c,sr,u,a,addSemi(s,sr))
     case ForeachStmt(fr,m,t,tr,v,vr,e,a,s,env) => ForeachStmt(fr,m,t,tr,v,vr,e,a,addSemi(s,sr),env)
     case DiscardStmt(ds,s) => DiscardStmt(ds,addSemi(s,sr))
+    case MultipleStmt(b) => MultipleStmt(b.init ::: List(addSemi(b.last,sr)))
     // Otherwise, add a semicolon
     case _:EmptyStmt|_:HoleStmt|_:VarStmt|_:ExpStmt|_:AssertStmt|_:BreakStmt|_:ContinueStmt
         |_:ReturnStmt|_:ThrowStmt|_:DoStmt|_:TokStmt => SemiStmt(s,s.r.after)

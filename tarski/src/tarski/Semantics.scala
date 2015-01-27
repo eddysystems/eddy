@@ -473,7 +473,6 @@ object Semantics {
       case f:Value with Member if mc.exp && maybeMemberIn(f) => f
       case f:TypeItem with Member => f
       case f:MethodItem if mc.callExp && maybeMemberIn(f) => f
-      case f:MethodItem => throw new RuntimeException(s"f $f, mc $mc, maybe ${maybeMemberIn(f)}")
       case f:ChildPackage if mc.pack => f
     })
     @tailrec def automatic(e: Exp): Boolean = e match {

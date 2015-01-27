@@ -590,8 +590,24 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testWhitespace() {
+    testMargin("whitespace.java", "if (x != 0) ...", .9);
+  }
+
+  public void testWhitespaceFull() {
     // default IntelliJ behavior is to indent with 4 spaces
     testMarginFull("whitespace.java", "if (x != 0) // Condition\n    return 7; // Result", .9);
+  }
+
+  public void testAbbrev() {
+    testMargin("abbrev.java", "return x + x;", .9);
+  }
+
+  public void testBlockNo() {
+    testMargin("blockNo.java", "new A(); A.B y;", .9);
+  }
+
+  public void testBlockYes() {
+    testMargin("blockYes.java", "if (true) { new A(); A.B y; }", .9);
   }
 
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
