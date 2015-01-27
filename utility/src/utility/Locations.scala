@@ -70,12 +70,14 @@ object Locations {
     def r = if (known) SRange(lr.lo max (lr.hi-1),lr.hi) else SRange.unknown
     private def known: Boolean = this != SGroup.unknown
     override def toString = if (!known) "SGroup.unknown"
+                            else if (this == SGroup.empty) "SGroup.empty"
                             else s"SGroup(${lr.lo.raw},${lr.hi.raw})"
   }
   case object SGroup {
     def apply(l: SRange, r: SRange) = new SGroup(l.union(r).raw)
     def approx(lr: SRange) = new SGroup(lr.raw)
     val unknown = approx(SRange.unknown)
+    val empty = approx(SRange.empty)
   }
 
   trait HasRange {
