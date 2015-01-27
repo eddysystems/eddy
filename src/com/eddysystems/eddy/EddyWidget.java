@@ -120,7 +120,7 @@ class EddyWidget implements StatusBarWidget {
         if (sbar != null)
           sbar.addWidget(EddyWidget.this);
       }
-    }});
+    }}, plugin.getProject().getDisposed());
   }
 
   public boolean installed() {

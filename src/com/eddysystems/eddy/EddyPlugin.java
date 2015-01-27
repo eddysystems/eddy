@@ -206,7 +206,7 @@ public class EddyPlugin implements ProjectComponent {
     if (app.isDispatchThread()) {
       init.run();
     } else {
-      app.invokeLater(init);
+      app.invokeLater(init, project.getDisposed());
     }
   }
 

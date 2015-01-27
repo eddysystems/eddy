@@ -70,6 +70,10 @@ public class Eddy {
       this.before_text = before_text;
     }
 
+    public String getText() {
+      return before_text;
+    }
+
     // compare without considering to whitespace.
     // TODO: this needs to change once we have a better way of handling comments etc.
     public boolean sameAsBefore(String after) {
@@ -117,6 +121,10 @@ public class Eddy {
       return fs;
     }
 
+    public String[] getResultSummary() {
+      return formats(new ShowFlags(true,true), true).toArray(new String[results.size()]);
+    }
+
     public boolean foundSomething() {
       return !results.isEmpty();
     }
@@ -155,7 +163,7 @@ public class Eddy {
       return format(Math.max(0,selected),abbrevShowFlags());
     }
 
-    private String unabbrev(final String abbrev) {
+    public String unabbrev(final String abbrev) {
       for (final Alt<List<ShowStmt>> r : results)
         if (abbrev.equals(format(r.x(),abbrevShowFlags())))
           return format(r.x(),fullShowFlags());
@@ -188,7 +196,7 @@ public class Eddy {
     public int rawApply(final @NotNull Document document, final @NotNull String code) {
       final int offsetDiff = code.length() - input.range.getLength();
       document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
-      Memory.log(Memory.eddyAutoApply(eddy.base,input.input,results,code));
+      Memory.log(Memory.eddyAutoApply(eddy.base,Memory.now(),input.input,results,code));
       return offsetDiff;
     }
 
@@ -208,7 +216,11 @@ public class Eddy {
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base,input.input,results,abbrev));
+      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,abbrev));
+    }
+
+    public void logSuggestion(final @NotNull String suggestion) {
+      Memory.log(Memory.eddySuggestion(eddy.base, Memory.now(), input.input, results, suggestion));
     }
   }
 
@@ -403,7 +415,7 @@ public class Eddy {
             IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
           }
         }
-      });
+      }, project.getDisposed());
     }
   }
 
