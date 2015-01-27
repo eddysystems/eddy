@@ -283,10 +283,6 @@ object Pretty {
 
   // AST statements
   private[this] def hole(r: SRange) = List(Loc(HoleTok,r.after))
-  private[this] def needABlock(s: AStmt) = s match {
-    case BlockAStmt(_,_)|HoleAStmt(_) => s
-    case _ => BlockAStmt(List(s),SGroup(s.r.before,s.r.after))
-  }
   implicit def prettyAStmt(s: AStmt): FixTokens = s match {
     case SemiAStmt(s,sr) => prettyAStmtHelper(s,sr)
     case _ => prettyAStmtHelper(s,s.r.after)
@@ -315,7 +311,9 @@ object Pretty {
       case WhileAStmt(wr,flip,c,a,s) => (SemiFix, whileUntil(wr,flip) :: around(c,a)._2 ::: tokens(s))
       case DoAStmt(dr,s,wr,flip,c,a) => (SemiFix, Loc(DoTok,dr) :: tokens(s) ::: whileUntil(wr,flip) :: around(c,a)._2 ::: sem)
       case ForAStmt(fr,i,a,s) => (SemiFix, Loc(ForTok,fr) :: around(i,a)._2 ::: tokens(s))
-      case TryAStmt(tr,s,cs,f) => (SemiFix, Loc(TryTok,tr) :: tokens(needABlock(s)) ::: cs.flatMap({case (ci,cs) => tokens(ci) ::: tokens(needABlock(cs))}) ::: f.toList.flatMap({case(fr,fs) => Loc(FinallyTok,fr) :: tokens(needABlock(fs))} ))
+      case TryAStmt(tr,s,cs,f) => (SemiFix, Loc(TryTok,tr) :: tokens(s)
+        ::: cs.flatMap({case (ci,cs) => tokens(ci) ::: tokens(cs)})
+        ::: f.toList.flatMap({case(fr,fs) => Loc(FinallyTok,fr) :: tokens(fs)}))
     }
   }
   def whileUntil(r: SRange, flip: Boolean): Loc[Token]= Loc(if (flip) UntilTok else WhileTok,r)
@@ -562,7 +560,12 @@ object Pretty {
       case ForeachStmt(fr,m,t,tr,v,vr,e,a,s,_) => (SemiFix, Loc(ForTok,fr) :: parens(
         m.map(tokens).flatten ::: prettyType(t)(env,tr)._2 ::: tokens(v.name,vr) ::: Loc(ColonTok,vr) :: tokens(e),a) ::: tokens(s))
       case SyncStmt(sr,e,a,s) => (SemiFix, Loc(SynchronizedTok,sr) :: parens(e,a) ::: tokens(needBlock(s)))
-      case TryStmt(tr,s,cs,f) => notImplemented // Make sure to call needBlock
+      case TryStmt(tr,s,cs,f) => (SemiFix, Loc(TryTok,tr) :: tokens(s)
+        ::: cs.flatMap{ case CatchBlock(m,tr,v,vr,a,s) =>
+          implicit val tr_ = tr
+          Loc(CatchTok,tr) :: parens(
+            m.map(tokens).flatten ::: tokens(v.ty) ::: spaceBefore(vr) :: prettyName(v.name,vr)._2,a) ::: tokens(s)}
+        ::: f.toList.flatMap{ case (fr,fs) => Loc(FinallyTok,fr) :: tokens(fs) })
       case _:DiscardStmt => impossible
     }
   }

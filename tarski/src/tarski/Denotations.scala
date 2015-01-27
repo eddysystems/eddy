@@ -377,7 +377,7 @@ object Denotations {
     def discards = e.discards
     def strip = SyncStmt(sr,e.strip,a,s)
   }
-  case class CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: Stmt) extends HasRange {
+  case class CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, a: SGroup, s: Stmt) extends HasRange {
     assert(s.isBlock)
     def r = s.r unionR m union tr union vr
   }
@@ -693,7 +693,7 @@ object Denotations {
     case ForStmt(_,_,_,_,_,_,fs) => locals(fs)
     case ForeachStmt(_,_,_,_,v,_,_,_,fs,_) => v :: locals(fs)
     case SemiStmt(s,_) => locals(s)
-    case TryStmt(_,ts,cs,fs) => (locals(ts) ::: (cs flatMap { case CatchBlock(_,_,v,_,s) => v :: locals(s) })
+    case TryStmt(_,ts,cs,fs) => (locals(ts) ::: (cs flatMap { case CatchBlock(_,_,v,_,_,s) => v :: locals(s) })
                                             ::: fs.toList.flatMap(x => locals(x._2)))
     case _ => Nil
   }

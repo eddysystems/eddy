@@ -761,30 +761,25 @@ object Semantics {
         })
       })
       case TryAStmt(tr,ts,cs,f) =>
-        // CatchBlock(m: Mods, tr: SRange, v: Local, vr: SRange, s: Stmt)
-        def catchBlocks(cs: List[(CatchInfo,AStmt)]): Scored[List[CatchBlock]] =
-          product(cs map {
-            case (CatchInfo(cr,mods,typ,id,around,colon),s) => biased(Pr.catchAround(around) * Pr.catchColon(colon), {
-              val t: Scored[TypeDen] = if (typ.isDefined)
-                denoteType(typ.get).filter({ case TypeDen(Nil,t) => isThrowable(t.item); case _ => false }, "must be Throwable without side-effects")
-              else
-                listGood(List(Alt(Pr.ellipsisCatchException,TypeDen(Nil,Base.ExceptionType)),
-                              Alt(Pr.ellipsisCatchThrowable,TypeDen(Nil,Base.ThrowableType))))
-              val tr = if (typ.isDefined) typ.get.r else around.a.l.after
-              val name: String = if (id.isDefined) id.get.x else "$$$eddy_ignored_exception$$$"
-              val idr = if (id.isDefined) id.get.r else around.a.r.before
-              val env_gens = env.newVariable(name,mods.map(_.x).contains(Mods.Final))
-              // for each type, make the inner statement
-              product(env_gens,t) flatMap { case (env_gen,tden) =>
-                val (local_env,v) = env_gen(tden.beneath)
-                denoteStmt(s)(local_env) map (s => CatchBlock(mods, tr, v, idr, needBlock(s)))
-              }
-          })})
-
-        def sden: Scored[Stmt] = denoteStmt(ts)(imp)
-        def csden: Scored[List[CatchBlock]] = catchBlocks(cs)
-        def fden: Scored[Option[(SRange,Stmt)]] = product(f map { case (r,fs) => denoteStmt(fs)(imp) map (s => (r,needBlock(s))) })
-        product(sden,csden,fden) map { case (s,cbs,fo) => TryStmt(tr,needBlock(s),cbs,fo) }
+        val catches: Scored[List[CatchBlock]] = product(cs map {
+          case (CatchInfo(cr,mods,typ,id,around,colon),s) => biased(pmul(Pr.catchAround(around),Pr.catchColon(colon)), {
+            val t: Scored[TypeDen] = if (typ.isDefined)
+              denoteType(typ.get).filter({ case TypeDen(Nil,t) => isThrowable(t.item); case _ => false }, "must be Throwable without side-effects")
+            else
+              listGood(List(Alt(Pr.ellipsisCatchException,TypeDen(Nil,Base.ExceptionType)),
+                            Alt(Pr.ellipsisCatchThrowable,TypeDen(Nil,Base.ThrowableType))))
+            val tr = if (typ.isDefined) typ.get.r else around.a.l.after
+            val name: String = if (id.isDefined) id.get.x else "$$$eddy_ignored_exception$$$"
+            val idr = if (id.isDefined) id.get.r else around.a.r.before
+            val env_gens = env.newVariable(name,mods.map(_.x).contains(Mods.Final))
+            // for each type, make the inner statement
+            product(env_gens,t) flatMap { case (env_gen,tden) =>
+              val (local_env,v) = env_gen(tden.beneath)
+              denoteStmt(s)(local_env) map (s => CatchBlock(mods, tr, v, idr, around.a, needBlock(s)))
+            }
+        })})
+        val fs: Scored[Option[(SRange,Stmt)]] = product(f map { case (r,f) => denoteStmt(f)(env) map (s => (r,needBlock(s))) })
+        product(denoteStmt(ts)(env),catches,fs) map { case (s,cs,f) => TryStmt(tr,needBlock(s),cs,f) }
     }
   }
 

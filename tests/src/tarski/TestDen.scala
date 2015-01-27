@@ -1075,13 +1075,37 @@ class TestDen {
     notImplemented
   }
 
-  /*
   @Test def tryCatch(): Unit = {
     val x = NormalLocal("x",IntType,isFinal=false)
     implicit val env = localEnvWithBase(x)
-    test("try x=1 catch e: Exception", "$$$eddy_ignored_exception$$$", e => TryStmt(r,BlockStmt(List(AssignExp(None,r,x,1)),a),List(CatchBlock(Nil,r,e,r,BlockStmt(List(HoleStmt(r)),a))),None))
+    test("try x=1 catch e: Exception", "e", e =>
+      TryStmt(r,BlockStmt(AssignExp(None,r,x,1),a,env),
+        List(CatchBlock(Nil,r,e,r,a,BlockStmt(he,SGroup.empty,env))),None))
   }
-  */
+
+  @Test def tryCatches(): Unit = {
+    val B = NormalClassItem("B",base=ThrowableItem)
+    val C = NormalClassItem("C",base=ThrowableItem)
+    val x = NormalLocal("x",IntType,isFinal=false)
+    implicit val env = localEnvWithBase(B,C,x)
+    def set(n: Int): BlockStmt = BlockStmt(AssignExp(None,r,x,n),a,env)
+    test("try x=1 catch (B b) x=2 catch (c: C) x=3 finally x=4", "b", "c", (b,c) => {
+      assert(b.ty == B.simple,b.ty)
+      assert(c.ty == C.simple,c.ty)
+      TryStmt(r,set(1),
+        List(CatchBlock(Nil,r,b,r,a,set(2)),
+             CatchBlock(Nil,r,c,r,a,set(3))),
+        Some(r,set(4)))
+    })
+  }
+
+  @Test def tryCatchIgnore(): Unit = {
+    val x = NormalLocal("x",IntType,isFinal=false)
+    implicit val env = localEnvWithBase(x)
+    test("try x=1 catch ...", "$$$eddy_ignored_exception$$$", e =>
+      TryStmt(r,BlockStmt(AssignExp(None,r,x,1),a,env),
+        List(CatchBlock(Nil,r,e,r,a,BlockStmt(he,SGroup.empty,env))),None))
+  }
 
   @Test def returnAssign() = {
     val A = NormalClassItem("A")
