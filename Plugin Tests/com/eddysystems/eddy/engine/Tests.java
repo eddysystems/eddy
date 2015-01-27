@@ -601,5 +601,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("abbrev.java", "return x + x;", .9);
   }
 
+  public void testBlockNo() {
+    testMargin("blockNo.java", "new A(); A.B y;", .9);
+  }
+
+  public void testBlockYes() {
+    testMargin("blockYes.java", "if (true) { new A(); A.B y; }", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }
