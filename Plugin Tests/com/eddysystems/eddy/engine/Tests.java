@@ -194,7 +194,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     dumpResults(output,best);
     final List<String> ss = output.formats(f,false);
     final String got = ss.isEmpty() ? "<none>" : ss.get(0);
-    assertTrue("checkBest failed:\n  wanted = "+best+"\n  got    = "+got, best.equals(got));
+    assertTrue("checkBest failed:\n  wanted = '"+best+"'\n  got    = '"+got+'\'', best.equals(got));
     if (ss.size() >= 2) {
       final List<Alt<ShowStmts>> rs = output.results;
       final double p0 = rs.get(0).p(),
@@ -590,7 +590,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testWhitespace() {
-    testMarginFull("whitespace.java", "if (x != 0) // Condition\n  return 7;", .9);
+    // default IntelliJ behavior is to indent with 4 spaces
+    testMarginFull("whitespace.java", "if (x != 0) // Condition\n    return 7; // Result", .9);
   }
 
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)

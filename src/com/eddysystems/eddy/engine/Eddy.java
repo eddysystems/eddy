@@ -25,14 +25,11 @@ import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.Function2;
-import scala.Function3;
 import scala.Unit$;
 import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
-import scala.runtime.AbstractFunction3;
 import scala.runtime.BoxedUnit;
 import scala.util.Try;
-import tarski.Denotations.Stmt;
 import tarski.Environment.Env;
 import tarski.Memory;
 import tarski.Scores.Alt;
@@ -506,9 +503,30 @@ public class Eddy {
 
   // The string should be a single syntactically valid statement
   private String reformat(final PsiElement place, final @NotNull String show, final ShowFlags f) {
-    PsiElement elem = JavaPsiFacade.getElementFactory(project).createStatementFromText(show,place);
-    CodeStyleManager.getInstance(project).reformat(elem,true);
-    return elem.getText();
+    String blockText = '{' + show + "\n}";
+    PsiCodeBlock block = JavaPsiFacade.getElementFactory(project).createCodeBlockFromText(blockText,place);
+
+    // now, move all statements inside the code block before the code block, and reformat them
+    PsiElement context = block.getParent();
+    PsiElement elem;
+    String result = "";
+    assert block.getFirstBodyElement() != null && block.getLastBodyElement() != null;
+    elem = context.addRangeBefore(block.getFirstBodyElement(), block.getLastBodyElement(), block);
+    while (true) {
+      PsiElement next = elem.getNextSibling();
+      if (next == block) { // this is the final Whitespace, saw off the newline we added
+        assert elem instanceof PsiWhiteSpace;
+        String ws = elem.getText();
+        assert ws.lastIndexOf('\n') == ws.length()-1;
+        result += ws.substring(0,ws.length()-1);
+        break;
+      } else {
+        CodeStyleManager.getInstance(project).reformat(elem,true);
+        result += elem.getText();
+        elem = elem.getNextSibling();
+      }
+    }
+    return result;
   }
 
 }

@@ -2,6 +2,6 @@ package test;
 
 class Test {
   boolean f() {
-    return false; <caret> // A comment
+    return false; <caret>// A comment
   }
 }

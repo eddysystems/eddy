@@ -188,6 +188,8 @@ object Environment {
                       scope: Map[Item,Int], place: PlaceInfo,
                       checkThreadRunnable: Runnable) extends Env {
 
+    override def toString: String = "Env()"
+
     override def checkThread() = checkThreadRunnable.run()
 
     val emptyValues = new Array[Value](0)

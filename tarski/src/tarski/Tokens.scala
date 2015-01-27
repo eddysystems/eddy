@@ -264,6 +264,13 @@ object Tokens {
         else loop(i-1)
       loop(tsa.length)
     }
-    spots.toList.flatten
+    // Make sure there are newlines after line comments
+    def newlines(ts: List[Loc[Token]]): List[Loc[Token]] = ts match {
+      case (c@Loc(_:EOLCommentTok,_))::(w@Loc(wt:WhitespaceTok,_))::ts if  wt.s.contains('\n') => c :: w :: newlines(ts)
+      case (c@Loc(_:EOLCommentTok,r))::_::ts => c :: Loc(WhitespaceTok("\n"),r.after) :: newlines(ts)
+      case t::ts => t :: newlines(ts)
+      case Nil => Nil
+    }
+    newlines(spots.toList.flatten)
   }
 }
