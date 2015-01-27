@@ -594,8 +594,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testWhitespaceFull() {
-    // default IntelliJ behavior is to indent with 4 spaces
-    testMarginFull("whitespace.java", "if (x != 0) // Condition\n    return 7; // Result", .9);
+    // default IntelliJ behavior is to indent with 4 spaces, plus four from the indent in the file.
+    testMarginFull("whitespace.java", "if (x != 0) // Condition\n        return 7; // Result", .9);
   }
 
   public void testAbbrev() {

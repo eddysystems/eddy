@@ -503,28 +503,24 @@ public class Eddy {
 
   // The string should be a single syntactically valid statement
   private String reformat(final PsiElement place, final @NotNull String show, final ShowFlags f) {
+    CodeStyleManager csm = CodeStyleManager.getInstance(project);
+    PsiElementFactory ef = JavaPsiFacade.getElementFactory(project);
     String blockText = '{' + show + "\n}";
-    PsiCodeBlock block = JavaPsiFacade.getElementFactory(project).createCodeBlockFromText(blockText,place);
+    PsiCodeBlock block = ef.createCodeBlockFromText(blockText,place);
 
-    // now, move all statements inside the code block before the code block, and reformat them
-    PsiElement context = block.getParent();
-    PsiElement elem;
+    block = (PsiCodeBlock)csm.reformat(block,true);
+
+    // strip whitespace at the beginning and end of the block
+    PsiElement elem = block.getFirstBodyElement();
+    // skip whitespace at the beginning of the block
+    if (elem instanceof PsiWhiteSpace)
+      elem = elem.getNextSibling();
     String result = "";
-    assert block.getFirstBodyElement() != null && block.getLastBodyElement() != null;
-    elem = context.addRangeBefore(block.getFirstBodyElement(), block.getLastBodyElement(), block);
-    while (true) {
-      PsiElement next = elem.getNextSibling();
-      if (next == block) { // this is the final Whitespace, saw off the newline we added
-        assert elem instanceof PsiWhiteSpace;
-        String ws = elem.getText();
-        assert ws.lastIndexOf('\n') == ws.length()-1;
-        result += ws.substring(0,ws.length()-1);
+    while (elem != null && elem != block.getRBrace()) {
+      if (elem instanceof PsiWhiteSpace && elem.getNextSibling() == block.getRBrace()) // don't believe IntelliJ, this is important!
         break;
-      } else {
-        CodeStyleManager.getInstance(project).reformat(elem,true);
-        result += elem.getText();
-        elem = elem.getNextSibling();
-      }
+      result += elem.getText();
+      elem = elem.getNextSibling();
     }
     return result;
   }
