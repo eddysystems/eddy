@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Eddy;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.IndexNotReadyException;
@@ -43,12 +44,21 @@ public class EddyThread extends Thread {
   }
 
   public static void run(final EddyThread thread) {
-    synchronized (currentLock) {
-      if (currentThread != null)
-        currentThread.interrupt();
-      currentThread = thread;
-      thread.start();
-    }
+    // We might be grabbing the lock for a long time, so do it on a pooled thread.
+    ApplicationManager.getApplication().executeOnPooledThread(new Runnable() { public void run() {
+      synchronized (currentLock) {
+        if (currentThread != null) {
+          currentThread.interrupt();
+          try {
+            currentThread.join();
+          } catch (final InterruptedException e) {
+            return;
+          }
+        }
+        currentThread = thread;
+        thread.start();
+      }
+    }});
   }
 
   // Pause the current eddy thread to wait for a write action. True if a thread was actually paused.
