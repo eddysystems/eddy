@@ -8,6 +8,7 @@ import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
+import utility.Interrupts;
 
 import java.util.PriorityQueue;
 
@@ -129,6 +130,7 @@ public class JavaScores {
       this.f = f;
       if (trackErrors)
         bads = (List)Nil$.MODULE$;
+      if (Interrupts.pending != 0) Interrupts.checkInterrupts();
     }
 
     public double p() {
