@@ -3,6 +3,7 @@ package tarski
 import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
 
 import com.intellij.psi.PsiElement
+import utility.Interrupts
 import utility.Utility._
 import utility.Locations._
 import tarski.JavaItems._
@@ -51,8 +52,6 @@ object Environment {
     def scope: Map[Item,Int]
     def place: PlaceInfo
     def move(to: PlaceInfo): Env
-
-    def checkThread() = {}
 
     // Add more objects
     def extend(things: Array[Item], scope: Map[Item,Int]): Env
@@ -185,21 +184,18 @@ object Environment {
                       private val vTrie: Trie[Item], // rebuilt all the time, including by this Env's functions returning new Envs (small)
                       private val dByItem: java.util.Map[TypeItem,Array[Value]],
                       private val vByItem: java.util.Map[TypeItem,Array[Value]],
-                      scope: Map[Item,Int], place: PlaceInfo,
-                      checkThreadRunnable: Runnable) extends Env {
+                      scope: Map[Item,Int], place: PlaceInfo) extends Env {
 
     override def toString: String = "Env()"
 
-    override def checkThread() = checkThreadRunnable.run()
-
     val emptyValues = new Array[Value](0)
 
-    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,scope,to,checkThreadRunnable)
+    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,scope,to)
 
     // Enter a block scope
     override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
                                            scope map { case (i,n) => (i,n+1) },
-                                           place, checkThreadRunnable)
+                                           place)
 
     // Lookup by type.item
     override def byItem(t: TypeItem): Scored[Value] = {
@@ -213,7 +209,7 @@ object Environment {
 
     // Add more objects
     override def extend(things: Array[Item], scope: Map[Item, Int]): Env =
-      ThreeEnv(sTrie,dTrie,vTrie ++ things,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place,checkThreadRunnable)
+      ThreeEnv(sTrie,dTrie,vTrie ++ things,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place)
 
     // Slow, use only for tests
     def allLocalItems: Array[Item] = (dTrie.values filter (!_.deleted)) ++ vTrie.values
@@ -230,15 +226,13 @@ object Environment {
     }
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] = {
-      // pause a thread (to wait for, say, a WriteAction) if requested, or kill it if needed
-      checkThread
+      if (Interrupts.pending != 0) Interrupts.checkInterrupts()
       (sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)) filter (_.accessible(place))
     }
 
     // Get exact and typo probabilities for string queries
     protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = {
-      // pause a thread (to wait for, say, a WriteAction) if requested, or kill it if needed
-      checkThread
+      if (Interrupts.pending != 0) Interrupts.checkInterrupts()
       (sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)) filter (_.x.accessible(place))
     }
   }
