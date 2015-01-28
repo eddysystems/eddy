@@ -100,9 +100,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
           EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
             @Override public boolean take(Eddy.Output output) {
               showHint(output);
-              if (output.results.size() >= 4)
-                return true;
-              return false;
+              return output.results.size() >= 4;
             }
           }));
           active_editor = editor;
