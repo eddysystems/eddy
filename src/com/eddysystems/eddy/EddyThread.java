@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Eddy;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.IndexNotReadyException;
@@ -46,12 +47,22 @@ public class EddyThread extends Thread {
   }
 
   public static void run(final EddyThread thread) {
-    synchronized (currentLock) {
-      if (currentThread != null)
-        currentThread.interrupt();
-      currentThread = thread;
-      thread.start();
-    }
+    // We might be grabbing the lock for a long time, so do it on a pooled thread.
+    ApplicationManager.getApplication().executeOnPooledThread(new Runnable() { public void run() {
+      synchronized (currentLock) {
+        final EddyThread previous = currentThread;
+        if (previous != null) {
+          previous.interrupt();
+          try {
+            previous.join();
+          } catch (final InterruptedException e) {
+            return;
+          }
+        }
+        currentThread = thread;
+        thread.start();
+      }
+    }});
   }
 
   // the thread maintains a list of these, each one represents someone who is waiting for the thread to release its read lock.
@@ -73,11 +84,11 @@ public class EddyThread extends Thread {
   // Pause the current eddy thread to wait for a write action. True if the thread was paused
   public static Pause pause() {
     // The eddy thread has a read access token. Release it to let a write action start, then grab a new one.
-    synchronized (currentLock) {
-      final EddyThread thread = currentThread;
-      if (thread == null)
-        return null;
+    final EddyThread thread = currentThread;
+    if (thread == null)
+      return null;
 
+    synchronized (thread) {
       // make a new pause object and make sure it's registered
       Pause w = new Pause();
       boolean doRegister;
@@ -113,12 +124,11 @@ public class EddyThread extends Thread {
 
   // kills the currently active thread, if any
   public static boolean kill() {
-    synchronized (currentLock) {
-      if (currentThread == null)
-        return false;
-      currentThread.interrupt();
-      return true;
-    }
+    final EddyThread thread = currentThread;
+    if (thread == null)
+      return false;
+    thread.interrupt();
+    return true;
   }
 
   public static EddyThread getEddyThread() {
