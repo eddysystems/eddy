@@ -1053,27 +1053,6 @@ class TestDen {
   }
 
   @Test def qualifiedNew(): Unit = {
-    /*
-      class X {
-        class Y {
-          X yx;
-        }
-
-        X xx;
-
-        static void f() {
-          new Y()<caret> // => xx.new Y();
-        }
-      }
-
-      class Z {
-        void f() {
-          X.Y y = new X().new X.Y();
-
-        }
-      }
-    */
-
     val X = NormalClassItem("X",LocalPkg)
     lazy val Y: ClassItem = NormalClassItem("Y",X,isStatic=false,constructors=Array(Yc))
     lazy val Yc = NormalConstructorItem(Y,Nil,Nil)
