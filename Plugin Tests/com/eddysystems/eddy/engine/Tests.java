@@ -617,5 +617,17 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("blockYes.java", "if (true) { new A(); A.B y; }", .9);
   }
 
+  public void testStaticCons() {
+    testMargin("staticCons.java", "x = 7;", .9);
+  }
+
+  public void testStaticMethod() {
+    testMargin("staticMethod.java", "int x = 7;", .9);
+  }
+
+  public void testStaticThis() {
+    testMargin("staticThis.java", "this.x = 7;", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }
