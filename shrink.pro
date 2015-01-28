@@ -4,7 +4,7 @@
 
 ### Keep a few things
 
--keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention {
+-keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention,com.eddysystems.eddy.CorrectionIntention {
   <init>(...);
 }
 -keep class com.eddysystems.eddy.actions.NextSuggestion,com.eddysystems.eddy.actions.PrevSuggestion,com.eddysystems.eddy.actions.Reinit {
@@ -24,6 +24,7 @@
 -libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/idea.jar"
 -libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/openapi.jar"
 -libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/util.jar"
+#-libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/forms_rt.jar"
 
 # IntelliJ dependencies
 -libraryjars "/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/commons-logging-1.1.3.jar"
@@ -47,6 +48,7 @@
 -dontwarn org.joda.convert.FromString
 -dontwarn org.joda.convert.ToString
 -dontwarn com.intellij.util.net.ssl.ConfirmingHostnameVerifier
+-dontwarn com.intellij.uiDesigner.core.**
 
 # Miscellaneous notes
 -dontnote org.apache.commons.logging.**

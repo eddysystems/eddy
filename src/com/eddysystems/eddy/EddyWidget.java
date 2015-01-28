@@ -36,16 +36,16 @@ class EddyWidget implements StatusBarWidget {
   }
 
   static private void makeIcons() {
-    String pathname = PathUtil.getJarPathForClass(EddyWidget.class);
-    File path = new File(pathname);
+    final String pathname = PathUtil.getJarPathForClass(EddyWidget.class);
+    final File path = new File(pathname);
 
     if (path.isDirectory()) {
       log("looking for resources in directory: " + pathname);
       eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
       eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
     } else {
-      URL colorurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16.png");
-      URL greyurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-gray.png");
+      final URL colorurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16.png");
+      final URL greyurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-gray.png");
       eddyIcon = new ImageIcon(colorurl);
       eddyIconGray = new ImageIcon(greyurl);
     }
