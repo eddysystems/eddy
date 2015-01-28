@@ -8,6 +8,7 @@ import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
 import tarski.Tries.{LazyTrie, DTrie, Trie}
+import utility.Interrupts
 import utility.Locations._
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -29,10 +30,9 @@ object Tarski {
   def environment(sTrie: LazyTrie[Item], dTrie: DTrie[Item], vTrie: Trie[Item],
                   dByItem: java.util.Map[TypeItem,Array[Value]],
                   vByItem: java.util.Map[TypeItem,Array[Value]],
-                  scope: java.util.Map[Item,Integer], place: PlaceInfo,
-                  checkThread: Runnable): Env = {
+                  scope: java.util.Map[Item,Integer], place: PlaceInfo): Env = {
     println("environment with " + dTrie.values.length + " local items, " + vTrie.values.length + " scope items taken at " + place)
-    new ThreeEnv(sTrie, dTrie, vTrie, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place, checkThread)
+    new ThreeEnv(sTrie, dTrie, vTrie, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
   }
 
   def print(is: Iterable[Alt[Item]]): Unit = {
@@ -73,7 +73,9 @@ object Tarski {
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
     @tailrec def mergeTake(s: Stream[Alt[ShowStmts]], m: Map[String,Alt[ShowStmts]], notify: Boolean): Unit = {
-      env.checkThread() // check if the thread was interrupted (as the probabilities decline, we hardly ever do env lookups)
+      // Check interrupts (as the probabilities decline, we hardly ever do env lookups)
+      if (Interrupts.pending != 0) Interrupts.checkInterrupts()
+
       val rs = (m.values.toList sortBy (-_.p)).asJava
       val done = notify && take.take(rs) // if we shouldn't notify take, it gets no say in whether to continue, there's no new information.
       if (!done && s.nonEmpty) {

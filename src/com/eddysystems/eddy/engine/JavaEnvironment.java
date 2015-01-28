@@ -477,7 +477,7 @@ public class JavaEnvironment {
     }
 
     final Items.Item[] newArray = pruned.toArray(new Items.Item[pruned.size()]);
-    return Tarski.environment(sTrie, dt, Tarski.makeTrie(newArray), dbi, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo, EddyThread.getThreadChecker());
+    return Tarski.environment(sTrie, dt, Tarski.makeTrie(newArray), dbi, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
   }
 
   synchronized void addItem(PsiElement elem) {

@@ -19,12 +19,14 @@ import com.intellij.openapi.wm.WindowManager;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiTreeChangeListener;
 import com.intellij.util.PathUtil;
+import com.intellij.util.ResourceUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -60,13 +62,14 @@ public class EddyPlugin implements ProjectComponent {
       _properties = new Properties();
 
       try {
-        String pathname = PathUtil.getJarPathForClass(EddyPlugin.class);
-        File path = new File(pathname);
+        final String pathname = PathUtil.getJarPathForClass(EddyPlugin.class);
+        final File path = new File(pathname);
         if (path.isDirectory()) {
           log("looking for resources in directory: " + pathname);
           _properties.load(new FileInputStream(new File(path, "eddy.properties")));
         } else {
-          _properties.load(_properties.getClass().getClassLoader().getResourceAsStream("eddy.properties"));
+          final URL url = ResourceUtil.getResource(EddyPlugin.class, "", "eddy.properties");
+          _properties.load(url.openStream());
         }
       } catch (IOException e) {
         log("cannot read version information: " + e);

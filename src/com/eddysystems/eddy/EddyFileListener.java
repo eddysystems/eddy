@@ -28,6 +28,9 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   private static final @NotNull Object active_lock = new Object();
 
+  // last editor that an eddy thread has run on
+  private static Editor active_editor = null;
+
   // if the eddy instance in a file listener is associated with an active hint, this is it
   private static EddyFileListener active_hint_instance = null;
 
@@ -93,14 +96,17 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
       @Override
       public void run() {
-        EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
-          @Override public boolean take(Eddy.Output output) {
-            showHint(output);
-            if (output.results.size() >= 4)
-              return true;
-            return false;
-          }
-        }));
+        synchronized (active_lock) {
+          EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
+            @Override public boolean take(Eddy.Output output) {
+              showHint(output);
+              if (output.results.size() >= 4)
+                return true;
+              return false;
+            }
+          }));
+          active_editor = editor;
+        }
       }
     });
   }
@@ -156,8 +162,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       return;
 
     // TODO: only process if input changed (if we switched statements?)
-    if (EddyThread.getEddyThread() == null || // process if no thread has ever been started
-        EddyThread.getEddyThread().eddy.getEditor() != this || // process if current thread is for a different editor
+    if (active_editor != this.editor || // process if current thread is for a different editor
         e.getNewPosition().line != e.getOldPosition().line) // process if we switched lines
       process();
   }
