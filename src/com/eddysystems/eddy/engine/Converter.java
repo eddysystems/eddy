@@ -1263,7 +1263,7 @@ class Converter {
     }
   }
 
-  Value addLocal(PsiVariable var) {
+  Value addLocal(final PsiVariable var) {
     synchronized (jenv) {
       assert globals == null; // only the local converter should be used like this
       assert added == null;
