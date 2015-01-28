@@ -47,10 +47,11 @@ public class EddyThread extends Thread {
     // We might be grabbing the lock for a long time, so do it on a pooled thread.
     ApplicationManager.getApplication().executeOnPooledThread(new Runnable() { public void run() {
       synchronized (currentLock) {
-        if (currentThread != null) {
-          currentThread.interrupt();
+        final EddyThread previous = currentThread;
+        if (previous != null) {
+          previous.interrupt();
           try {
-            currentThread.join();
+            previous.join();
           } catch (final InterruptedException e) {
             return;
           }
@@ -64,9 +65,11 @@ public class EddyThread extends Thread {
   // Pause the current eddy thread to wait for a write action. True if a thread was actually paused.
   public static boolean pause(Object action) {
     // The eddy thread has a read access token. Release it to let a write action start, then grab a new one.
-    synchronized (currentLock) {
-      final EddyThread thread = currentThread;
-      if (thread == null || thread._pauseRegistered)
+    final EddyThread thread = currentThread;
+    if (thread == null)
+      return false;
+    synchronized (thread) {
+      if (thread._pauseRegistered)
         return false;
       thread._pauseRegistered = true;
       thread.interrupter.add(new Runnable() {
@@ -80,22 +83,23 @@ public class EddyThread extends Thread {
             throw new ThreadDeath();
           }
           thread.readLock.lock();
-          thread._pauseRegistered = false;
+          synchronized (thread) {
+            thread._pauseRegistered = false;
+          }
         }
       });
       return true;
     }
   }
-  private boolean _pauseRegistered = false; // Used only in pause()
+  private boolean _pauseRegistered = false; // Used only in pause() above
 
   // kills the currently active thread, if any
   public static boolean kill() {
-    synchronized (currentLock) {
-      if (currentThread == null)
-        return false;
-      currentThread.interrupt();
-      return true;
-    }
+    final EddyThread thread = currentThread;
+    if (thread == null)
+      return false;
+    thread.interrupt();
+    return true;
   }
 
   public static EddyThread getEddyThread() {
