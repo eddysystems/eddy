@@ -8,6 +8,9 @@ import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 import utility.Interrupts;
 
+import java.util.EmptyStackException;
+import java.util.Stack;
+
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyThread extends Thread {
@@ -51,32 +54,62 @@ public class EddyThread extends Thread {
     }
   }
 
-  // Pause the current eddy thread to wait for a write action. True if a thread was actually paused.
-  public static boolean pause(Object action) {
+  // the thread maintains a list of these, each one represents someone who is waiting for the thread to release its read lock.
+  // Whoever is waiting will call release when it's done with whatever it needed to do before we are allowed to
+  static class Pause {
+    private boolean _active = false;
+    synchronized void release() {
+      _active = false;
+      this.notifyAll();
+    }
+    // put this thread to sleep until release() is called
+    synchronized public void finish() throws InterruptedException {
+      while (_active)
+        this.wait();
+    }
+  }
+  final private Stack<Pause> waiting = new Stack<Pause>();
+
+  // Pause the current eddy thread to wait for a write action. True if the thread was paused
+  public static Pause pause() {
     // The eddy thread has a read access token. Release it to let a write action start, then grab a new one.
     synchronized (currentLock) {
       final EddyThread thread = currentThread;
-      if (thread == null || thread._pauseRegistered)
-        return false;
-      thread._pauseRegistered = true;
-      thread.interrupter.add(new Runnable() {
-        public void run() {
-          // relinquish control of read access token
-          thread.readLock.unlock();
-          // let other threads work it out (this ought to run the write action if we're responsible for the holdup)
-          try {
-            sleep(0);
-          } catch (InterruptedException e) {
-            throw new ThreadDeath();
+      if (thread == null)
+        return null;
+
+      // make a new pause object and make sure it's registered
+      Pause w = new Pause();
+      boolean doRegister;
+      synchronized (thread.waiting) {
+        doRegister = thread.waiting.empty();
+        thread.waiting.push(w);
+      }
+
+      if (doRegister)
+        thread.interrupter.add(new Runnable() {
+          public void run() {
+            // relinquish control of read access token
+            thread.readLock.unlock();
+            // cede control until all Pause objects have been released
+            try {
+              final Pause pause;
+              synchronized (thread.waiting) {
+                pause = thread.waiting.pop();
+              }
+              pause.finish();
+            } catch (EmptyStackException e) {
+              // we're done.
+            } catch (InterruptedException e) {
+              throw new ThreadDeath();
+            }
+            thread.readLock.lock();
           }
-          thread.readLock.lock();
-          thread._pauseRegistered = false;
-        }
-      });
-      return true;
+        });
+
+      return w;
     }
   }
-  private boolean _pauseRegistered = false; // Used only in pause()
 
   // kills the currently active thread, if any
   public static boolean kill() {
