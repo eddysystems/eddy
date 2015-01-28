@@ -39,6 +39,12 @@ object Environment {
       case _ => false
     }
 
+    // Are we inside a constructor of the given class?
+    def insideConstructorOf(cls: ClassItem): Boolean = place match {
+      case cons:ConstructorItem => cons.parent == cls
+      case _ => false
+    }
+
     def lastEditIn(r: SRange): Boolean = r contains lastEdit
   }
   val localPlace = PlaceInfo(LocalPkg)

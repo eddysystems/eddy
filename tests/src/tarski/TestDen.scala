@@ -1111,4 +1111,14 @@ class TestDen {
     (x,BinaryExp(EqOp,r,7,0)),env))
   @Test def andFix() = test("x = \"s\" && 7","x",x => VarStmt(Nil,BooleanType,r,
     (x,BinaryExp(AndAndOp,r,BinaryExp(NeOp,r,"s",NullLit(r)),BinaryExp(NeOp,r,7,0))),env))
+
+  @Test def finalInConstructor() = {
+    lazy val A: ClassItem = NormalClassItem("A",constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(A)
+    val x = NormalFieldItem("x",IntType,A,isFinal=true) // We should be able to write to this even though it is final
+    val This = ThisItem(A)
+    implicit val env = baseEnv.extendLocal(Array(x,This)).move(PlaceInfo(cons))
+    test("x = 7",AssignExp(None,r,FieldExp(None,x,r),7))
+    test("this.x = 7",AssignExp(None,r,FieldExp(This,x,r),7))
+  }
 }

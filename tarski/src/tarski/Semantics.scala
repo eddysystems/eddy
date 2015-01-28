@@ -617,18 +617,24 @@ object Semantics {
     else fail(s"${show(e)}: ${show(x)} cannot be assigned to")
   }
 
-  @tailrec
-  def isVariable(e: Exp): Boolean = e match {
+  @tailrec def isVariable(e: Exp)(implicit env: Env): Boolean = e match {
     // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
     case _:Lit|_:ThisExp|_:SuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
     case LocalExp(i,_) => !i.isFinal
     case _:CastExp => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
     case ParenExp(x,_) => isVariable(x)
-    case FieldExp(_,f,_) => !f.isFinal
     case _:IndexExp => true // Java arrays are always mutable
     case _:CondExp => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
     case DiscardExp(_,e) => isVariable(e)
+
+    // Fields are subtle: final fields can be assigned to one time in a constructor of the class.
+    // TODO: This code captures only the common case, and ignores issues of definite assignment.
+    case FieldExp(x,f,_) => !f.isFinal || (!f.isStatic && (x match {
+      case None => env.place.insideConstructorOf(f.parent)
+      case Some(ThisExp(ThisItem(cls),_)) => f.parent==cls && env.place.insideConstructorOf(cls)
+      case _ => false
+    }))
   }
 
   // Guess the item name referred to by e.  Used only for approximate purposes.
