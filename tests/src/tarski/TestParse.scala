@@ -186,12 +186,12 @@ class TestParse {
     VarAStmt(Nil,"a",juxts(AVarDecl("b",r,0,None),AVarDecl("c",r,0,None))))
 
   @Test def twoTypeArgs() =
-    testAST("new<C>A<B>",NewAExp(r,Some(Grouped(SingleList("C"),a)),TypeApplyAExp("A","B",a,true)),
-                         NewAExp(r,None,TypeApplyAExp(TypeApplyAExp("A","C",a,false),"B",a,true)),
-                         TypeApplyAExp(NewAExp(r,Some(Grouped(SingleList("C"),a)),"A"),"B",a,true))
+    testAST("new<C>A<B>",NewAExp(None,r,Some(Grouped(SingleList("C"),a)),TypeApplyAExp("A","B",a,true)),
+                         NewAExp(None,r,None,TypeApplyAExp(TypeApplyAExp("A","C",a,false),"B",a,true)),
+                         TypeApplyAExp(NewAExp(None,r,Some(Grouped(SingleList("C"),a)),"A"),"B",a,true))
 
   @Test def verboseArray() = testASTPossible("new int[]{1,2,3}",
-    ApplyAExp(NewAExp(r,None,"int",List(Grouped(None,a))),commas(1,2,3),curlys))
+    ApplyAExp(NewAExp(None,r,None,"int",List(Grouped(None,a))),commas(1,2,3),curlys))
 
   @Test def booleanEqTrue() = testAST("boolean x = true;",
     SemiAStmt(VarAStmt(Nil,"boolean",AVarDecl("x",r,0,Some(r,"true":AExp))),r),

@@ -71,7 +71,7 @@ object Pr {
 
   // Generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
   // for the qualifying objects, and the object chosen as qualifier
-  def omitQualifier[A <: ClassMember](probs: Scored[Exp], choice: Exp, item: A): Prob = {
+  def omitQualifier(probs: Scored[Exp], choice: Exp, item: Item): Prob = {
     if (probs.isSingle) Prob("omit one choice",.8) // Only choice
     else if (Items.inPackage(choice.item,Base.JavaLangPkg)) Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
@@ -144,14 +144,21 @@ object Pr {
 
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
-  // Type.constructor (not legal in Java. Also makes no sense)
-  val constructorFieldCallable = Prob("constructor field callable",.5)
-  // Exp.constructor (not legal, and makes even less sense)
-  val constructorFieldCallableWithObject = Prob("constructor field callable with object",.4)
+  // Type.constructor
+  val constructorFieldCallable = Prob("constructor field callable",.9)
+  // Exp.constructor (for inner classes only)
+  val constructorFieldCallableWithObject = Prob("constructor field callable with object",.8)
+  val constructorFieldCallableWithoutObject = Prob("constructor field callable without object",.7)
+  // Exp.constructor (for non-inner classes)
+  val constructorFieldCallableWithSpuriousObject = Prob("static constructor field callable with object",.2)
   // C++-style type arguments for a callable
   val typeApplyCallable = Prob("C++ style type application for callable",.8)
   // new in front of a non-constructor callable
   val dropNew = Prob("drop new",.1)
+  val qualifiedStaticNew = Prob("qualified new of static class", .3) // nobody does this
+  val qualifiedNewWithUnrelatedObject = Prob("wrongly qualified new", .001) // we completely ignore what you just said. Not likely.
+  val qualifiedNew = Prob("qualified new", 1)
+  val dropNewQualifier = Prob("dropped new qualifier", .02) // we ignore what you just said, it was unnecessary, and possibly wrong (we didn't check)
 
   // (<A1>C)<A2> without parentheses
   val badNestedTypeArgs = Prob("bad nested type args",.1)

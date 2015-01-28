@@ -15,7 +15,7 @@ import static java.lang.Math.max;
 
 public class JavaScores {
   // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
-  static final boolean trackErrors = false;
+  static final boolean trackErrors = true;
 
   // To enable probability tracking, swap the comment blocks below and make the substitution
   //   double /*Prob*/   ->   DebugProb

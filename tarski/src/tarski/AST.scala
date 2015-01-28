@@ -108,7 +108,7 @@ object AST {
   case class ApplyAExp(e: AExp, xs: KList[AExp], l: Around) extends AExp {
     def r = e.r union l.r
   }
-  case class NewAExp(newr: SRange, t: Option[Grouped[KList[AExp]]], e: AExp, ns: ADimExps = Nil) extends AExp {
+  case class NewAExp(qe: Option[AExp], newr: SRange, t: Option[Grouped[KList[AExp]]], e: AExp, ns: ADimExps = Nil) extends AExp {
     def r = newr union e.r unionR ns
   }
   case class WildAExp(qr: SRange, b: Option[WildBound]) extends AExp {

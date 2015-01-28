@@ -240,7 +240,7 @@ object Items {
 
     class NormalClassItem(val name: Name, val parent: ParentItem = LocalPkg, val tparams: List[TypeVar] = Nil,
                           val base: ClassType = ObjectType, val interfaces: List[ClassType] = Nil,
-                          val isFinal: Boolean = false, val isStatic: Boolean = false, val fields: Set[String] = Set(),
+                          val isFinal: Boolean = false, val isStatic: Boolean = true, val fields: Set[String] = Set(),
                           _constructors: => Array[ConstructorItem] = noConstructors) extends ClassItem {
       def supers = base :: interfaces
       def superItems = supers map (_.item)
@@ -263,7 +263,7 @@ object Items {
     object NormalClassItem {
       def apply(name: Name, parent: ParentItem = LocalPkg, tparams: List[TypeVar] = Nil,
                 base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
-                isFinal: Boolean = false, isStatic: Boolean=false, fields: Set[String] = Set(),
+                isFinal: Boolean = false, isStatic: Boolean=true, fields: Set[String] = Set(),
                 constructors: => Array[ConstructorItem] = noConstructors): ClassItem =
         new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,isStatic,fields,constructors)
     }

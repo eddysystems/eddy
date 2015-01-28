@@ -384,7 +384,7 @@ class Converter {
 
        if (cls instanceof PsiModifierListOwner) {
          _isFinal = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.FINAL);
-         _isStatic = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.STATIC);
+         _isStatic = Place.isStatic((PsiModifierListOwner) cls);
        }
 
        List<TypeArg> jargs = new SmartList<TypeArg>();

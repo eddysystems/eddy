@@ -152,10 +152,13 @@ object Denotations {
     def discards = Nil
     def strip = this
   }
-  // parent is the parent of the class being created, i.e. in "new A<X>.B<Y>.C(x)", parent is A<X>.B<Y>
-  case class NewDen(nr: SRange, parent: Option[ClassType], f: ConstructorItem, fr: SRange,
+  // the full expression could be "parentObj.new<targs> type.Class<classArgs>", which is then a callable.
+  // "parentObj." is needed only if Class is an inner class. The targs are not part of NewDen (which is why it's always
+  // NotTypeApply, even if there are Some classArgs).
+  case class NewDen(nr: SRange, parentObj: Option[Exp], f: ConstructorItem, fr: SRange,
                     classArgs: Option[Grouped[List[TypeArg]]] = None) extends NotTypeApply {
     def r = nr union fr unionR classArgs
+    def parent = parentObj map (_.ty.asInstanceOf[ClassType])
     private lazy val env: Tenv = {
       val parentEnv: Tenv = parent match {
         case None => Map.empty

@@ -271,10 +271,11 @@ object ParseEddyActions {
   def Mod8(x1r: Range): Loc[Mod] = Loc(Public,x1r)
   def Mod9(x1r: Range): Loc[Mod] = Loc(Synchronized,x1r)
   def Mod10(x1r: Range): Loc[Mod] = Loc(Volatile,x1r)
-  def ExpPrimary0(x1: AExp, x2: Grouped[KList[AExp]]): AExp = TypeApplyAExp(x1,x2.x,x2.a,after=true)
+  def ExpPrimary0(x1: Loc[String]): AExp = NameAExp(x1.x,x1.r)
   def ExpPrimary1(x1: AExp, x2: (Long,Option[Grouped[KList[AExp]]],Loc[String])): AExp = FieldAExp(x1,x2._1,x2._2,x2._3.x,x2._3.r)
-  def ExpPrimary2(x1: Loc[String]): AExp = NameAExp(x1.x,x1.r)
+  def ExpPrimary2(x1: (AExp,Long,Option[Grouped[KList[AExp]]]), x2: (AExp,List[Grouped[Option[AExp]]])): AExp = NewAExp(Some(x1._1),x1._2,x1._3,x2._1,x2._2)
   def ExpPrimary3(x1: ALit): AExp = x1
+  def ExpPrimary4(x1: AExp, x2: Grouped[KList[AExp]]): AExp = TypeApplyAExp(x1,x2.x,x2.a,after=true)
   def ExpAssignNP__DoTok__Stmt0(x1: AExp, x3: AStmt): (AExp,AStmt) = (x1,x3)
   def NewTok__Option_TypeArgs0(x2: Option[Grouped[KList[AExp]]], x1r: Range): (Long,Option[Grouped[KList[AExp]]]) = (x1r,x2)
   def DoTok__MaybeStmt0(x2: AStmt, x1r: Range): (Long,AStmt) = (x1r,x2)
@@ -303,7 +304,7 @@ object ParseEddyActions {
   def ExpAdd_ExpJuxtNP0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(SubOp,x2r,x1,x3)
   def ExpAdd_ExpJuxtNP1(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(AddOp,x2r,x1,x3)
   def ExpAdd_ExpJuxtNP2(x1: AExp): AExp = x1
-  def ExpNew0(x1: (Long,Option[Grouped[KList[AExp]]]), x2: (AExp,List[Grouped[Option[AExp]]])): AExp = NewAExp(x1._1,x1._2,x2._1,x2._2)
+  def ExpNew0(x1: (Long,Option[Grouped[KList[AExp]]]), x2: (AExp,List[Grouped[Option[AExp]]])): AExp = NewAExp(None,x1._1,x1._2,x2._1,x2._2)
   def ExpNew1(x1: Grouped[KList[AExp]], x2: AExp): AExp = TypeApplyAExp(x2,x1.x,x1.a,after=false)
   def ExpNew2(x1: AExp): AExp = x1
   def Right__DimExps0(x1: Loc[Group], x2: List[Grouped[Option[AExp]]]): (Loc[Group],List[Grouped[Option[AExp]]]) = (x1,x2)
@@ -341,6 +342,7 @@ object ParseEddyActions {
   def ExpUnary_ExpWild2(x1: AExp, x2: Loc[UnaryOp]): AExp = UnaryAExp(x2.x,x2.r,x1)
   def ExpUnary_ExpWild3(x1: AExp): AExp = x1
   def Dims__EqTok__ExpCommas0(x1: List[SGroup], x3: AExp, x2r: Range): (List[SGroup],Long,AExp) = (x1,x2r,x3)
+  def ExpHigh__DotTok__NewTok__Option_TypeArgs0(x1: AExp, x4: Option[Grouped[KList[AExp]]], x3r: Range): (AExp,Long,Option[Grouped[KList[AExp]]]) = (x1,x3r,x4)
   def ExpJuxtNP0(x1: AExp, x2: KList[AExp]): AExp = ApplyAExp(x1,x2,NoAround(x2.list.head.r union x2.list.last.r))
   def ExpJuxtNP1(x1: AExp): AExp = x1
   def ExpXor_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(XorOp,x2r,x1,x3)

@@ -91,9 +91,9 @@ object Pretty {
   val PostfixFix   = N("Postfix") // 15.14
   val WildFix      = N("Wild") // ? extends T (? alone is HighestFix)
   val JuxtFix      = N("Juxt") // Juxtaposition lists
-  val NewFix       = N("New") // new x
   val FieldFix     = L("Field") // x.y
   val ApplyFix     = L("Apply") // x[y], x(y)
+  val NewFix       = N("New") // new x
   val HighestFix   = N("Highest") // Parentheses, etc.
 
   // Top level pretty printing.  All of our tokens have attached location ranges.
@@ -135,6 +135,9 @@ object Pretty {
     if (prec < f.prec) ts
     else Loc(LParenTok,rl) :: ts ::: List(Loc(RParenTok,rr))
   }
+  def addDot(x: Tokens): Tokens = // add a dot if x is not empty
+    if (x.nonEmpty) x ::: List(Loc(DotTok,x.last.r.after)) else x
+
   def toInt(b: Boolean): Int = if (b) 1 else 0
   def left [A](slot: Fixity, x: A, rl: SRange, rr: SRange)(implicit p: Pretty[A]): Tokens =
     parensIf(x,slot.prec-toInt(slot.assoc==2),rl,rr)
@@ -256,7 +259,7 @@ object Pretty {
     case NewRefAExp(e,cc,t,nr) => fix(FieldFix, left(_,e) ::: Loc(ColonColonTok,cc) :: tokens(t) ::: List(Loc(NewTok,nr)))
     case TypeApplyAExp(e,t,tr,true)  => fix(ApplyFix, left(_,e) ::: typeBracket(t,tr))
     case TypeApplyAExp(e,t,tr,false) => fix(ApplyFix, typeBracket(t,tr) ::: right(_,e))
-    case NewAExp(nr,t,e,ns) => (NewFix, Loc(NewTok,nr) :: tokens(t) ::: (ns match {
+    case NewAExp(qe,nr,t,e,ns) => (NewFix, addDot(tokens(qe)) ::: List(Loc(NewTok,nr)) ::: tokens(t) ::: (ns match {
       case Nil => right(NewFix,e)
       case ns => tokens(e) ::: (ns map { case Grouped(n,a) => Loc(LBrackTok,a.l) :: tokens(n) ::: List(Loc(RBrackTok,a.r)) }).flatten
     }))
@@ -475,12 +478,15 @@ object Pretty {
       fix(FieldFix,left(_,x) ::: Loc(DotTok,dot) :: tokens(f.name,fr))
     def methodTs[A <: HasRange](x: A, dot: SRange, ts: List[TypeArg], a: SGroup, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
       fix(FieldFix,left(_,x) ::: Loc(DotTok,dot) :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
-    def gnu(nr: SRange, p: Option[ClassType], c: ConstructorItem, cr: SRange,
+    def gnu(nr: SRange, qe: Option[Exp], c: ConstructorItem, cr: SRange,
             ts0: Option[Grouped[List[TypeArg]]], ts1: List[TypeArg], a1: => SGroup): FixTokens = {
-      (NewFix,Loc(NewTok,nr) :: tokensTypeArgs(ts1,a1) ::: (p match {
+      (NewFix, (qe match {
         case None => Nil
-        case Some(p) => tokens(p)(prettyType(_)(env,cr)) ::: List(Loc(DotTok,cr))
-      }) ::: prettyItem(c.parent)(env,cr)._2 ::: tokensTypeArgs(ts0))
+        case Some(p) => tokens(p)(prettyExp(_)(env)) ::: List(Loc(DotTok,cr))
+      }) ::: List(Loc(NewTok,nr)) ::: tokensTypeArgs(ts1,a1) ::: (qe match {
+        case None => prettyItem(c.parent)(env,cr) // not qualified, use the qualified as necessary name of the class
+        case Some(p) => prettyName(c.parent.name, cr) // qualified: this is an inner class, and we can simply state its name
+      })._2 ::: tokensTypeArgs(ts0))
     }
     def forward(x: ThisOrSuper, xr: SRange, c: ConstructorItem, ts: Option[Grouped[List[TypeArg]]]) = {
       val forward = Loc(x match {
@@ -500,8 +506,8 @@ object Pretty {
       case           MethodDen(None,f,fr) => prettyItem(f)(env,fr)
       case TypeApply(MethodDen(None,f,fr),ts,a,_) => (FieldFix,prettyItem(f.parent)(env,fr)._2 ::: Loc(DotTok,fr)
                                                             :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
-      case           NewDen(nr,p,c,cr,ts0) => gnu(nr,p,c,cr,ts0,Nil,impossible)
-      case TypeApply(NewDen(nr,p,c,cr,ts0),ts1,a1,_) => gnu(nr,p,c,cr,ts0,ts1,a1)
+      case           NewDen(nr,qe,c,cr,ts0) => gnu(nr,qe,c,cr,ts0,Nil,impossible)
+      case TypeApply(NewDen(nr,qe,c,cr,ts0),ts1,a1,_) => gnu(nr,qe,c,cr,ts0,ts1,a1)
       case           ForwardDen(x,xr,c) => forward(x,xr,c,None)
       case TypeApply(ForwardDen(x,xr,c),ts,a,_) => forward(x,xr,c,Some(Grouped(ts,a)))
       case           DiscardCallableDen(ds,f) => above(ds,f)

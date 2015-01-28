@@ -1055,11 +1055,21 @@ class TestDen {
   @Test def qualifiedNew(): Unit = {
     /*
       class X {
-        class Y {}
+        class Y {
+          X yx;
+        }
+
+        X xx;
 
         static void f() {
-          X x = new X();
-          new Y()<caret> // => x.new Y();
+          new Y()<caret> // => xx.new Y();
+        }
+      }
+
+      class Z {
+        void f() {
+          X.Y y = new X().new X.Y();
+
         }
       }
     */
@@ -1071,8 +1081,11 @@ class TestDen {
     val x = NormalLocal("x",X.inside,isFinal=false)
     implicit val env = Env(Array(X,Y,f,x),Map(X->3,Y->3,f->3,x->1),PlaceInfo(f))
     testAvoid("new Y()", ApplyExp(NewDen(r,None,Yc,r),Nil,a,auto=false))
-    // TODO: NewDen needs an optional qualifying value expression for this to work.
-    notImplemented
+    val den = ApplyExp(NewDen(r,Some(x),Yc,r),Nil,a,auto=false)
+    test("x.new Y()",den) // this is the only actual Java
+    test("new x.Y()",den)
+    test("new Y()",den)
+    test("new X.Y()",den)
   }
 
   @Test def tryCatch(): Unit = {

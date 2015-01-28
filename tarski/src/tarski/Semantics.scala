@@ -248,20 +248,42 @@ object Semantics {
     }
 
     // Explicit new
-    case NewAExp(_,Some(_),_,_::_) => fail(s"${show(e)}: Array creation doesn't take type arguments")
-    case NewAExp(nr,ts,x,Nil) if m.callExp =>
+    case NewAExp(_,_,Some(_),_,_::_) => fail(s"${show(e)}: Array creation doesn't take type arguments") // TODO: in call mode, drop the type args instead and penalize
+    case NewAExp(None,nr,ts,x,Nil) if m.callExp => // unqualified new (although we may have qualified in a non-java way, for instance "new xobj.Y()")
       fixCall(m,expects,biasedNotNew(m,addTypeArgs(denoteNew(x),ts).asInstanceOf[Scored[Callable]]))
-    case NewAExp(nr,None,x,ns) if m.callExp =>
-      // Split ns into [e] and [] parts
-      val (is,ds) = takeCollect(ns){case Grouped(Some(i),a) => denoteExp(i) flatMap denoteIndex map (Grouped(_,a))}
-      // The rest of ds should be expression free
-      if (ds exists (_.x.nonEmpty)) fail(s"${show(e)}: In array creation, [size] should come before []")
-      else {
-        val as = ds map (_.a)
-        fixCall(m,expects,product(denoteType(x),product(is)) map {case (at,is) =>
-          NewArrayDen(nr,at.beneath,x.r,is,as)
-        })
+    case NewAExp(Some(qe),nr,ts,x,Nil) if m.callExp => { // qualified new
+      // TODO: the probabilities here may be a little screwy, penalizing things that shouldn't be penalized
+      // (for instance, TypeFieldOfObject for the legal new inside denoteType)
+
+      // evaluate x as a member expression of qe (pretend the user wrote new x.Y() when evaluating x.new Y())
+      // evaluate x as a standalone expression as in the (illegal) xobj.new X.Y() => x.new Y()
+      val qden = denoteExp(qe)
+      val xden = denoteType(x)
+      val dens = product(qden,xden) flatMap {
+        // if x evaluates to a static class, drop qe, penalize heavily if x is not a member of qe.ty.item
+        case (q,TypeDen(ds,t:ClassType)) if t.item.isStatic =>
+          addTypeArgs(uniform(if (memberIn(t.item, q)) Pr.qualifiedStaticNew else Pr.qualifiedNewWithUnrelatedObject,
+            t.item.constructors(env.place).map(NewDen(nr,None,_,x.r).discard(ds)), "no accessible constructors"),ts)
+        case (q,TypeDen(ds,t:ClassType)) if !t.item.isStatic => {
+          if (memberIn(t.item,q))
+            // if x evaluates to an inner class which is a member of qe.ty.item, yey
+            addTypeArgs(uniform(Pr.qualifiedNew, t.item.constructors(env.place).map(NewDen(nr,Some(q),_,x.r).discard(ds)), "no accessible constructors"),ts)
+          else
+            // if x evaluates to an inner class which is not a member of qe.ty.item, try to find an object to use instead (penalize a lot)
+            biased(Pr.qualifiedNewWithUnrelatedObject, {
+              val objs = valuesOfItem(t.parent.asInstanceOf[ClassItem], qe.r, 0, "cannot find object to qualify new for inner class")
+              objs flatMap { x => biased(Pr.omitQualifier(objs,x,t.item),
+                fixCall(m,expects,uniformGood(Pr.constructor,t.item.constructors(env.place)) map (NewDen(nr.before,Some(x),_,nr)))
+              )}
+            })
+        }
+        case _ => impossible
       }
+      fixCall(m,expects, dens)
+    }
+    case NewAExp(qe,nr,None,x,ns) if m.callExp => // new array (without array)
+      // TODO: check qe against x.parent. If it's a parent, don't be quite as harsh about the penalty
+      biased(if (qe.isDefined) Pr.dropNewQualifier else Pr.exact, denoteNewArray(m,expects,nr,x,ns))
 
     // Application
     case ApplyAExp(f,EmptyList,a) if a.isBracks && m==TypeMode =>
@@ -416,6 +438,22 @@ object Semantics {
   }
   */
 
+  def denoteNewArray(m: Mode, expects: Option[Type], nr: SRange, x: AExp, ns: ADimExps)(implicit env: Env) = {
+    // Split ns into [e] and [] parts
+    val (is,ds) = takeCollect(ns){case Grouped(Some(i),a) => denoteExp(i) flatMap denoteIndex map (Grouped(_,a))}
+    // The rest of ds should be expression free
+    if (ds exists (_.x.nonEmpty)) fail(s"In array creation, [size] should come before [] (got ${ns})")
+    else {
+      val as = ds map (_.a)
+      fixCall(m,expects,product(denoteType(x),product(is)) flatMap {
+        case (TypeDen(ds,at:ClassType),is) if at.item.isStatic => known(NewArrayDen(nr,at,x.r,is,as).discard(ds))
+        case (TypeDen(ds,at:ClassType),is) if !at.item.isStatic=> fail("Cannot make new arrays of inner classes")
+        case (TypeDen(ds,at),is) => known(NewArrayDen(nr,at,x.r,is,as).discard(ds))
+      })
+    }
+  }
+
+
   def denoteTypeItem(t: TypeItem, omittedNestedClass: Boolean = false)(implicit env: Env): Scored[TypeDen] = {
     // this function must only be called for TypeItems that are _.accessible!
     if (env.inScope(t))
@@ -434,15 +472,23 @@ object Semantics {
     }
   }
 
+  // find objects to qualify a new statement
+  def qualifyNew(qualifierItem: ClassItem, qr: SRange, newItem: ClassItem, nr: SRange)(implicit env: Env) = {
+    val objs = valuesOfItem(qualifierItem, qr, 0, "cannot find object to qualify new for inner class")
+    objs flatMap { x => biased(Pr.omitQualifier(objs,x,newItem),
+      uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr))
+    )}
+  }
+
   def denoteName(n: Name, nr: SRange, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
     case v:Value if m.exp => denoteValue(v,nr,depth=0)
     case t:TypeItem =>
-      // add probabilities for omitted qualifiers
       denoteTypeItem(t) flatMap { tden =>
         val s = if (!m.callExp) fail("Not in call mode") else tden.item match {
           case t:ClassItem if t.constructors(env.place).length == 0 => fail(s"$t has no accessible constructors")
-          case t:ClassItem => fixCall(m,expects,uniformGood(Pr.constructor,t.constructors(env.place)) map (NewDen(nr.before,None,_,nr)))
-          case t => fail(s"$t is not a class, and therefore has no constructors")
+          case t:ClassItem if t.isStatic => fixCall(m,expects,uniformGood(Pr.constructor,t.constructors(env.place)) map (NewDen(nr.before,None,_,nr)))
+          case t:ClassItem if !t.isStatic && t.parent.isInstanceOf[ClassItem] => fixCall(m,expects,qualifyNew(t.parent.asInstanceOf[ClassItem], nr.before, t, nr))
+          case t => fail(s"$t is not a (static) class")
         }
         if (m.ty) knownThen(tden,s) else s
       }
@@ -464,13 +510,14 @@ object Semantics {
     case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
   })
 
+  // Is f a field of x?
+  def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
+    case (x:ExpOrType,p:ClassItem) => isSubitem(x.item,p)
+    case (x:Package,p) => x.p eq p
+    case _ => false
+  }
+
   def denoteField(xs: Scored[Den], xr: SRange, f: Name, fr: SRange, mc: Mode, expects: Option[Type], error: AExp)(implicit env: Env): Scored[Den] = {
-    // Is f a field of x?
-    def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
-      case (x:ExpOrType,p:ClassItem) => isSubitem(x.item,p)
-      case (x:Package,p) => x.p eq p
-      case _ => false
-    }
     def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
     val fs = env.collect(f,s"$f doesn't look like a field (mode $mc)",{
       case f:Value with Member if mc.exp && maybeMemberIn(f) => f
@@ -483,14 +530,14 @@ object Semantics {
       case ParenExp(x,_) => automatic(x)
       case _ => false
     }
-    product(xs,fs) flatMap {case (x,f) => x match {
-      case _:Callable => fail(s"${show(x)}: Callables do not have fields (such as $f)")
-      case x:ParentDen if !memberIn(f,x) => fail(x match {
-        case x:ExpOrType => s"${show(x)}: Item ${show(x.item)} does not contain $f"
-        case x:PackageDen => s"${show(x)}: Package does not contain $f"
+    product(xs,fs) flatMap {case (p,f) => p match {
+      case _:Callable => fail(s"${show(p)}: Callables do not have fields (such as $f)")
+      case nm:ParentDen if !memberIn(f,nm) => fail(nm match {
+        case nm:ExpOrType => s"${show(nm)}: Item ${show(nm.item)} does not contain $f"
+        case nm:PackageDen => s"${show(nm)}: Package does not contain $f"
       })
-      case x:ParentDen => f match {
-        case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (x,f) match {
+      case p:ParentDen => f match {
+        case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (p,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
           case (x:Exp,    f:FieldItem) => if (f.isStatic && automatic(x)) fail(s"${show(error)}: Implicit call . static field is silly")
                                           else single(FieldExp(Some(x),f,fr),
@@ -499,39 +546,42 @@ object Semantics {
                                           else fail(s"Can't access non-static field $f without object")
         }
         case f:TypeItem =>
-          val types = if (!mc.ty) fail(s"${show(error)}: Unexpected or invalid type field") else x match {
+          val types = if (!mc.ty) fail(s"${show(error)}: Unexpected or invalid type field") else p match {
             case _:PackageDen => known(TypeDen(Nil,f.raw))
             case TypeDen(ds,t) => known(TypeDen(ds,typeIn(f,t)))
             case x:Exp => if (automatic(x)) fail(s"${show(error)}: Implicit call . type is silly")
                           else single(TypeDen(effects(x),typeIn(f,x.ty)),Pr.typeFieldOfExp)
           }
           val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
-            // TODO: if f is not static, it requires an object to qualify the new (which can be one of our ThisItems)
             case f:ClassItem if f.constructors(env.place).length>0 =>
               val cons = uniformGood(Pr.constructor,f.constructors(env.place))
-              fixCall(mc,expects,x match {
-                // TODO: Also try applying the type arguments to the class (not the constructor)
-                // Only Classes have constructors, so t or x.ty below must be a ClassType
+              fixCall(mc,expects, p match {
                 case _:PackageDen => cons map (NewDen(xr.before,None,_,fr))
-                case TypeDen(ds,tp) =>
-                  val t = Some(tp.asInstanceOf[ClassType])
-                  biased(Pr.constructorFieldCallable,cons map (NewDen(xr.before,t,_,fr).discard(ds)))
+                // TODO: Also try applying the type arguments to the class (not the constructor)
+                case TypeDen(ds,tp) if f.isStatic => // if it's a type, we really don't need it here. If we need it for qualification, we will add it in pretty-printing.
+                  biased(Pr.constructorFieldCallable, cons map (NewDen(xr.before,None,_,fr).discard(ds)))
+                case TypeDen(ds,tp) if !f.isStatic && f.parent.isInstanceOf[ClassItem] => // try to find an object for this new
+                  biased(Pr.constructorFieldCallableWithoutObject, qualifyNew(f.parent.asInstanceOf[ClassItem], xr.before, f, xr))
                 case x:Exp =>
-                  val t = Some(x.ty.asInstanceOf[ClassType])
+                  assert(x.ty.isInstanceOf[ClassType]) // Only Classes have constructors, so t or x.ty below must be a ClassType
                   val ds = effects(x)
-                  biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(xr.before,t,_,fr).discard(ds)))
+                  if (!f.isStatic)
+                    biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(xr.before,Some(x),_,fr).discard(ds))) // we need x to make this inner class
+                  else
+                    biased(Pr.constructorFieldCallableWithSpuriousObject,cons map (NewDen(xr.before,None,_,fr).discard(ds))) // qualification will be added back to the class as needed
+                case _ => fail("Can't make new ${show(x)}")
               })
             case _ => fail(s"$f has no constructors")
           }
           types++cons
-        case f:MethodItem => fixCall(mc,expects,x match {
+        case f:MethodItem => fixCall(mc,expects, p match {
           case x:Exp     if f.isStatic => if (automatic(x)) fail(s"${show(error)}: Implicit call . static method is silly")
                                           else single(MethodDen(Some(x),f,fr),dropNew(mc,Pr.staticFieldCallableWithObject))
           case x:TypeDen if f.isStatic => knownNotNew(mc,MethodDen(None,f,fr).discard(x.discards))
           case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f,fr))
           case x:TypeDen => fail(s"${show(error)}: Can't call non-static $f without object")
         })
-        case _ => fail(s"Invalid field ${show(x)}  .  ${show(f)}")
+        case _ => fail(s"Invalid field ${show(p)}  .  ${show(f)}")
       }
     }}
   }
