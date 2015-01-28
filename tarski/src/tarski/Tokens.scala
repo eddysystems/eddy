@@ -46,10 +46,14 @@ object Tokens {
     def show(implicit f: ShowFlags) = if (f.abbreviate) " " else s
   }
   sealed abstract class CommentTok extends SpaceTok
-  case class WhitespaceTok(s: String) extends SpaceTok
-  case class IllegalTok(s: String) extends SpaceTok // non-ASCII character outside identifiers or literals, we consider them space for now
+  case class WhitespaceTok(s: String) extends SpaceTok {
+    override def toString = s"WhitespaceTok(${escape(s)})"
+  }
   case class EOLCommentTok(s: String) extends CommentTok
   case class CCommentTok(s: String) extends CommentTok
+
+  // Non-ASCII character outside identifiers or literals.  Stripped before parsing.
+  case class IllegalTok(s: String) extends SimpleToken
 
   // Keywords: 3.9
   case object AbstractTok extends FixedToken("abstract")
@@ -220,12 +224,12 @@ object Tokens {
     print(tokens(x) map (_.x))
 
   // Prepare a token stream for parsing.
-  // 0. Drop whitespace.
+  // 0. Drop whitespace and illegal tokens.
   // 1. Turn matching identifiers into fake keywords.
   // 2. Turn some keywords into identifiers.
   // 3. Split >> and >>> into >'s and separators.
   def prepare(ts: List[Loc[Token]]): List[Loc[Token]] = ts flatMap { case Loc(t,r) => (t match {
-    case _:SpaceTok => Nil
+    case _:SpaceTok|_:IllegalTok => Nil
     case t@IdentTok(s) => List(s match {
       case "then" => ThenTok
       case "until" => UntilTok

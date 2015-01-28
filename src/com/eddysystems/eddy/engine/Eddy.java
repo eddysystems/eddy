@@ -35,8 +35,10 @@ import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
 import tarski.Tarski.ShowStmts;
+import tarski.Tokens;
 import tarski.Tokens.ShowFlags;
 import tarski.Tokens.Token;
+import tarski.Tokens.WhitespaceTok;
 import utility.Locations.Loc;
 import utility.Utility.Unchecked;
 
@@ -376,8 +378,7 @@ public class Eddy {
       @Override protected boolean visitNode(final TreeElement e) {
         if (expand(e,range,cursor))
           return true;
-        if (!Tokenizer.isSpace(e))
-          tokens.add(Tokenizer.psiToTok(e));
+        tokens.add(Tokenizer.psiToTok(e));
         return false;
       }
     };
@@ -386,6 +387,10 @@ public class Eddy {
       assert node instanceof TreeElement : "Bad AST node "+node+" for element "+elem;
       ((TreeElement)node).acceptTree(V);
     }
+
+    // Trim whitespace at the ends of the token stream
+    while (!tokens.isEmpty() && tokens.get(0).x()               instanceof WhitespaceTok) tokens.remove(0);
+    while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof WhitespaceTok) tokens.remove(tokens.size()-1);
     if (tokens.isEmpty())
       throw new Skip("No tokens");
 
@@ -490,9 +495,9 @@ public class Eddy {
 
   // The string should be a single syntactically valid statement
   private String reformat(final PsiElement place, final @NotNull String show, final ShowFlags f) {
-    CodeStyleManager csm = CodeStyleManager.getInstance(project);
-    PsiElementFactory ef = JavaPsiFacade.getElementFactory(project);
-    String blockText = '{' + show + "\n}";
+    final CodeStyleManager csm = CodeStyleManager.getInstance(project);
+    final PsiElementFactory ef = JavaPsiFacade.getElementFactory(project);
+    final String blockText = '{' + show + "\n}";
     PsiCodeBlock block = ef.createCodeBlockFromText(blockText,place);
 
     block = (PsiCodeBlock)csm.reformat(block,true);

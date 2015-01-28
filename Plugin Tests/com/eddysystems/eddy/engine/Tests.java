@@ -219,6 +219,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertTrue("eddy found " + lo + " likelier (" + plo + ") than " + high + " (" + phi + "), but shouldn't.", plo < phi);
   }
 
+  private void checkFail(final Eddy.Output output) {
+    if (output == null)
+      return;
+    dumpResults(output,null);
+    throw new AssertionError("Expected null output");
+  }
+
   private void test(String filename, String expected) {
     checkResult(setupEddy(null, -1, filename), expected);
   }
@@ -287,7 +294,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testClosingBrace() {
     pushDebug();
     try {
-      assertNull(setupEddy(null, -1, "closingBrace.java"));
+      checkFail(setupEddy(null,-1,"closingBrace.java"));
     } finally { popDebug(); }
   }
 
