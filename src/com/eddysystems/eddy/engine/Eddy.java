@@ -415,7 +415,12 @@ public class Eddy {
           ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
           ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
           if (!intentions.isEmpty()) {
-            IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+            try {
+              IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+            } catch (final NullPointerException e) {
+              // Log and ignore
+              log("updateIntentions: Can't show hint due to NullPointerException");
+            }
           }
         }
       }, project.getDisposed());
