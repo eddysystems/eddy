@@ -99,7 +99,9 @@ object Inference {
     val tg = supers(t).toList collect {case g:GenericType => g}
     log(s"matchSupers: bs $bs, s $s, t $t, sg $sg, tg $tg")
     forms(bs,sg)((bs,sg) => forms(bs,tg)((bs,tg) =>
-      if (sg.item == tg.item && sg.parent == tg.parent) forms(bs,sg.args,tg.args)(equalForm)
+      if (sg.item == tg.item)
+        if (sg.parent == tg.parent) forms(bs,sg.args,tg.args)(equalForm)
+        else fail(s"matchSupers: parents don't match: s ${show(s)}, t ${show(t)}")
       else bs))
   }
   def incorporateSub(bs: Bounds, s: Var, t: RefType): Bounds = bs(s) match {
@@ -198,8 +200,10 @@ object Inference {
           else fail(s"subForm: ${show(s)} has item ${show(ss)} matching ${show(t)}, but parents don't match")
         case _ => fail(s"subForm: ${show(s)} has no super similar to ${show(t)}")
       }
-      case (s,_:ClassType) =>
-        if (supers(s) contains t) bs else fail(s"subForm: supers(${show(s)} lacks ${show(t)}")
+      case (s,t:ClassType) => subItemType(s,t.item) match {
+        case Some(ss) if s == t => bs
+        case _ => fail(s"subForm: supers(${show(s)} lacks ${show(t)}")
+      }
       case (s,ArrayType(t)) => s match {
         case ArrayType(s) => (s,t) match {
           case (s:RefType,t:RefType) => subForm(bs,s,t) // Java arrays are covariant, even though they shouldn't be
