@@ -665,7 +665,7 @@ object Types {
   def strictCompatible(f: Signature, ts: List[Type], expects: Option[Type]): Option[List[TypeArg]] =
     compatible(f,ts,expects,Inference.strictBounds, strictInvokeContext)
   def looseCompatible (f: Signature, ts: List[Type], expects: Option[Type]): Option[List[TypeArg]] =
-    compatible(f,ts,expects,Inference.looseBounds , looseInvokeContext)
+    compatible(f,ts,expects,Inference.compatForm /* inlined looseBounds */, looseInvokeContext)
 
   // Given argument types ts, which signatures are still usable? ts is allowed to be shorter than f.params,
   // all signatures still possible after matching the prefix are returned.  If specified, ret constraints the
