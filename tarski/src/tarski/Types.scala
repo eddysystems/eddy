@@ -341,10 +341,6 @@ object Types {
   def isProperSubtype(lo: Type, hi: Type): Boolean = lo!=hi && (lo==NullType || lo.supers.exists(isSubtype(_,hi)))
   def isSubitem(lo: TypeItem, hi: TypeItem): Boolean = lo==hi || lo.superItems.exists(isSubitem(_,hi))
 
-  // If lo <: hi, find the superclass of lo matching hi
-  def subItemType(lo: Type, hi: ClassItem): Option[ClassType] =
-    collectOne(supers(lo)){ case t:ClassType if t.item==hi => t }
-
   // Is a type throwable?
   def isThrowable(t: TypeItem): Boolean = isSubitem(t,ThrowableItem)
 
@@ -518,6 +514,19 @@ object Types {
   def superItems(t: TypeItem): Set[RefTypeItem] = t match {
     case t:RefTypeItem => superItems(t)
     case _ => Set()
+  }
+
+  // If lo <: hi, find the superclass of lo matching hi
+  def subItemType(lo: Type, hi: ClassItem): Option[ClassType] = {
+    @tailrec def loop(ts: List[RefType]): Option[ClassType] = ts match {
+      case Nil => None
+      case t::ts => val i = subItemType(t,hi)
+                    if (i.nonEmpty) i else loop(ts)
+    }
+    lo match {
+      case lo:ClassType if lo.item eq hi => Some(lo)
+      case _ => loop(lo.supers)
+    }
   }
 
   // Least upper bounds: 4.10.4
