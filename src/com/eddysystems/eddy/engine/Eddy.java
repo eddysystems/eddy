@@ -1,6 +1,7 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
+import com.eddysystems.eddy.LightDocument;
 import com.eddysystems.eddy.PreferencesProvider;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
@@ -14,6 +15,8 @@ import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.ex.DocumentEx;
+import com.intellij.openapi.fileEditor.impl.FileDocumentManagerImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
@@ -35,7 +38,6 @@ import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
 import tarski.Tarski.ShowStmts;
-import tarski.Tokens;
 import tarski.Tokens.ShowFlags;
 import tarski.Tokens.Token;
 import tarski.Tokens.WhitespaceTok;
@@ -504,6 +506,13 @@ public class Eddy {
     final PsiElementFactory ef = JavaPsiFacade.getElementFactory(project);
     final String blockText = '{' + show + "\n}";
     PsiCodeBlock block = ef.createCodeBlockFromText(blockText,place);
+
+    // make sure the associated document does not require locks by making the document ourselves
+    @NotNull final PsiFile file = block.getContainingFile();
+    @NotNull final DocumentEx doc = new LightDocument(block.getText()); // make a document we can use outside AWT thread
+    doc.setModificationStamp(file.getModificationStamp());
+    doc.setReadOnly(false);
+    FileDocumentManagerImpl.registerDocument(doc, block.getContainingFile().getViewProvider().getVirtualFile());
 
     block = (PsiCodeBlock)csm.reformat(block,true);
 
