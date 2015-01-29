@@ -10,7 +10,13 @@ import org.testng.AssertJUnit._
 import scala.language.implicitConversions
 
 class TestInfer {
+  // Force initialization of base to avoid weird exceptions
+  Base.baseEnv.allItems
+
+  // A few convenience type variables
+  val S = SimpleTypeVar("S")
   val T = SimpleTypeVar("T")
+  val U = SimpleTypeVar("U")
   implicit def toVarType[A](x: (Var,A))(implicit f: A => RefType): (Var,RefType) = (x._1,f(x._2))
 
   def testInfer(goal: (Var,TypeArg)*)(ts: Type*)(as: Type*): Unit = {
@@ -45,6 +51,12 @@ class TestInfer {
       case _ => throw new AssertionError(s"Expected a fresh type variable, got $t")
     }
     testInfer(T -> WildSub(NumberItem))(A.generic(List(T)))(A.generic(List(WildSub(NumberItem))))
+  }
+
+  @Test def arity() = {
+    val A = NormalClassItem("A",tparams=List(SimpleTypeVar("A0"),SimpleTypeVar("A1")))
+    val B = NormalClassItem("B",tparams=List(SimpleTypeVar("B0")))
+    testInferFail(U)(B.generic(List(U)))(A.generic(List(IntType.box,IntType.box)))
   }
 
   // Warn if debugging is left on

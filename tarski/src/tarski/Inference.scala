@@ -96,7 +96,7 @@ object Inference {
     val tg = supers(t).toList collect {case g:GenericType => g}
     log(s"matchSupers: bs $bs, s $s, t $t, sg $sg, tg $tg")
     forms(bs,sg)((bs,sg) => forms(bs,tg)((bs,tg) =>
-      if (sg.item == tg.item) forms(bs,sg.args,tg.args)(equalForm)
+      if (sg.item == tg.item && sg.parent == tg.parent) forms(bs,sg.args,tg.args)(equalForm)
       else Some(bs)))
   }
   def incorporateSub(bs: Bounds, s: Var, t: RefType): Option[Bounds] = bs(s) match {
@@ -190,7 +190,7 @@ object Inference {
       case (s:TypeVar,t) if bs contains s => incorporateSub(bs,s,t)
       case (s,t:TypeVar) if bs contains t => incorporateSub(bs,s,t)
       case (s,t:GenericType) => supers(s)
-        .collect({case ss: GenericType if ss.parent == t.parent => ss})
+        .collect({case ss: GenericType if ss.item == t.item && ss.parent == t.parent => ss})
         .headOption
         .flatMap(ss => forms(bs,ss.args,t.args)(containForm))
       case (s,_:ClassType) =>
@@ -234,8 +234,8 @@ object Inference {
       case (s:TypeVar,t) if bs contains s => incorporateEqual(bs,s,t)
       case (s,t:TypeVar) if bs contains t => incorporateEqual(bs,t,s)
       case (s:GenericType,t:GenericType) =>
-        if (s.parent == t.parent) forms(bs,s.args,t.args)(equalForm)
-        else fail(s"equalForm: class ${show(s.parent)} != ${show(t.parent)}")
+        if (s.item == t.item && s.parent == t.parent) forms(bs,s.args,t.args)(equalForm)
+        else fail(s"equalForm: class ${show(s.parent)}.${show(s.item)} != ${show(t.parent)}.${show(t.item)}")
       case (ArrayType(s),ArrayType(t)) => equalForm(bs,s,t)
       case _ => fail(s"equalForm: skipping ${show(s)}, ${show(t)}") // IntersectType intentionally skipped as per spec
     }
