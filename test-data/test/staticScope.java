@@ -23,6 +23,7 @@ class Test { // top-level, static
   void f() {} // non-static method
 
   static void test() {
+    final int local_k = 7;
     // local class, not static but in scope because static scope starts above here
     class Local { // not static, but in scope because static scope starts later, and we should have This and Super for it
       int local_i; // not static, but in scope because static scope starts later
