@@ -27,12 +27,12 @@ class EddyHintLabel extends JPanel {
     setLayout(new BorderLayout());
   }
 
-  EddyHintLabel(@NotNull SimpleColoredComponent component) {
+  EddyHintLabel(final @NotNull SimpleColoredComponent component) {
     this();
     setText(component);
   }
 
-  public void setText(@NotNull SimpleColoredComponent colored) {
+  private void setText(final @NotNull SimpleColoredComponent colored) {
     clearText();
 
     myColored = colored;
@@ -45,11 +45,11 @@ class EddyHintLabel extends JPanel {
     repaint();
   }
 
-  public void setText(String s, HintHint hintHint) {
+  private void setText(final String text, final HintHint hintHint) {
     clearText();
 
-    if (s != null) {
-      myPane = IdeTooltipManager.initPane(s, hintHint, null);
+    if (text != null) {
+      myPane = IdeTooltipManager.initPane(text, hintHint, null);
       add(myPane, BorderLayout.CENTER);
     }
 
@@ -72,7 +72,7 @@ class EddyHintLabel extends JPanel {
     }
   }
 
-  public void setIcon(Icon icon) {
+  private void setIcon(final Icon icon) {
     if (myIcon != null) {
       remove(myIcon);
     }
@@ -91,18 +91,14 @@ class EddyHintLabel extends JPanel {
     return "Hint: text='" + (myPane != null ? myPane.getText() : "") + '\'';
   }
 
-  protected static LightweightHint makeHint(Eddy.Output output) {
-    boolean auto = output.shouldAutoApply();
+  protected static LightweightHint makeHint(final Eddy.Output output) {
+    final boolean auto = output.shouldAutoApply();
+    final String text = output.bestTextAbbrev() + (output.single() ? "" : " (multiple options...)");
+    final String hintText = ' ' + text + ' '
+      + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(
+          auto ? IdeActions.ACTION_EDITOR_ENTER : IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
 
-    final String hintText, text = output.bestTextAbbrev() + (output.single() ? "" : " (multiple options...)");
-
-    if (auto) {
-      hintText = ' ' + text + ' ' + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_EDITOR_ENTER));
-    } else {
-      hintText = ' ' + text + ' ' + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
-    }
-
-    HintHint hintHint = new HintHint().setTextBg(auto ? AUTOAPPLY_COLOR : QUESTION_COLOR)
+    final HintHint hintHint = new HintHint().setTextBg(auto ? AUTOAPPLY_COLOR : QUESTION_COLOR)
       .setTextFg(JBColor.foreground())
       .setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD))
       .setAwtTooltip(true);
