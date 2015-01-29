@@ -506,6 +506,7 @@ public class LightDocument extends UserDataHolderBase implements DocumentEx {
     StringUtil.assertValidSeparators(s);
   }
 
+  @Deprecated
   @Override
   @NotNull
   public char[] getChars() {

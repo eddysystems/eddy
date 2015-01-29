@@ -509,7 +509,7 @@ public class Eddy {
 
     // make sure the associated document does not require locks by making the document ourselves
     @NotNull final PsiFile file = block.getContainingFile();
-    @NotNull final DocumentEx doc = new LightDocument(block.getText()); // make a document we can use outside AWT thread
+    @NotNull final DocumentEx doc = new LightDocument(block.getText());
     doc.setModificationStamp(file.getModificationStamp());
     doc.setReadOnly(false);
     FileDocumentManagerImpl.registerDocument(doc, block.getContainingFile().getViewProvider().getVirtualFile());
