@@ -133,16 +133,16 @@ object Semantics {
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
         xd match {
           case ThisExp(tt:ThisItem,_) if tt.item.base.item == c => fail("We'll use super instead of this")
-          case _ => single(FieldExp(Some(CastExp(c.raw,SGroup.approx(ir),xd)),i,ir), Pr.shadowedFieldValue(objs, xd,c,i))
+          case _ => single(FieldExp(Some(CastExp(c.raw,SGroup.approx(ir),xd)),i,ir), Pr.shadowedDot(objs, xd,c,i))
         }
       } else
-        single(FieldExp(Some(xd),i,ir), Pr.fieldValue(objs, xd, i))
+        single(FieldExp(Some(xd),i,ir), Pr.dot(objs, xd, i))
     }}
   }
 
   def denoteMethod(i: MethodItem, ir: SRange, depth: Int)(implicit env: Env): Scored[MethodDen] = {
     val objs = valuesOfItem(i.parent,ir,depth,s"Method ${show(i)}")
-    objs flatMap (xd => single(MethodDen(Some(xd),i,ir), Pr.methodCallable(objs,xd,i)))
+    objs flatMap (xd => single(MethodDen(Some(xd),i,ir), Pr.dot(objs,xd,i)))
   }
 
   def denoteValue(i: Value, ir: SRange, depth: Int)(implicit env: Env): Scored[Exp] = {
@@ -154,11 +154,7 @@ object Semantics {
       // We can always access this, static fields, or enums.
       // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
       case LitValue(f) => known(f(ir))
-      case i:FieldItem => if (env.inScope(i)) known(FieldExp(None,i,ir))
-                          else if (i.isStatic) single(FieldExp(None,i,ir),
-                            if (inClass(env.place.place,i.parent)) Pr.outOfScope
-                            else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeOtherClass
-                            else Pr.outOfScopeOtherPackage)
+      case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i))
                           else denoteFieldItem(i,ir,depth)
       case i:ThisItem => penalize(ThisExp(i,ir))
       case i:SuperItem => penalize(SuperExp(i,ir))
@@ -198,7 +194,7 @@ object Semantics {
 
   @inline def knownNotNew[A](m: Mode, x: A): Scored[A] = single(x,if (m.inNew) Pr.dropNew else Pr.notDropNew)
   @inline def biasedNotNew[A](m: Mode, x: => Scored[A]): Scored[A] = if (m.inNew) biased(Pr.dropNew,x) else x
-  @inline def dropNew(m: Mode, p: Prob) = if (m.inNew) pmul(p,Pr.dropNew) else p
+  @inline def dropNew(m: Mode, p: Prob): Prob = if (m.inNew) pmul(p,Pr.dropNew) else p
 
   // Turn f into f(), etc.
   // TODO: Make Pr.missingArgList much higher for explicit new
@@ -493,8 +489,7 @@ object Semantics {
         if (m.ty) knownThen(tden,s) else s
       }
     case c:PseudoCallableItem if m.callExp => fixCall(m,expects,c match {
-      case i:MethodItem if i.isStatic => knownNotNew(m,MethodDen(None,i,nr))
-      case i:MethodItem if env.inScope(i) => knownNotNew(m,LocalMethodDen(i,nr))
+      case i:MethodItem if i.isStatic || env.inScope(i) => single(MethodDen(None,i,nr),dropNew(m,Pr.scope(i)))
       case i:MethodItem => biasedNotNew(m,denoteMethod(i,nr,0))
       case i:ThisItem if env.place.forwardThisPossible(i.item) =>
         biasedNotNew(m,uniformGood(Pr.forwardThis,i.item.constructors(env.place)) flatMap {

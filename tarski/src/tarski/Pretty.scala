@@ -499,13 +499,12 @@ object Pretty {
       case TypeApply(f,_,_,true) => f // Don't print hidden type args
       case f => f
     }) match {
-      case           LocalMethodDen(f,fr) => prettyItem(f)(env,fr)
-      case TypeApply(LocalMethodDen(f,fr),ts,a,_) => methodTs(Loc(ThisTok,a.l),a.l,ts,a,f,fr)
       case           m@MethodDen(Some(x),f,fr) => method(x,m.dot,f,fr)
       case TypeApply(m@MethodDen(Some(x),f,fr),ts,a,_) => methodTs(x,m.dot,ts,a,f,fr)
       case           MethodDen(None,f,fr) => prettyItem(f)(env,fr)
-      case TypeApply(MethodDen(None,f,fr),ts,a,_) => (FieldFix,prettyItem(f.parent)(env,fr)._2 ::: Loc(DotTok,fr)
-                                                            :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
+      case TypeApply(MethodDen(None,f,fr),ts,a,_) =>
+        if (!f.isStatic && env.inScope(f)) methodTs(Loc(ThisTok,a.l),a.l,ts,a,f,fr)
+        else (FieldFix,prettyItem(f.parent)(env,fr)._2 ::: Loc(DotTok,fr) :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
       case           NewDen(nr,qe,c,cr,ts0) => gnu(nr,qe,c,cr,ts0,Nil,impossible)
       case TypeApply(NewDen(nr,qe,c,cr,ts0),ts1,a1,_) => gnu(nr,qe,c,cr,ts0,ts1,a1)
       case           ForwardDen(x,xr,c) => forward(x,xr,c,None)
