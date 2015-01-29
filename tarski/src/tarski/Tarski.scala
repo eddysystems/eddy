@@ -32,7 +32,7 @@ object Tarski {
                   vByItem: java.util.Map[TypeItem,Array[Value]],
                   scope: java.util.Map[Item,Integer], place: PlaceInfo): Env = {
     println("environment with " + dTrie.values.length + " local items, " + vTrie.values.length + " scope items taken at " + place)
-    new ThreeEnv(sTrie, dTrie, vTrie, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
+    new ThreeEnv(sTrie, dTrie, vTrie, QueriableItemList.empty, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
   }
 
   def print(is: Iterable[Alt[Item]]): Unit = {

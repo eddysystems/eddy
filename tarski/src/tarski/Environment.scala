@@ -59,9 +59,12 @@ object Environment {
     def place: PlaceInfo
     def move(to: PlaceInfo): Env
 
+    // return a new environment with one more item in it
+    def extend(item: Item, scope: Int): Env
+
+    // Only for tests!
     // Add more objects
     def extend(things: Array[Item], scope: Map[Item,Int]): Env
-
     // Add local objects (they all appear in inScope with priority scope)
     def extendLocal(things: Array[Item], scope: Int = 1): Env =
       extend(things,(things map ((_,scope))).toMap)
@@ -97,7 +100,7 @@ object Environment {
               case (Nil,Nil,Nil) => (env,as.reverse)
               case (n::ns,t::ts,f::fs) =>
                 val x = NormalLocal(n,t,isFinal)
-                val e = env.extend(Array(x),Map(x->0))
+                val e = env.extend(x,0)
                 loop(f(env,x)::as,e,ns,ts,fs)
               case _ => impossible
             }
@@ -123,7 +126,7 @@ object Environment {
         else {
           val x = if (isStatic) NormalStaticFieldItem(name,t,c,isFinal)
                   else                NormalFieldItem(name,t,c,isFinal)
-          known((extend(Array(x),Map((x,0))),x))
+          known((extend(x,0),x))
         }
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
@@ -187,7 +190,8 @@ object Environment {
 
   case class ThreeEnv(private val sTrie: LazyTrie[Item], // creates global (library) items as they are queried
                       private val dTrie: DTrie[Item], // occasionally rebuilt when the project has changed a lot
-                      private val vTrie: Trie[Item], // rebuilt all the time, including by this Env's functions returning new Envs (small)
+                      private val vTrie: Trie[Item], // locals found in scope, rebuilt every time cursor moves (small, hopefully)
+                      private val added: QueriableItemList, // changed by this environment's extend functions (better be tiny)
                       private val dByItem: java.util.Map[TypeItem,Array[Value]],
                       private val vByItem: java.util.Map[TypeItem,Array[Value]],
                       scope: Map[Item,Int], place: PlaceInfo) extends Env {
@@ -196,10 +200,10 @@ object Environment {
 
     val emptyValues = new Array[Value](0)
 
-    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,scope,to)
+    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,added,dByItem,vByItem,scope,to)
 
     // Enter a block scope
-    override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,dByItem,vByItem,
+    override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,added,dByItem,vByItem,
                                            scope map { case (i,n) => (i,n+1) },
                                            place)
 
@@ -213,9 +217,15 @@ object Environment {
       uniform(Pr.objectOfItem, (v1r ++ v2r) filter (_.accessible(place)), s"Value of item ${show(t)} not found")
     }
 
-    // Add more objects
-    override def extend(things: Array[Item], scope: Map[Item, Int]): Env =
-      ThreeEnv(sTrie,dTrie,vTrie ++ things,dByItem,valuesByItem(vTrie.values++things),this.scope++scope,place)
+    // return a new environment with one more item in it (doesn't recompute tries)
+    override def extend(item: Item, scope: Int): Env =
+      ThreeEnv(sTrie,dTrie,vTrie,added.add(item),dByItem,vByItem,this.scope+(item->scope),place)
+
+    // Add more objects (makes a new vTrie and valuesByItem, clears out added)
+    override def extend(things: Array[Item], scope: Map[Item, Int]): Env = {
+      val add = added.array ++ things
+      ThreeEnv(sTrie,dTrie,vTrie ++ add,QueriableItemList.empty,dByItem,valuesByItem(vTrie.values ++ add),this.scope++scope,place)
+    }
 
     // Slow, use only for tests
     def allLocalItems: Array[Item] = (dTrie.values filter (!_.deleted)) ++ vTrie.values
@@ -224,7 +234,7 @@ object Environment {
     override def exactLocal(name: String): Local = {
       val query = name.toCharArray
       def options(t: Queriable[Item]) = t exact query collect { case x:Local if x.accessible(place) => x }
-      options(sTrie)++options(dTrie)++options(vTrie) match {
+      options(sTrie)++options(dTrie)++options(vTrie)++options(added) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
@@ -233,14 +243,15 @@ object Environment {
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed)) filter (_.accessible(place))
+      (sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
     }
 
     // Get exact and typo probabilities for string queries
     protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)) filter (_.x.accessible(place))
+      (sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)++added.typoQuery(typed)) filter (_.x.accessible(place))
     }
+
   }
 
   // Store two tries and two byItems: one large one for globals, one small one for locals.
@@ -256,6 +267,7 @@ object Environment {
     def allLocalItems: Array[Item] = trie1.values
 
     // Add some new things to an existing environment
+    def extend(item: Item, scope: Int) = extend(Array(item), Map(item->scope))
     def extend(things: Array[Item], scope: Map[Item,Int]) =
       TwoEnv(trie0,trie1++things,
              byItem0,valuesByItem(trie1.values++things),
