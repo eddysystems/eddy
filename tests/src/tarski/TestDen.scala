@@ -350,7 +350,7 @@ class TestDen {
     val y = NormalLocal("y",Y.simple,isFinal=true)
     implicit val env = Env(Array(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
 
-    test("m(f)", ApplyExp(LocalMethodDen(m,r),List(FieldExp(CastExp(X.simple,a,y),Xf,r)),a,auto=false))
+    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(CastExp(X.simple,a,y),Xf,r)),a,auto=false))
   }
 
   @Test
@@ -384,7 +384,7 @@ class TestDen {
     val Super = SuperItem(Y.base)
     implicit val env = Env(Array(X,Y,Xf,Yf,m,This,Super), Map((This,2),(Super,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
-    test("m(f)", ApplyExp(LocalMethodDen(m,r),List(FieldExp(SuperExp(Super,r),Xf,r)),a,auto=false))
+    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(SuperExp(Super,r),Xf,r)),a,auto=false))
   }
 
   @Test
@@ -599,7 +599,7 @@ class TestDen {
     val X = NormalClassItem("X")
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,isStatic=false)
     implicit val env = localEnv(X,f)
-    test("f", ApplyExp(LocalMethodDen(f,r),Nil,a,auto=true))
+    test("f", ApplyExp(MethodDen(None,f,r),Nil,a,auto=true))
   }
 
   @Test def constructorForward(): Unit = {
@@ -671,8 +671,8 @@ class TestDen {
     val f = env.allLocalItems.find(_.name == "f").get.asInstanceOf[NormalMethodItem]
     val This = env.allLocalItems.find(_.isInstanceOf[ThisItem]).get.asInstanceOf[ThisItem]
     test("""this.<Integer>f(7)""",ApplyExp(TypeApply(MethodDen(This,f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))
-    test("""<Integer>f(7)""",     ApplyExp(TypeApply(LocalMethodDen(f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))
-    test("""f<Integer>(7)""",     ApplyExp(TypeApply(LocalMethodDen(f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))
+    test("""<Integer>f(7)""",     ApplyExp(TypeApply(MethodDen(None,f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))
+    test("""f<Integer>(7)""",     ApplyExp(TypeApply(MethodDen(None,f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))
     // These three fail because f's type argument extends Number
     def bad(s: String) = testFail(s,bound=1e-3)
     bad("""this.<String>f("test")""")
@@ -1111,4 +1111,23 @@ class TestDen {
     (x,BinaryExp(EqOp,r,7,0)),env))
   @Test def andFix() = test("x = \"s\" && 7","x",x => VarStmt(Nil,BooleanType,r,
     (x,BinaryExp(AndAndOp,r,BinaryExp(NeOp,r,"s",NullLit(r)),BinaryExp(NeOp,r,7,0))),env))
+
+  @Test def finalInConstructor() = {
+    lazy val A: ClassItem = NormalClassItem("A",constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(A)
+    val x = NormalFieldItem("x",IntType,A,isFinal=true) // We should be able to write to this even though it is final
+    val This = ThisItem(A)
+    implicit val env = baseEnv.extendLocal(Array(x,This)).move(PlaceInfo(cons))
+    test("x = 7",AssignExp(None,r,FieldExp(None,x,r),7))
+    test("this.x = 7",AssignExp(None,r,FieldExp(This,x,r),7))
+  }
+
+  @Test def outOfScopeMethod() = {
+    val A = NormalClassItem("A",Package("PA"))
+    val B = NormalClassItem("B",Package("PB"))
+    val logA = NormalMethodItem("log",A,Nil,VoidType,Nil,isStatic=true)
+    val logB = NormalMethodItem("log",B,Nil,VoidType,Nil,isStatic=true)
+    implicit val env = localEnvWithBase().extend(Array(logA,logB),Map(logA->1))
+    test("log",ApplyExp(MethodDen(None,logA,r),Nil,a,auto=true),margin=.2)
+  }
 }

@@ -224,9 +224,9 @@ public class JavaScores {
           then = Scores.good(then);
 
         final PriorityQueue<Alt<A>> pq = new PriorityQueue<Alt<A>>(JavaConversions.asJavaCollection(xs));
-        Alt<A> besta = pq.poll();
+        Alt<A> bestA = pq.poll();
         final MultipleAltState<A> ms = new MultipleAltState<A>(pq);
-        Best<A> best = new Best<A>(besta.dp(), besta.x(), new Extractor<A>(ms));
+        Best<A> best = new Best<A>(bestA.dp(), bestA.x(), new Extractor<A>(ms));
 
         if (then != Empty$.MODULE$)
           return best.$plus$plus(then);
@@ -308,13 +308,9 @@ public class JavaScores {
   static public final class MultipleAltState<A> extends State<A> {
     private final PriorityQueue<Alt<A>> heap;
 
-    // List of errors, null if we've already found at least one option.
-    private List<Bad> bads;
-
     // The Alt's probability is an upper bound on the Scored returned by the functions
     protected MultipleAltState(PriorityQueue<Alt<A>> heap) {
       this.heap = heap;
-      this.bads = trackErrors ? (List)Nil$.MODULE$ : null;
     }
 
     // Current probability bound
@@ -325,11 +321,8 @@ public class JavaScores {
 
     public Scored<A> extract(final double goal) {
       do {
-        if (heap.isEmpty()) {
-          if (bads == null)
-            return (Scored<A>)Empty$.MODULE$;
-          return Scores.nestError("multiple alt failed",bads);
-        }
+        if (heap.isEmpty())
+          return (Scored<A>)Empty$.MODULE$;
         final Alt<A> s = heap.poll();
         return new Best<A>(s.dp(), s.x(), new Extractor<A>(this));
       } while (heap.isEmpty() || heap.peek().p() > goal);

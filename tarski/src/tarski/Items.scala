@@ -298,6 +298,9 @@ object Items {
     trait ClassMember extends Member {
       def parent: ClassItem
     }
+    trait ChildItem extends ClassMember { // FieldItem or MethodItem
+      def isStatic: Boolean
+    }
 
     // Values
     sealed abstract class Value extends Item {
@@ -323,10 +326,9 @@ object Items {
       def item = ty.item
       def isFinal = true
     }
-    abstract class FieldItem extends Value with ClassMember {
+    abstract class FieldItem extends Value with ChildItem {
       def inside: Type
       def item = inside.item
-      def isStatic: Boolean
     }
     case class LitValue(f: SRange => Lit) extends Value {
       private[this] val x = f(SRange.unknown)
@@ -352,9 +354,8 @@ object Items {
       def params: List[Type]
       def simple: Parent = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
     }
-    abstract class MethodItem extends CallableItem with PseudoCallableItem {
+    abstract class MethodItem extends CallableItem with PseudoCallableItem with ChildItem {
       def retVal: Type
-      def isStatic: Boolean
     }
     abstract class ConstructorItem extends CallableItem {
       def name = parent.name

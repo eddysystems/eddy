@@ -458,7 +458,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
         // find the item of that name that's in the "test" package
         scala.collection.immutable.List<Item> items = env.exactQuery(name);
         for (Item item : JavaConversions.asJavaIterable(items)) {
-          if (item.qualified().startsWith("test.")) {
+          if (item.qualified().startsWith("test.") || item instanceof Items.Local) {
             return item;
           } else {
             log("ignoring item " + item + " qualified name " + item.qualified());
@@ -491,6 +491,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
         inScope("test");
         inScope("Local");
         inScope("local_i");
+        inScope("local_k");
         inScope("test2");
 
         // check that only Local gets a ThisItem
@@ -615,6 +616,18 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testBlockYes() {
     testMargin("blockYes.java", "if (true) { new A(); A.B y; }", .9);
+  }
+
+  public void testStaticCons() {
+    testMargin("staticCons.java", "x = 7;", .9);
+  }
+
+  public void testStaticMethod() {
+    testMargin("staticMethod.java", "int x = 7;", .9);
+  }
+
+  public void testStaticThis() {
+    testMargin("staticThis.java", "this.x = 7;", .9);
   }
 
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)

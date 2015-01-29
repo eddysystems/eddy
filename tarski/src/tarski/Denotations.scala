@@ -129,16 +129,6 @@ object Denotations {
     def discards = x.discards
     def strip = MethodDen(x map (_.strip),f,fr)
   }
-  case class LocalMethodDen(f: MethodItem, fr: SRange) extends NotTypeApply {
-    def r = fr
-    def tparams = f.tparams
-    def params = f.params
-    def result = f.retVal
-    def callItem = f.retVal.item
-    def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,Map.empty)._1)
-    def discards = Nil
-    def strip = this
-  }
   case class ForwardDen(x: ThisOrSuper, xr: SRange, f: ConstructorItem) extends NotTypeApply {
     def r = xr
     def tparams = f.tparams

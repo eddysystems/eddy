@@ -8,6 +8,7 @@ import tarski.Items._
 import tarski.Scores._
 import tarski.Types.Type
 import tarski.JavaScores._
+import tarski.Environment._
 
 object Pr {
 
@@ -125,22 +126,22 @@ object Pr {
   // Unqualified values that are in or out of scope
   val inScope = Prob("in scope",1)
   val outOfScope = Prob("out of scope",.7)
-  val outOfScopeOtherClass = Prob("out of scope, other class",.3)
-  val outOfScopeOtherPackage = Prob("out of scope, other package",.1)
+  private val outOfScopeOtherClass = Prob("out of scope, other class",.3)
+  private val outOfScopeOtherPackage = Prob("out of scope, other package",.1)
+  def scope(i: ChildItem)(implicit env: Env): Prob =
+    if (env.inScope(i)) Pr.inScope
+    else if (inClass(env.place.place,i.parent)) Pr.outOfScope
+    else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeOtherClass
+    else Pr.outOfScopeOtherPackage
 
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
-  def superFieldValue(values: Scored[Exp], c: TypeItem, f: FieldItem) = Prob("super field value",.8)
+  def superDot(values: Scored[Exp], c: TypeItem, f: ChildItem) = Prob("super dot",.8)
 
-  // a field requires qualification (with obj), which requires a cast (to c), how likely is it that the user forgot the qualification?
-  def shadowedFieldValue(values: Scored[Exp], obj: Exp, c: TypeItem, f: FieldItem): Prob = fieldValue(values, obj, f)
+  // A field requires qualification (with obj), which requires a cast (to c), how likely is it that the user forgot the qualification?
+  def shadowedDot(values: Scored[Exp], obj: Exp, c: TypeItem, f: ChildItem): Prob = dot(values, obj, f)
 
-  // a field requires qualification with one of values, how likely is it that the user forgot to qualify with obj?
-  def fieldValue(values: Scored[Exp], obj: Exp, f: FieldItem) = omitQualifier(values, obj, f)
-
-  // equivalent of fieldValue, shadowedFieldValue, superFieldValue for methods
-  def methodCallable(values: Scored[Exp], obj: Exp, f: MethodItem) = omitQualifier(values, obj, f)
-  def shadowedMethodCallable(values: Scored[Exp], obj: Exp, c: TypeItem, f: MethodItem) = methodCallable(values, obj, f)
-  def superMethodCallable(values: Scored[Exp], c: TypeItem, f: MethodItem) = Prob("super method callable",.8)
+  // A field requires qualification with one of values, how likely is it that the user forgot to qualify with obj?
+  def dot(values: Scored[Exp], obj: Exp, f: ChildItem) = omitQualifier(values, obj, f)
 
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
