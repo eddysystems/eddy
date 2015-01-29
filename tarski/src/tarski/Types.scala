@@ -644,8 +644,8 @@ object Types {
     val n = ts.size
     // TODO: Handle access restrictions (public, private, protected) and scoping
     // TODO: Handle variable arity
-    def potentiallyCompatible(f: F): Boolean = f.params.size >= n && {
-      (f.params,ts).zipped forall {case (p,t) => true}} // TODO: Handle poly expression constraints
+    //def potentiallyCompatible(f: F): Boolean = f.params.size >= n && {
+    //  (f.params,ts).zipped forall {case (p,t) => true}} // TODO: Handle poly expression constraints
     def compatible(f: F, form: Inference.Form, context: (Type,Type) => Boolean): Option[List[TypeArg]] =
       if (f.tparams.isEmpty)
         if ((f.params.slice(0,ts.size),ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
@@ -660,7 +660,7 @@ object Types {
     def strictCompatible(f: F): Option[List[TypeArg]] = compatible(f,Inference.strictBounds, strictInvokeContext)
     def looseCompatible (f: F): Option[List[TypeArg]] = compatible(f,Inference.looseBounds , looseInvokeContext)
     // narrow down candidates
-    val potential = fs filter potentiallyCompatible
+    val potential = fs // fs filter potentiallyCompatible // TODO: Call potentiallyCompatible once that makes sense
     val applies = potential flatMap (f => strictCompatible(f).map((f,_)).toList) match {
       case Nil => potential flatMap (f =>  looseCompatible(f).map((f,_)).toList)
       case fs => fs
