@@ -19,9 +19,7 @@ public class SmartReadLock {
   }
 
   public void lock() {
-    // already have it?
-    if (accessToken != null)
-      return;
+    assert accessToken == null;
 
     // wait for smart mode and get a new access token
     while (true) {
@@ -44,6 +42,7 @@ public class SmartReadLock {
     assert ApplicationManager.getApplication().isReadAccessAllowed();
   }
 
+  // Safe to call in both locked and unlocked states
   public void unlock() {
     synchronized (accessTokenLock) {
       if (accessToken != null) {

@@ -174,29 +174,32 @@ public class EddyThread extends Thread {
 
   @Override
   public void run() {
+    interrupter.register();
     try {
-      interrupter.register();
       readLock.lock();
-      EddyPlugin.getInstance(project).getWidget().moreBusy();
       try {
-        eddy.process(editor, lastEditLocation, new Eddy.Take() {
-          @Override public boolean take(Eddy.Output output) {
-            EddyThread.this.output = output;
-            return cont.take(output);
-          }
-        });
-      } catch (IndexNotReadyException e) {
-        // a dumb mode started while we were running our thread, and we were not fast enough to catch it. This thread is dead. So be it.
+        EddyPlugin.getInstance(project).getWidget().moreBusy();
+        try {
+          eddy.process(editor, lastEditLocation, new Eddy.Take() {
+            @Override public boolean take(Eddy.Output output) {
+              EddyThread.this.output = output;
+              return cont.take(output);
+            }
+          });
+        } catch (IndexNotReadyException e) {
+          // a dumb mode started while we were running our thread, and we were not fast enough to catch it. This thread is dead. So be it.
+        } finally {
+          if (EddyPlugin.getInstance(project) != null && EddyPlugin.getInstance(project).getWidget() != null)
+            EddyPlugin.getInstance(project).getWidget().lessBusy();
+        }
       } finally {
-        if (EddyPlugin.getInstance(project) != null && EddyPlugin.getInstance(project).getWidget() != null)
-          EddyPlugin.getInstance(project).getWidget().lessBusy();
+        readLock.unlock();
       }
     } catch (RuntimeInterruptedException e) {
       // interrupted while sleeping or waiting inside getReadLock, ignore
     } catch (ThreadDeath e) {
       // interrupted while sleeping or waiting inside getReadLock, ignore
     } finally {
-      readLock.unlock();
       interrupter.clear();
     }
   }
