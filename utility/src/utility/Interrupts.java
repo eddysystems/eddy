@@ -22,7 +22,7 @@ public class Interrupts {
           pending--;
         }
       }
-      if (act != null)
+      if (act != null && act != sentinel)
         act.run();
     }
   }
@@ -56,6 +56,11 @@ public class Interrupts {
           pending--;
         }
       }
+    }
+    // Normally clear should be called manually, but just in case
+    protected void finalize() throws Throwable {
+      clear();
+      super.finalize();
     }
 
     // Add an action to run in the thread in which this Interrupter was registered.
