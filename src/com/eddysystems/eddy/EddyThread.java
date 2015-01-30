@@ -68,7 +68,7 @@ public class EddyThread extends Thread {
   // the thread maintains a list of these, each one represents someone who is waiting for the thread to release its read lock.
   // Whoever is waiting will call release when it's done with whatever it needed to do before we are allowed to
   static class Pause {
-    private boolean _active = false;
+    private boolean _active = true;
     synchronized void release() {
       _active = false;
       this.notifyAll();
@@ -88,38 +88,34 @@ public class EddyThread extends Thread {
     if (thread == null)
       return null;
 
-    synchronized (thread) {
-      // make a new pause object and make sure it's registered
-      Pause w = new Pause();
-      boolean doRegister;
-      synchronized (thread.waiting) {
-        doRegister = thread.waiting.empty();
-        thread.waiting.push(w);
-      }
-
-      if (doRegister)
+    // make a new pause object and make sure it's registered
+    final Pause w = new Pause();
+    synchronized (thread.waiting) {
+      if (thread.waiting.empty())
         thread.interrupter.add(new Runnable() {
           public void run() {
             // relinquish control of read access token
             thread.readLock.unlock();
             // cede control until all Pause objects have been released
             try {
-              final Pause pause;
-              synchronized (thread.waiting) {
-                pause = thread.waiting.pop();
+              for (;;) {
+                final Pause pause;
+                synchronized (thread.waiting) {
+                  if (thread.waiting.isEmpty())
+                    break;
+                  pause = thread.waiting.pop();
+                }
+                pause.finish();
               }
-              pause.finish();
-            } catch (EmptyStackException e) {
-              // we're done.
             } catch (InterruptedException e) {
               throw new ThreadDeath();
             }
             thread.readLock.lock();
           }
         });
-
-      return w;
+      thread.waiting.push(w);
     }
+    return w;
   }
 
   // kills the currently active thread, if any
