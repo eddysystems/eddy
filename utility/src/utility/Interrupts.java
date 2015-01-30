@@ -14,7 +14,7 @@ public class Interrupts {
   public static void checkInterrupts() {
     final Interrupter I = interrupters.get();
     if (I != null && I.actions != null) { // Check first outside the lock
-      Runnable act;
+      final Runnable act;
       synchronized (interrupters) { // Check again inside the lock
         act = I.actions;
         if (act != null && act != sentinel) {
