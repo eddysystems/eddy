@@ -8,9 +8,13 @@ import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Computable;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.java.stubs.index.JavaFullClassNameIndex;
+import com.intellij.psi.impl.java.stubs.index.JavaShortClassNameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.PsiShortNamesCache;
+import com.intellij.psi.stubs.StubIndex;
+import com.intellij.psi.stubs.StubIndexImpl;
 import com.intellij.util.Processor;
 import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
@@ -19,6 +23,7 @@ import scala.NotImplementedError;
 import tarski.*;
 
 import java.util.*;
+import java.util.concurrent.locks.Lock;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static com.eddysystems.eddy.engine.Utility.logError;
@@ -351,6 +356,11 @@ public class JavaEnvironment {
 
   private void storeProjectClassInfo(List<String> classNames, @Nullable ProgressIndicator indicator) {
     pushScope("store project classes");
+
+    // Prepare to grab index write locks to avoid crazy deadlocks.  This is a terrible hack around broken OPC.
+    final Lock fqnLock = ((StubIndexImpl)StubIndex.getInstance())
+      .getWriteLock(JavaFullClassNameIndex.getInstance().getKey());
+
     try {
       final GlobalSearchScope scope = ProjectScope.getContentScope(project);
       final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
@@ -358,12 +368,15 @@ public class JavaEnvironment {
       final Processor<PsiClass> proc = new Processor<PsiClass>() {
         @Override
         public boolean process(final PsiClass cls) {
+          fqnLock.lock();
           try {
             converter.addClass(cls, true);
           } catch (AssertionError e) {
             // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
             if (utility.Utility.fromScalaPlugin(e)) logError("storeProjectClassInfo()",e);
             else throw e;
+          } finally {
+            fqnLock.unlock();
           }
           return true;
         }
@@ -371,9 +384,8 @@ public class JavaEnvironment {
 
       final Utility.SmartReadLock lock = new Utility.SmartReadLock(project);
       int i = 0;
-      double n = classNames.size();
+      final double n = classNames.size();
       try {
-        long lockTime;
         for (final String s : classNames) {
           if (indicator != null) {
             indicator.checkCanceled();
@@ -385,7 +397,6 @@ public class JavaEnvironment {
           while (!done) {
             done = true;
             lock.acquire();
-            lockTime = System.nanoTime();
             try {
               cache.processClassesWithName(s, proc, scope, filter);
             } catch (AssertionError e) {
