@@ -166,7 +166,7 @@ public class JavaScores {
           as = ((LazyScored<A>)as).force(limit);
           continue;
         } else if (as instanceof Best) {
-          final Best<A> ab = (Best<A>)this.as;
+          final Best<A> ab = (Best<A>)as;
           as = ab.r();
           if (bs == null)
             bs = new PriorityQueue<Biased<B>>();
@@ -288,19 +288,29 @@ public class JavaScores {
             return (Scored<A>)Empty$.MODULE$;
           return Scores.nestError("multiple failed",bads);
         }
+
         final Scored<A> s = heap.poll();
         if (s instanceof LazyScored) {
           final double limit = max(goal,p());
           heap.add(((LazyScored<A>)s).force(limit));
+
+          // did we produce something?
+          if (heap.peek() instanceof Best) {
+            final Best<A> b = (Best<A>)heap.poll();
+            bads=null;
+            heap.add(b.r());
+            return new Best<A>(b.dp(),b.x(),new Extractor<A>(this));
+          }
         } else if (s instanceof Best) {
           bads = null; // We've found at least one option, so no need to track errors
           final Best<A> b = (Best<A>)s;
           heap.add(b.r());
           return new Best<A>(b.dp(),b.x(),new Extractor<A>(this));
-        } else if (bads != null)
-          bads = $colon$colon$.MODULE$.<Bad>apply((Bad)s,bads);
-      } while (heap.isEmpty() || heap.peek().p() > goal);
-      // If we hit goal without finding an option, return more laziness
+        } else if (s instanceof Bad) {
+          if (bads != null)
+            bads = $colon$colon$.MODULE$.<Bad>apply((Bad)s,bads);
+        }
+      } while (p() > goal);
       return new Extractor<A>(this);
     }
   }
@@ -522,9 +532,9 @@ public class JavaScores {
               continue;
             } else
               s = new LazyProductWith<A,B,C>(x,y,f);
-          } else if (x instanceof EmptyOrBad)
+          } else if (x instanceof EmptyOrBad) {
             s = (Scored)x;
-          else {
+          } else {
             final Best<A> _x = (Best<A>)x;
             final double xp = _x.p();
             final double py = pdiv(p,xp);
