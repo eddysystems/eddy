@@ -100,10 +100,12 @@ class EddyHintLabel extends JPanel {
       + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(
           auto ? IdeActions.ACTION_EDITOR_ENTER : IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
 
-    final HintHint hintHint = new HintHint().setTextBg(auto ? AUTOAPPLY_COLOR : QUESTION_COLOR)
-      .setTextFg(JBColor.foreground())
-      .setFont(UIUtil.getLabelFont().deriveFont(Font.BOLD))
-      .setAwtTooltip(true);
+    final HintHint hintHint = new HintHint()
+            .setTextBg(auto ? AUTOAPPLY_COLOR : QUESTION_COLOR)
+            .setTextFg(JBColor.foreground())
+            .setFont(UIUtil.getLabelFont()
+            .deriveFont(Font.BOLD))
+            .setAwtTooltip(true);
 
     final EddyHintLabel label = new EddyHintLabel();
     label.setIcon(EddyWidget.getIcon());
