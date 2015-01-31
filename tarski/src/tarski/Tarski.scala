@@ -43,7 +43,7 @@ object Tarski {
 
   // (show(s),s.toString,fullFormat,abbrevFormat) for a list of statements s.
   // Once we convert Stmt to ShowStmts, Env can be discarded.
-  case class ShowStmts(show: String, den: String, full: String, abbrev: String, fullTokens: List[Loc[Token]]) {
+  case class ShowStmts(ss: List[Stmt], show: String, den: String, full: String, abbrev: String, fullTokens: List[Loc[Token]]) {
     // Compare ignoring locations and whitespace
     def similar(ts: List[Loc[Token]]): Boolean = {
       def strip(ts: List[Loc[Token]]): List[Token] = ts collect { case Loc(t,_) if !isSpace(t) => t }
@@ -97,7 +97,7 @@ object Tarski {
       val sentinel = show(ss)(Pretty.prettyStmts,sentinelShowFlags).trim
       val tokens   = insertSpaces(Pretty.tokens(ss)(Pretty.prettyStmts),sp)
       val full     = Tokens.print(tokens map (_.x))(fullShowFlags)
-      ShowStmts(show=abbrev,den=ss.toString,
+      ShowStmts(ss=ss,show=abbrev,den=ss.toString,
         full=format(full,fullShowFlags),
         abbrev=ShowFlags.replaceSentinels(format(sentinel,sentinelShowFlags)).replaceAll("""\s+"""," "),
         fullTokens=tokens)
