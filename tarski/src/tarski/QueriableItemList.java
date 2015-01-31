@@ -48,7 +48,7 @@ public class QueriableItemList implements Tries.Queriable<Items.Item> {
       String meant = item.name();
       if (meant.equals(typed))
         continue;
-      double p = Pr.typoProbability(meant,typed);
+      double/*Prob*/ p = Pr.typoProbability(meant,typed);
       if (p > Pr.minimumProbability())
         _altResults.add(new Scores.Alt<Items.Item>(p,item));
     }
