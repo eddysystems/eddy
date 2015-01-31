@@ -189,6 +189,12 @@ object Semantics {
 
   @inline def denoteExp   (e: AExp, expects: Option[Type] = None)(implicit env: Env): Scored[Exp] = denote(e,ExpMode,expects).asInstanceOf[Scored[Exp]]
   @inline def denoteType  (e: AExp)(implicit env: Env): Scored[TypeDen]   = denote(e,TypeMode).asInstanceOf[Scored[TypeDen]]
+  @inline def denoteRawRefType (e: AExp)(implicit env: Env): Scored[TypeDen] = denoteType(e) flatMap {
+    case x@TypeDen(ds,t@(ObjectType|RawType(_,_)|SimpleType(_,_))) => known(x)
+    case TypeDen(ds,t@GenericType(item,_,p)) => single(TypeDen(ds,t), Pr.discardTypeArgsForInstanceOf)
+    case TypeDen(ds,t:PrimType) => single(TypeDen(ds,t.box), Pr.boxInstanceOf)
+    case TypeDen(ds,t) => fail(s"instanceof $t not legal")
+  }
   @inline def denoteParent(e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
   @inline def denoteNew   (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
 
@@ -357,7 +363,7 @@ object Semantics {
     }
 
     // TODO: handle final for classes, and implicitly final classes such as enums
-    case InstanceofAExp(e,ir,t) if m.exp => product(denoteRef(e),denoteType(t)) flatMap { case (x,TypeDen(ds,y)) => {
+    case InstanceofAExp(e,ir,t) if m.exp => product(denoteRef(e),denoteRawRefType(t)) flatMap { case (x,TypeDen(ds,y)) => {
       val den = InstanceofExp(x,ir,y,t.r).discard(ds)
       if (isSubtype(x.ty,y)) single(den, Pr.trueInstanceofExp) // x is subtype of y => always true
       else if (isProperSubtype(y,x.ty)) known(den) // y is subtype of x => proper test

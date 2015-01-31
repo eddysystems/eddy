@@ -179,6 +179,8 @@ object Pr {
   val unaryExp = base // should be a function of operator and types
   val trueInstanceofExp = Prob("true instanceof test",.5)
   val falseInstanceofExp = Prob("false instanceof test",.5)
+  val discardTypeArgsForInstanceOf = Prob("drop typeargs for instanceof",.9)
+  val boxInstanceOf = Prob("box primitive type for instanceof",.1)
   val binaryExpCastZero = Prob("binary cast zero",.1) // Replace x == 0 with x == null or x == false
   val castExp = base // should be a function of from/to types
   val condExp = base // should be a function of inside types
