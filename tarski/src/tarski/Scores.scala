@@ -112,7 +112,7 @@ object Scores {
     // May return another LazyScored, usually with lower probability.  Optionally continue until prob <= p.
     def force(hi: Double): Scored[A]
 
-    def _bias(p: Prob): Scored[A] = new LazyBias(this,p)
+    override def _bias(p: Prob): Scored[A] = new LazyBias(this,p)
     def ++[B >: A](s: Scored[B]): Scored[B] =
       if (p >= s.p) new LazyPlus(this,s)
       else s match {
@@ -150,9 +150,9 @@ object Scores {
 
   // One best possibility, then lazily more
   final case class Best[+A](dp: Prob, x: A, r: Scored[A]) extends StrictScored[A] {
-    def p = pp(dp)
-    def _bias(q: Prob) = Best(pmul(dp,q),x,r _bias q)
-    def ++[B >: A](s: Scored[B]): Scored[B] =
+    override def p = pp(dp)
+    override def _bias(q: Prob) = Best(pmul(dp,q),x,r _bias q)
+    override def ++[B >: A](s: Scored[B]): Scored[B] =
       if (p >= s.p) Best(dp,x,r ++ s)
       else s match {
         case x:LazyScored[B] => new LazyPlus(x,this)
