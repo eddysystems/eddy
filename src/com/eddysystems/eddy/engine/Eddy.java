@@ -184,6 +184,15 @@ public class Eddy {
     public int rawApply(final @NotNull Document document, final @NotNull String code) {
       final int offsetDiff = code.length() - input.range.getLength();
       document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
+
+      // reindent
+      CodeStyleManager csm = CodeStyleManager.getInstance(eddy.project);
+      int sline = document.getLineNumber(input.range.getStartOffset());
+      int fline = document.getLineNumber(input.range.getEndOffset() + offsetDiff);
+      for (int i = sline; i <= fline; ++i) {
+        csm.adjustLineIndent(document, document.getLineStartOffset(i));
+      }
+
       Memory.log(Memory.eddyAutoApply(eddy.base,Memory.now(),input.input,results,code));
       return offsetDiff;
     }

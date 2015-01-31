@@ -228,11 +228,11 @@ class EnvironmentProcessor {
       if (element instanceof PsiClass)
         classes.add(new Shadow<PsiClass>((PsiClass)element,currentLevel));
       else if (element instanceof PsiVariable)
-        variables.add(new Shadow<PsiVariable>((PsiVariable)element,currentLevel));
+        variables.add(new Shadow<PsiVariable>((PsiVariable) element, currentLevel));
       else if (element instanceof PsiMethod)
-        methods.add(new Shadow<PsiMethod>((PsiMethod)element,currentLevel));
+        methods.add(new Shadow<PsiMethod>((PsiMethod) element, currentLevel));
       else if (element instanceof PsiPackage)
-        packages.add(new Shadow<PsiPackage>((PsiPackage)element,currentLevel));
+        packages.add(new Shadow<PsiPackage>((PsiPackage) element, currentLevel));
       return true;
     }
 
