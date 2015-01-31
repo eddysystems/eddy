@@ -35,10 +35,9 @@ object ArgMatching {
         def add(x: Exp, xs: List[Scored[Exp]]): Scored[A] = {
           val args = used :+ x
           val tys = args map (_.ty)
-          resolveOptions(List(f),tys,if (xs.isEmpty) expects else None) match {
-            case Nil => fail(s"Can't apply $f to prefix ${tys mkString ", "}")
-            case List((f0,ts)) if f eq f0 => process(k+1,ts,args,xs)
-            case _ => impossible
+          resolveOption(f,tys,if (xs.isEmpty) expects else None) match {
+            case None => fail(s"Can't apply $f to prefix ${tys mkString ", "}")
+            case Some(ts) => process(k+1,ts,args,xs)
           }
         }
         type Opts = List[Scored[A]]
@@ -67,10 +66,9 @@ object ArgMatching {
     }
     def processNullary: Scored[A] = // Special case nullary functions to make sure we do at least one inference round
       if (f.tparams.size == 0) cont(ApplyExp(f,Nil,a,auto),args)
-      else resolveOptions(List(f),Nil,if (args.isEmpty) expects else None) match {
-        case Nil => fail(s"Can't apply $f to no arguments")
-        case List((f0,ts)) if f eq f0 => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts,a,hide=true),Nil,a,auto),args)
-        case _ => impossible
+      else resolveOption(f,Nil,if (args.isEmpty) expects else None) match {
+        case None => fail(s"Can't apply $f to no arguments")
+        case Some(ts) => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts,a,hide=true),Nil,a,auto),args)
       }
     if (!useEnv && n > na) fail(s"Too few arguments for function $f: $na < $n")
     else orError(biased(Pr.dropArgs(math.max(0,na-n)),if (n>0) process(0,null,Nil,args) else processNullary),

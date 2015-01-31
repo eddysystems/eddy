@@ -11,6 +11,7 @@ import com.intellij.ui.LightweightHint;
 import com.intellij.ui.SimpleColoredComponent;
 import com.intellij.util.ui.Html;
 import com.intellij.util.ui.UIUtil;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
@@ -50,7 +51,7 @@ class EddyHintLabel extends JPanel {
     clearText();
 
     if (text != null) {
-      Html html = new Html(text).setKeepFont(true);
+      final Html html = new Html(StringEscapeUtils.escapeHtml(text)).setKeepFont(true);
       myPane = IdeTooltipManager.initPane(html, hintHint, null);
       add(myPane, BorderLayout.CENTER);
     }

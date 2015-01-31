@@ -59,8 +59,8 @@ object Environment {
     def place: PlaceInfo
     def move(to: PlaceInfo): Env
 
-    // return a new environment with one more item in it
-    def extend(item: Item, scope: Int): Env
+    // A new environment with one more item in it
+    def add(item: Item, scope: Int): Env
 
     // Only for tests!
     // Add more objects
@@ -100,7 +100,7 @@ object Environment {
               case (Nil,Nil,Nil) => (env,as.reverse)
               case (n::ns,t::ts,f::fs) =>
                 val x = NormalLocal(n,t,isFinal)
-                val e = env.extend(x,0)
+                val e = env.add(x,0)
                 loop(f(env,x)::as,e,ns,ts,fs)
               case _ => impossible
             }
@@ -126,7 +126,7 @@ object Environment {
         else {
           val x = if (isStatic) NormalStaticFieldItem(name,t,c,isFinal)
                   else                NormalFieldItem(name,t,c,isFinal)
-          known((extend(x,0),x))
+          known((add(x,0),x))
         }
       case _ => fail("Cannot declare fields outside of class or interface declarations.")
     }
@@ -218,7 +218,7 @@ object Environment {
     }
 
     // return a new environment with one more item in it (doesn't recompute tries)
-    override def extend(item: Item, scope: Int): Env =
+    override def add(item: Item, scope: Int): Env =
       ThreeEnv(sTrie,dTrie,vTrie,added.add(item),dByItem,vByItem,this.scope+(item->scope),place)
 
     // Add more objects (makes a new vTrie and valuesByItem, clears out added)
@@ -267,7 +267,7 @@ object Environment {
     def allLocalItems: Array[Item] = trie1.values
 
     // Add some new things to an existing environment
-    def extend(item: Item, scope: Int) = extend(Array(item), Map(item->scope))
+    def add(item: Item, scope: Int) = extend(Array(item), Map(item->scope))
     def extend(things: Array[Item], scope: Map[Item,Int]) =
       TwoEnv(trie0,trie1++things,
              byItem0,valuesByItem(trie1.values++things),

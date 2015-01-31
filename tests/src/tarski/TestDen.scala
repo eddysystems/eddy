@@ -217,7 +217,7 @@ class TestDen {
   def arrayLiteral(): Unit = {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = NormalMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)),isStatic=true)
-    implicit val env = localEnvWithBase().extend(Array(Main,f),Map((Main,2),(f,2))).move(PlaceInfo(f))
+    implicit val env = localEnvWithBase().extend(Array(Main,f),Map(Main->2,f->2)).move(PlaceInfo(f))
     test("f({1,2,3,4})", ApplyExp(f,List(ArrayExp(IntType,List(1,2,3,4),a)),a,auto=false))
   }
 
