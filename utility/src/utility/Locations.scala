@@ -9,6 +9,7 @@ object Locations {
 
   // Single source location
   class SLoc(val raw: Int) extends AnyVal {
+    def < (x: SLoc) = raw <  x.raw
     def <=(x: SLoc) = raw <= x.raw
     def +(d: Int) = SLoc(raw+d)
     def -(d: Int) = SLoc(raw-d)
@@ -52,7 +53,7 @@ object Locations {
 
     def contains(x: SLoc): Boolean = lo.raw <= x.raw && x.raw < hi.raw
     private def known: Boolean = this != SRange.unknown
-    private def normal: Boolean = this != SRange.unknown && this != SRange.empty
+    def normal: Boolean = this != SRange.unknown && this != SRange.empty
     override def toString = if (!known) "SRange.unknown"
                             else if (this == SRange.empty) "SRange.empty"
                             else s"SRange(${lo.raw},${hi.raw})"

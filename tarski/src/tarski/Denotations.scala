@@ -673,8 +673,10 @@ object Denotations {
   }
 
   def addSemi(s: Stmt, sr: SRange): Stmt = s match {
+    // If we're adding a semi, the desired location overrides an existing one
+    case SemiStmt(x,_) => SemiStmt(s,sr)
     // Some statements need no semicolon
-    case _:SemiStmt|_:BlockStmt|_:SyncStmt|_:TryStmt => s
+    case _:BlockStmt|_:SyncStmt|_:TryStmt => s
     case TokStmt(t,_,_) if t.isBlock => s
     // For if and similar, add a semicolon to the last substatement
     case IfStmt(ir,c,a,x) => IfStmt(ir,c,a,addSemi(x,sr))
@@ -686,7 +688,7 @@ object Denotations {
     case MultipleStmt(b) => MultipleStmt(b.init ::: List(addSemi(b.last,sr)))
     // Otherwise, add a semicolon
     case _:EmptyStmt|_:HoleStmt|_:VarStmt|_:ExpStmt|_:AssertStmt|_:BreakStmt|_:ContinueStmt
-        |_:ReturnStmt|_:ThrowStmt|_:DoStmt|_:TokStmt => SemiStmt(s,s.r.after)
+        |_:ReturnStmt|_:ThrowStmt|_:DoStmt|_:TokStmt => SemiStmt(s,sr)
   }
 
   // Find all locals declared somewhere in here

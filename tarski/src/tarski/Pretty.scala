@@ -177,6 +177,15 @@ object Pretty {
     case List(x) => pretty(x)._2
     case x::y => non(s,x) ::: Loc(sep,x.r.after) :: separateAfter[A](y,s,sep)
   }
+  def separateSingle[A <: HasRange](xs: List[A], s: Fixity, sep: Token)(implicit p: Pretty[A]): Tokens = xs match {
+    case Nil => Nil
+    case List(x) => pretty(x)._2
+    case x::y =>
+      var rs = x.r.after
+      if (rs.normal && rs.size == 0 && y.nonEmpty && rs.hi < y.head.r.lo)
+        rs = SRange(rs.lo,rs.lo+1)
+      non(s,x) ::: Loc(sep,rs) :: separateSingle[A](y,s,sep)
+  }
   def separate[A <: HasRange](xs: List[A], s: Fixity, sep: Token, rs: List[SRange])(implicit p: Pretty[A]): Tokens = (xs,rs) match {
     case (Nil,Nil) => Nil
     case (List(x),Nil) => pretty(x)._2
@@ -184,7 +193,7 @@ object Pretty {
     case _ => impossible
   }
   def commasApprox[A](xs: List[A], r: SRange)(implicit p: Pretty[A]): Tokens = separateApprox(xs,CommaListFix,CommaTok,r)
-  def commas[A <: HasRange](xs: List[A])(implicit p: Pretty[A]): Tokens = separateAfter(xs,CommaListFix,CommaTok)
+  def commas[A <: HasRange](xs: List[A])(implicit p: Pretty[A]): Tokens = separateSingle(xs,CommaListFix,CommaTok)
   def andsApprox[A](xs: List[A], r: SRange)(implicit p: Pretty[A]): FixTokens = (AndListFix,separateApprox(xs,AndListFix,AndTok,r))
   def ands[A <: HasRange](xs: List[A])(implicit p: Pretty[A]): FixTokens = (AndListFix,separateAfter(xs,AndListFix,AndTok))
   implicit def prettyList[A <: HasRange](k: KList[A])(implicit p: Pretty[A]): FixTokens = k match {
