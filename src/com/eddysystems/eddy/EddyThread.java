@@ -32,7 +32,7 @@ public class EddyThread extends Thread {
   Eddy.Output output = null;
 
   // Cancelation flags
-  private boolean softInterrupts = false;
+  private int softInterrupts = 0;
   private boolean _canceled = false;
 
   EddyThread(final @NotNull Project project, final @NotNull Editor editor, final int lastEditLocation, final Eddy.Take cont) {
@@ -136,17 +136,21 @@ public class EddyThread extends Thread {
     return _canceled;
   }
 
-  public synchronized void setSoftInterrupts(final boolean on) {
-    if (softInterrupts == on)
-      return;
-    softInterrupts = on;
-
-    // if we switch to soft interrupts and we were interrupted, kill the thread now
-    if (on && isInterrupted())
+  public synchronized void pushSoftInterrupts() {
+    // If we switch to soft interrupts and we were interrupted, kill the thread now
+    if (softInterrupts==0 && isInterrupted())
       throw new ThreadDeath();
 
-    // if we switch back to hard interrupts and we tried interrupting before, interrupt now.
-    if (!on && _canceled)
+    softInterrupts++;
+  }
+
+  // Always call from a finally block
+  public synchronized void popSoftInterrupts() {
+    assert softInterrupts > 0;
+    softInterrupts--;
+
+    // If we switch back to hard interrupts and we tried interrupting before, interrupt now.
+    if (softInterrupts==0 && _canceled)
       hardInterrupt();
   }
 
@@ -154,7 +158,7 @@ public class EddyThread extends Thread {
     if (_canceled)
       return;
     _canceled = true;
-    if (softInterrupts)
+    if (softInterrupts > 0)
       log("soft interrupting " + this.getName());
     else
       hardInterrupt();
