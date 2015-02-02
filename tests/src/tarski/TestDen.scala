@@ -1133,4 +1133,12 @@ class TestDen {
     implicit val env = localEnvWithBase().extend(Array(logA,logB),Map(logA->1))
     test("log",ApplyExp(MethodDen(None,logA,r),Nil,a,auto=true),margin=.2)
   }
+
+  @Test def avoidVoid() = {
+    val A = NormalClassItem("A")
+    val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=true)
+    implicit val env = localEnvWithBase(f)
+    testFail("void x = f()")
+    testFail("int x = f()")
+  }
 }

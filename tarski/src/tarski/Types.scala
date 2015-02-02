@@ -51,17 +51,18 @@ object Types {
     def isFinal = true
     def known(implicit env: Tenv) = true
     def substitute(implicit env: Tenv): this.type = this
-    def safe = Some(this)
     def raw = this
     def captureAll = this
   }
   case object VoidType extends LangType {
     def name = "void"
     def item = ubVoidItem
+    def safe = None
   }
 
   // Primitive types
   sealed abstract class PrimType extends LangType {
+    def safe = Some(this)
     override def unbox = Some(this)
     def box: SimpleType
     def isIntegral: Boolean
