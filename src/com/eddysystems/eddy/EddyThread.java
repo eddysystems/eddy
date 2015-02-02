@@ -66,52 +66,49 @@ public class EddyThread extends Thread {
   }
 
   // Number of active pauses, and a lock to wait on
-  private int pauses = 0;
-  private final Object pauseLock = new Object();
+  private static int pauses = 0;
+  private static final Object pauseLock = new Object();
 
   // Pause the current eddy thread to wait for a write action
   public static void pause() {
-    // The eddy thread has a read access token. Release it to let a write action start, then grab a new one.
-    final EddyThread thread = currentThread;
-    if (thread == null)
-      return;
-
     // Increment the pauses counter and register an action if we're the first
-    synchronized (thread.pauseLock) {
-      if (thread.pauses == 0)
-        thread.interrupter.add(new Runnable() {
-          public void run() {
-            // relinquish control of read access token
-            thread.readLock.unlock();
-            // cede control until all pauses complete
-            try {
-              synchronized (thread.pauseLock) {
-                while (thread.pauses > 0)
-                  thread.pauseLock.wait();
-              }
-            } catch (InterruptedException e) {
-              throw new ThreadDeath();
-            }
-            thread.readLock.lock();
-          }
-        });
-      thread.pauses++;
+    final boolean register;
+    synchronized (pauseLock) {
+      register = pauses == 0;
+      pauses++;
+    }
+    if (register) {
+      final EddyThread thread = currentThread;
+      if (thread != null)
+        thread.interrupter.add(new Runnable() { public void run() {
+          thread.readLock.unlock();
+          pauseWait();
+          thread.readLock.lock();
+        }});
+    }
+  }
+
+  // Cede control until all pauses complete
+  private static void pauseWait() {
+    assert !ApplicationManager.getApplication().isReadAccessAllowed();
+    try {
+      synchronized (pauseLock) {
+        while (pauses > 0)
+          pauseLock.wait();
+      }
+    } catch (InterruptedException e) {
+      throw new ThreadDeath();
     }
   }
 
   // Must be called *at least* once for each call to pause()
   public static void unpause() {
-    final EddyThread thread = currentThread;
-    if (thread == null)
-      return;
-    synchronized (thread.pauseLock) {
+    synchronized (pauseLock) {
       // Decrement the pauses counter and notify if we hit zero.
-      // We allow extra calls to unpause so that the thread can change between pause()/unpause() pairs.
-      if (thread.pauses > 0) {
-        thread.pauses--;
-        if (thread.pauses == 0)
-          thread.pauseLock.notify();
-      }
+      assert pauses > 0;
+      pauses--;
+      if (pauses == 0)
+        pauseLock.notify();
     }
   }
 
@@ -173,6 +170,7 @@ public class EddyThread extends Thread {
   public void run() {
     interrupter.register();
     try {
+      pauseWait();
       readLock.lock();
       try {
         EddyPlugin.getInstance(project).getWidget().moreBusy();
