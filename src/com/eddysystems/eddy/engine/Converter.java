@@ -244,16 +244,18 @@ class Converter {
 
    protected interface PsiEquivalent {
      PsiElement psi();
-   }
 
-   protected interface ReferencingItem {
-     // eliminate the reference to it (by flushing caches, to be replaced)
+     // eliminate the reference to it (by flushing caches, to be replaced), if the reference is still valid,
+     // the item can still be used wherever its name doesn't matter (for instance, as a parent).
      // returns whether found the item anywhere where it may affect inheritance (namely, in _superItems)
-     boolean flushReference(Item it);
+     boolean flushReference(Item it, boolean stillValid);
 
      // check for UnresolvedClassItem and replace reference to it if it is now resolved
      // returns whether things were replaced that may affects inheritance (namely, in _superItems)
      boolean fillUnresolvedReferences();
+
+     // refresh the cached name, if it was cached at all
+     public void refreshName();
    }
 
    // utility functions to be used by fillUnresolvedReferences (would be in ReferencingItem if Java allowed it)
@@ -331,7 +333,7 @@ class Converter {
      }
    }
 
-   static protected class UnknownContainerItem extends UnknownContainerItemBase implements PsiEquivalent, CachedNameItem {
+   static protected class UnknownContainerItem extends UnknownContainerItemBase implements PsiEquivalent {
 
      final PsiElement elem;
      final Converter converter;
@@ -358,14 +360,24 @@ class Converter {
       }
 
      @Override
+     public boolean flushReference(Item it, boolean stillValid) {
+       return false;
+     }
+
+     @Override
+     public boolean fillUnresolvedReferences() {
+       return false;
+     }
+
+     @Override
      public Items.Package pkg() { return (Items.Package)converter.addContainer(Place.getElementPackage(elem, converter.project)); }
    }
 
-   static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent, CachedNameItem, SettableFinalItem, SettableStaticItem {
+   static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent, SettableFinalItem, SettableStaticItem, SettableParentItem {
      @NotNull final Converter env;
      @NotNull final PsiClassReferenceType cls;
 
-     @NotNull final Parent _parent;
+     @NotNull Parent _parent;
      boolean _isFinal = false;
      boolean _isStatic = false;
      scala.collection.immutable.List<TypeArg> _targs;
@@ -443,6 +455,19 @@ class Converter {
         return cls.getReference();
       }
 
+     @Override
+     public boolean flushReference(Item it, boolean stillValid) {
+       if (!stillValid && _parent == it)
+         throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
+
+       return false;
+     }
+
+     @Override
+     public boolean fillUnresolvedReferences() {
+       return false;
+     }
+
      public void setFinal(boolean f) {
         _isFinal = f;
      }
@@ -450,10 +475,15 @@ class Converter {
      public void setStatic(boolean f) {
         _isStatic = f;
       }
+
+     @Override
+     public void changeParentItem(ParentItem p) {
+       _parent = p.inside();
+     }
    }
 
 
-   protected static class LazyTypeVar extends TypeVar implements PsiEquivalent, ReferencingItem, CachedNameItem, CachedSupersItem {
+   protected static class LazyTypeVar extends TypeVar implements PsiEquivalent, CachedSupersItem {
      private final Converter env;
      private final PsiTypeParameter p;
 
@@ -505,7 +535,7 @@ class Converter {
 
      public void refreshName() {} // we don't actually cache the name
 
-     public boolean flushReference(Item it) {
+     public boolean flushReference(Item it, boolean stillValid) {
        if (_hi != null && _hi.item() == it) {
          _hi = null;
        }
@@ -535,9 +565,9 @@ class Converter {
      public boolean accessible(Environment.PlaceInfo info) {
        if (info.place() != _place) {
          _place = info.place();
-         if (info.place() instanceof PsiEquivalent && p.getOwner() != null) {
+         if (info.place() instanceof com.eddysystems.eddy.engine.Converter.PsiEquivalent && p.getOwner() != null) {
            // Type variables are visible exactly if we are inside their owner
-           _accessible =  PsiTreeUtil.isAncestor(p.getOwner(), ((PsiEquivalent) _place).psi(), false);
+           _accessible =  PsiTreeUtil.isAncestor(p.getOwner(), ((com.eddysystems.eddy.engine.Converter.PsiEquivalent) _place).psi(), false);
          } else {
            //log("can't determine whether " + this + " is accessible from " + info.place());
            _accessible = false;
@@ -564,10 +594,10 @@ class Converter {
      }
    }
 
-   static protected class LazyClass extends ClassItem implements PsiEquivalent, ReferencingItem, CachedNameItem, CachedConstructorsItem, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem, SettableStaticItem {
+   static protected class LazyClass extends ClassItem implements PsiEquivalent, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem, SettableStaticItem, SettableParentItem {
      private final Converter env;
      private final PsiClass cls;
-     private final ParentItem _parent;
+     private ParentItem _parent;
      private boolean _isFinal;
      private boolean _isStatic;
      private String _name;
@@ -740,10 +770,10 @@ class Converter {
 
      public void refreshName() {
         _name = cls.getName();
-      }
+     }
 
-     public boolean flushReference(Item it) {
-       if (_parent != null && _parent == it)
+     public boolean flushReference(Item it, boolean stillValid) {
+       if (!stillValid && _parent != null && _parent == it)
          throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
 
        if (_base != null && _base.item() == it)
@@ -785,14 +815,19 @@ class Converter {
      public boolean accessible(Environment.PlaceInfo info) {
        if (info.place() != _place) {
          _place = info.place();
-         if (info.place() instanceof PsiEquivalent) {
-           _accessible = !new Place(env.project, ((PsiEquivalent) _place).psi()).isInaccessible(cls);
+         if (info.place() instanceof com.eddysystems.eddy.engine.Converter.PsiEquivalent) {
+           _accessible = !new Place(env.project, ((com.eddysystems.eddy.engine.Converter.PsiEquivalent) _place).psi()).isInaccessible(cls);
          } else {
            log("can't determine whether " + this + " is accessible from " + info.place());
            _accessible = false;
          }
        }
        return _accessible;
+     }
+
+     @Override
+     public void changeParentItem(ParentItem p) {
+       _parent = p;
      }
    }
 
@@ -875,7 +910,7 @@ class Converter {
      return scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
    }
 
-   protected static class LazyConstructor extends ConstructorItem implements PsiEquivalent, ReferencingItem, CachedTypeParametersItem, CachedParametersItem {
+   protected static class LazyConstructor extends ConstructorItem implements PsiEquivalent, CachedTypeParametersItem, CachedParametersItem, SettableParentItem {
      private final Converter env;
      private final PsiMethod method;
 
@@ -918,8 +953,8 @@ class Converter {
             _params = null;
           }
 
-     public boolean flushReference(Item it) {
-       if (_parent != null && _parent == it)
+     public boolean flushReference(Item it, boolean stillValid) {
+       if (!stillValid && _parent != null && _parent == it)
          throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
 
        if (it instanceof TypeVar && _tparams != null && _tparams.contains(it))
@@ -941,6 +976,14 @@ class Converter {
        return false;
      }
 
+     @Override
+     public void refreshName() { /* not caching */ }
+
+     @Override
+     public void changeParentItem(ParentItem item) {
+       _parent = (ClassItem)item;
+     }
+
      public PsiElement psi() {
             return method;
           }
@@ -957,7 +1000,7 @@ class Converter {
      }
    }
 
-   protected static class LazyMethod extends MethodItem implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableStaticItem, CachedTypeParametersItem, CachedParametersItem, CachedReturnTypeItem {
+   protected static class LazyMethod extends MethodItem implements PsiEquivalent, SettableStaticItem, CachedTypeParametersItem, CachedParametersItem, CachedReturnTypeItem, SettableParentItem {
      final Converter env;
      final PsiMethod method;
      private String _name;
@@ -1032,8 +1075,8 @@ class Converter {
             _name = method.getName();
           }
 
-     public boolean flushReference(Item it) {
-       if (_parent != null && _parent == it)
+     public boolean flushReference(Item it, boolean stillValid) {
+       if (!stillValid && _parent != null && _parent == it)
          throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
 
        if (it instanceof TypeVar && _tparams != null &&  _tparams.contains(it))
@@ -1063,6 +1106,10 @@ class Converter {
 
      public PsiElement psi() {
        return method;
+     }
+
+     @Override public void changeParentItem(ParentItem item) {
+       _parent = (ClassItem)item;
      }
 
      PsiElement _place = null;
@@ -1098,7 +1145,7 @@ class Converter {
      }
    }
 
-   protected static class LazyField extends FieldItem implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableFinalItem, SettableStaticItem {
+   protected static class LazyField extends FieldItem implements PsiEquivalent, SettableFinalItem, SettableStaticItem {
      private final Converter env;
      private final PsiField f;
      private String _name;
@@ -1147,7 +1194,7 @@ class Converter {
             _name = f.getName();
           }
 
-     public boolean flushReference(Item it) {
+     public boolean flushReference(Item it, boolean stillValid) {
        if (_inside != null && _inside.item() == it)
          _inside = null;
        return false;
@@ -1190,7 +1237,7 @@ class Converter {
     }
   }
 
-  protected static class LazyLocal extends Local implements PsiEquivalent, ReferencingItem, CachedNameItem, SettableFinalItem {
+  protected static class LazyLocal extends Local implements PsiEquivalent, SettableFinalItem {
     private final Converter env;
     private final PsiVariable var;
     private String _name;
@@ -1224,7 +1271,7 @@ class Converter {
     public void setFinal(boolean b) { _isFinal = b; }
     public void refreshName() { _name = var.getName(); }
 
-    public boolean flushReference(Item it) {
+    public boolean flushReference(Item it, boolean stillValid) {
       if (_ty != null && _ty.item() == it)
         _ty = null;
       return false;

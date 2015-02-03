@@ -164,7 +164,7 @@ public class Eddy {
 
     public int autoApply() {
       // Automatically apply the best found result
-      return rawApply(eddy.document,format(0,abbrevShowFlags()));
+      return rawApply(eddy.document, format(0, abbrevShowFlags()));
     }
 
     public boolean shouldAutoApply() {

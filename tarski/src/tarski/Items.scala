@@ -409,7 +409,7 @@ object Items {
       def setStatic(f: Boolean): Unit
     }
 
-    trait CachedNameItem {
-      def refreshName(): Unit
+    trait SettableParentItem {
+      def changeParentItem(p: ParentItem): Unit
     }
   }

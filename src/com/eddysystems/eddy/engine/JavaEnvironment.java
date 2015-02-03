@@ -9,7 +9,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Computable;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.java.stubs.index.JavaFullClassNameIndex;
-import com.intellij.psi.impl.java.stubs.index.JavaShortClassNameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.PsiShortNamesCache;
@@ -492,7 +491,7 @@ public class JavaEnvironment {
     return Tarski.environment(sTrie, dt, Tarski.makeTrie(newArray), dbi, JavaItems.valuesByItem(newArray), ep.scopeItems, ep.placeInfo);
   }
 
-  synchronized void addItem(PsiElement elem) {
+  synchronized Items.Item addItem(PsiElement elem) {
     // the handler calls this for each interesting element that is added, there is no need for Psi tree
     // traversal in here
 
@@ -504,17 +503,26 @@ public class JavaEnvironment {
 
     // save a copy in addedItems (constructors don't go there)
     if (it instanceof Items.ConstructorItem) {
-      ((Items.CachedConstructorsItem)((Items.ConstructorItem) it).parent()).invalidateConstructors();
+      Items.ClassItem parent = ((Items.ConstructorItem) it).parent();
+      if (parent instanceof Converter.LazyClass)
+        ((Converter.LazyClass)parent).invalidateConstructors();
     }
 
     // if we added a class, check if we can fill in some of the undefined references
     if (it instanceof Items.RefTypeItem) {
       // go through all (local) items and check whether we can fill in some undefined references
       // this may add inheritance structure that invalidates valuesByItem
-      for (Items.Item i : localItems.values())
-        if (i instanceof Converter.ReferencingItem)
-          byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).fillUnresolvedReferences();
+      pushScope("check references (add item)");
+      try {
+        for (Items.Item i : localItems.values())
+          if (i instanceof Converter.PsiEquivalent)
+            byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.PsiEquivalent)i).fillUnresolvedReferences();
+      } finally {
+        popScope();
+      }
     }
+
+    return it;
   }
 
   synchronized void deleteItem(PsiElement elem) {
@@ -553,10 +561,15 @@ public class JavaEnvironment {
       ((Items.CachedConstructorsItem) ((Items.ConstructorItem) it).parent()).invalidateConstructors();
     } else if (it instanceof Items.RefTypeItem) {
       // go through all (local) items and check whether they store a reference to it (rebuild values by item if needed)
-      for (Items.Item i : localItems.values()) {
-        if (i instanceof Converter.ReferencingItem) {
-          byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).flushReference(it);
+      pushScope("check references (delete)");
+      try {
+        for (Items.Item i : localItems.values()) {
+          if (i instanceof Converter.PsiEquivalent) {
+            byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.PsiEquivalent)i).flushReference(it, false);
+          }
         }
+      } finally {
+        popScope();
       }
     }
   }
@@ -651,7 +664,7 @@ public class JavaEnvironment {
   // the name of this item has changed, but references to it remain valid (must be re-inserted into the trie, but no other action necessary)
   synchronized void changeItemName(PsiNamedElement elem) {
     // find the item
-    Items.Item it = lookup(elem, false);
+    final Items.Item it = lookup(elem, false);
 
     if (it == null)
       return;
@@ -665,7 +678,26 @@ public class JavaEnvironment {
       // there may be inner classes of it, but those should only be added in scope scanning
 
       deleteItem(elem);
-      addItem(elem);
+      final Items.Item newit = addItem(elem);
+
+      // find all possible children and change their parent item
+      elem.acceptChildren(new PsiRecursiveElementVisitor() {
+        @Override
+        public void visitElement(PsiElement element) {
+          Items.Item item = lookup(element,false);
+          if (item instanceof Items.SettableParentItem) {
+            assert item instanceof Items.Member;
+            if (((Items.Member)item).parent() == it) {
+              assert newit instanceof Items.ParentItem;
+              ((Items.SettableParentItem)item).changeParentItem((Items.ParentItem)newit);
+            }
+            else
+              return;
+          }
+
+          super.visitElement(element);
+        }
+      });
     } else {
       // regular name change
 
@@ -678,7 +710,8 @@ public class JavaEnvironment {
         dTrie.overwrite(it, dummy);
       }
 
-      ((Items.CachedNameItem)it).refreshName();
+      assert it instanceof Converter.PsiEquivalent;
+      ((Converter.PsiEquivalent)it).refreshName();
 
       // add it with the new name
       addedItems.put(elem, it);
@@ -686,9 +719,14 @@ public class JavaEnvironment {
       // name changes will make references invalid (unresolved, most likely)
       if (it instanceof Items.RefTypeItem) {
         // go through all (local) items and check whether they store a reference to it
-        for (Items.Item i : localItems.values())
-          if (i instanceof Converter.ReferencingItem)
-            byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.ReferencingItem)i).flushReference(it);
+        pushScope("check references (change name)");
+        try {
+          for (Items.Item i : localItems.values())
+            if (i instanceof Converter.PsiEquivalent)
+              byItemNeedsRebuild = byItemNeedsRebuild || ((Converter.PsiEquivalent)i).flushReference(it, true);
+        } finally {
+          popScope();
+        }
       }
     }
   }
