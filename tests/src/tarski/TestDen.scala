@@ -500,7 +500,7 @@ class TestDen {
     lazy val cons = NormalConstructorItem(X,Nil,Nil)
     val Y = NormalClassItem("Y",X,Nil)
     implicit val env = localEnv(X,cons,Y)
-    test("X().Y y", "y", y => List(ExpStmt(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false),env),VarStmt(Nil,Y,r,VarDecl(y,r,Nil,None,env),env)))
+    test("X().Y y", "y", y => VarStmt(Nil,Y,r,VarDecl(y,r,Nil,None,env),env))
   }
 
   @Test def sideEffectsFail() = {
