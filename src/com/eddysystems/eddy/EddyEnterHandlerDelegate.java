@@ -18,7 +18,7 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
 
   @Override
   public Result preprocessEnter(@NotNull PsiFile file, @NotNull Editor editor, @NotNull Ref<Integer> caretOffset, @NotNull Ref<Integer> caretAdvance, @NotNull DataContext dataContext, @Nullable EditorActionHandler originalHandler) {
-    if (!PreferencesProvider.getData().isAutoApply())
+    if (!Preferences.getData().isAutoApply())
       return Result.Continue;
 
     // if we have something right now, use it, but don't wait for anything

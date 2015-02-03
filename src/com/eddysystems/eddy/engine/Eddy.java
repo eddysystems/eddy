@@ -2,7 +2,8 @@ package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
 import com.eddysystems.eddy.LightDocument;
-import com.eddysystems.eddy.PreferencesProvider;
+import com.eddysystems.eddy.PreferenceData;
+import com.eddysystems.eddy.Preferences;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.lang.ASTNode;
@@ -169,8 +170,9 @@ public class Eddy {
 
     public boolean shouldAutoApply() {
       // check if we're confident enough to apply the best found result automatically
-      double t = PreferencesProvider.getData().getNumericAutoApplyThreshold();
-      double f = PreferencesProvider.getData().getNumericAutoApplyFactor();
+      PreferenceData data = Preferences.getData();
+      double t = data.getNumericAutoApplyThreshold();
+      double f = data.getNumericAutoApplyFactor();
       log("confidence based on t = " + t + ", f = " + f + ", " + results.size() + " results.");
       if (results.size() >= 1 && results.get(0).p() >= t) {
         if (results.size() == 1)
