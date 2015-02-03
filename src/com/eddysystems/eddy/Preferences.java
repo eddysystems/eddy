@@ -19,13 +19,15 @@ public class Preferences implements Configurable {
 
   public Preferences() {
     // load data from file
-    if (!initialized) {
+    if (!initialized)
       load();
-      initialized = true;
-    }
   }
 
-  public static PreferenceData getData() { return data; }
+  public static PreferenceData getData() {
+    if (!initialized)
+      load();
+    return data;
+  }
 
   @Nls
   @Override
@@ -50,10 +52,11 @@ public class Preferences implements Configurable {
     return form.isModified(data);
   }
 
-  private void load() {
+  static private void load() {
     data.setAutoApply(props.getBoolean("com.eddysystems.Props.autoApply", false));
     data.setAutoApplyThreshold(props.getValue("com.eddysystems.Props.autoApplyThreshold", "90%"));
     data.setAutoApplyFactor(props.getValue("com.eddysystems.Props.autoApplyFactor", "10"));
+    initialized = true;
   }
 
   @Override
