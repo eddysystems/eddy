@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <id>com.eddy.generator</id>
   <name>Eddy</name>
-  <version>1.0</version>
+  <version>0.1-13</version>
   <vendor email="support@eddy.systems" url="http://eddy.systems">Eddy</vendor>
 
   <description><![CDATA[
@@ -14,7 +14,7 @@
   </change-notes>
 
   <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges for description -->
-  <idea-version since-build="131"/>
+  <idea-version since-build="131" until-build="138"/>
 
   <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Plugin+Compatibility+with+IntelliJ+Platform+Products
        on how to target different products -->
