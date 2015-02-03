@@ -565,11 +565,10 @@ object Semantics {
                   biased(Pr.constructorFieldCallableWithoutObject, qualifyNew(f.parent.asInstanceOf[ClassItem], xr.before, f, xr))
                 case x:Exp =>
                   assert(x.ty.isInstanceOf[ClassType]) // Only Classes have constructors, so t or x.ty below must be a ClassType
-                  val ds = effects(x)
-                  if (!f.isStatic)
-                    biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(xr.before,Some(x),_,fr).discard(ds))) // we need x to make this inner class
-                  else
-                    biased(Pr.constructorFieldCallableWithSpuriousObject,cons map (NewDen(xr.before,None,_,fr).discard(ds))) // qualification will be added back to the class as needed
+                  if (!f.isStatic) // we need x to make this inner class
+                    biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(xr.before,Some(x),_,fr)))
+                  else // qualification will be added back to the class as needed
+                    biased(Pr.constructorFieldCallableWithSpuriousObject,cons map (NewDen(xr.before,None,_,fr).discard(effects(x))))
                 case _ => fail("Can't make new ${show(x)}")
               })
             case _ => fail(s"$f has no constructors")
