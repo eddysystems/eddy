@@ -39,16 +39,17 @@ public class SmartReadLock {
       else // release lock and try again
         unlock();
     }
-    assert ApplicationManager.getApplication().isReadAccessAllowed();
   }
 
   // Safe to call in both locked and unlocked states
-  public void unlock() {
+  public boolean unlock() {
     synchronized (accessTokenLock) {
       if (accessToken != null) {
         accessToken.finish();
         accessToken = null;
+        return true;
       }
+      return false;
     }
   }
 }

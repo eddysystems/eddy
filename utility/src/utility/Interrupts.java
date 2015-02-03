@@ -1,7 +1,5 @@
 package utility;
 
-import java.util.List;
-
 public class Interrupts {
   // For speed, we hide the interrupt function calls behind a raw integer value.
   // To check for interrupts, a thread should do
@@ -51,14 +49,14 @@ public class Interrupts {
     // Once clear is called, further actions will be ignored.
     public void clear() {
       synchronized (interrupters) {
-        if (actions != null && actions != sentinel) {
-          actions = sentinel;
+        if (actions != null && actions != sentinel)
           pending--;
-        }
+        actions = sentinel; // definitely no more actions on this thread.
       }
     }
-    // Normally clear should be called manually, but just in case
+
     protected void finalize() throws Throwable {
+      // Normally clear should be called manually, but just in case
       clear();
       super.finalize();
     }

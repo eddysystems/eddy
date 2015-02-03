@@ -9,11 +9,6 @@ import com.intellij.openapi.project.Project;
 import org.jetbrains.annotations.NotNull;
 import utility.Interrupts;
 
-import java.util.EmptyStackException;
-import java.util.Stack;
-
-import static com.eddysystems.eddy.engine.Utility.log;
-
 public class EddyThread extends Thread {
   // Current thread
   private static final Object currentLock = new Object();
@@ -71,7 +66,7 @@ public class EddyThread extends Thread {
 
   // Pause the current eddy thread to wait for a write action
   public static void pause() {
-    // Increment the pauses counter and register an action if we're the first
+    // Increment the pauses counter and register a pause action if we're the first
     final boolean register;
     synchronized (pauseLock) {
       register = pauses == 0;
@@ -81,9 +76,10 @@ public class EddyThread extends Thread {
       final EddyThread thread = currentThread;
       if (thread != null)
         thread.interrupter.add(new Runnable() { public void run() {
-          thread.readLock.unlock();
+          final boolean locked = thread.readLock.unlock();
           pauseWait();
-          thread.readLock.lock();
+          if (locked)
+            thread.readLock.lock();
         }});
     }
   }
@@ -144,26 +140,26 @@ public class EddyThread extends Thread {
     softInterrupts--;
 
     // If we switch back to hard interrupts and we tried interrupting before, interrupt now.
-    if (softInterrupts==0 && _canceled)
-      hardInterrupt();
+    if (softInterrupts==0 && _canceled) {
+      //log("interrupting " + this.getName());
+      super.interrupt();
+      throw new ThreadDeath();
+    }
   }
 
   public synchronized void interrupt() {
     if (_canceled)
       return;
     _canceled = true;
-    if (softInterrupts > 0)
-      log("soft interrupting " + this.getName());
-    else
-      hardInterrupt();
-  }
-
-  private void hardInterrupt() {
-    log("interrupting " + this.getName());
-    interrupter.add(new Runnable() { public void run() {
-      throw new ThreadDeath();
-    }});
-    super.interrupt();
+    if (softInterrupts > 0) {
+      //log("soft interrupting " + this.getName());
+    } else {
+      //log("interrupting " + this.getName());
+      interrupter.add(new Runnable() { public void run() {
+        throw new ThreadDeath();
+      }});
+      super.interrupt();
+    }
   }
 
   @Override

@@ -513,7 +513,7 @@ object Denotations {
   }
   case class BinaryExp(op: BinaryOp, opr: SRange, e0: Exp, e1: Exp) extends Exp {
     def r = e0.r union e1.r
-    def ty = binaryType(op,e0.ty,e1.ty) getOrElse (throw new RuntimeException("type error"))
+    def ty = binaryType(op,e0.ty,e1.ty) getOrElse (throw new RuntimeException("type error: " + e0.ty + " " + op + " " + e1.ty))
     def item = ty.item
     def discards = e0.discards ::: e1.discards
     def strip = BinaryExp(op,opr,e0.strip,e1.strip)
