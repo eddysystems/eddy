@@ -3,8 +3,11 @@ class Test {
     static class B {
     }
   }
+  void g();
+  void h();
+
   void f() {
     if (true)
-      A().B y;<caret>
+      true ? g() : h();<caret>
   }
 }

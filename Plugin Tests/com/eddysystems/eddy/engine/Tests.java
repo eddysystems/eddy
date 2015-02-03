@@ -611,11 +611,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testBlockNo() {
-    testMargin("blockNo.java", "new A(); A.B y;", .9);
+    testMargin("blockNo.java", "if (true) g(); else h();", .9);
   }
 
   public void testBlockYes() {
-    testMargin("blockYes.java", "if (true) { new A(); A.B y; }", .9);
+    testMargin("blockYes.java", "if (true) { if (true) g(); else h(); }", .9);
   }
 
   public void testStaticCons() {

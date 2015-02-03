@@ -3,7 +3,10 @@ class Test {
     static class B {
     }
   }
-  void f() {
-    A().B y;<caret>
+  void g();
+  void h();
+
+  int f() {
+    true ? g() : h();<caret>
   }
 }

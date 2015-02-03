@@ -518,8 +518,6 @@ object Pretty {
       case TypeApply(NewDen(nr,qe,c,cr,ts0),ts1,a1,_) => gnu(nr,qe,c,cr,ts0,ts1,a1)
       case           ForwardDen(x,xr,c) => forward(x,xr,c,None)
       case TypeApply(ForwardDen(x,xr,c),ts,a,_) => forward(x,xr,c,Some(Grouped(ts,a)))
-      case           DiscardCallableDen(ds,f) => above(ds,f)
-      case TypeApply(DiscardCallableDen(ds,f),ts,a,h) => above(ds,TypeApply(f,ts,a,h))
       case TypeApply(_:NewArrayDen,_,_,_) => impossible
       case NewArrayDen(nr,t,tr,ns,ds) =>
         implicit val tr_ = tr
@@ -608,18 +606,10 @@ object Pretty {
   }
 
   // For debugging use only.  The user should never see.
-  def above[A](ds: List[Stmt], x: A)(implicit p: Pretty[A]): FixTokens = ds match {
-    case Nil => pretty(x)
-    case ds =>
-      val r = SRange.unknown
-      val semi = Loc(SemiTok,r)
-      (HighestFix,Loc(IdentTok("Above"),r) :: Loc(LParenTok,r) ::
-        separateAfter(ds,SemiFix,SemiTok) ::: Loc(SemiTok,r) :: tokens(x) ::: List(Loc(RParenTok,r)))
-  }
   implicit def prettyDen(x: Den)(implicit env: Scope): FixTokens = x match {
     case x:Exp => prettyExp(x)
     case p:PackageDen => prettyItem(p.p)(env,SRange.unknown)
     case x:Callable => prettyCallable(x)
-    case TypeDen(ds,t) => implicit val tr = SRange.unknown; above(ds,t)
+    case TypeDen(t) => implicit val tr = SRange.unknown; prettyType(t)
   }
 }
