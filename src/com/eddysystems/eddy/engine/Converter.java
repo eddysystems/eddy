@@ -594,7 +594,7 @@ class Converter {
      }
    }
 
-   static protected class LazyClass extends ClassItem implements PsiEquivalent, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem, SettableStaticItem, SettableParentItem {
+   static protected class LazyClass extends ClassItem implements PsiEquivalent, CachedConstructorsItem, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem, SettableStaticItem, SettableParentItem {
      private final Converter env;
      private final PsiClass cls;
      private ParentItem _parent;
