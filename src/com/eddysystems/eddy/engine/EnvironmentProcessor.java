@@ -1,5 +1,6 @@
 package com.eddysystems.eddy.engine;
 
+import com.eddysystems.eddy.EddyThread;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
 import com.intellij.psi.*;
@@ -9,6 +10,7 @@ import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.scope.util.PsiScopesUtil;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import tarski.Environment;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
@@ -46,9 +48,15 @@ class EnvironmentProcessor {
     final Place where = new Place(project,place);
 
     // Walk up the PSI tree, also processing import statements
-    final Processor P = new Processor(where);
-    PsiScopesUtil.treeWalkUp(P, place, place.getContainingFile());
-    this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
+    final EddyThread thread = EddyThread.getEddyThread();
+    final Processor P = new Processor(thread,where);
+    if (thread != null) thread.pushSoftInterrupts();
+    try {
+      PsiScopesUtil.treeWalkUp(P, place, place.getContainingFile());
+      this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
+    } finally {
+      if (thread != null) thread.popSoftInterrupts();
+    }
   }
 
   /**
@@ -180,6 +188,7 @@ class EnvironmentProcessor {
   }
 
   private static final class Processor implements PsiScopeProcessor {
+    private final @Nullable EddyThread thread;
     private final @NotNull Place place;
 
     // State for walking
@@ -192,7 +201,8 @@ class EnvironmentProcessor {
     private final List<Shadow<PsiVariable>> variables = new SmartList<Shadow<PsiVariable>>();
     private final List<Shadow<PsiMethod>> methods = new SmartList<Shadow<PsiMethod>>();
 
-    Processor(final @NotNull Place place) {
+    Processor(final @Nullable EddyThread thread, final @NotNull Place place) {
+      this.thread = thread;
       this.place = place;
     }
 
@@ -212,6 +222,10 @@ class EnvironmentProcessor {
     }
 
     @Override public boolean execute(final @NotNull PsiElement element, final ResolveState state) {
+      // Are we canceled?
+      if (thread != null && thread.canceled())
+        return false;
+
       // if we are in static scope, field or method has to be static for us to see it
       if (element instanceof PsiField || element instanceof PsiMethod)
         if (inStaticScope && !Place.isStatic(element)) {

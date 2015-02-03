@@ -32,7 +32,7 @@ public class EddyThread extends Thread {
   Eddy.Output output = null;
 
   // Cancelation flags
-  private boolean softInterrupts = false;
+  private int softInterrupts = 0;
   private boolean _canceled = false;
 
   EddyThread(final @NotNull Project project, final @NotNull Editor editor, final int lastEditLocation, final Eddy.Take cont) {
@@ -65,57 +65,51 @@ public class EddyThread extends Thread {
     }});
   }
 
-  // the thread maintains a list of these, each one represents someone who is waiting for the thread to release its read lock.
-  // Whoever is waiting will call release when it's done with whatever it needed to do before we are allowed to
-  static class Pause {
-    private boolean _active = true;
-    synchronized void release() {
-      _active = false;
-      this.notifyAll();
+  // Number of active pauses, and a lock to wait on
+  private static int pauses = 0;
+  private static final Object pauseLock = new Object();
+
+  // Pause the current eddy thread to wait for a write action
+  public static void pause() {
+    // Increment the pauses counter and register an action if we're the first
+    final boolean register;
+    synchronized (pauseLock) {
+      register = pauses == 0;
+      pauses++;
     }
-    // put this thread to sleep until release() is called
-    synchronized public void finish() throws InterruptedException {
-      while (_active)
-        this.wait();
+    if (register) {
+      final EddyThread thread = currentThread;
+      if (thread != null)
+        thread.interrupter.add(new Runnable() { public void run() {
+          thread.readLock.unlock();
+          pauseWait();
+          thread.readLock.lock();
+        }});
     }
   }
-  final private Stack<Pause> waiting = new Stack<Pause>();
 
-  // Pause the current eddy thread to wait for a write action. True if the thread was paused
-  public static Pause pause() {
-    // The eddy thread has a read access token. Release it to let a write action start, then grab a new one.
-    final EddyThread thread = currentThread;
-    if (thread == null)
-      return null;
-
-    // make a new pause object and make sure it's registered
-    final Pause w = new Pause();
-    synchronized (thread.waiting) {
-      if (thread.waiting.empty())
-        thread.interrupter.add(new Runnable() {
-          public void run() {
-            // relinquish control of read access token
-            thread.readLock.unlock();
-            // cede control until all Pause objects have been released
-            try {
-              for (;;) {
-                final Pause pause;
-                synchronized (thread.waiting) {
-                  if (thread.waiting.isEmpty())
-                    break;
-                  pause = thread.waiting.pop();
-                }
-                pause.finish();
-              }
-            } catch (InterruptedException e) {
-              throw new ThreadDeath();
-            }
-            thread.readLock.lock();
-          }
-        });
-      thread.waiting.push(w);
+  // Cede control until all pauses complete
+  private static void pauseWait() {
+    assert !ApplicationManager.getApplication().isReadAccessAllowed();
+    try {
+      synchronized (pauseLock) {
+        while (pauses > 0)
+          pauseLock.wait();
+      }
+    } catch (InterruptedException e) {
+      throw new ThreadDeath();
     }
-    return w;
+  }
+
+  // Must be called *at least* once for each call to pause()
+  public static void unpause() {
+    synchronized (pauseLock) {
+      // Decrement the pauses counter and notify if we hit zero.
+      assert pauses > 0;
+      pauses--;
+      if (pauses == 0)
+        pauseLock.notify();
+    }
   }
 
   // kills the currently active thread, if any
@@ -136,17 +130,21 @@ public class EddyThread extends Thread {
     return _canceled;
   }
 
-  public synchronized void setSoftInterrupts(final boolean on) {
-    if (softInterrupts == on)
-      return;
-    softInterrupts = on;
-
-    // if we switch to soft interrupts and we were interrupted, kill the thread now
-    if (on && isInterrupted())
+  public synchronized void pushSoftInterrupts() {
+    // If we switch to soft interrupts and we were interrupted, kill the thread now
+    if (softInterrupts==0 && isInterrupted())
       throw new ThreadDeath();
 
-    // if we switch back to hard interrupts and we tried interrupting before, interrupt now.
-    if (!on && _canceled)
+    softInterrupts++;
+  }
+
+  // Always call from a finally block
+  public synchronized void popSoftInterrupts() {
+    assert softInterrupts > 0;
+    softInterrupts--;
+
+    // If we switch back to hard interrupts and we tried interrupting before, interrupt now.
+    if (softInterrupts==0 && _canceled)
       hardInterrupt();
   }
 
@@ -154,7 +152,7 @@ public class EddyThread extends Thread {
     if (_canceled)
       return;
     _canceled = true;
-    if (softInterrupts)
+    if (softInterrupts > 0)
       log("soft interrupting " + this.getName());
     else
       hardInterrupt();
@@ -172,6 +170,7 @@ public class EddyThread extends Thread {
   public void run() {
     interrupter.register();
     try {
+      pauseWait();
       readLock.lock();
       try {
         EddyPlugin.getInstance(project).getWidget().moreBusy();

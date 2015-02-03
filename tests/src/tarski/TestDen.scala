@@ -29,14 +29,11 @@ class TestDen {
   val r = SRange.unknown
   val a = SGroup.unknown
 
-  // By default, we ignore locations and run an approximate fixpoint test
-  case class Flags(trackLoc: Boolean=false, fixpoint: Boolean=true)
+  // By default, we ignore locations and run a fixpoint test
+  case class Flags(trackLoc: Boolean=false, // If false, locations are stripped after lexing
+                   fixpoint: Boolean=true, // Run at least an approximate fixpoint test
+                   locationFixpoint: Boolean=false) // Test locations in the fixpoint test
   implicit val fl = Flags()
-
-  // Ideally, we'd run a full fixpoint test on the location tracking to verify that everything flows through correctly.
-  // Unfortunately, we're lazy in several places (new, commas, types), so location tracking is not perfect.  Even weak
-  // fixpoint tests (without location tracking) are useful though, and hopefully we can turn on the full version later.
-  val locationFixpoint = false
 
   def fixFlags(ts: Tokens)(implicit env: Env, fl: Flags): Scored[List[Stmt]] =
     Tarski.fix(if (fl.trackLoc) ts else ts map (x => Loc(x.x,r)))
@@ -84,11 +81,17 @@ class TestDen {
               val i3 = ts3 filterNot ignore
               val si2 = i2 map (_.x)
               val si3 = i3 map (_.x)
-              if (if (locationFixpoint) i2 != i3 else si2 != si3) {
-                println(s"Fixpoint not reached:\nsb = $sb")
-                if (locationFixpoint) assertEquals(i2,i3)
-                else assertEquals(si2,si3)
-              }
+              if (si2 != si3)
+                throw new RuntimeException("Fixpoint not reached:\n\n"
+                  +s"input = $sb\n"
+                  +s"expected = ${si2 mkString " "}\n"
+                  +s"actual   = ${si3 mkString " "}\n")
+              else if (fl.locationFixpoint && i2 != i3)
+                throw new RuntimeException("Location fixpoint not reached:\n\n"
+                  +s"input    = $sb\n"
+                  +s"redone   = $s3\n"
+                  +s"expected = ${i2 mkString " "}\n"
+                  +s"actual   = ${i3 mkString " "}\n")
           }
         }
     }
@@ -1129,5 +1132,13 @@ class TestDen {
     val logB = NormalMethodItem("log",B,Nil,VoidType,Nil,isStatic=true)
     implicit val env = localEnvWithBase().extend(Array(logA,logB),Map(logA->1))
     test("log",ApplyExp(MethodDen(None,logA,r),Nil,a,auto=true),margin=.2)
+  }
+
+  @Test def avoidVoid() = {
+    val A = NormalClassItem("A")
+    val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=true)
+    implicit val env = localEnvWithBase(f)
+    testFail("void x = f()")
+    testFail("int x = f()")
   }
 }

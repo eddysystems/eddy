@@ -123,13 +123,14 @@ public class JavaEnvironment {
       }
       };
 
-      if (thread != null)
-        thread.setSoftInterrupts(true);
-      psicache.processClassesWithName(s, classProc, scope, filter);
-      psicache.processMethodsWithName(s, methodProc, scope, filter);
-      psicache.processFieldsWithName(s, fieldProc, scope, filter);
-      if (thread != null)
-        thread.setSoftInterrupts(false);
+      if (thread != null) thread.pushSoftInterrupts();
+      try {
+        psicache.processClassesWithName(s, classProc, scope, filter);
+        psicache.processMethodsWithName(s, methodProc, scope, filter);
+        psicache.processFieldsWithName(s, fieldProc, scope, filter);
+      } finally {
+        if (thread != null) thread.popSoftInterrupts();
+      }
       return results.toArray(new Items.Item[results.size()]);
     }
 

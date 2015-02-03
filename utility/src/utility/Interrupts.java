@@ -3,7 +3,7 @@ package utility;
 import java.util.List;
 
 public class Interrupts {
-  // For speed, we hide the interrupt function calls behind a raw boolean value.
+  // For speed, we hide the interrupt function calls behind a raw integer value.
   // To check for interrupts, a thread should do
   //   if (Interrupts.pending != 0) Interrupts.checkInterrupts();
 
