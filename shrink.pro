@@ -7,6 +7,11 @@
 -keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention,com.eddysystems.eddy.CorrectionIntention {
   <init>(...);
 }
+
+-keep com.eddysystems.eddy.EddyEnterHandlerDelegate,com.eddysystems.eddy.Preferences {
+  <init>(...);
+}
+
 -keep class com.eddysystems.eddy.actions.NextSuggestion,com.eddysystems.eddy.actions.PrevSuggestion,com.eddysystems.eddy.actions.Reinit {
   <init>(...);
 }

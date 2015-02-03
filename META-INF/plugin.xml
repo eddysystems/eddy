@@ -51,7 +51,7 @@
         <descriptionDirectoryName>EddyCorrection</descriptionDirectoryName>
     </intentionAction>
 
-    <applicationConfigurable provider="com.eddysystems.eddy.PreferencesProvider">
+    <applicationConfigurable instance="com.eddysystems.eddy.Preferences">
     </applicationConfigurable>
   </extensions>
 
