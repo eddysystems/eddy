@@ -53,10 +53,11 @@ class EnvironmentProcessor {
     if (thread != null) thread.pushSoftInterrupts();
     try {
       PsiScopesUtil.treeWalkUp(P, place, place.getContainingFile());
-      this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
     } finally {
       if (thread != null) thread.popSoftInterrupts();
     }
+    // only do this if we got through the processor
+    this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
   }
 
   /**
