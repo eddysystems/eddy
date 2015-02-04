@@ -30,16 +30,17 @@ class Converter {
    public final Project project;
    final GlobalSearchScope projectScope;
 
-   final JavaEnvironment jenv;
-
    // cached items
    protected final Map<PsiElement, Item> items;
 
-   Converter(JavaEnvironment jenv, final Map<PsiElement, Item> items) {
-     this.project = jenv.project;
+   Converter(Project project, final Map<PsiElement, Item> items) {
+     this.project = project;
      this.projectScope = ProjectScope.getProjectScope(project);
-     this.jenv = jenv;
      this.items = items;
+   }
+
+   boolean knows(PsiElement e) {
+     return items.containsKey(e);
    }
 
    Item lookup(PsiElement e) {
@@ -140,33 +141,31 @@ class Converter {
    }
 
    ParentItem addContainer(PsiElement elem) {
-     synchronized (jenv) {
-       {
-         Item i = lookup(elem);
-         if (i != null)
-           return (ParentItem)i;
-       }
-       if (elem == null)
-         return LocalPkg$.MODULE$;
-
-       // local classes
-       if (elem instanceof PsiMethod) {
-         return addMethod((PsiMethod) elem);
-       } if (elem instanceof PsiClass)
-         return (ParentItem)addClass((PsiClass) elem);
-       else if (elem instanceof PsiPackage) {
-         final PsiPackage pkg = (PsiPackage)elem;
-         final String name = pkg.getName();
-         if (name == null)
-           return LocalPkg$.MODULE$;
-         final PsiPackage parent = pkg.getParentPackage();
-         final ParentItem item = parent==null ? new RootPackage(name)
-                                              : new ChildPackage((tarski.Items.Package)addContainer(parent),name);
-         put(pkg,item);
-         return item;
-       }
-       throw new UnknownContainerError(elem);
+     {
+       Item i = lookup(elem);
+       if (i != null)
+         return (ParentItem)i;
      }
+     if (elem == null)
+       return LocalPkg$.MODULE$;
+
+     // local classes
+     if (elem instanceof PsiMethod) {
+       return addMethod((PsiMethod) elem);
+     } if (elem instanceof PsiClass)
+       return (ParentItem)addClass((PsiClass) elem);
+     else if (elem instanceof PsiPackage) {
+       final PsiPackage pkg = (PsiPackage)elem;
+       final String name = pkg.getName();
+       if (name == null)
+         return LocalPkg$.MODULE$;
+       final PsiPackage parent = pkg.getParentPackage();
+       final ParentItem item = parent==null ? new RootPackage(name)
+         : new ChildPackage((tarski.Items.Package)addContainer(parent),name);
+       put(pkg,item);
+       return item;
+     }
+     throw new UnknownContainerError(elem);
    }
 
    protected interface PsiEquivalent {
@@ -353,17 +352,15 @@ class Converter {
    }
 
    private TypeVar addTypeParam(PsiTypeParameter p) {
-     synchronized (jenv) {
-       {
-         Item i = lookup(p);
-         if (i != null)
-           return (TypeVar)i;
-       }
-       // Use a maker to break recursion
-       TypeVar ti = new LazyTypeVar(this,p);
-       put(p, ti);
-       return ti;
+     {
+       Item i = lookup(p);
+       if (i != null)
+         return (TypeVar)i;
      }
+     // Use a maker to break recursion
+     TypeVar ti = new LazyTypeVar(this,p);
+     put(p, ti);
+     return ti;
    }
 
    static protected class LazyClass extends ClassItem implements PsiEquivalent {
@@ -549,29 +546,27 @@ class Converter {
    }
 
    private RefTypeItem addClassInner(PsiClass cls, final boolean recurse) {
-     synchronized(jenv) {
-       {
-         Item i = lookup(cls);
-         if (i != null) {
-           // if we are forced to recurse, we may still have to add fields that were previously unseen
-           // don't do this for TypeVars
-           if (recurse && i instanceof ClassItem)
-             addClassMembers(cls, (ClassItem)i);
-           return (RefTypeItem)i;
-         }
+     {
+       Item i = lookup(cls);
+       if (i != null) {
+         // if we are forced to recurse, we may still have to add fields that were previously unseen
+         // don't do this for TypeVars
+         if (recurse && i instanceof ClassItem)
+           addClassMembers(cls, (ClassItem)i);
+         return (RefTypeItem)i;
        }
-
-       if (cls instanceof PsiTypeParameter)
-         return addTypeParam((PsiTypeParameter)cls);
-
-       ClassItem item = new LazyClass(this,cls);
-       put(cls, item);
-
-       // if we're a class, all our members should really be ok
-       if (recurse)
-         addClassMembers(cls,item);
-       return item;
      }
+
+     if (cls instanceof PsiTypeParameter)
+       return addTypeParam((PsiTypeParameter)cls);
+
+     ClassItem item = new LazyClass(this,cls);
+     put(cls, item);
+
+     // if we're a class, all our members should really be ok
+     if (recurse)
+       addClassMembers(cls,item);
+     return item;
    }
 
    void addClassMembers(PsiClass cls, ClassItem item) {
@@ -720,23 +715,21 @@ class Converter {
    }
 
    CallableItem addMethod(PsiMethod method) {
-     synchronized (jenv) {
-       if (isConstructor(method)) {
-         // constructors are not stored in locals, but in cons
-         ConstructorItem i = (ConstructorItem)lookup(method);
-         if (i != null)
-           return i;
-         i = new LazyConstructor(this,method);
-         put(method, i);
+     if (isConstructor(method)) {
+       // constructors are not stored in locals, but in cons
+       ConstructorItem i = (ConstructorItem)lookup(method);
+       if (i != null)
          return i;
-       } else {
-         Item i = lookup(method);
-         if (i != null)
-           return (CallableItem)i;
-         i = new LazyMethod(this,method);
-         put(method, i);
+       i = new LazyConstructor(this,method);
+       put(method, i);
+       return i;
+     } else {
+       Item i = lookup(method);
+       if (i != null)
          return (CallableItem)i;
-       }
+       i = new LazyMethod(this,method);
+       put(method, i);
+       return (CallableItem)i;
      }
    }
 
@@ -799,18 +792,16 @@ class Converter {
    }
 
   Value addField(PsiField f) {
-    synchronized (jenv) {
-      {
-        final Item i = lookup(f);
-        if (i != null)
-          return (Value)i;
-      }
-      final boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
-      final boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
-      final Value v = new LazyField(this,f,isFinal,isStatic);
-      put(f, v);
-      return v;
+    {
+      final Item i = lookup(f);
+      if (i != null)
+        return (Value)i;
     }
+    final boolean isFinal = f.hasModifierProperty(PsiModifier.FINAL);
+    final boolean isStatic = f.hasModifierProperty(PsiModifier.STATIC);
+    final Value v = new LazyField(this,f,isFinal,isStatic);
+    put(f, v);
+    return v;
   }
 
   protected static class LazyLocal extends Local implements PsiEquivalent {
@@ -873,19 +864,17 @@ class Converter {
   }
 
   Value addLocal(final PsiVariable var) {
-    synchronized (jenv) {
-      assert var instanceof PsiLocalVariable || var instanceof PsiParameter;
+    assert var instanceof PsiLocalVariable || var instanceof PsiParameter;
 
-      // lookup only in locals (
-      Item i = items.get(var);
-      if (i != null)
-        return (Value)i;
-
-      // add only to locals
-      final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
-      i = (Items.Item) new LazyLocal(this, var, isFinal);
-      put(var, i);
+    // lookup only in locals (
+    Item i = items.get(var);
+    if (i != null)
       return (Value)i;
-    }
+
+    // add only to locals
+    final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
+    i = (Items.Item) new LazyLocal(this, var, isFinal);
+    put(var, i);
+    return (Value)i;
   }
 }

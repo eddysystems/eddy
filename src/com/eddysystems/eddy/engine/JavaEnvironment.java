@@ -151,7 +151,6 @@ public class JavaEnvironment {
   }
 
   @NotNull final Project project;
-  @NotNull final Converter converter;
 
   private boolean _initialized = false;
   public boolean initialized() {
@@ -162,9 +161,6 @@ public class JavaEnvironment {
   // of items, localItems, addedItems has to be synchronized(this). If the caller is inside an IntelliJ write action
   // (such as anything called from the PsiListener), synchronization is not necessary because all other accessing threads
   // are inside IntelliJ read actions, and will not run during a write action)
-
-  // Cached items. The contents lives only as long as a single action, so no special care is needed to make sure these things are up to date.
-  Map<PsiElement, Items.Item> items = new HashMap<PsiElement, Items.Item>();
 
   // pre-computed data structures to enable fast creation of appropriate scala Env instances
 
@@ -184,20 +180,11 @@ public class JavaEnvironment {
 
   public JavaEnvironment(@NotNull Project project) {
     this.project = project;
-    converter = new Converter(this, items);
   }
 
   public void initialize(@Nullable ProgressIndicator indicator) {
     pushScope("make base environment");
     try {
-      // add base items
-      DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() {
-        @Override
-        public void run() {
-          addBase();
-        }
-      });
-
       String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllFieldNames();
       }});
@@ -218,27 +205,17 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  synchronized boolean knows(PsiElement elem) {
-    return items.containsKey(elem);
-  }
-
-  @Nullable
-  synchronized Items.Item lookup(PsiElement elem) {
-    // Everything in addedItems is also in localItems.
-    return items.get(elem);
-  }
-
-  private void addBase() {
+  private static void addBase(final Converter converter) {
     pushScope("add base");
     try {
-      final GlobalSearchScope scope = ProjectScope.getAllScope(project);
+      final GlobalSearchScope scope = ProjectScope.getAllScope(converter.project);
 
       // Extra things don't correspond to PsiElements
       final Set<Items.Item> extra =  new HashSet<Items.Item>();
       Collections.addAll(extra, Base.extraItems());
 
       // Add classes and packages
-      final JavaPsiFacade facade = JavaPsiFacade.getInstance(project);
+      final JavaPsiFacade facade = JavaPsiFacade.getInstance(converter.project);
       for (Items.Item item : tarski.Base.baseItems()) {
         if (extra.contains(item) || item instanceof Items.ConstructorItem)
           continue;
@@ -253,8 +230,9 @@ public class JavaEnvironment {
         if (psi == null)
           throw new NoJDKError("Couldn't find " + name);
         //log("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
-        if (!items.containsKey(psi))
-          items.put(psi, item);
+
+        if (!converter.knows(psi))
+          converter.put(psi,item);
       }
 
       // Add constructors
@@ -267,8 +245,8 @@ public class JavaEnvironment {
         final PsiMethod[] cons = cls.getConstructors();
         if (cons.length != 1)
           log("found " + cons.length + " constructors for object " + cls);
-        if (!items.containsKey(cons[0]))
-          items.put(cons[0], item);
+        if (!converter.knows(cons[0]))
+          converter.put(cons[0],item);
       }
 
       // Add class members
@@ -436,37 +414,19 @@ public class JavaEnvironment {
     }
   }
 
-  private void clean() {
-
-    // only clean the things that actually went out of date
-    // in particular, do not delete base!
-    pushScope("clean");
-    try {
-      items.clear();
-
-      // TODO: we could cache the result of addBase, but it doesn't seem like it's worth it.
-      addBase();
-
-    } finally {
-      popScope();
-    }
-  }
-
   // get a combined environment at the given place
   Environment.Env getLocalEnvironment(@NotNull PsiElement place, final int lastEdit) {
 
     pushScope("get local environment");
     try {
-      clean();
+      final Map<PsiElement, Items.Item> items = new HashMap<PsiElement, Items.Item>();
+      final Converter converter = new Converter(project, items);
 
-      pushScope("environment processor");
-      final EnvironmentProcessor ep;
-      try {
-        // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
-        ep = new EnvironmentProcessor(project, this, items, place, lastEdit);
-      } finally {
-        popScope();
-      }
+      // we could cache the result of addBase, but it doesn't seem like it's worth it.
+      addBase(converter);
+
+      // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
+      final EnvironmentProcessor ep = new EnvironmentProcessor(converter, place, lastEdit);
 
       pushScope("make ValueByItemQuery");
       final ValueByItemQuery vbi;

@@ -1,7 +1,6 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
 import com.intellij.psi.*;
 import com.intellij.psi.scope.ElementClassHint;
@@ -44,10 +43,8 @@ class EnvironmentProcessor {
   public final Map<Item,Integer> scopeItems = new HashMap<Item,Integer>();
 
   // add to locals what you find in scope. There may be several threads writing to locals at the same time.
-  public EnvironmentProcessor(final @NotNull Project project, final @NotNull JavaEnvironment jenv,
-                              final Map<PsiElement,Item> locals, final @NotNull PsiElement place,
-                              final int lastEdit) {
-    final Place where = new Place(project,place);
+  public EnvironmentProcessor(final @NotNull Converter converter, final @NotNull PsiElement place, final int lastEdit) {
+    final Place where = new Place(converter.project,place);
 
     // Walk up the PSI tree, also processing import statements
     final EddyThread thread = EddyThread.getEddyThread();
@@ -63,20 +60,16 @@ class EnvironmentProcessor {
     // only do this if we got through the processor
     pushScope("fillLocalInfo");
     try {
-      this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
+      this.placeInfo = fillLocalInfo(P,where,converter,lastEdit);
     } finally {
       popScope();
     }
   }
 
   /**
-   * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names, using jenv as a base
+   * Make the IntelliJ-independent class that is used by the tarski engine to look up possible names
    */
-  private PlaceInfo fillLocalInfo(final Processor P, final Place where, final JavaEnvironment jenv,
-                                  final Map<PsiElement,Item> locals, final int lastEdit) {
-    // local variables, parameters, type parameters, as well as protected/private things in scope
-    final Converter env = new Converter(jenv,locals);
-
+  private PlaceInfo fillLocalInfo(final Processor P, final Place where, final Converter env, final int lastEdit) {
     //log("getting local items...");
 
     pushScope("add to scope");
@@ -117,10 +110,8 @@ class EnvironmentProcessor {
         }
       }
 
-      synchronized(jenv) {
-        // .values is undefined if it is modified during iteration.
-        localItems.addAll(locals.values());
-      }
+      // .values() is undefined if it is modified during iteration, make sure this is thread-safe!
+      localItems.addAll(env.items.values());
     } finally {
       popScope();
     }
@@ -178,7 +169,7 @@ class EnvironmentProcessor {
 
         if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
           if (placeItem == null) {
-            placeItem = (ParentItem)jenv.lookup(place);
+            placeItem = (ParentItem)env.lookup(place);
             assert placeItem != null : "cannot find placeItem " + place + ", possibly in anonymous local class";
           }
         } else if (place instanceof PsiJavaFile) {
@@ -189,7 +180,7 @@ class EnvironmentProcessor {
               placeItem = LocalPkg$.MODULE$;
           } else {
             if (placeItem == null) {
-              assert jenv.knows(pkg);
+              assert env.knows(pkg);
               placeItem = env.addContainer(pkg);
             }
           }
