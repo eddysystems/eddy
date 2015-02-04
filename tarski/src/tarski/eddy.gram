@@ -142,8 +142,8 @@ StmtHelperBS AStmt
   Juxts1[Mod] Option[Type] List1[VarDecl]                    { VarAStmt($1,$2,$3) }
   Block                                                      { $1 }
   ExpAssign                                                  { ExpAStmt($1) }
-  AssertTok ExpJuxt                                          { AssertAStmt($1r,$2,None) }
-  AssertTok ExpJuxt ColonTok ExpJuxt                         { AssertAStmt($1r,$2,Some(($3r:SRange,$4))) }
+  AssertTok ExpAssign                                        { AssertAStmt($1r,$2,None) }
+  AssertTok ExpAssign ColonTok ExpAssign                     { AssertAStmt($1r,$2,Some(($3r:SRange,$4))) }
   BreakTok Option[Ident]                                     { BreakAStmt($1r,$2) }
   ContinueTok Option[Ident]                                  { ContinueAStmt($1r,$2) }
   ReturnTok Option[ExpAssign]                                { ReturnAStmt($1r,$2) }
