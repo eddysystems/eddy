@@ -105,7 +105,7 @@ class Converter {
            jparams.add(convertTypeArg(tp,parent));
          scala.collection.immutable.List<TypeArg> params = scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
 
-         ClassItem item = (ClassItem)addClass(tcls,false);
+         ClassItem item = (ClassItem)addClass(tcls);
 
          assert params.size() == ((PsiClassType)t).getParameterCount();
 
@@ -153,7 +153,7 @@ class Converter {
        if (elem instanceof PsiMethod) {
          return addMethod((PsiMethod) elem);
        } if (elem instanceof PsiClass)
-         return (ParentItem)addClass((PsiClass) elem, false);
+         return (ParentItem)addClass((PsiClass) elem);
        else if (elem instanceof PsiPackage) {
          final PsiPackage pkg = (PsiPackage)elem;
          final String name = pkg.getName();
@@ -321,7 +321,7 @@ class Converter {
        if (_superItems == null) {
          List<RefTypeItem> supers = new SmartList<RefTypeItem>();
          for (PsiClass c : p.getSupers())
-           supers.add(env.addClass(c,false));
+           supers.add(env.addClass(c));
          _superItems = JavaConversions.asScalaBuffer(supers).toList();
        }
        return _superItems;
@@ -460,7 +460,7 @@ class Converter {
            if (_base == null) {
              PsiClass base = cls.getSuperClass();
              if (base != null && !base.isInterface())
-               _base = ((ClassItem)env.addClass(base,false)).inside();
+               _base = ((ClassItem)env.addClass(base)).inside();
              else {
                if (base != null)
                  log("class " + this + " extends interface: " + base);
@@ -478,7 +478,7 @@ class Converter {
        if (_superItems == null) {
          ArrayList<RefTypeItem> supers = new ArrayList<RefTypeItem>();
          for (PsiClass s : cls.getSupers())
-           supers.add(env.addClass(s, false));
+           supers.add(env.addClass(s));
          _superItems = JavaConversions.asScalaBuffer(supers).toList();
        }
        return _superItems;
@@ -540,7 +540,15 @@ class Converter {
      }
    }
 
-   RefTypeItem addClass(PsiClass cls, boolean recurse) {
+   RefTypeItem addClass(PsiClass cls) {
+     return addClassInner(cls, false);
+   }
+
+   RefTypeItem addClassRecursively(PsiClass cls) {
+     return addClassInner(cls, true);
+   }
+
+   private RefTypeItem addClassInner(PsiClass cls, final boolean recurse) {
      synchronized(jenv) {
        {
          Item i = lookup(cls);
@@ -577,7 +585,7 @@ class Converter {
        addMethod(m);
 
      for (PsiClass c : cls.getInnerClasses())
-       addClass(c,true);
+       addClassRecursively(c);
    }
 
    private scala.collection.immutable.List<TypeVar> tparams(PsiTypeParameterListOwner owner) {
@@ -613,7 +621,7 @@ class Converter {
      // Core interface
      public ClassItem parent() {
        if (_parent == null)
-         _parent = (ClassItem)env.addClass(method.getContainingClass(),false);
+         _parent = (ClassItem)env.addClass(method.getContainingClass());
        return _parent;
      }
      public scala.collection.immutable.List<TypeVar> tparams() {
@@ -673,7 +681,7 @@ class Converter {
           }
      public ClassItem parent() {
        if (_parent == null)
-         _parent = (ClassItem)env.addClass(method.getContainingClass(),false);
+         _parent = (ClassItem)env.addClass(method.getContainingClass());
        return _parent;
      }
      public scala.collection.immutable.List<TypeVar> tparams() {
@@ -771,7 +779,7 @@ class Converter {
        return _inside;
      }
      public ClassItem parent() {
-            return (ClassItem)env.addClass(f.getContainingClass(),false);
+            return (ClassItem)env.addClass(f.getContainingClass());
           }
 
      public PsiElement psi() {

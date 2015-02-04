@@ -97,7 +97,7 @@ public class JavaEnvironment {
         if (thread != null && thread.canceled())
           return false;
         if (!checkVisibility || possiblyVisible(cls))
-          results.add(converter.addClass(cls, false));
+          results.add(converter.addClass(cls));
         return true;
       }
       };
@@ -441,10 +441,12 @@ public class JavaEnvironment {
   }
 
   private void clean() {
+
     // only clean the things that actually went out of date
     // in particular, do not delete base!
     pushScope("clean");
     try {
+      /*
       boolean needBase = false;
       Iterator<Map.Entry<PsiElement,Items.Item>> it = items.entrySet().iterator();
       while (it.hasNext()) {
@@ -465,6 +467,11 @@ public class JavaEnvironment {
       }
       if (needBase)
         addBase();
+       */
+
+      items.clear();
+      addBase();
+
     } finally {
       popScope();
     }

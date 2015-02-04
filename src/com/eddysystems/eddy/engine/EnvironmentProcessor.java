@@ -91,7 +91,7 @@ class EnvironmentProcessor {
       // Register classes
       for (final Shadow<PsiClass> scls : P.classes) {
         final PsiClass cls = scls.e;
-        final Item icls = env.addClass(cls, true);
+        final Item icls = env.addClass(cls);
         scopeItems.put(icls,scls.shadowingPriority);
       }
 
@@ -156,7 +156,7 @@ class EnvironmentProcessor {
         // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
         // add this and super only if we're not in static scope
         if (!inStatic && place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
-          final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
+          final ClassItem c = (ClassItem)env.addClass((PsiClass)place);
           //log("making 'this' and 'super' for " + c);
           assert scopeItems.containsKey(c);
           final int p = scopeItems.get(c);
