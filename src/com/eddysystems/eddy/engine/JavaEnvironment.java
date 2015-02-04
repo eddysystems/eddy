@@ -177,7 +177,6 @@ public class JavaEnvironment {
   // a trie encapsulating the global list of all names.
   // TODO: This should be refreshed in a low priority background thread as the set of names changes.
   int[] nameTrie;
-  Tries.LazyTrie<Items.Item> trie = null;
 
   // map types to items of that type.
   // TODO: This should be rebuilt continuously in a low-priority background thread.
@@ -205,9 +204,6 @@ public class JavaEnvironment {
 
        // make global name lookup trie (read actions taken care of inside)
       prepareNameTrie(fieldNames);
-
-      // make trie for name lookup
-      trie = new Tries.LazyTrie<Items.Item>(nameTrie, new PsiGenerator(project, ProjectScope.getAllScope(project), converter, false));
 
       if (indicator != null)
         indicator.setIndeterminate(false);
@@ -585,6 +581,9 @@ public class JavaEnvironment {
       } finally {
         popScope();
       }
+
+      // make trie for global/project name lookup
+      final Tries.LazyTrie<Items.Item> trie = new Tries.LazyTrie<Items.Item>(nameTrie, new PsiGenerator(project, ProjectScope.getAllScope(project), converter, false));
 
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
       return Tarski.environment(trie, localTrie, vbi, ep.scopeItems, ep.placeInfo);
