@@ -217,6 +217,7 @@ object Denotations {
     def r = ir union x.r
   }
   case class IfElseStmt(ir: SRange, c: Exp, a: SGroup, x: Stmt, er: SRange, y: Stmt) extends Stmt {
+    assert(!x.isInstanceOf[IfStmt])
     def env = x.env
     def envAfter = env
     def r = ir union y.r
@@ -458,7 +459,7 @@ object Denotations {
       case (Nil,Nil) => Nil
       case (ex,Nil) => List(IfStmt(qr,c,SGroup.approx(c.r),blocked(ex)))
       case (Nil,ey) => List(IfStmt(qr,not(c),SGroup.approx(c.r),blocked(ey)))
-      case (ex,ey) => List(IfElseStmt(qr,c,SGroup.approx(c.r),blocked(ex),er,blocked(ey)))
+      case (ex,ey) => List(IfElseStmt(qr,c,SGroup.approx(c.r),notIf(blocked(ex)),er,blocked(ey)))
     }
     case ParenExp(x,_) => effects(x)
   }
@@ -469,12 +470,18 @@ object Denotations {
     case ss => MultipleStmt(ss flatMap (_.flatten))
   }
 
-  def blocked(s: Stmt): Stmt = blocked(List(s))
-
-  def blocked(ss: List[Stmt]): Stmt = ss flatMap (_.flatten) match {
+  def blocked(s: Stmt): Stmt = blockedHelper(s.flatten)
+  def blocked(ss: List[Stmt]): Stmt = blockedHelper(ss flatMap (_.flatten))
+  private[this] def blockedHelper(ss: List[Stmt]): Stmt = ss match {
     case Nil => impossible
     case List(s) => s
     case ss => BlockStmt(ss,SGroup.approx(ss.head.r union ss.last.r),ss.head.env)
+  }
+
+  // Make sure we're not a bare if
+  def notIf(s: Stmt): Stmt = s match {
+    case _:IfStmt => needBlock(s)
+    case _ => s
   }
 
   def needBlock(s: Stmt): Stmt =

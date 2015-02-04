@@ -326,6 +326,16 @@ public class Eddy {
     // Go back up to find a statement or code block
     e = stmtsAbove(e);
 
+    // Go up outside of unblocked ifs so that we don't turn an unblocked body into multiple statements
+    // For an example, see testBlockYes in the IntelliJ tests.
+    if (e instanceof PsiStatement)
+      for (;;) {
+        final PsiElement p = e.getParent();
+        if (!(p instanceof PsiIfStatement))
+          break;
+        e = p;
+      }
+
     // Collect results
     final List<PsiElement> results = new SmartList<PsiElement>();
     if (e instanceof PsiCodeBlock) {

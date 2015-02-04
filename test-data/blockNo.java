@@ -4,9 +4,8 @@ class Test {
     }
   }
   void g();
-  void h();
 
   int f() {
-    true ? g() : h();<caret>
+    true ? g() : 0;<caret>
   }
 }

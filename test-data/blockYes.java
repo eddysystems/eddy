@@ -8,6 +8,8 @@ class Test {
 
   void f() {
     if (true)
-      true ? g() : h();<caret>
+      true ? g() : 0;<caret>
+    else
+      h();
   }
 }

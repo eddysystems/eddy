@@ -762,7 +762,7 @@ object Semantics {
       case IfAStmt(ir,c,a,x) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {
         case (c,x) => single(IfStmt(ir,c,a.a,x),Pr.ifStmt) }
       case IfElseAStmt(ir,c,a,x,er,y) => product(denoteBool(c),denoteScoped(x)(env),denoteScoped(y)(env)) flatMap {
-        case (c,x,y) => single(IfElseStmt(ir,c,a.a,x,er,y),Pr.ifElseStmt) }
+        case (c,x,y) => single(IfElseStmt(ir,c,a.a,notIf(x),er,y),Pr.ifElseStmt) }
       case WhileAStmt(wr,flip,c,a,s) => product(denoteBool(c),denoteScoped(s)(env)) flatMap {case (c,s) =>
         single(WhileStmt(wr,xor(flip,c),a.a,s),Pr.whileStmt) }
       case DoAStmt(dr,s,wr,flip,c,a) => product(denoteScoped(s)(env),denoteBool(c)) flatMap {case (s,c) =>
