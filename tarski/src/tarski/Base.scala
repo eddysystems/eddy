@@ -4,6 +4,8 @@ import tarski.AST._
 import tarski.Denotations.{BooleanLit, NullLit}
 import tarski.Environment.{TwoEnv, Env}
 import tarski.Items._
+import tarski.JavaItems._
+import tarski.Tries.Trie
 import tarski.Types._
 import utility.Locations.SRange
 import utility.Utility._
@@ -201,7 +203,12 @@ object Base {
   }).toMap))
 
   // Things that EnvironmentProcessor won't add on its own
-  val extraEnv = silenced(Env(Array(
+  val extraItems = Array(
     trueLit,falseLit,nullLit,
-    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem)))
+    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem
+  )
+
+  val extraEnv = silenced(Env(extraItems))
+  val extraTrie = Trie(extraItems)
+  val extraByItem = valuesByItem(extraItems)
 }

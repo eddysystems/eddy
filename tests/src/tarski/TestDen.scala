@@ -663,16 +663,16 @@ class TestDen {
   @Test def genericClass(): Unit = {
     implicit val fl = Flags(fixpoint=false) // Fixpoint test fails due to GtTok GtTok vs. RShiftTok
     implicit val env = setupGenericClass()
-    val X = env.exactQuery("X").asInstanceOf[NormalClassItem]
-    val B = env.exactQuery("B").asInstanceOf[NormalClassItem]
+    val X = env.exactQuery("X").head.asInstanceOf[NormalClassItem]
+    val B = env.exactQuery("B").head.asInstanceOf[NormalClassItem]
     test("X<String,B<String>> x = null", "x", x =>
       VarStmt(Nil,X.generic(List(StringType,B.generic(List(StringType)))),r,VarDecl(x,r,Nil,Some(r,NullLit(r)),env),env))
   }
 
   @Test def genericMethod(): Unit = {
     implicit val env = setupGenericClass()
-    val f = env.exactQuery("f").asInstanceOf[NormalMethodItem]
-    val This = env.exactQuery("this").asInstanceOf[ThisItem]
+    val f = env.exactQuery("f").head.asInstanceOf[NormalMethodItem]
+    val This = env.exactQuery("this").head.asInstanceOf[ThisItem]
     test("""this.<Integer>f(7)""",ApplyExp(TypeApply(MethodDen(This,f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))
     test("""<Integer>f(7)""",     ApplyExp(TypeApply(MethodDen(None,f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))
     test("""f<Integer>(7)""",     ApplyExp(TypeApply(MethodDen(None,f,r),List(IntType.box),a,hide=false),List(7),a,auto=false))

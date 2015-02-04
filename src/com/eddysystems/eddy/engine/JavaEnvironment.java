@@ -173,12 +173,15 @@ public class JavaEnvironment {
   // able to translate a name into a list of items)
   //  - A project lookup object (same as the global one, but recomputed each time from
   //  - A byItem map for local items
+
+  // a trie encapsulating the global list of all names.
+  // TODO: This should be refreshed in a low priority background thread as the set of names changes.
   int[] nameTrie;
   Tries.LazyTrie<Items.Item> trie = null;
 
-  // map types to items of that type. This is built once for the project, and should be rebuilt
-  // continuously in a low-priority background thread.
-  Map<String, List<String>> pByItem = null;
+  // map types to items of that type.
+  // TODO: This should be rebuilt continuously in a low-priority background thread.
+  Map<String, Set<String>> pByItem = null;
 
   public JavaEnvironment(@NotNull Project project) {
     this.project = project;
@@ -204,13 +207,13 @@ public class JavaEnvironment {
       prepareNameTrie(fieldNames);
 
       // make trie for name lookup
-      trie = new Tries.LazyTrie<Items.Item>(nameTrie, new PsiGenerator(project, ProjectScope.getLibrariesScope(project), converter, false));
+      trie = new Tries.LazyTrie<Items.Item>(nameTrie, new PsiGenerator(project, ProjectScope.getAllScope(project), converter, false));
 
       if (indicator != null)
         indicator.setIndeterminate(false);
 
       // takes care of read action business inside (this is where all the work happens)
-      makeProjectValuesByItem(fieldNames, indicator);
+      pByItem = makeProjectValuesByItem(fieldNames, indicator);
 
       if (indicator != null)
         indicator.setIndeterminate(true);
@@ -435,71 +438,106 @@ public class JavaEnvironment {
     }
   }
 
+  private void clean() {
+    // TODO: don't be so radical, only clean the things that actually went out of date
+    items.clear();
+  }
+
   // get a combined environment at the given place
   Environment.Env getLocalEnvironment(@NotNull PsiElement place, final int lastEdit) {
-    // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
-    final EnvironmentProcessor ep = new EnvironmentProcessor(project, this, items, place, lastEdit);
 
-    final ValueByItemQuery vbi = new ValueByItemQuery() {
-      final Map<Items.TypeItem, Items.Value[]> cache = new HashMap<Items.TypeItem, Items.Value[]>();
-      final PsiShortNamesCache psicache = PsiShortNamesCache.getInstance(project);
-      final GlobalSearchScope scope = ProjectScope.getContentScope(project);
-      final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
-      final List<Items.Value> result = new ArrayList<Items.Value>();
-      final EddyThread thread = EddyThread.getEddyThread();
-      final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.scopeItems);
+    pushScope("get local environment");
+    try {
+      clean();
 
-      final Processor<PsiField> proc = new Processor<PsiField>() {
+      // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
+      final EnvironmentProcessor ep = new EnvironmentProcessor(project, this, items, place, lastEdit);
+
+      final ValueByItemQuery vbi = new ValueByItemQuery() {
+        final Map<Items.TypeItem, Items.Value[]> cache = new HashMap<Items.TypeItem, Items.Value[]>();
+        final PsiShortNamesCache psicache = PsiShortNamesCache.getInstance(project);
+        final GlobalSearchScope scope = ProjectScope.getContentScope(project);
+        final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
+        final List<Items.Value> result = new ArrayList<Items.Value>();
+        final EddyThread thread = EddyThread.getEddyThread();
+        final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.scopeItems);
+
+        final Processor<PsiField> proc = new Processor<PsiField>() {
+          @Override
+          public boolean process(PsiField psiField) {
+            // convert
+            // check if type is really the type we want
+            if (thread != null && thread.canceled())
+              return false;
+            result.add(converter.addField(psiField));
+            return true;
+          }
+        };
+
         @Override
-        public boolean process(PsiField psiField) {
-          // convert
-          // check if type is really the type we want
-          if (thread != null && thread.canceled())
-            return false;
-          result.add(converter.addField(psiField));
-          return true;
+        public Items.Value[] query(Items.TypeItem type) {
+          if (cache.containsKey(type))
+            return cache.get(type);
+
+          result.clear();
+
+          // look up names in project
+          String ts = type.qualified();
+          if (pByItem.containsKey(ts)) {
+            if (thread != null) thread.pushSoftInterrupts();
+            for (String name : pByItem.get(ts)) {
+              psicache.processFieldsWithName(name, proc, scope, filter);
+            }
+            if (thread != null) thread.popSoftInterrupts();
+          }
+
+          // filter and return
+          int count = 0;
+          for (int i = 0; i < result.size(); ++i) {
+            if (result.get(i).item() == type)
+              count++;
+          }
+
+          // look up in extraEnv
+          Items.Value[] extras = Base.extraByItem().get(type);
+          if (extras != null)
+            Collections.addAll(result, extras);
+
+          // look up in vByItem
+          Items.Value[] varr = vByItem.get(type);
+          Items.Value[] rarr = varr == null ? new Items.Value[count] : Arrays.copyOf(varr, varr.length + count);
+          count = varr == null ? 0 : varr.length;
+          for (int i = 0; i < result.size(); ++i) {
+            Items.Value vi = result.get(i);
+            if (vi.item() == type)
+              rarr[count++] = vi;
+          }
+
+          // TODO: there may be duplicates here, clean?
+
+          cache.put(type, rarr);
+          return rarr;
         }
       };
 
-      @Override
-      public Items.Value[] query(Items.TypeItem type) {
-        if (cache.containsKey(type))
-          return cache.get(type);
+      // make a local trie of everything in scope which would not be found by the global lookup
+      List<Items.Item> locals = new ArrayList<Items.Item>();
 
-        result.clear();
-
-        // look up names in project
-        String ts = type.qualified();
-        if (pByItem.containsKey(ts)) {
-          if (thread != null) thread.pushSoftInterrupts();
-          for (String name : pByItem.get(ts)) {
-            psicache.processFieldsWithName(name, proc, scope, filter);
-          }
-          if (thread != null) thread.popSoftInterrupts();
+      for (Items.Item item : ep.localItems) {
+        if (item instanceof Items.Local ||
+          item instanceof Types.TypeVar ||
+          item instanceof Items.ThisOrSuper) {
+          log("added local " + item);
+          locals.add(item);
         }
-
-        // filter and return
-        int count = 0;
-        for (int i = 0; i < result.size(); ++i) {
-          if (result.get(i).item() == type)
-            count++;
-        }
-
-        Items.Value[] varr = vByItem.get(type);
-        Items.Value[] rarr = varr == null ? new Items.Value[count] : Arrays.copyOf(varr, varr.length + count);
-        count = varr == null ? 0 : varr.length;
-        for (int i = 0; i < result.size(); ++i) {
-          Items.Value vi = result.get(i);
-          if (vi.item() == type)
-            rarr[count++] = vi;
-        }
-
-        cache.put(type, rarr);
-        return rarr;
       }
-    };
+      Collections.addAll(locals, Base.extraItems());
+      Tries.Trie<Items.Item> localTrie = Tarski.makeTrie(locals);
 
-    return Tarski.environment(trie, vbi, ep.scopeItems, ep.placeInfo);
+      return Tarski.environment(trie, localTrie, vbi, ep.scopeItems, ep.placeInfo);
+    } finally {
+      popScope();
+    }
   }
 
 

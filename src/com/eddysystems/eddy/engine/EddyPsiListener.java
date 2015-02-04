@@ -5,6 +5,8 @@ import com.intellij.psi.PsiTreeChangeEvent;
 import com.intellij.psi.PsiTreeChangeListener;
 import org.jetbrains.annotations.NotNull;
 
+import static com.eddysystems.eddy.engine.Utility.log;
+
 public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
@@ -15,6 +17,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childAdded(@NotNull PsiTreeChangeEvent event) {
+    log("child " + event.getChild() + " added to " + event.getParent());
   }
 
   @Override
@@ -25,6 +28,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childRemoved(@NotNull PsiTreeChangeEvent event) {
+    log("child " + event.getChild() + " removed from " + event.getParent());
   }
 
   @Override
@@ -35,6 +39,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childReplaced(@NotNull PsiTreeChangeEvent event) {
+    log("child " + event.getOldChild() + " in " + event.getParent() + " replaced with " + event.getNewChild());
   }
 
   @Override
@@ -45,6 +50,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childrenChanged(@NotNull PsiTreeChangeEvent event) {
+    log("children of " + event.getParent() + " changed.");
   }
 
   @Override
@@ -55,6 +61,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childMoved(@NotNull PsiTreeChangeEvent event) {
+    log("child " + event.getChild() + " moved from " + event.getOldParent() + " to " + event.getNewParent());
   }
 
   @Override
@@ -65,5 +72,6 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void propertyChanged(@NotNull PsiTreeChangeEvent event) {
+    log("property " + event.getPropertyName() + " changed in " + event.getElement());
   }
 }

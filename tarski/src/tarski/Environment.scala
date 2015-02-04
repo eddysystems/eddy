@@ -185,6 +185,7 @@ object Environment {
   }
 
   case class LazyEnv(private val trie: LazyTrie[Item], // creates items as they are queried
+                     private val localTrie: Trie[Item], // contains only the base items
                      private val added: QueriableItemList, // changed by this environment's extend functions (better be tiny)
                      private val byItem: ValueByItemQuery, // the JavaEnvironment has functions to compute this lazily, we just have to filter the result
                      scope: Map[Item,Int], place: PlaceInfo) extends Env {
@@ -193,10 +194,10 @@ object Environment {
 
     val emptyValues = new Array[Value](0)
 
-    override def move(to: PlaceInfo): Env = LazyEnv(trie,added,byItem,scope,to)
+    override def move(to: PlaceInfo): Env = LazyEnv(trie,localTrie,added,byItem,scope,to)
 
     // Enter a block scope
-    override def pushScope: Env = LazyEnv(trie,added,byItem,scope map { case (i,n) => (i,n+1) },place)
+    override def pushScope: Env = LazyEnv(trie,localTrie,added,byItem,scope map { case (i,n) => (i,n+1) },place)
 
     // Lookup by type.item
     override def byItem(t: TypeItem): Scored[Value] = {
@@ -206,17 +207,17 @@ object Environment {
 
     // return a new environment with one more item in it (doesn't recompute tries)
     override def add(item: Item, scope: Int): Env =
-      LazyEnv(trie,added.add(item),byItem,this.scope+(item->scope),place)
+      LazyEnv(trie,localTrie,added.add(item),byItem,this.scope+(item->scope),place)
 
     override def extend(things: Array[Item], scope: Map[Item, Int]): Env = {
-      LazyEnv(trie,added.add(things),byItem,this.scope++scope,place)
+      LazyEnv(trie,localTrie,added.add(things),byItem,this.scope++scope,place)
     }
 
-    // Fragile or slow, only use for tests
+    // Fragile or slow, only use for tests (does not look in base!)
     override def exactLocal(name: String): Local = {
       val query = name.toCharArray
       def options(t: Queriable[Item]) = t exact query collect { case x:Local if x.accessible(place) => x }
-      options(trie)++options(added) match {
+      options(trie) ++ options(added) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
@@ -225,13 +226,13 @@ object Environment {
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (trie.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
+      (localTrie.exact(typed) ++ trie.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
     }
 
     // Get exact and typo probabilities for string queries
     protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (trie.typoQuery(typed)++added.typoQuery(typed)) filter (_.x.accessible(place))
+      (localTrie.typoQuery(typed) ++ trie.typoQuery(typed)++added.typoQuery(typed)) filter (_.x.accessible(place))
     }
 
   }

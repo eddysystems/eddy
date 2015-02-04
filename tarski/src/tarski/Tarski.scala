@@ -27,10 +27,10 @@ object Tarski {
     DTrie(jvalues.asScala)
   }
 
-  def environment(trie: LazyTrie[Item], byItem: ValueByItemQuery,
+  def environment(trie: LazyTrie[Item], localTrie: Trie[Item], byItem: ValueByItemQuery,
                   scope: java.util.Map[Item,Integer], place: PlaceInfo): Env = {
     println("environment with " + scope.size() + " scope items taken at " + place)
-    new LazyEnv(trie, QueriableItemList.empty, byItem, scope.asScala.toMap.mapValues(_.intValue), place)
+    new LazyEnv(trie, localTrie, QueriableItemList.empty, byItem, scope.asScala.toMap.mapValues(_.intValue), place)
   }
 
   def print(is: Iterable[Alt[Item]]): Unit = {
