@@ -88,7 +88,7 @@ class Place {
               (parent instanceof PsiParameterList) || // parameters to callable
               (parent instanceof PsiNewExpression) // anonymous classes
               ) {
-      while (!(parent instanceof PsiMethod))
+      while (!(parent instanceof PsiMethod) && !(parent instanceof PsiClass)) // new expressions in field initializers can be inside a class, not a method
         parent = parent.getParent();
       return parent;
     } else if (parent instanceof PsiTypeParameterList) {
@@ -113,7 +113,7 @@ class Place {
 
   static boolean isStatic(PsiElement element) {
     if (element instanceof PsiField || element instanceof PsiMethod) {
-      return ((PsiModifierListOwner)element).hasModifierProperty(PsiModifier.STATIC);
+      return ((PsiModifierListOwner) element).hasModifierProperty(PsiModifier.STATIC);
     } else if (element instanceof PsiClass) {
       PsiClass cls = (PsiClass)element;
       return cls.getContainingClass() == null || cls.isInterface() || cls.isEnum() || cls.hasModifierProperty(PsiModifier.STATIC); // enums, interfaces, and top-level classes are implicitly static
