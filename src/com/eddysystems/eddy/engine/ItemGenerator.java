@@ -9,7 +9,6 @@ import com.intellij.util.Processor;
 import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
 import tarski.Items;
-import tarski.Tries;
 import tarski.JavaTrie.Generator;
 import java.util.ArrayList;
 import java.util.List;
