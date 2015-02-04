@@ -104,6 +104,7 @@ public class EddyPlugin implements ProjectComponent {
   public boolean isInitialized() { return env != null && env.initialized(); }
 
   public void dropEnv() {
+    env.dispose();
     env = null;
   }
 
@@ -116,7 +117,7 @@ public class EddyPlugin implements ProjectComponent {
       if (psiListener != null) {
         PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
       }
-      env = null;
+      dropEnv();
 
       if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
         // free env before allocating the new one
@@ -141,7 +142,7 @@ public class EddyPlugin implements ProjectComponent {
           log("environment initialized");
 
         } catch (JavaEnvironment.NoJDKError e) {
-          env = null;
+          dropEnv();
           err = e.getMessage();
           log(e.getMessage());
         } finally {

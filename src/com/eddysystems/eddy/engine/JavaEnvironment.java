@@ -164,19 +164,16 @@ public class JavaEnvironment {
 
   // pre-computed data structures to enable fast creation of appropriate scala Env instances
 
-  // when a local env is created, it contains:
-  //  - A global lookup object (created from the global list of all names and a generator object
-  // able to translate a name into a list of items)
-  //  - A project lookup object (same as the global one, but recomputed each time from
-  //  - A byItem map for local items
+  // these may be overwritten any time by new objects created in an updating process, but they are never changed.
+  // Grabbing a copy and working with it is always safe even without a lock
 
   // a trie encapsulating the global list of all names.
   // TODO: This should be refreshed in a low priority background thread as the set of names changes.
-  int[] nameTrie;
+  private int[] nameTrie;
 
   // map types to items of that type.
   // TODO: This should be rebuilt continuously in a low-priority background thread.
-  Map<String, Set<String>> pByItem = null;
+  private Map<String, Set<String>> pByItem = null;
 
   public JavaEnvironment(@NotNull Project project) {
     this.project = project;
@@ -185,12 +182,18 @@ public class JavaEnvironment {
   public void initialize(@Nullable ProgressIndicator indicator) {
     pushScope("make base environment");
     try {
+      // call this once so initialization fails if no JDK is present
+      addBase(new Converter(project, new HashMap<PsiElement, Items.Item>()));
+
+       // make global name lookup trie (read actions taken care of inside)
       String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllFieldNames();
       }});
 
-       // make global name lookup trie (read actions taken care of inside)
-      prepareNameTrie(fieldNames);
+      nameTrie = prepareNameTrie(fieldNames);
+
+      // we're initialized starting here, we can live without the makeProjectValuesByItem
+      _initialized = true;
 
       if (indicator != null)
         indicator.setIndeterminate(false);
@@ -198,11 +201,28 @@ public class JavaEnvironment {
       // takes care of read action business inside (this is where all the work happens)
       pByItem = makeProjectValuesByItem(fieldNames, indicator);
 
+      // TODO: start updater thread
+
       if (indicator != null)
         indicator.setIndeterminate(true);
 
-      _initialized = true;
     } finally { popScope(); }
+  }
+
+  private void backgroundUpdate() {
+    // make global name lookup trie (read actions taken care of inside)
+    String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
+      return PsiShortNamesCache.getInstance(project).getAllFieldNames();
+    }});
+
+    nameTrie = prepareNameTrie(fieldNames);
+
+    // takes care of read action business inside (this is where all the work happens)
+    pByItem = makeProjectValuesByItem(fieldNames, null);
+  }
+
+  public void dispose() {
+    // TODO: stop updater thread
   }
 
   private static void addBase(final Converter converter) {
@@ -259,7 +279,7 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  private void prepareNameTrie(String[] fieldNames) {
+  private int[] prepareNameTrie(String[] fieldNames) {
     pushScope("prepare lazy trie");
     try {
       String[] classNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
@@ -276,7 +296,7 @@ public class JavaEnvironment {
 
       // there may be duplicates, but we don't particularly care
       Arrays.sort(allNames);
-      nameTrie = JavaTrie.makeTrieStructure(allNames);
+      return JavaTrie.makeTrieStructure(allNames);
     } finally { popScope(); }
   }
 
@@ -403,6 +423,7 @@ public class JavaEnvironment {
           }
         }
 
+        // don't need synchronized, access functions should copy pointer before working on it
         return result;
 
       } finally {
@@ -461,15 +482,18 @@ public class JavaEnvironment {
 
             // look up names in project
             String ts = type.qualified();
-            if (pByItem.containsKey(ts)) {
+
+            // grab current byItem (may be overwritten any time)
+            final Map<String, Set<String>> byItem = pByItem;
+            if (byItem != null && byItem.containsKey(ts)) {
               if (thread != null) thread.pushSoftInterrupts();
-              for (String name : pByItem.get(ts)) {
+              for (String name : byItem.get(ts)) {
                 psicache.processFieldsWithName(name, proc, scope, filter);
               }
               if (thread != null) thread.popSoftInterrupts();
             }
 
-            // filter and return
+            // filter by real type
             int count = 0;
             for (int i = 0; i < result.size(); ++i) {
               if (result.get(i).item() == type)
@@ -521,8 +545,10 @@ public class JavaEnvironment {
         popScope();
       }
 
+      // copy the nameTrie structure pointer, may be overwritten any time
+      final int[] structure = nameTrie;
       // make trie for global/project name lookup
-      final Tries.LazyTrie<Items.Item> trie = new Tries.LazyTrie<Items.Item>(nameTrie, new PsiGenerator(project, ProjectScope.getAllScope(project), converter, false));
+      final Tries.LazyTrie<Items.Item> trie = new Tries.LazyTrie<Items.Item>(structure, new PsiGenerator(project, ProjectScope.getAllScope(project), converter, false));
 
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
       return Tarski.environment(trie, localTrie, vbi, ep.scopeItems, ep.placeInfo);
