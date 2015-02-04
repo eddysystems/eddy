@@ -630,5 +630,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("staticThis.java", "this.x = 7;", .9);
   }
 
+  public void testAssertInstanceOf() { testMargin("assertInstanceOf.java", "assert elem instanceof List;", .9); }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }
