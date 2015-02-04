@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.eddysystems.eddy.engine.Utility.log;
+import static utility.JavaUtils.popScope;
+import static utility.JavaUtils.pushScope;
 
 /**
  * Extract information about the environment at a given place in the code and make it available in a format understood by tarski
@@ -50,14 +52,21 @@ class EnvironmentProcessor {
     // Walk up the PSI tree, also processing import statements
     final EddyThread thread = EddyThread.getEddyThread();
     final Processor P = new Processor(thread,where);
+    pushScope("tree walking");
     if (thread != null) thread.pushSoftInterrupts();
     try {
       PsiScopesUtil.treeWalkUp(P, place, place.getContainingFile());
     } finally {
       if (thread != null) thread.popSoftInterrupts();
+      popScope();
     }
     // only do this if we got through the processor
-    this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
+    pushScope("fillLocalInfo");
+    try {
+      this.placeInfo = fillLocalInfo(P,where,jenv,locals,lastEdit);
+    } finally {
+      popScope();
+    }
   }
 
   /**
@@ -70,45 +79,50 @@ class EnvironmentProcessor {
 
     //log("getting local items...");
 
-    // Register locally visible packages
-    for (final Shadow<PsiPackage> spkg : P.packages) {
-      final PsiPackage pkg = spkg.e;
-      final Item ipkg = env.addContainer(pkg);
-      scopeItems.put(ipkg,spkg.shadowingPriority);
-    }
-
-    // Register classes
-    for (final Shadow<PsiClass> scls : P.classes) {
-      final PsiClass cls = scls.e;
-      final Item icls = env.addClass(cls, true);
-      scopeItems.put(icls,scls.shadowingPriority);
-    }
-
-    // register methods
-    for (final Shadow<PsiMethod> smethod : P.methods) {
-      final PsiMethod method = smethod.e;
-      final Item imethod = env.addMethod(method);
-      if (!(imethod instanceof ConstructorItem)) {
-        scopeItems.put(imethod,smethod.shadowingPriority);
+    pushScope("add to scope");
+    try {
+      // Register locally visible packages
+      for (final Shadow<PsiPackage> spkg : P.packages) {
+        final PsiPackage pkg = spkg.e;
+        final Item ipkg = env.addContainer(pkg);
+        scopeItems.put(ipkg,spkg.shadowingPriority);
       }
-    }
 
-    // then, register values
-    for (final Shadow<PsiVariable> svar : P.variables) {
-      final PsiVariable var = svar.e;
-      if (var instanceof PsiField) {
-        final Item ivar = env.addField((PsiField) var);
-        scopeItems.put(ivar,svar.shadowingPriority);
-      } else {
-        // true local variables (parameters or local variables)
-        final Item i = env.addLocal(var);
-        scopeItems.put(i,svar.shadowingPriority);
+      // Register classes
+      for (final Shadow<PsiClass> scls : P.classes) {
+        final PsiClass cls = scls.e;
+        final Item icls = env.addClass(cls, true);
+        scopeItems.put(icls,scls.shadowingPriority);
       }
-    }
 
-    synchronized(jenv) {
-      // .values is undefined if it is modified during iteration.
-      localItems.addAll(locals.values());
+      // register methods
+      for (final Shadow<PsiMethod> smethod : P.methods) {
+        final PsiMethod method = smethod.e;
+        final Item imethod = env.addMethod(method);
+        if (!(imethod instanceof ConstructorItem)) {
+          scopeItems.put(imethod,smethod.shadowingPriority);
+        }
+      }
+
+      // then, register values
+      for (final Shadow<PsiVariable> svar : P.variables) {
+        final PsiVariable var = svar.e;
+        if (var instanceof PsiField) {
+          final Item ivar = env.addField((PsiField) var);
+          scopeItems.put(ivar,svar.shadowingPriority);
+        } else {
+          // true local variables (parameters or local variables)
+          final Item i = env.addLocal(var);
+          scopeItems.put(i,svar.shadowingPriority);
+        }
+      }
+
+      synchronized(jenv) {
+        // .values is undefined if it is modified during iteration.
+        localItems.addAll(locals.values());
+      }
+    } finally {
+      popScope();
     }
 
     // find out which element we are inside (method, class or interface, or package)
@@ -118,70 +132,75 @@ class EnvironmentProcessor {
     boolean inStatic = false;
     // walk straight up until we see a method, class, or package
     PsiElement place = where.place;
-    while (place != null) {
-      // scan the current method for labels, loops, and switch statements
-      if (placeItem != null) {
-        if (place instanceof PsiLabeledStatement) {
-          final PsiLabeledStatement lab = (PsiLabeledStatement)place;
-          final boolean continuable = !(lab instanceof PsiSwitchStatement);
-          localItems.add(new Label(lab.getLabelIdentifier().getText(),continuable));
-        }
-        if (place instanceof PsiSwitchStatement) {
-          //log("inside switch statement: " + place);
-          inside_breakable = true;
-        }
-        if (place instanceof PsiLoopStatement) {
-          //log("inside loop statement: " + place);
-          inside_breakable = true;
-          inside_continuable = true;
-        }
-      }
-
-      // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
-        // add this and super only if we're not in static scope
-      if (!inStatic && place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
-        final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
-        //log("making 'this' and 'super' for " + c);
-        assert scopeItems.containsKey(c);
-        final int p = scopeItems.get(c);
-
-        final ThisItem ti = new ThisItem(c);
-        localItems.add(ti);
-        scopeItems.put(ti,p);
-
-        final ClassType s = c.base();
-        assert s.item().isClass();
-        final SuperItem si = new SuperItem(s);
-        localItems.add(si);
-        scopeItems.put(si,p);
-      }
-
-      if (   (place instanceof PsiMethod || place instanceof PsiClass)
-          && ((PsiModifierListOwner)place).hasModifierProperty(PsiModifier.STATIC))
-        inStatic = true;
-
-      if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
-        if (placeItem == null) {
-          placeItem = (ParentItem)jenv.lookup(place);
-          assert placeItem != null : "cannot find placeItem " + place + ", possibly in anonymous local class";
-        }
-      } else if (place instanceof PsiJavaFile) {
-        final PsiPackage pkg = Place.getPackage((PsiJavaFile) place, env.project);
-        if (pkg == null) {
-          // probably we're top-level in a file without package statement, use LocalPackageItem
-          if (placeItem == null)
-            placeItem = LocalPkg$.MODULE$;
-        } else {
-          if (placeItem == null) {
-            assert jenv.knows(pkg);
-            placeItem = env.addContainer(pkg);
+    pushScope("walk up");
+    try {
+      while (place != null) {
+        // scan the current method for labels, loops, and switch statements
+        if (placeItem != null) {
+          if (place instanceof PsiLabeledStatement) {
+            final PsiLabeledStatement lab = (PsiLabeledStatement)place;
+            final boolean continuable = !(lab instanceof PsiSwitchStatement);
+            localItems.add(new Label(lab.getLabelIdentifier().getText(),continuable));
+          }
+          if (place instanceof PsiSwitchStatement) {
+            //log("inside switch statement: " + place);
+            inside_breakable = true;
+          }
+          if (place instanceof PsiLoopStatement) {
+            //log("inside loop statement: " + place);
+            inside_breakable = true;
+            inside_continuable = true;
           }
         }
-        break;
+
+        // add special "this" and "super" items this for each class we're inside of, with same shadowing priority as the class itself
+        // add this and super only if we're not in static scope
+        if (!inStatic && place instanceof PsiClass && !((PsiClass) place).isInterface()) { // don't make this for interfaces
+          final ClassItem c = (ClassItem)env.addClass((PsiClass)place, false);
+          //log("making 'this' and 'super' for " + c);
+          assert scopeItems.containsKey(c);
+          final int p = scopeItems.get(c);
+
+          final ThisItem ti = new ThisItem(c);
+          localItems.add(ti);
+          scopeItems.put(ti,p);
+
+          final ClassType s = c.base();
+          assert s.item().isClass();
+          final SuperItem si = new SuperItem(s);
+          localItems.add(si);
+          scopeItems.put(si,p);
+        }
+
+        if (   (place instanceof PsiMethod || place instanceof PsiClass)
+          && ((PsiModifierListOwner)place).hasModifierProperty(PsiModifier.STATIC))
+          inStatic = true;
+
+        if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
+          if (placeItem == null) {
+            placeItem = (ParentItem)jenv.lookup(place);
+            assert placeItem != null : "cannot find placeItem " + place + ", possibly in anonymous local class";
+          }
+        } else if (place instanceof PsiJavaFile) {
+          final PsiPackage pkg = Place.getPackage((PsiJavaFile) place, env.project);
+          if (pkg == null) {
+            // probably we're top-level in a file without package statement, use LocalPackageItem
+            if (placeItem == null)
+              placeItem = LocalPkg$.MODULE$;
+          } else {
+            if (placeItem == null) {
+              assert jenv.knows(pkg);
+              placeItem = env.addContainer(pkg);
+            }
+          }
+          break;
+        }
+        place = place.getParent();
       }
-      place = place.getParent();
+      assert placeItem != null;
+    } finally {
+      popScope();
     }
-    assert placeItem != null;
 
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 

@@ -131,6 +131,9 @@ public class Eddy {
         if (r.x().similar(input.input))
           return false; // We found what's already there
       return !results.isEmpty();
+
+      
+
     }
 
     // Is there only one realistic option (or did the user explicitly select one)?

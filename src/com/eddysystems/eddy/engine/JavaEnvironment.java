@@ -239,11 +239,11 @@ public class JavaEnvironment {
 
       // Extra things don't correspond to PsiElements
       final Set<Items.Item> extra =  new HashSet<Items.Item>();
-      Collections.addAll(extra, Base.extraEnv().allItems());
+      Collections.addAll(extra, Base.extraItems());
 
       // Add classes and packages
       final JavaPsiFacade facade = JavaPsiFacade.getInstance(project);
-      for (Items.Item item : tarski.Base.baseEnv().allItems()) {
+      for (Items.Item item : tarski.Base.baseItems()) {
         if (extra.contains(item) || item instanceof Items.ConstructorItem)
           continue;
         final String name = item.qualified();
@@ -257,11 +257,12 @@ public class JavaEnvironment {
         if (psi == null)
           throw new NoJDKError("Couldn't find " + name);
         //log("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
-        converter.put(psi, item);
+        if (!items.containsKey(psi))
+          items.put(psi, item);
       }
 
       // Add constructors
-      for (Items.Item item : tarski.Base.baseEnv().allItems()) {
+      for (Items.Item item : tarski.Base.baseItems()) {
         if (!(item instanceof Items.ConstructorItem))
           continue;
         final String clsName = ((Items.ConstructorItem)item).parent().qualified();
@@ -270,11 +271,12 @@ public class JavaEnvironment {
         final PsiMethod[] cons = cls.getConstructors();
         if (cons.length != 1)
           log("found " + cons.length + " constructors for object " + cls);
-        converter.put(cons[0],item);
+        if (!items.containsKey(cons[0]))
+          items.put(cons[0], item);
       }
 
       // Add class members
-      for (Items.Item item : tarski.Base.baseEnv().allItems()) {
+      for (Items.Item item : tarski.Base.baseItems()) {
         if (extra.contains(item) || !(item instanceof Items.ClassItem))
           continue;
         final String name = item.qualified();
@@ -359,7 +361,7 @@ public class JavaEnvironment {
 
               // add to map
               String type = t.getCanonicalText();
-              log("found field " + f + " with type " + type);
+              //log("found field " + f + " with type " + type);
               Set<String> values = result.get(type);
               if (values == null) {
                 values = new HashSet<String>();
@@ -439,8 +441,33 @@ public class JavaEnvironment {
   }
 
   private void clean() {
-    // TODO: don't be so radical, only clean the things that actually went out of date
-    items.clear();
+    // only clean the things that actually went out of date
+    // in particular, do not delete base!
+    pushScope("clean");
+    try {
+      boolean needBase = false;
+      Iterator<Map.Entry<PsiElement,Items.Item>> it = items.entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry<PsiElement, Items.Item> e = it.next();
+        if (!e.getKey().isValid()) {
+          log("removing invalid psi element " + e.getKey());
+          it.remove();
+          if (Base.baseSet().contains(e.getValue())) {
+            // something terrible happened, add base again
+            needBase = true;
+          }
+        } else if (e.getValue() instanceof Items.Local ||
+                   e.getValue() instanceof Types.TypeVar ||
+                   e.getValue() instanceof Items.ThisOrSuper) {
+          log("removing local item " + e.getValue());
+          it.remove();
+        }
+      }
+      if (needBase)
+        addBase();
+    } finally {
+      popScope();
+    }
   }
 
   // get a combined environment at the given place
@@ -450,90 +477,109 @@ public class JavaEnvironment {
     try {
       clean();
 
-      // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
-      final EnvironmentProcessor ep = new EnvironmentProcessor(project, this, items, place, lastEdit);
+      pushScope("environment processor");
+      final EnvironmentProcessor ep;
+      try {
+        // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
+        ep = new EnvironmentProcessor(project, this, items, place, lastEdit);
+      } finally {
+        popScope();
+      }
 
-      final ValueByItemQuery vbi = new ValueByItemQuery() {
-        final Map<Items.TypeItem, Items.Value[]> cache = new HashMap<Items.TypeItem, Items.Value[]>();
-        final PsiShortNamesCache psicache = PsiShortNamesCache.getInstance(project);
-        final GlobalSearchScope scope = ProjectScope.getContentScope(project);
-        final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
-        final List<Items.Value> result = new ArrayList<Items.Value>();
-        final EddyThread thread = EddyThread.getEddyThread();
-        final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.scopeItems);
+      pushScope("make ValueByItemQuery");
+      final ValueByItemQuery vbi;
+      try {
+        vbi = new ValueByItemQuery() {
+          final Map<Items.TypeItem, Items.Value[]> cache = new HashMap<Items.TypeItem, Items.Value[]>();
+          final PsiShortNamesCache psicache = PsiShortNamesCache.getInstance(project);
+          final GlobalSearchScope scope = ProjectScope.getContentScope(project);
+          final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
+          final List<Items.Value> result = new ArrayList<Items.Value>();
+          final EddyThread thread = EddyThread.getEddyThread();
+          final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.scopeItems);
 
-        final Processor<PsiField> proc = new Processor<PsiField>() {
+          final Processor<PsiField> proc = new Processor<PsiField>() {
+            @Override
+            public boolean process(PsiField psiField) {
+              // convert
+              // check if type is really the type we want
+              if (thread != null && thread.canceled())
+                return false;
+              result.add(converter.addField(psiField));
+              return true;
+            }
+          };
+
           @Override
-          public boolean process(PsiField psiField) {
-            // convert
-            // check if type is really the type we want
-            if (thread != null && thread.canceled())
-              return false;
-            result.add(converter.addField(psiField));
-            return true;
+          public Items.Value[] query(Items.TypeItem type) {
+            if (cache.containsKey(type))
+              return cache.get(type);
+
+            result.clear();
+
+            // look up names in project
+            String ts = type.qualified();
+            if (pByItem.containsKey(ts)) {
+              if (thread != null) thread.pushSoftInterrupts();
+              for (String name : pByItem.get(ts)) {
+                psicache.processFieldsWithName(name, proc, scope, filter);
+              }
+              if (thread != null) thread.popSoftInterrupts();
+            }
+
+            // filter and return
+            int count = 0;
+            for (int i = 0; i < result.size(); ++i) {
+              if (result.get(i).item() == type)
+                count++;
+            }
+
+            // look up in extraEnv
+            Items.Value[] extras = Base.extraByItem().get(type);
+            if (extras != null)
+              Collections.addAll(result, extras);
+
+            // look up in vByItem
+            Items.Value[] varr = vByItem.get(type);
+            Items.Value[] rarr = varr == null ? new Items.Value[count] : Arrays.copyOf(varr, varr.length + count);
+            count = varr == null ? 0 : varr.length;
+            for (int i = 0; i < result.size(); ++i) {
+              Items.Value vi = result.get(i);
+              if (vi.item() == type)
+                rarr[count++] = vi;
+            }
+
+            // TODO: there may be duplicates here, clean?
+
+            cache.put(type, rarr);
+            return rarr;
           }
         };
-
-        @Override
-        public Items.Value[] query(Items.TypeItem type) {
-          if (cache.containsKey(type))
-            return cache.get(type);
-
-          result.clear();
-
-          // look up names in project
-          String ts = type.qualified();
-          if (pByItem.containsKey(ts)) {
-            if (thread != null) thread.pushSoftInterrupts();
-            for (String name : pByItem.get(ts)) {
-              psicache.processFieldsWithName(name, proc, scope, filter);
-            }
-            if (thread != null) thread.popSoftInterrupts();
-          }
-
-          // filter and return
-          int count = 0;
-          for (int i = 0; i < result.size(); ++i) {
-            if (result.get(i).item() == type)
-              count++;
-          }
-
-          // look up in extraEnv
-          Items.Value[] extras = Base.extraByItem().get(type);
-          if (extras != null)
-            Collections.addAll(result, extras);
-
-          // look up in vByItem
-          Items.Value[] varr = vByItem.get(type);
-          Items.Value[] rarr = varr == null ? new Items.Value[count] : Arrays.copyOf(varr, varr.length + count);
-          count = varr == null ? 0 : varr.length;
-          for (int i = 0; i < result.size(); ++i) {
-            Items.Value vi = result.get(i);
-            if (vi.item() == type)
-              rarr[count++] = vi;
-          }
-
-          // TODO: there may be duplicates here, clean?
-
-          cache.put(type, rarr);
-          return rarr;
-        }
-      };
+      } finally {
+        popScope();
+      }
 
       // make a local trie of everything in scope which would not be found by the global lookup
-      List<Items.Item> locals = new ArrayList<Items.Item>();
+      pushScope("make local trie");
+      final Tries.Trie<Items.Item> localTrie;
+      try {
+        List<Items.Item> locals = new ArrayList<Items.Item>();
 
-      for (Items.Item item : ep.localItems) {
-        if (item instanceof Items.Local ||
-          item instanceof Types.TypeVar ||
-          item instanceof Items.ThisOrSuper) {
-          log("added local " + item);
-          locals.add(item);
+        for (Items.Item item : ep.localItems) {
+          if (item instanceof Items.Local ||
+            item instanceof Types.TypeVar ||
+            item instanceof Items.ThisOrSuper) {
+            //log("added local " + item);
+            locals.add(item);
+          }
         }
+        Collections.addAll(locals, Base.extraItems());
+        localTrie = Tarski.makeTrie(locals);
+      } finally {
+        popScope();
       }
-      Collections.addAll(locals, Base.extraItems());
-      Tries.Trie<Items.Item> localTrie = Tarski.makeTrie(locals);
 
+      log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
       return Tarski.environment(trie, localTrie, vbi, ep.scopeItems, ep.placeInfo);
     } finally {
       popScope();

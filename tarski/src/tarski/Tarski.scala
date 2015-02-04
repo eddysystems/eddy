@@ -28,10 +28,8 @@ object Tarski {
   }
 
   def environment(trie: LazyTrie[Item], localTrie: Trie[Item], byItem: ValueByItemQuery,
-                  scope: java.util.Map[Item,Integer], place: PlaceInfo): Env = {
-    println("environment with " + scope.size() + " scope items taken at " + place)
+                  scope: java.util.Map[Item,Integer], place: PlaceInfo): Env =
     new LazyEnv(trie, localTrie, QueriableItemList.empty, byItem, scope.asScala.toMap.mapValues(_.intValue), place)
-  }
 
   def print(is: Iterable[Alt[Item]]): Unit = {
     is foreach { case Alt(p,i) =>

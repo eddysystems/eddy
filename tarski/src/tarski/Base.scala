@@ -177,8 +177,9 @@ object Base {
   if (ObjectItem.constructors.length==0)
     ObjectItem.constructors = Array(ObjectConsItem)
 
-  // Standard base environment for tests
-  val baseEnv = silenced(Env(Array(
+  // Standard base environment
+
+  val baseItems = Array(
     // Packages
     JavaPkg,JavaLangPkg,JavaIoPkg,
     // Primitive types
@@ -195,7 +196,9 @@ object Base {
     ObjectConsItem,
     // Literals
     trueLit,falseLit,nullLit
-  )))
+  )
+  val baseSet = baseItems.toSet
+  val baseEnv = silenced(Env(baseItems))
 
   // Base environment with all class/interface items at scope level 7
   val testEnv = silenced(Env(baseEnv.allItems, (baseEnv.allItems collect {
