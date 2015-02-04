@@ -8,8 +8,10 @@ import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
+import tarski.JavaTrie.Generator;
 import utility.Interrupts;
 
+import java.util.Collection;
 import java.util.PriorityQueue;
 
 import static java.lang.Math.max;
@@ -222,16 +224,9 @@ public class JavaScores {
       default:
         if (trackErrors)
           then = Scores.good(then);
-
         final PriorityQueue<Alt<A>> pq = new PriorityQueue<Alt<A>>(JavaConversions.asJavaCollection(xs));
-        Alt<A> bestA = pq.poll();
-        final MultipleAltState<A> ms = new MultipleAltState<A>(pq);
-        Best<A> best = new Best<A>(bestA.dp(), bestA.x(), new Extractor<A>(ms));
-
-        if (then != Empty$.MODULE$)
-          return best.$plus$plus(then);
-        else
-          return best;
+        final Alt<A> bestA = pq.poll();
+        return new Best<A>(bestA.dp(), bestA.x(), new Extractor<A>(new MultipleAltState<A>(pq,then)));
     }
   }
 
@@ -317,25 +312,116 @@ public class JavaScores {
 
   static public final class MultipleAltState<A> extends State<A> {
     private final PriorityQueue<Alt<A>> heap;
+    private final Scored<A> then;
 
     // The Alt's probability is an upper bound on the Scored returned by the functions
-    protected MultipleAltState(PriorityQueue<Alt<A>> heap) {
+    protected MultipleAltState(final PriorityQueue<Alt<A>> heap, final Scored<A> then) {
       this.heap = heap;
+      this.then = then;
     }
 
     // Current probability bound
     public double p() {
       final Alt<A> a = heap.peek();
-      return a == null ? 0 : a.p();
+      return a != null ? a.p() : then.p();
     }
 
     public Scored<A> extract(final double goal) {
-      do {
-        if (heap.isEmpty())
-          return (Scored<A>)Empty$.MODULE$;
-        final Alt<A> s = heap.poll();
-        return new Best<A>(s.dp(), s.x(), new Extractor<A>(this));
-      } while (heap.isEmpty() || heap.peek().p() > goal);
+      final Alt<A> s = heap.poll();
+      return s == null ? then
+                       : new Best<A>(s.dp(), s.x(), heap.isEmpty() ? then : new Extractor<A>(this));
+    }
+  }
+
+  // For use in JavaTrie
+  static public final class GeneratorState<A> extends State<A> {
+    private final Generator<A> gen;
+    private final PriorityQueue<Alt<String>> heap;
+
+    // Current array we're pulling from
+    private double/*Prob*/ dp;
+    private A[] xs;
+    private int k;
+
+    public GeneratorState(final Generator<A> gen, final Collection<Alt<String>> input) {
+      this.gen = gen;
+      this.heap = new PriorityQueue<Alt<String>>(input);
+    }
+
+    public double p() {
+      return xs != null ? pp(dp) : heap.peek().p();
+    }
+
+    public Scored<A> extract(final double goal) {
+      if (xs == null) {
+        final Alt<String> s = heap.poll();
+        // s should never be null, since we check heap.isEmpty() below
+        xs = gen.lookup(s.x());
+        if (xs == null || xs.length==0) {
+          xs = null;
+          return heap.isEmpty() ? (Scored<A>)Empty$.MODULE$
+                                : new Extractor<A>(this);
+        }
+        dp = s.dp();
+        k = 0;
+      }
+      final A x = xs[k++];
+      if (k == xs.length)
+        xs = null;
+      return new Best<A>(dp,x,xs == null && heap.isEmpty() ? (Scored<A>)Empty$.MODULE$
+                                                           : new Extractor<A>(this));
+    }
+  }
+
+  // For use in JavaTrie
+  static public final class TrieState<A> extends State<A> {
+    static public final class AltRange extends HasProb {
+      private final double/*Prob*/ dp;
+      private final int lo;
+      private final int hi;
+
+      AltRange(final double/*Prob*/ dp, final int lo, final int hi) {
+        this.dp = dp;
+        this.lo = lo;
+        this.hi = hi;
+      }
+
+      public double p() {
+        return pp(dp);
+      }
+    }
+
+    private final A[] values;
+    private final PriorityQueue<AltRange> heap;
+    private double/*Prob*/ dp;
+    private int lo;
+    private int hi;
+
+    public TrieState(final A[] values, final Collection<AltRange> ranges) {
+      this.values = values;
+      this.heap = new PriorityQueue<AltRange>(ranges);
+      final AltRange r = heap.poll();
+      this.dp = r.dp;
+      this.lo = r.lo;
+      this.hi = r.hi;
+    }
+
+    public double p() {
+      return pp(dp);
+    }
+
+    public Scored<A> extract(final double goal) {
+      final double/*Prob*/ p = dp;
+      final A x = values[lo++];
+      if (lo == hi) {
+        final AltRange r = heap.poll();
+        if (r != null) {
+          this.dp = r.dp;
+          this.lo = r.lo;
+          this.hi = r.hi;
+        }
+      }
+      return new Best<A>(p,x,lo == hi ? (Scored<A>)Empty$.MODULE$ : new Extractor<A>(this));
     }
   }
 

@@ -1,7 +1,7 @@
 package tarski
 
 import java.util
-
+import tarski.JavaTrie.Generator;
 import tarski.Items.Item
 import tarski.Scores._
 
@@ -24,7 +24,7 @@ object Tries {
 
   trait Queriable[V] {
     def exact(s: Array[Char]): List[V]
-    def typoQuery(typed: Array[Char]): List[Alt[V]]
+    def typoQuery(typed: Array[Char]): Scored[V]
   }
 
   class Trie[V <: Named](val structure: Array[Int], val values: Array[V]) extends Queriable[V] {
@@ -67,9 +67,8 @@ object Tries {
     }
 
     // Lookup a string approximately only (ignoring exact matches)
-    @inline def typoQuery(typed: Array[Char]): List[Alt[V]] = {
+    @inline def typoQuery(typed: Array[Char]): Scored[V] =
       JavaTrie.levenshteinLookup(structure, values, typed, Pr.maxTypos(typed.length), Pr.expectedTypos(typed.length), Pr.minimumProbability)
-    }
 
     // The two keys are assumed equal
     def ++(t: Trie[V])(implicit tt: ClassTag[V]): Trie[V] =
@@ -86,18 +85,12 @@ object Tries {
       makeHelper(Array.empty)
   }
 
-  trait Generator[V] {
-    def lookup(s: String): Array[V]
-  }
-
   class LazyTrie[V](val structure: Array[Int], lookup: Generator[V]) extends Queriable[V] {
-    override def exact(s: Array[Char]): List[V] = {
+    override def exact(s: Array[Char]): List[V] =
       lookup.lookup(new String(s)).toList
-    }
 
-    override def typoQuery(typed: Array[Char]): List[Alt[V]] = {
+    override def typoQuery(typed: Array[Char]): Scored[V] =
       JavaTrie.levenshteinLookupGenerated(structure, lookup, typed, Pr.maxTypos(typed.length), Pr.expectedTypos(typed.length), Pr.minimumProbability)
-    }
   }
 
   object LazyTrie {

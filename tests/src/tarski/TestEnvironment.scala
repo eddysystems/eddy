@@ -115,7 +115,7 @@ class TestEnvironment {
       .map(s => NormalClassItem(s,LocalPkg) : Item)
     val env = Env(things)
 
-    val qr = env.typoQuery(typed).toSet
+    val qr = env.typoQuery(typed).stream.toSet
     val lr = things.collect( Function.unlift((item:Item) => {
       if (item.name == typed) None // Exact matches are not typos
       else {

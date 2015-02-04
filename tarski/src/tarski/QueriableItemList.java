@@ -2,63 +2,61 @@ package tarski;
 
 import scala.collection.JavaConversions;
 import scala.collection.immutable.List;
-
+import scala.collection.immutable.Nil$;
+import scala.collection.immutable.$colon$colon$;
+import tarski.Scores.*;
+import tarski.Items.Item;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class QueriableItemList implements Tries.Queriable<Items.Item> {
-  private final Items.Item[] _items;
-  private final ArrayList<Items.Item> _results;
-  private final ArrayList<Scores.Alt<Items.Item>> _altResults;
+public class QueriableItemList implements Tries.Queriable<Item> {
+  private final Item[] items;
 
-  public static final QueriableItemList empty = new QueriableItemList(new Items.Item[0]);
+  public static final QueriableItemList empty = new QueriableItemList(new Item[0]);
 
-  private QueriableItemList(Items.Item[] items) {
-    _items=items;
-    _results = new ArrayList<Items.Item>(_items.length);
-    _altResults = new ArrayList<Scores.Alt<Items.Item>>(_items.length);
+  private QueriableItemList(final Item[] items) {
+    this.items = items;
   }
 
-  public Items.Item[] array() {
-    return _items;
+  public Item[] array() {
+    return items;
   }
 
-  public QueriableItemList add(Items.Item item) {
-    Items.Item[] items = Arrays.copyOf(_items, _items.length+1);
-    items[_items.length] = item;
+  public QueriableItemList add(Item item) {
+    final Item[] old = this.items;
+    final Item[] items = Arrays.copyOf(old,old.length+1);
+    items[old.length] = item;
     return new QueriableItemList(items);
   }
 
-  public QueriableItemList add(Items.Item[] added) {
-    int l = _items.length;
-    Items.Item[] items = Arrays.copyOf(_items, _items.length+added.length);
-    System.arraycopy(added, 0, items, l, added.length);
+  public QueriableItemList add(Item[] added) {
+    final Item[] old = this.items;
+    final Item[] items = Arrays.copyOf(old, old.length+added.length);
+    System.arraycopy(added, 0, items, old.length, added.length);
     return new QueriableItemList(items);
   }
 
-  @Override
-  public List<Items.Item> exact(char[] ss) {
-    String s = new String(ss);
-    _results.clear();
-    for (Items.Item item : _items) {
+  @Override public List<Item> exact(char[] ss) {
+    final String s = new String(ss);
+    List<Item> results = (List)Nil$.MODULE$;
+    for (final Item item : items) {
       if (item.name().equals(s))
-        _results.add(item);
+        results = $colon$colon$.MODULE$.apply(item,results);
     }
-    return JavaConversions.asScalaBuffer(_results).toList();
+    return results;
   }
 
-  @Override
-  public List<Scores.Alt<Items.Item>> typoQuery(char[] ctyped) {
-    String typed = new String(ctyped);
-    _altResults.clear();
-    for (Items.Item item : _items) {
-      String meant = item.name();
-      if (meant.equals(typed))
-        continue;
-      double/*Prob*/ p = Pr.typoProbability(meant,typed);
-      if (p > Pr.minimumProbability())
-        _altResults.add(new Scores.Alt<Items.Item>(p,item));
+  @Override public Scored<Item> typoQuery(char[] ctyped) {
+    final String typed = new String(ctyped);
+    List<Alt<Item>> results = (List)Nil$.MODULE$;
+    for (final Item item : items) {
+      final String meant = item.name();
+      if (!meant.equals(typed)) {
+        final double/*Prob*/ p = Pr.typoProbability(meant,typed);
+        if (p > Pr.minimumProbability())
+          results = $colon$colon$.MODULE$.apply(new Alt<Item>(p,item),results);
+      }
     }
-    return JavaConversions.asScalaBuffer(_altResults).toList();
+    return JavaScores.listThen(results,(Scored)Empty$.MODULE$);
   }
 }

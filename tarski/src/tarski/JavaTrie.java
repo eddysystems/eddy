@@ -2,7 +2,8 @@ package tarski;
 
 import com.intellij.util.SmartList;
 import utility.JavaUtils;
-
+import tarski.Scores.*;
+import tarski.JavaScores.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -309,12 +310,16 @@ public class JavaTrie {
     return d[meant_length*cols+typed_length];
   }
 
+  public static interface Generator<V> {
+    public V[] lookup(final String s);
+  }
+
   // Find approximate matches for a string.  Exact matches are ignored.
   // We take char[] instead of String for typed to avoid string allocations (use _.toCharArray to convert)
-  public static <V> scala.collection.immutable.List<Scores.Alt<V>>
-  levenshteinLookupGenerated(final int[] structure, final Tries.Generator<V> lookup, final char[] typed,
+  public static <V> Scored<V>
+  levenshteinLookupGenerated(final int[] structure, final Generator<V> lookup, final char[] typed,
                              final float maxDistance, final double expected, final double minProb) {
-    final List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
+    final List<Alt<String>> result = new SmartList<Alt<String>>();
     final int typed_length = typed.length;
 
     // Lookup exact node in order to exclude it during search
@@ -389,11 +394,9 @@ public class JavaTrie {
             final double d = levenshteinDistance(prefix, level, typed, typed_length);
             final double p = Pr.typoProbability(d,expected,maxDistance); //utility.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
             if (p > minProb) {
-              V[] vs = (V[])lookup.lookup(name);
-              for (V v : vs) {
-                //result.add(new tarski.Scores.Alt<V>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),v)); // Leave this line here for trackProbabilities use
-                result.add(new tarski.Scores.Alt<V>(p,v));
-              }
+              // Leave the following line here for trackProbabilities use
+              //results.add(new Alt<String>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),name));
+              result.add(new Alt<String>(p,name));
             }
           }
         }
@@ -401,16 +404,16 @@ public class JavaTrie {
         level--;
       }
     }
-
-    return scala.collection.JavaConversions.asScalaBuffer(result).toList();
+    return result.isEmpty() ? (Scored<V>)Empty$.MODULE$
+                            : new Extractor<V>(new GeneratorState<V>(lookup,result));
   }
 
   // Find approximate matches for a string.  Exact matches are ignored.
   // We take char[] instead of String for typed to avoid string allocations (use _.toCharArray to convert)
-  public static <V extends Tries.Named> scala.collection.immutable.List<Scores.Alt<V>>
+  public static <V extends Tries.Named> Scored<V>
   levenshteinLookup(final int[] structure, final V[] values, final char[] typed,
                     final float maxDistance, final double expected, final double minProb) {
-    final List<Scores.Alt<V>> result = new SmartList<Scores.Alt<V>>();
+    final List<TrieState.AltRange> result = new SmartList<TrieState.AltRange>();
     final int typed_length = typed.length;
 
     // Lookup exact node in order to exclude it during search
@@ -483,11 +486,11 @@ public class JavaTrie {
           if (lo < hi) {
             final double d = levenshteinDistance(prefix, level, typed, typed_length);
             final double p = Pr.typoProbability(d, expected, maxDistance); //utility.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
-            if (p >= minProb)
-              for (int i=lo;i<hi;i++) {
-                //result.add(new tarski.Scores.Alt<V>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),values[i])); // Leave this line here for trackProbabilities use
-                result.add(new tarski.Scores.Alt<V>(p,values[i]));
-              }
+            if (p >= minProb) {
+              // Leave this line here for trackProbabilities use
+              //result.add(new TrieState.AltRange(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),lo,hi));
+              result.add(new TrieState.AltRange(p,lo,hi));
+            }
           }
         }
         // pop this node
@@ -495,7 +498,8 @@ public class JavaTrie {
       }
     }
 
-    return scala.collection.JavaConversions.asScalaBuffer(result).toList();
+    return result.isEmpty() ? (Scored<V>)(Scored)Empty$.MODULE$
+                            : new Extractor<V>(new TrieState<V>(values,result));
   }
 
   static class TriePos {

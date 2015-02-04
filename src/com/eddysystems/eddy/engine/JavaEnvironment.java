@@ -39,7 +39,7 @@ public class JavaEnvironment {
     }
   }
 
-  static class PsiGenerator implements Tries.Generator<Items.Item> {
+  static class PsiGenerator implements JavaTrie.Generator<Items.Item> {
 
     static final int cacheSize = 10000;
     final LRUCache<String, Items.Item[]> cache = new LRUCache<String, Items.Item[]>(cacheSize);

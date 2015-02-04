@@ -129,18 +129,14 @@ object Environment {
 
     // Get exact and typo probabilities for string queries
     protected def _exactQuery(typed: Array[Char]): List[Item]
-    protected def _typoQuery(typed: Array[Char]): List[Alt[Item]]
+    protected def _typoQuery(typed: Array[Char]): Scored[Item]
     protected def _collect[A](typed: Array[Char], error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[A]): Scored[A] = is match {
         case Nil => s
         case i::is => exact(is,if (filter.isDefinedAt(i)) bestThen(Pr.exact,filter.apply(i),s) else s)
       }
-      @tailrec def approx(is: List[Alt[Item]], as: List[Alt[A]]): List[Alt[A]] = is match {
-        case Nil => as
-        case Alt(p,i)::is => approx(is,if (filter.isDefinedAt(i)) Alt(p,filter.apply(i))::as else as)
-      }
       exact(_exactQuery(typed),if (exactOnly) fail(error)
-                               else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error)))
+                               else biased(Pr.typo,_typoQuery(typed).collect(filter,error)))
     }
     protected def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
@@ -152,12 +148,12 @@ object Environment {
         case Alt(p,i)::is => approx(is,Alt(p,i)::as)
       }
       exact(_exactQuery(typed),if (exactOnly) fail(error)
-                               else biased(Pr.typo,list(approx(_typoQuery(typed),Nil),error))) flatMap f
+                               else biased(Pr.typo,orError(_typoQuery(typed),error))) flatMap f
     }
 
     // Convenience aliases taking String (only used in tests)
     @inline final def exactQuery(typed: String): List[Item] = _exactQuery(typed.toCharArray)
-    @inline final def typoQuery(typed: String): List[Alt[Item]] = _typoQuery(typed.toCharArray)
+    @inline final def typoQuery(typed: String): Scored[Item] = _typoQuery(typed.toCharArray)
 
     @inline final def collect[A](typed: String, error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
       _collect(typed.toCharArray,error,filter)
@@ -230,9 +226,10 @@ object Environment {
     }
 
     // Get exact and typo probabilities for string queries
-    protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = {
+    protected override def _typoQuery(typed: Array[Char]): Scored[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (localTrie.typoQuery(typed) ++ trie.typoQuery(typed)++added.typoQuery(typed)) filter (_.x.accessible(place))
+      (localTrie.typoQuery(typed) ++ trie.typoQuery(typed) ++ added.typoQuery(typed))
+        .filter(_.accessible(place),s"Nothing accessible for ${typed.mkString}")
     }
 
   }
@@ -278,8 +275,9 @@ object Environment {
 
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly (requires word database?)
-    protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] =
-      (trie1.typoQuery(typed)++trie0.typoQuery(typed)) filter (_.x.accessible(place))
+    protected override def _typoQuery(typed: Array[Char]): Scored[Item] =
+      (trie1.typoQuery(typed)++trie0.typoQuery(typed))
+        .filter(_.accessible(place),s"Nothing accessible for ${typed.mkString}")
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] =
       (trie1.exact(typed) ++ trie0.exact(typed)) filter (_.accessible(place))
