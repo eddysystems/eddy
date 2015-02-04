@@ -8,7 +8,7 @@
   <init>(...);
 }
 
--keep com.eddysystems.eddy.EddyEnterHandlerDelegate,com.eddysystems.eddy.Preferences {
+-keep class com.eddysystems.eddy.EddyEnterHandlerDelegate,com.eddysystems.eddy.Preferences {
   <init>(...);
 }
 
