@@ -442,30 +442,9 @@ public class JavaEnvironment {
     // in particular, do not delete base!
     pushScope("clean");
     try {
-      /*
-      boolean needBase = false;
-      Iterator<Map.Entry<PsiElement,Items.Item>> it = items.entrySet().iterator();
-      while (it.hasNext()) {
-        Map.Entry<PsiElement, Items.Item> e = it.next();
-        if (!e.getKey().isValid()) {
-          log("removing invalid psi element " + e.getKey());
-          it.remove();
-          if (Base.baseSet().contains(e.getValue())) {
-            // something terrible happened, add base again
-            needBase = true;
-          }
-        } else if (e.getValue() instanceof Items.Local ||
-                   e.getValue() instanceof Types.TypeVar ||
-                   e.getValue() instanceof Items.ThisOrSuper) {
-          log("removing local item " + e.getValue());
-          it.remove();
-        }
-      }
-      if (needBase)
-        addBase();
-       */
-
       items.clear();
+
+      // TODO: we could cache the result of addBase, but it doesn't seem like it's worth it.
       addBase();
 
     } finally {
