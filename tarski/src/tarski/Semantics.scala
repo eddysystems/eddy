@@ -13,7 +13,7 @@ import tarski.Items._
 import tarski.Operators._
 import tarski.Pretty._
 import tarski.Scores._
-import tarski.JavaScores.{pp,pmul}
+import tarski.JavaScores.{pp,pmul,listGood}
 import tarski.Tokens._
 import tarski.Types._
 import java.util.IdentityHashMap

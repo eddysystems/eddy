@@ -57,6 +57,6 @@ public class QueriableItemList implements Tries.Queriable<Item> {
           results = $colon$colon$.MODULE$.apply(new Alt<Item>(p,item),results);
       }
     }
-    return JavaScores.listThen(results,(Scored)Empty$.MODULE$);
+    return JavaScores.listGood(results);
   }
 }

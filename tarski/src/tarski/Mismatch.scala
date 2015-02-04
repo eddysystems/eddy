@@ -3,6 +3,7 @@ package tarski
 import utility.Utility._
 import utility.Locations._
 import tarski.Scores._
+import tarski.JavaScores._
 import tarski.Tokens._
 import scala.annotation.tailrec
 import scala.math._

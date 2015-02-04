@@ -261,11 +261,8 @@ object Scores {
     uniformThen(p,xs,Empty)
 
   @inline def list[A](xs: List[Alt[A]], error: => String): Scored[A] =
-    listThen(xs,fail(error))
-
-  // Assume no error (use Empty instead of Bad)
-  @inline def listGood[A](xs: List[Alt[A]]): Scored[A] =
-    listThen(xs,Empty)
+    if (trackErrors) new Bad(OneError(error)) ++ listGood(xs)
+    else listGood(xs)
 
   // Structured errors
   sealed abstract class Error {

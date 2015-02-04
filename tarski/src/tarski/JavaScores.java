@@ -209,24 +209,19 @@ public class JavaScores {
     return then;
   }
 
-  // Requires a.p >= then.p for any a in xs.
-  static public <A> Scored<A> listThen(List<Alt<A>> xs, Scored<A> then) {
+  // Assume no error (use Empty instead of Bad)
+  static public <A> Scored<A> listGood(final List<Alt<A>> xs) {
     final int n = xs.size();
     switch (n) {
       case 0:
-        return then;
+        return (Scored<A>)Empty$.MODULE$;
       case 1:
-        if (trackErrors)
-          then = Scores.good(then);
         final Alt<A> x = xs.head();
-        assert x.p() >= then.p();
-        return new Best<A>(x.dp(),x.x(),then);
+        return new Best<A>(x.dp(),x.x(),(Scored<A>)Empty$.MODULE$);
       default:
-        if (trackErrors)
-          then = Scores.good(then);
         final PriorityQueue<Alt<A>> pq = new PriorityQueue<Alt<A>>(JavaConversions.asJavaCollection(xs));
         final Alt<A> bestA = pq.poll();
-        return new Best<A>(bestA.dp(), bestA.x(), new Extractor<A>(new MultipleAltState<A>(pq,then)));
+        return new Best<A>(bestA.dp(), bestA.x(), new Extractor<A>(new MultipleAltState<A>(pq)));
     }
   }
 
@@ -312,24 +307,23 @@ public class JavaScores {
 
   static public final class MultipleAltState<A> extends State<A> {
     private final PriorityQueue<Alt<A>> heap;
-    private final Scored<A> then;
 
     // The Alt's probability is an upper bound on the Scored returned by the functions
-    protected MultipleAltState(final PriorityQueue<Alt<A>> heap, final Scored<A> then) {
+    protected MultipleAltState(final PriorityQueue<Alt<A>> heap) {
       this.heap = heap;
-      this.then = then;
     }
 
     // Current probability bound
     public double p() {
       final Alt<A> a = heap.peek();
-      return a != null ? a.p() : then.p();
+      return a != null ? a.p() : 0;
     }
 
     public Scored<A> extract(final double goal) {
       final Alt<A> s = heap.poll();
-      return s == null ? then
-                       : new Best<A>(s.dp(), s.x(), heap.isEmpty() ? then : new Extractor<A>(this));
+      return s == null ? (Scored<A>)Empty$.MODULE$
+                       : new Best<A>(s.dp(), s.x(), heap.isEmpty() ? (Scored<A>)Empty$.MODULE$
+                                                                   : new Extractor<A>(this));
     }
   }
 
