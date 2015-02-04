@@ -4,7 +4,6 @@ import com.eddysystems.eddy.EddyPlugin;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.IdeActions;
 import com.intellij.openapi.actionSystem.ex.ActionManagerEx;
 import com.intellij.openapi.actionSystem.ex.AnActionListener;
 import com.intellij.openapi.module.Module;
@@ -14,22 +13,16 @@ import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.projectRoots.impl.JavaAwareProjectJdkTableImpl;
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl;
 import com.intellij.openapi.roots.ContentEntry;
-import com.intellij.openapi.roots.FileIndexFacade;
 import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.ProjectScope;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.collection.JavaConversions;
-import tarski.Environment;
 import tarski.Environment.Env;
 import tarski.Items;
 import tarski.Items.Item;
@@ -255,40 +248,27 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testTypeVar() throws Exception {
     final Env env = setupEnv(-1,"typeVar.java");
-    int As = 0, Bs = 0, Cs = 0;
-    for (Item i : env.allLocalItems()) {
-      final String n = i.name();
-      if      (n.equals("Avar")) As++;
-      else if (n.equals("Bvar")) Bs++;
-      else if (n.equals("Cvar")) Cs++;
-    }
-    log("As "+As+", Bs "+Bs+", Cs "+Cs);
-    assert As==1;
-    assert Bs==1;
-    assert Cs==0;
+    assertEquals(1, env.exactQuery("Avar").length());
+    assertEquals(1, env.exactQuery("Bvar").length());
+    assertEquals(0, env.exactQuery("Cvar").length());
   }
 
   public void testImplicitConstructor() throws Exception {
     final Env env = setupEnv(-1,"ConstructorTest.java");
-    for (Item i : env.allLocalItems()) {
-      if (!(i instanceof Items.ClassItem))
-        continue;
-      if (i.name().equals("A") || i.name().equals("B") || i.name().equals("C"))
-        log("found class " + i.name() + " (" + i.qualified() + ")");
-      if (i.name().equals("A")) {
-        assertEquals("found not exactly one constructor for " + i, 1, ((Items.ClassItem) i).constructors().length);
-        assertFalse("constructor of A is private, should be inaccessible", ((Items.ClassItem)i).constructors()[0].accessible(env.place()));
-      } else if (i.name().equals("B")) {
-        Items.ConstructorItem cons[] = ((Items.ClassItem)i).constructors();
-        assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
-        assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 1);
-        assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().head(), Types.IntType$.MODULE$);
-      } else if (i.name().equals("C")) {
-        Items.ConstructorItem cons[] = ((Items.ClassItem)i).constructors();
-        assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
-        assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 0);
-      }
-    }
+    Item i = env.exactQuery("TestClassA$").head();
+    assertEquals("found not exactly one constructor for " + i, 1, ((Items.ClassItem) i).constructors().length);
+    assertFalse("constructor of A is private, should be inaccessible", ((Items.ClassItem)i).constructors()[0].accessible(env.place()));
+
+    i = env.exactQuery("TestClassB$").head();
+    Items.ConstructorItem[] cons = ((Items.ClassItem)i).constructors();
+    assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
+    assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 1);
+    assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().head(), Types.IntType$.MODULE$);
+
+    i = env.exactQuery("TestClassC$").head();
+    cons = ((Items.ClassItem)i).constructors();
+    assertEquals("found " + cons.length + " constructors which are not defined.", cons.length, 1);
+    assertEquals("found constructor which is not defined, params: " + cons[0].params(), cons[0].params().length(), 0);
   }
 
   public void testClosingBrace() {
@@ -311,119 +291,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     testMargin("fizz.java", "fizz(\"s\", x, q);", .9);
   }
 
-  public void testPsiListener() {
-    PsiFile psifile = myFixture.configureByFile("psiModification.java");
-    VirtualFile vf = psifile.getVirtualFile();
-
-    EddyPlugin plugin = EddyPlugin.getInstance(myFixture.getProject());
-    plugin.initEnv(null);
-    final JavaEnvironment env = plugin.getEnv();
-
-    // make sure the project scope is correct
-    final GlobalSearchScope projectScope = ProjectScope.getProjectScope(myFixture.getProject());
-    final FileIndexFacade facade = FileIndexFacade.getInstance(myFixture.getProject());
-    assertTrue(facade.shouldBeFound(projectScope, vf));
-    assertTrue(facade.isInSourceContent(vf));
-    assertTrue(facade.isInContent(vf));
-    assertTrue(facade.isInSource(vf));
-    assertFalse(facade.isExcludedFile(vf));
-
-    // find sub and sup objects, and the Super and Sub and Interface ClassItems
-    Items.FieldItem ssub = null, ssup = null;
-    Items.ClassItem sSub = null, sSuper = null, sInterface = null;
-    for (Item it : env.localItems.values()) {
-
-      log("found local item " + it);
-
-      if (it.name().equals("sub") && it instanceof Items.FieldItem) {
-        ssub = (Items.FieldItem)it;
-      }
-      if (it.name().equals("sup") && it instanceof Items.FieldItem) {
-        ssup = (Items.FieldItem)it;
-      }
-      if (it.name().equals("Sub") && it instanceof Items.ClassItem) {
-        sSub = (Items.ClassItem)it;
-      }
-      if (it.name().equals("Super") && it instanceof Items.ClassItem) {
-        sSuper = (Items.ClassItem)it;
-      }
-      if (it.name().equals("Interface") && it instanceof Items.ClassItem) {
-        sInterface = (Items.ClassItem)it;
-      }
-    }
-    final Items.FieldItem sub = ssub, sup = ssup;
-    final Items.ClassItem Sub = sSub, Super = sSuper, Interface = sInterface;
-
-    assertNotNull(sub);
-    assertNotNull(sup);
-    assertNotNull(Sub);
-    assertNotNull(Super);
-    assertNotNull(Interface);
-
-    final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi(),-1);
-
-    // should find sub and sup when looking for Supers
-    assertEquals(tenv.byItem(Super).all().right().get().length(), 2);
-    // should find sub when looking for Subs
-    assertEquals(tenv.byItem(Sub).all().right().get().length(), 1);
-    // should find sub when looking for Interfaces
-    assertEquals(tenv.byItem(Interface).all().right().get().length(), 1);
-
-    checkAfterActionPerformed(IdeActions.ACTION_EDITOR_DELETE_LINE, new Runnable() { @Override public void run() {
-      log("  sub supers: " + sub.item().supers() + ", items " + sub.item().superItems());
-      log("  sub deleted? " + sub.deleted());
-
-      final Environment.Env tenv = env.getLocalEnvironment(((Converter.PsiEquivalent) sub).psi(),-1);
-
-      // should find sup only when looking for Supers
-      assertEquals(tenv.byItem(Super).all().right().get().length(), 1);
-      // should find sub when looking for Subs
-      assertEquals(tenv.byItem(Sub).all().right().get().length(), 1);
-      // should find sub when looking for Interfaces
-      assertEquals(tenv.byItem(Interface).all().right().get().length(), 1);
-      //myFixture.performEditorAction();
-
-      // check that sub's supers are only Object and Interface
-      log("  sub superItems: " + sub.item().superItems());
-      assertTrue(sub.item().superItems().contains(Interface));
-      assertTrue(sub.item().superItems().contains(Items.ObjectItem$.MODULE$));
-      assertTrue(sub.item().superItems().length() == 2);
-
-      // TODO: some constructor modification tests as below
-
-      // check that there is a single constructor to Super (with double arg)
-      // check that there are two methods in Super, one f(int)->void and one Super(boolean)->void
-
-      // go to line 5 (f(int x) {} in Super) and change the name to Super
-
-      // check that there are two constructors: Super(int) and Super(double)
-      // check that there is one method: Super(boolean)
-
-      // go to line 4 and change the return type to void
-
-      // check that there is one constructor: Super(int)
-      // check that there are two methods: Super(boolean) and Super(double)
-
-      // go to line 3 and change the return type to null
-
-      // check that there are two constructors: Super(int) and Super(boolean)
-      // check that there is one method: Super(double)
-
-      // go to line 3 and change the name to f
-
-      // check that there is one constructor: Super(int)
-      // check that there are two methods: f(boolean) and Super(double)
-
-    }});
-
-  }
-  
   public void testVisibility() throws Exception {
     // package resolution only works if directory structure is consistent
     final Env env = setupEnv(-1, "scope1/scopes1.java", "scope2/scopes2.java");
     JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
-    log("local items: ");
-    log(jenv.localItems);
     // make sure the public items are in locals, not added
     log("P1 query: ");
     log(env.exactQuery("P1"));
@@ -433,8 +304,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertEquals(1, env.exactQuery("P2").length());
     Item P1 = env.exactQuery("P1").head();
     Item P2 = env.exactQuery("P2").head();
-    assertContainsElements(jenv.localItems.values(), P1);
-    assertContainsElements(jenv.localItems.values(), P2);
     log("in scope: ");
     log(env.scope());
     // make from inside P1, we can see Local1, but not Local2

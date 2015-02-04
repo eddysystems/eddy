@@ -1,24 +1,24 @@
 
 class ConstructorTest {
 
-  class A {
+  class TestClassA$ {
     // this constructor is hidden
-    private A() {}
+    private TestClassA$() {}
   }
 
-  class B extends A {
-    public B(int i) {}
+  class TestClassB$ extends TestClassA$ {
+    public TestClassB$(int i) {}
 
     public void f() {
-      new A(); // illegal
-      new B(); // illegal
-      new C(); // legal
+      new TestClassA$(); // illegal
+      new TestClassB$(); // illegal
+      new TestClassC$(); // legal
 
       blah<caret>
     }
   }
 
-  class C {
+  class TestClassC$ {
     // this class should have an implicit constructor without arguments
   }
 }

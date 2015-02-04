@@ -1,7 +1,6 @@
 package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.PsiClassReferenceType;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -33,94 +32,22 @@ class Converter {
 
    final JavaEnvironment jenv;
 
-   // non-project items go here
-   protected final Map<PsiElement, Item> globals;
+   // cached items
+   protected final Map<PsiElement, Item> items;
 
-   // project items go here
-   protected final Map<PsiElement, Item> locals;
-
-   // anything added to project items also goes in here
-   protected final Map<PsiElement, Item> added;
-
-   // true if we should sort items into globals and locals, false if we put everything in locals
-   private final boolean splitScope;
-
-   Converter(JavaEnvironment jenv,
-             final Map<PsiElement, Item> globals,
-             final Map<PsiElement, Item> locals,
-             final Map<PsiElement, Item> added) {
+   Converter(JavaEnvironment jenv, final Map<PsiElement, Item> items) {
      this.project = jenv.project;
      this.projectScope = ProjectScope.getProjectScope(project);
      this.jenv = jenv;
-     this.globals = globals;
-     this.locals = locals;
-     this.added = added;
-     this.splitScope = true;
-   }
-
-   // constructed like this, put and lookup behave differently
-   Converter(JavaEnvironment jenv,
-             final Map<PsiElement, Item> scope) {
-     this.project = jenv.project;
-     this.projectScope = ProjectScope.getProjectScope(project);
-     this.jenv = jenv;
-     this.globals = null;
-     this.locals = scope;
-     this.added = null;
-     this.splitScope = false;
+     this.items = items;
    }
 
    Item lookup(PsiElement e) {
-     if (globals == null) {
-       // if globals is null, we're ok with referencing local items
-       return jenv.lookup(e, true);
-     } else {
-       // if we're the global converter, and we find a local thing, move it to the global part of the environment, it's
-       // clearly needed there more than here
-       return jenv.lookupAndMove(e);
-     }
+     return items.get(e);
    }
 
    void put(PsiElement e, Item it) {
-     if (splitScope) {
-       if (isInProject(e)) {
-         synchronized (jenv) {
-           locals.put(e,it);
-           // don't add constructor items to added -- they won't end up in the trie anyway
-           if (!(it instanceof ConstructorItem) && added != null)
-             added.put(e,it);
-         }
-       } else {
-         synchronized (jenv) {
-           globals.put(e,it);
-         }
-       }
-     } else {
-       synchronized (jenv) {
-         locals.put(e,it);
-         if (!(it instanceof ConstructorItem) && added != null)
-           added.put(e,it);
-       }
-     }
-   }
-
-   boolean isInProject(PsiElement elem) {
-     if (elem instanceof PsiPackage) {
-       VirtualFile[] files = ((PsiPackage) elem).occursInPackagePrefixes();
-       for (VirtualFile file : files) {
-         if (projectScope.contains(file))
-           return true;
-       }
-       return false;
-     } else {
-       VirtualFile vf = Place.getElementFile(elem);
-       if (vf != null)
-         return projectScope.contains(vf);
-       else {
-         //log("can't determine whether " + elem + " is in project.");
-         return true;
-       }
-     }
+     items.put(e,it);
    }
 
    // return type is null *and* has same name as containing class
@@ -244,93 +171,6 @@ class Converter {
 
    protected interface PsiEquivalent {
      PsiElement psi();
-
-     // eliminate the reference to it (by flushing caches, to be replaced), if the reference is still valid,
-     // the item can still be used wherever its name doesn't matter (for instance, as a parent).
-     // returns whether found the item anywhere where it may affect inheritance (namely, in _superItems)
-     boolean flushReference(Item it, boolean stillValid);
-
-     // check for UnresolvedClassItem and replace reference to it if it is now resolved
-     // returns whether things were replaced that may affects inheritance (namely, in _superItems)
-     boolean fillUnresolvedReferences();
-
-     // refresh the cached name, if it was cached at all
-     public void refreshName();
-   }
-
-   // utility functions to be used by fillUnresolvedReferences (would be in ReferencingItem if Java allowed it)
-
-   // for hi, base
-   static RefType checkReplaceUnresolved(RefType ref) {
-     if (ref == null)
-       return ref;
-     if (ref.item() instanceof UnresolvedClassItem && ((UnresolvedClassItem) ref.item()).resolve() != null) {
-       return ((UnresolvedClassItem) ref.item()).generic();
-     } else {
-       return ref;
-     }
-   }
-
-   // for superItems
-   static boolean checkUnresolvedItems(scala.collection.immutable.List<RefTypeItem> refs) {
-     if (refs == null)
-       return false;
-     for (int i = 0; i < refs.length(); ++i) {
-       RefTypeItem ref = refs.apply(i);
-       if (ref instanceof UnresolvedClassItem && ((UnresolvedClassItem) ref).resolve() != null) {
-         return true;
-       }
-     }
-     return false;
-   }
-   // only call this if checkUnresolvedItems returned true!
-   static scala.collection.immutable.List<RefTypeItem> checkReplaceUnresolvedItems(scala.collection.immutable.List<RefTypeItem> refs) {
-     ArrayList<RefTypeItem> jrefs = new ArrayList<RefTypeItem>(refs.length());
-     for (int i = 0; i < refs.length(); ++i) {
-       RefTypeItem ref = refs.apply(i);
-       if (ref instanceof UnresolvedClassItem && ((UnresolvedClassItem) ref).resolve() != null) {
-         jrefs.add(((UnresolvedClassItem) ref).resolve());
-       } else {
-         jrefs.add(ref);
-       }
-     }
-     return JavaConversions.asScalaBuffer(jrefs).toList();
-   }
-
-   // for supers, params (should be: X extends Type super ClassType)
-   static <X extends Type> scala.collection.immutable.List<X> checkReplaceUnresolvedTypes(scala.collection.immutable.List<X> refs) {
-     if (refs == null)
-       return refs;
-     boolean replace = false;
-     for (int i = 0; i < refs.length(); ++i) {
-       Type t = refs.apply(i);
-       if (!(t instanceof RefType))
-         continue;
-
-       RefTypeItem ref = ((RefType) t).item();
-       if (ref instanceof UnresolvedClassItem && ((UnresolvedClassItem) ref).resolve() != null) {
-         replace = true;
-       }
-     }
-     if (replace) {
-       ArrayList<X> jrefs = new ArrayList<X>(refs.length());
-       for (int i = 0; i < refs.length(); ++i) {
-         X rt = refs.apply(i);
-         if (rt instanceof RefType) {
-           RefTypeItem ref = ((RefType)rt).item();
-           if (ref instanceof UnresolvedClassItem && ((UnresolvedClassItem) ref).resolve() != null) {
-             jrefs.add((X)((UnresolvedClassItem) ref).generic());
-           } else {
-             jrefs.add(rt);
-           }
-         } else {
-           jrefs.add(rt);
-         }
-       }
-       return JavaConversions.asScalaBuffer(jrefs).toList();
-     } else {
-       return refs;
-     }
    }
 
    static protected class UnknownContainerItem extends UnknownContainerItemBase implements PsiEquivalent {
@@ -342,9 +182,6 @@ class Converter {
        this.elem = elem;
        this.converter = converter;
      }
-
-     @Override
-     public void refreshName() {}
 
      @Override
      public Parent simple() { throw new RuntimeException("For UnknownContainerItem, only inside is valid, not simple"); }
@@ -360,20 +197,10 @@ class Converter {
       }
 
      @Override
-     public boolean flushReference(Item it, boolean stillValid) {
-       return false;
-     }
-
-     @Override
-     public boolean fillUnresolvedReferences() {
-       return false;
-     }
-
-     @Override
      public Items.Package pkg() { return (Items.Package)converter.addContainer(Place.getElementPackage(elem, converter.project)); }
    }
 
-   static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent, SettableFinalItem, SettableStaticItem, SettableParentItem {
+   static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent {
      @NotNull final Converter env;
      @NotNull final PsiClassReferenceType cls;
 
@@ -449,41 +276,13 @@ class Converter {
 
      public ConstructorItem[] constructors(Environment.PlaceInfo place) { return noConstructors; }
 
-     public void refreshName() { /* not caching */ }
-
      public PsiElement psi() {
         return cls.getReference();
       }
-
-     @Override
-     public boolean flushReference(Item it, boolean stillValid) {
-       if (!stillValid && _parent == it)
-         throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
-
-       return false;
-     }
-
-     @Override
-     public boolean fillUnresolvedReferences() {
-       return false;
-     }
-
-     public void setFinal(boolean f) {
-        _isFinal = f;
-     }
-
-     public void setStatic(boolean f) {
-        _isStatic = f;
-      }
-
-     @Override
-     public void changeParentItem(ParentItem p) {
-       _parent = p.inside();
-     }
    }
 
 
-   protected static class LazyTypeVar extends TypeVar implements PsiEquivalent, CachedSupersItem {
+   protected static class LazyTypeVar extends TypeVar implements PsiEquivalent {
      private final Converter env;
      private final PsiTypeParameter p;
 
@@ -528,33 +327,6 @@ class Converter {
        return _superItems;
      }
 
-     public void invalidateSupers() {
-       _hi = null;
-       _superItems = null;
-     }
-
-     public void refreshName() {} // we don't actually cache the name
-
-     public boolean flushReference(Item it, boolean stillValid) {
-       if (_hi != null && _hi.item() == it) {
-         _hi = null;
-       }
-       if (it instanceof RefTypeItem && _superItems != null && _superItems.contains(it)) {
-         _superItems = null;
-         return true;
-       }
-       return false;
-     }
-
-     public boolean fillUnresolvedReferences() {
-       _hi = checkReplaceUnresolved(_hi);
-       if (checkUnresolvedItems(_superItems)) {
-         _superItems = checkReplaceUnresolvedItems(_superItems);
-         return true;
-       } else
-         return false;
-     }
-
      public PsiElement psi() {
         return p;
       }
@@ -594,26 +366,25 @@ class Converter {
      }
    }
 
-   static protected class LazyClass extends ClassItem implements PsiEquivalent, CachedConstructorsItem, CachedTypeParametersItem, CachedBaseItem, CachedSupersItem, SettableFinalItem, SettableStaticItem, SettableParentItem {
+   static protected class LazyClass extends ClassItem implements PsiEquivalent {
      private final Converter env;
      private final PsiClass cls;
-     private ParentItem _parent;
      private boolean _isFinal;
      private boolean _isStatic;
      private String _name;
 
      // Lazy fields
+     private ParentItem _parent;
      private scala.collection.immutable.List<TypeVar> _tparams;
      private ClassType _base;
      private scala.collection.immutable.List<RefType> _supers;
      private scala.collection.immutable.List<RefTypeItem> _superItems;
      private ConstructorItem[] _constructors;
 
-     LazyClass(Converter env, PsiClass cls, ParentItem parent) {
+     LazyClass(Converter env, PsiClass cls) {
        this.env = env;
        this.cls = cls;
        this._name = cls.getName();
-       this._parent = parent;
        this._isFinal = cls.hasModifierProperty(PsiModifier.FINAL);
        this._isStatic = Place.isStatic(cls);
      }
@@ -645,7 +416,16 @@ class Converter {
       }
 
      public ParentItem parent() {
-        return _parent;
+       if (_parent == null) {
+         PsiElement cont = Place.containing(cls, env.project);
+         try {
+           _parent = env.addContainer(cont);
+         } catch (UnknownContainerError e) {
+           log(e);
+           _parent = new UnknownContainerItem(cont, env);
+         }
+       }
+       return _parent;
       }
 
      public ClassType base() {
@@ -739,72 +519,6 @@ class Converter {
        return _constructors;
      }
 
-     public void invalidateConstructors() {
-        _constructors = null;
-      }
-
-     public void invalidateTypeParameters() {
-       _tparams = null;
-       // these may depend on the tparams list and should be updated
-       _base = null;
-       _supers = null;
-       _superItems = null;
-     }
-
-     public void invalidateBase() {
-       _base = null;
-       _supers = null;
-       _superItems = null;
-     }
-
-     public void invalidateSupers() {
-       _supers = null;
-       _superItems = null;
-     }
-
-     public void setFinal(boolean b) {
-        _isFinal = b;
-      }
-
-     public void setStatic(boolean f) { _isStatic = f; }
-
-     public void refreshName() {
-        _name = cls.getName();
-     }
-
-     public boolean flushReference(Item it, boolean stillValid) {
-       if (!stillValid && _parent != null && _parent == it)
-         throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
-
-       if (_base != null && _base.item() == it)
-         _base = null;
-
-       if (it instanceof TypeVar && _tparams != null && _tparams.contains(it))
-         _tparams = null;
-
-       if (it instanceof RefTypeItem && _superItems != null) {
-         for (int i = 0; i < _superItems.size(); ++i) {
-           if (_superItems.apply(i) == it) {
-             _supers = null;
-             _superItems = null;
-             return true;
-           }
-         }
-       }
-
-       return false;
-     }
-
-     public boolean fillUnresolvedReferences() {
-       _base = (ClassType)checkReplaceUnresolved(_base);
-       _supers = checkReplaceUnresolvedTypes(_supers);
-       if (checkUnresolvedItems(_superItems)) {
-         _superItems = checkReplaceUnresolvedItems(_superItems);
-         return true;
-       } else
-         return false;
-     }
-
      public PsiElement psi() {
         return cls;
       }
@@ -824,26 +538,6 @@ class Converter {
        }
        return _accessible;
      }
-
-     @Override
-     public void changeParentItem(ParentItem p) {
-       _parent = p;
-     }
-   }
-
-   // used to dynamically add items from Psi tree change events
-   Item addItem(PsiElement elem) {
-     if (elem instanceof PsiClass) {
-       return addClass((PsiClass)elem, true);
-     } else if (elem instanceof PsiMethod) {
-       return addMethod((PsiMethod)elem);
-     } else if (elem instanceof PsiField) {
-       return addField((PsiField)elem);
-     } else if (elem instanceof PsiPackage) {
-       return addContainer(elem);
-     } else {
-       throw new RuntimeException("adding unknown item type: " + elem);
-     }
    }
 
    RefTypeItem addClass(PsiClass cls, boolean recurse) {
@@ -862,17 +556,7 @@ class Converter {
        if (cls instanceof PsiTypeParameter)
          return addTypeParam((PsiTypeParameter)cls);
 
-       // Make and add the class
-       ParentItem parent;
-       PsiElement cont = Place.containing(cls, project);
-       try {
-         parent = addContainer(cont);
-       } catch (UnknownContainerError e) {
-         log(e);
-         parent = new UnknownContainerItem(cont, this);
-       }
-
-       ClassItem item = new LazyClass(this,cls,parent);
+       ClassItem item = new LazyClass(this,cls);
        put(cls, item);
 
        // if we're a class, all our members should really be ok
@@ -910,7 +594,7 @@ class Converter {
      return scala.collection.JavaConversions.asScalaBuffer(jparams).toList();
    }
 
-   protected static class LazyConstructor extends ConstructorItem implements PsiEquivalent, CachedTypeParametersItem, CachedParametersItem, SettableParentItem {
+   protected static class LazyConstructor extends ConstructorItem implements PsiEquivalent {
      private final Converter env;
      private final PsiMethod method;
 
@@ -943,47 +627,6 @@ class Converter {
        return _params;
      }
 
-     public void invalidateTypeParameters() {
-       _tparams = null;
-       // this may affect our parameter list, so redo that as well
-       _params = null;
-     }
-
-     public void invalidateParameters() {
-            _params = null;
-          }
-
-     public boolean flushReference(Item it, boolean stillValid) {
-       if (!stillValid && _parent != null && _parent == it)
-         throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
-
-       if (it instanceof TypeVar && _tparams != null && _tparams.contains(it))
-         _tparams = null;
-
-       if (it instanceof TypeItem && _params != null) {
-         for (int i = 0; i < _params.size(); ++i) {
-           if (_params.apply(i).item() == it) {
-             _params = null;
-             break;
-           }
-         }
-       }
-       return false;
-     }
-
-     public boolean fillUnresolvedReferences() {
-       _params = checkReplaceUnresolvedTypes(_params);
-       return false;
-     }
-
-     @Override
-     public void refreshName() { /* not caching */ }
-
-     @Override
-     public void changeParentItem(ParentItem item) {
-       _parent = (ClassItem)item;
-     }
-
      public PsiElement psi() {
             return method;
           }
@@ -1000,7 +643,7 @@ class Converter {
      }
    }
 
-   protected static class LazyMethod extends MethodItem implements PsiEquivalent, SettableStaticItem, CachedTypeParametersItem, CachedParametersItem, CachedReturnTypeItem, SettableParentItem {
+   protected static class LazyMethod extends MethodItem implements PsiEquivalent {
      final Converter env;
      final PsiMethod method;
      private String _name;
@@ -1052,64 +695,8 @@ class Converter {
        return _retVal;
      }
 
-     public void setStatic(boolean b) {
-            _isStatic = b;
-          }
-
-     public void invalidateTypeParameters() {
-       _tparams = null;
-       // this may affect our parameter list, so redo that as well
-       _retVal = null;
-       _params = null;
-     }
-
-     public void invalidateParameters() {
-            _params = null;
-          }
-
-     public void invalidateReturnType() {
-            _retVal = null;
-          }
-
-     public void refreshName() {
-            _name = method.getName();
-          }
-
-     public boolean flushReference(Item it, boolean stillValid) {
-       if (!stillValid && _parent != null && _parent == it)
-         throw new RuntimeException("Can't eliminate reference to parent " + _parent + ", this (" + this + ") should have been deleted before parent.");
-
-       if (it instanceof TypeVar && _tparams != null &&  _tparams.contains(it))
-         _tparams = null;
-
-       if (it instanceof TypeItem && _params != null) {
-         for (int i = 0; i < _params.size(); ++i) {
-           if (_params.apply(i).item() == it) {
-             _params = null;
-             break;
-           }
-         }
-       }
-
-       if (_retVal != null && _retVal.item() == it)
-         _retVal = null;
-
-       return false;
-     }
-
-     public boolean fillUnresolvedReferences() {
-       if (_retVal != null && _retVal instanceof RefType)
-         _retVal = checkReplaceUnresolved((RefType)_retVal);
-       _params = checkReplaceUnresolvedTypes(_params);
-       return false;
-     }
-
      public PsiElement psi() {
        return method;
-     }
-
-     @Override public void changeParentItem(ParentItem item) {
-       _parent = (ClassItem)item;
      }
 
      PsiElement _place = null;
@@ -1145,7 +732,7 @@ class Converter {
      }
    }
 
-   protected static class LazyField extends FieldItem implements PsiEquivalent, SettableFinalItem, SettableStaticItem {
+   protected static class LazyField extends FieldItem implements PsiEquivalent {
      private final Converter env;
      private final PsiField f;
      private String _name;
@@ -1187,25 +774,6 @@ class Converter {
             return (ClassItem)env.addClass(f.getContainingClass(),false);
           }
 
-     public void setFinal(boolean b) { _isFinal = b; }
-     public void setStatic(boolean b) { _isStatic = b; }
-
-     public void refreshName() {
-            _name = f.getName();
-          }
-
-     public boolean flushReference(Item it, boolean stillValid) {
-       if (_inside != null && _inside.item() == it)
-         _inside = null;
-       return false;
-     }
-
-     public boolean fillUnresolvedReferences() {
-       if (_inside != null && _inside instanceof RefType)
-         _inside = checkReplaceUnresolved((RefType)_inside);
-       return false;
-     }
-
      public PsiElement psi() {
             return f;
           }
@@ -1237,7 +805,7 @@ class Converter {
     }
   }
 
-  protected static class LazyLocal extends Local implements PsiEquivalent, SettableFinalItem {
+  protected static class LazyLocal extends Local implements PsiEquivalent {
     private final Converter env;
     private final PsiVariable var;
     private String _name;
@@ -1267,20 +835,6 @@ class Converter {
         }
       }
       return _ty;
-    }
-    public void setFinal(boolean b) { _isFinal = b; }
-    public void refreshName() { _name = var.getName(); }
-
-    public boolean flushReference(Item it, boolean stillValid) {
-      if (_ty != null && _ty.item() == it)
-        _ty = null;
-      return false;
-    }
-
-    public boolean fillUnresolvedReferences() {
-      if (_ty != null && _ty instanceof RefType)
-        _ty = checkReplaceUnresolved((RefType)_ty);
-      return false;
     }
 
     public PsiElement psi() {
@@ -1312,22 +866,17 @@ class Converter {
 
   Value addLocal(final PsiVariable var) {
     synchronized (jenv) {
-      assert globals == null; // only the local converter should be used like this
-      assert added == null;
       assert var instanceof PsiLocalVariable || var instanceof PsiParameter;
 
       // lookup only in locals (
-      Item i = locals.get(var);
+      Item i = items.get(var);
       if (i != null)
         return (Value)i;
-      else
-        // make sure Values never end up anywhere outside locals
-        assert !jenv.knows(var);
 
       // add only to locals
       final boolean isFinal = var.hasModifierProperty(PsiModifier.FINAL);
       i = (Items.Item) new LazyLocal(this, var, isFinal);
-      locals.put(var, i);
+      put(var, i);
       return (Value)i;
     }
   }

@@ -7,6 +7,16 @@ import java.util.*;
 
 public class JavaItems {
 
+  public static Map<TypeItem, Value[]> valuesByItem(Map<Item,Integer> vs) {
+    int n = vs.size();
+    Item[] a = new Item[n];
+    n = 0;
+    for (Map.Entry<Item,Integer> e : vs.entrySet()) {
+      a[n++] = e.getKey();
+    }
+    return valuesByItem(a);
+  }
+
   public static <V extends Item> Map<TypeItem,Value[]> valuesByItem(V[] vs) {
     // Turn debugging on or off
     final boolean debug = false;

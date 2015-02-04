@@ -1,7 +1,5 @@
 package tarski
 
-import java.io.{FileInputStream, FileOutputStream, ObjectInputStream, ObjectOutputStream}
-
 import com.intellij.psi.PsiElement
 import utility.Interrupts
 import utility.Utility._
@@ -12,6 +10,7 @@ import tarski.Scores._
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
+import tarski.Pretty._
 import scala.collection.mutable
 import scala.annotation.tailrec
 
@@ -82,9 +81,6 @@ object Environment {
       set
     }
     @inline final def inScope(i: Item): Boolean = _inScope.contains(i)
-
-    // for tests
-    def allLocalItems: Array[Item]
 
     // Enter a block scope
     def pushScope: Env
@@ -188,53 +184,39 @@ object Environment {
                scope,place)
   }
 
-  case class ThreeEnv(private val sTrie: LazyTrie[Item], // creates global (library) items as they are queried
-                      private val dTrie: DTrie[Item], // occasionally rebuilt when the project has changed a lot
-                      private val vTrie: Trie[Item], // locals found in scope, rebuilt every time cursor moves (small, hopefully)
-                      private val added: QueriableItemList, // changed by this environment's extend functions (better be tiny)
-                      private val dByItem: java.util.Map[TypeItem,Array[Value]],
-                      private val vByItem: java.util.Map[TypeItem,Array[Value]],
-                      scope: Map[Item,Int], place: PlaceInfo) extends Env {
+  case class LazyEnv(private val trie: LazyTrie[Item], // creates items as they are queried
+                     private val added: QueriableItemList, // changed by this environment's extend functions (better be tiny)
+                     private val byItem: ValueByItemQuery, // the JavaEnvironment has functions to compute this lazily, we just have to filter the result
+                     scope: Map[Item,Int], place: PlaceInfo) extends Env {
 
     override def toString: String = "Env()"
 
     val emptyValues = new Array[Value](0)
 
-    override def move(to: PlaceInfo): Env = ThreeEnv(sTrie,dTrie,vTrie,added,dByItem,vByItem,scope,to)
+    override def move(to: PlaceInfo): Env = LazyEnv(trie,added,byItem,scope,to)
 
     // Enter a block scope
-    override def pushScope: Env = ThreeEnv(sTrie,dTrie,vTrie,added,dByItem,vByItem,
-                                           scope map { case (i,n) => (i,n+1) },
-                                           place)
+    override def pushScope: Env = LazyEnv(trie,added,byItem,scope map { case (i,n) => (i,n+1) },place)
 
     // Lookup by type.item
     override def byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
-      val v1 = dByItem.get(t)
-      val v1r = if (v1 == null) emptyValues else v1 filter (!_.deleted)
-      val v2 = vByItem.get(t)
-      val v2r = if (v2 == null) emptyValues else v2
-      uniform(Pr.objectOfItem, (v1r ++ v2r) filter (_.accessible(place)), s"Value of item ${show(t)} not found")
+      uniform(Pr.objectOfItem, byItem.query(t) filter (_.accessible(place)), s"No value of type item ${show(t)} found")
     }
 
     // return a new environment with one more item in it (doesn't recompute tries)
     override def add(item: Item, scope: Int): Env =
-      ThreeEnv(sTrie,dTrie,vTrie,added.add(item),dByItem,vByItem,this.scope+(item->scope),place)
+      LazyEnv(trie,added.add(item),byItem,this.scope+(item->scope),place)
 
-    // Add more objects (makes a new vTrie and valuesByItem, clears out added)
     override def extend(things: Array[Item], scope: Map[Item, Int]): Env = {
-      val add = added.array ++ things
-      ThreeEnv(sTrie,dTrie,vTrie ++ add,QueriableItemList.empty,dByItem,valuesByItem(vTrie.values ++ add),this.scope++scope,place)
+      LazyEnv(trie,added.add(things),byItem,this.scope++scope,place)
     }
-
-    // Slow, use only for tests
-    def allLocalItems: Array[Item] = (dTrie.values filter (!_.deleted)) ++ vTrie.values
 
     // Fragile or slow, only use for tests
     override def exactLocal(name: String): Local = {
       val query = name.toCharArray
       def options(t: Queriable[Item]) = t exact query collect { case x:Local if x.accessible(place) => x }
-      options(sTrie)++options(dTrie)++options(vTrie)++options(added) match {
+      options(trie)++options(added) match {
         case List(x) => x
         case Nil => throw new RuntimeException(s"No local variable $name")
         case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
@@ -243,13 +225,13 @@ object Environment {
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (sTrie.exact(typed) ++ dTrie.exact(typed) ++ vTrie.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
+      (trie.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
     }
 
     // Get exact and typo probabilities for string queries
     protected override def _typoQuery(typed: Array[Char]): List[Alt[Item]] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (sTrie.typoQuery(typed)++dTrie.typoQuery(typed)++vTrie.typoQuery(typed)++added.typoQuery(typed)) filter (_.x.accessible(place))
+      (trie.typoQuery(typed)++added.typoQuery(typed)) filter (_.x.accessible(place))
     }
 
   }

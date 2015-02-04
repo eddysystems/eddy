@@ -121,7 +121,7 @@ public class EddyPlugin implements ProjectComponent {
       if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
         // free env before allocating the new one
         env = new JavaEnvironment(project);
-        psiListener = new EddyPsiListener(env);
+        psiListener = new EddyPsiListener();
         PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
         env.initialize(indicator);
       } else {
@@ -132,7 +132,7 @@ public class EddyPlugin implements ProjectComponent {
           // can't have changes between when we make the environment and when we register the psi listener
           app.runReadAction(new Runnable() { @Override public void run() {
             env = new JavaEnvironment(project);
-            psiListener = new EddyPsiListener(env);
+            psiListener = new EddyPsiListener();
             PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
           }});
 

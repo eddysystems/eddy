@@ -1,8 +1,8 @@
 package tarski
 
 import tarski.Denotations.Stmt
-import tarski.Environment.{ThreeEnv, PlaceInfo, Env}
-import tarski.Items.{Value, TypeItem, Item}
+import tarski.Environment.{LazyEnv, PlaceInfo, Env}
+import tarski.Items.Item
 import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
@@ -27,12 +27,10 @@ object Tarski {
     DTrie(jvalues.asScala)
   }
 
-  def environment(sTrie: LazyTrie[Item], dTrie: DTrie[Item], vTrie: Trie[Item],
-                  dByItem: java.util.Map[TypeItem,Array[Value]],
-                  vByItem: java.util.Map[TypeItem,Array[Value]],
+  def environment(trie: LazyTrie[Item], byItem: ValueByItemQuery,
                   scope: java.util.Map[Item,Integer], place: PlaceInfo): Env = {
-    println("environment with " + dTrie.values.length + " local items, " + vTrie.values.length + " scope items taken at " + place)
-    new ThreeEnv(sTrie, dTrie, vTrie, QueriableItemList.empty, dByItem, vByItem, scope.asScala.toMap.mapValues(_.intValue), place)
+    println("environment with " + scope.size() + " scope items taken at " + place)
+    new LazyEnv(trie, QueriableItemList.empty, byItem, scope.asScala.toMap.mapValues(_.intValue), place)
   }
 
   def print(is: Iterable[Alt[Item]]): Unit = {

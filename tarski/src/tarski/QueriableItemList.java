@@ -29,6 +29,13 @@ public class QueriableItemList implements Tries.Queriable<Items.Item> {
     return new QueriableItemList(items);
   }
 
+  public QueriableItemList add(Items.Item[] added) {
+    int l = _items.length;
+    Items.Item[] items = Arrays.copyOf(_items, _items.length+added.length);
+    System.arraycopy(added, 0, items, l, added.length);
+    return new QueriableItemList(items);
+  }
+
   @Override
   public List<Items.Item> exact(char[] ss) {
     String s = new String(ss);

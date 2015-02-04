@@ -162,7 +162,7 @@ class EnvironmentProcessor {
 
       if (place instanceof PsiMethod || place instanceof PsiClass || place instanceof PsiPackage) {
         if (placeItem == null) {
-          placeItem = (ParentItem)jenv.lookup(place, true);
+          placeItem = (ParentItem)jenv.lookup(place);
           assert placeItem != null : "cannot find placeItem " + place + ", possibly in anonymous local class";
         }
       } else if (place instanceof PsiJavaFile) {
