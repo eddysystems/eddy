@@ -9,6 +9,8 @@ import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyPsiListener implements PsiTreeChangeListener {
 
+  // TODO: keep track of how many and which items we have changed, and request full or partial environment updates at appropriate frequencies
+
   @Override
   public void beforeChildAddition(@NotNull PsiTreeChangeEvent event) {
     // for now, whenever the PSI changes, assume our current eddy process is out of date completely

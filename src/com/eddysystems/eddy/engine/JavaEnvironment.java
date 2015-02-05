@@ -50,11 +50,6 @@ public class JavaEnvironment {
     return _initialized;
   }
 
-  // all these are possibly accessed by several threads. Modifying or non-atomic read access requiring consistency to any
-  // of items, localItems, addedItems has to be synchronized(this). If the caller is inside an IntelliJ write action
-  // (such as anything called from the PsiListener), synchronization is not necessary because all other accessing threads
-  // are inside IntelliJ read actions, and will not run during a write action)
-
   // pre-computed data structures to enable fast creation of appropriate scala Env instances
 
   // these may be overwritten any time by new objects created in an updating process, but they are never changed.
@@ -90,7 +85,7 @@ public class JavaEnvironment {
     }
   }
 
-  // TODO: add a single field to valuesByItem (should not have to rebuild completely all the time)
+  // TODO: add a single field to valuesByItem (should not have to rebuild completely all the time) -- requires lock!
 
   // request a full update of the global lookups
   public void requestUpdate() {
