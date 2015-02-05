@@ -11,7 +11,6 @@ import com.intellij.openapi.progress.PerformInBackgroundOption;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.progress.Task;
-import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.startup.StartupManager;
 import com.intellij.openapi.wm.StatusBar;
@@ -30,11 +29,10 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 
 import static com.eddysystems.eddy.engine.Utility.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
-import static utility.JavaUtils.popScope;
-import static utility.JavaUtils.pushScope;
 
 public class EddyPlugin implements ProjectComponent {
   @NotNull final private Application app;
@@ -104,58 +102,67 @@ public class EddyPlugin implements ProjectComponent {
   public boolean isInitialized() { return env != null && env.initialized(); }
 
   public void dropEnv() {
-    env.dispose();
-    env = null;
+    if (env != null) {
+      env.dispose();
+      env = null;
+    }
   }
 
   public void initEnv(@Nullable ProgressIndicator indicator) {
-    pushScope("start init environment");
-    try {
-      if (indicator != null)
-        indicator.setIndeterminate(true);
+    if (indicator != null)
+      indicator.setIndeterminate(true);
 
-      if (psiListener != null) {
-        PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
+    if (psiListener != null) {
+      PsiManager.getInstance(project).removePsiTreeChangeListener(psiListener);
+    }
+    dropEnv();
+
+    if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      // free env before allocating the new one
+      env = new JavaEnvironment(project);
+      psiListener = new EddyPsiListener();
+      PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
+      try {
+        env.updateSync(indicator);
+      } catch (ExecutionException e) {
+        throw new RuntimeException("updateSync: " + e.getMessage());
+      } catch (InterruptedException e) {
+        throw new RuntimeException("updateSync: " + e.getMessage());
       }
-      dropEnv();
+    } else {
+      final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
+      String err = "";
 
-      if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
-        // free env before allocating the new one
-        env = new JavaEnvironment(project);
-        psiListener = new EddyPsiListener();
-        PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-        env.initialize(indicator);
-      } else {
-        final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
-        String err = "";
-
-        try {
-          // can't have changes between when we make the environment and when we register the psi listener
-          app.runReadAction(new Runnable() { @Override public void run() {
-            env = new JavaEnvironment(project);
-            psiListener = new EddyPsiListener();
-            PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-          }});
-
-          env.initialize(indicator);
-
-          log("environment initialized");
-
-        } catch (JavaEnvironment.NoJDKError e) {
-          dropEnv();
-          err = e.getMessage();
-          log(e.getMessage());
-        } finally {
-          initializing = false;
-          if (sbar != null) {
-            if (err.isEmpty())
-              sbar.setInfo("eddy initialized.");
-            else
-              sbar.setInfo("eddy library scan aborted, " + err);
-          }
+      try {
+        // can't have changes between when we make the environment and when we register the psi listener
+        app.runReadAction(new Runnable() { @Override public void run() {
+          env = new JavaEnvironment(project);
+          psiListener = new EddyPsiListener();
+          PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
+        }});
+        env.updateSync(indicator);
+      } catch (JavaEnvironment.NoJDKError e) {
+        dropEnv();
+        err = e.getMessage();
+        log(e.getMessage());
+      } catch (InterruptedException e) {
+        dropEnv();
+        err = e.getMessage();
+        log(e.getMessage());
+      } catch (ExecutionException e) {
+        dropEnv();
+        err = e.getMessage();
+        log(e.getMessage());
+      } finally {
+        initializing = false;
+        if (sbar != null) {
+          if (err.isEmpty())
+            sbar.setInfo("eddy initialized.");
+          else
+            sbar.setInfo("eddy library scan aborted, " + err);
         }
       }
-    } finally { popScope(); }
+    }
   }
 
   public EddyPlugin(Project project) {
@@ -199,10 +206,7 @@ public class EddyPlugin implements ProjectComponent {
         public void run(@NotNull final ProgressIndicator indicator) {
           // either testing or in background
           assert (app.isHeadlessEnvironment() || !app.isDispatchThread());
-
-          DumbService.getInstance(project).repeatUntilPassesInSmartMode(new Runnable() { @Override public void run() {
-            initEnv(indicator);
-          }});
+          initEnv(indicator);
         }
       });
     }};

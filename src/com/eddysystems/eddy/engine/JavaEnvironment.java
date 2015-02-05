@@ -1,6 +1,7 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.DumbService;
@@ -22,6 +23,9 @@ import scala.NotImplementedError;
 import tarski.*;
 
 import java.util.*;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 
 import static com.eddysystems.eddy.engine.Utility.log;
@@ -36,117 +40,6 @@ public class JavaEnvironment {
   public static class NoJDKError extends RuntimeException {
     NoJDKError(String s) {
       super("No JDK found: " + s);
-    }
-  }
-
-  static class PsiGenerator implements JavaTrie.Generator<Items.Item> {
-
-    static final int cacheSize = 10000;
-    final LRUCache<String, Items.Item[]> cache = new LRUCache<String, Items.Item[]>(cacheSize);
-
-    final Project project;
-    final GlobalSearchScope scope;
-    final boolean checkVisibility;
-    final PsiShortNamesCache psicache;
-    final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
-    final Converter converter;
-
-    // true if there's a chance that element is visible from outside its file. Only elements that are private or
-    // inside private or anonymous elements or that are local are not potentially visible.
-    boolean possiblyVisible(PsiModifierListOwner element) {
-      PsiElement container = null;
-      try {
-        container = Place.containing(element, project);
-      } catch (Place.UnexpectedContainerError e) {
-        log(e.getMessage());
-        return false;
-      }
-
-      // anything toplevel in a package is at most protected
-      if (container instanceof PsiPackage) {
-        return true;
-      }
-
-      // anything private is out
-      if (element.hasModifierProperty(PsiModifier.PRIVATE)) {
-        return false;
-      }
-
-      // everything else, depends on the container
-      if (container instanceof PsiModifierListOwner) {
-        return possiblyVisible((PsiModifierListOwner)container);
-      } else
-        return false;
-    }
-
-    PsiGenerator(Project project, GlobalSearchScope scope, Converter conv, boolean checkVisibility) {
-      this.project = project;
-      this.scope = scope;
-      this.checkVisibility = checkVisibility;
-      this.psicache = PsiShortNamesCache.getInstance(project);
-      converter = conv;
-    }
-
-    private Items.Item[] generate(String s) {
-      final EddyThread thread = EddyThread.getEddyThread();
-      final List<Items.Item> results = new ArrayList<Items.Item>();
-
-      final Processor<PsiClass> classProc = new Processor<PsiClass>() {
-      @Override
-      public boolean process(PsiClass cls) {
-        if (thread != null && thread.canceled())
-          return false;
-        if (!checkVisibility || possiblyVisible(cls))
-          results.add(converter.addClass(cls));
-        return true;
-      }
-      };
-
-      final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
-      @Override
-      public boolean process(PsiMethod method) {
-        if (thread != null && thread.canceled())
-          return false;
-        if (!checkVisibility || possiblyVisible(method) && !Converter.isConstructor(method))
-          results.add(converter.addMethod(method));
-        return true;
-      }
-      };
-
-      final Processor<PsiField> fieldProc = new Processor<PsiField>() {
-      @Override
-      public boolean process(PsiField fld) {
-        if (thread != null && thread.canceled())
-          return false;
-        if (!checkVisibility || possiblyVisible(fld))
-          results.add(converter.addField(fld));
-        return true;
-      }
-      };
-
-      if (thread != null) thread.pushSoftInterrupts();
-      try {
-        psicache.processClassesWithName(s, classProc, scope, filter);
-        psicache.processMethodsWithName(s, methodProc, scope, filter);
-        psicache.processFieldsWithName(s, fieldProc, scope, filter);
-      } finally {
-        if (thread != null) thread.popSoftInterrupts();
-      }
-      return results.toArray(new Items.Item[results.size()]);
-    }
-
-    @Override @NotNull
-    public Items.Item[] lookup(String s) {
-      Items.Item[] result = cache.get(s);
-
-      if (result != null)
-        return result;
-      else
-        result = generate(s);
-
-      // add to cache
-      cache.put(s, result);
-      return result;
     }
   }
 
@@ -167,62 +60,110 @@ public class JavaEnvironment {
   // these may be overwritten any time by new objects created in an updating process, but they are never changed.
   // Grabbing a copy and working with it is always safe even without a lock
 
-  // a trie encapsulating the global list of all names.
-  // TODO: This should be refreshed in a low priority background thread as the set of names changes.
-  private int[] nameTrie;
+  // a trie encapsulating the global list of all names. This is never edited, so it's safe to use without a lock
+  private int[] nameTrie = null;
 
-  // map types to items of that type.
-  // TODO: This should be rebuilt continuously in a low-priority background thread.
+  // map types to items of that type. Use only with the lock in hand.
+  private final Object byItemLock = new Object();
   private Map<String, Set<String>> pByItem = null;
+
+  // the background update thread
+  private Future<?> updateFuture = null;
+  private boolean needUpdate = false;
 
   public JavaEnvironment(@NotNull Project project) {
     this.project = project;
   }
 
-  public void initialize(@Nullable ProgressIndicator indicator) {
-    pushScope("make base environment");
+  // make sure our background updater is done before we disappear
+  public void dispose() {
+    updateFuture.cancel(true);
+    try {
+      // wait for background thread to exit
+      updateFuture.get();
+    } catch (CancellationException e) {
+      // we were cancelled, no shit
+    } catch (InterruptedException e) {
+      // we exited, that's what matters
+    } catch (ExecutionException e) {
+      // we exited, that's what matters
+    }
+  }
+
+  // TODO: add a single field to valuesByItem (should not have to rebuild completely all the time)
+
+  // request a full update of the global lookups
+  public void requestUpdate() {
+    requestUpdate(null);
+  }
+
+  // for initialization
+  public synchronized void updateSync(@Nullable final ProgressIndicator indicator) throws ExecutionException, InterruptedException {
+    requestUpdate(indicator);
+    updateFuture.get();
+  }
+
+
+  private synchronized void requestUpdate(@Nullable final ProgressIndicator indicator) {
+    needUpdate = true;
+    if (updateFuture == null || updateFuture.isDone()) {
+      scheduleUpdate(indicator);
+    }
+  }
+
+  private synchronized void scheduleUpdate(@Nullable final ProgressIndicator indicator) {
+    needUpdate = false;
+    updateFuture = ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
+      @Override
+      public void run() {
+        backgroundUpdate(indicator);
+      }
+    });
+  }
+
+  private void backgroundUpdate(@Nullable final ProgressIndicator indicator) {
+    pushScope("update environment");
     try {
       // call this once so initialization fails if no JDK is present
-      addBase(new Converter(project, new HashMap<PsiElement, Items.Item>()));
+      if (!_initialized) {
+        // add base items
+        DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() {
+          @Override
+          public void run() {
+            addBase(new Converter(project, new HashMap<PsiElement, Items.Item>()));
+          }
+        });
+      }
 
-       // make global name lookup trie (read actions taken care of inside)
+      // make global name lookup trie (read actions taken care of inside)
       String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllFieldNames();
       }});
 
       nameTrie = prepareNameTrie(fieldNames);
 
-      // we're initialized starting here, we can live without the makeProjectValuesByItem
+      // we're initialized starting here, we can live without the makeProjectValuesByItem for a while
       _initialized = true;
 
       if (indicator != null)
         indicator.setIndeterminate(false);
 
-      // takes care of read action business inside (this is where all the work happens)
-      pByItem = makeProjectValuesByItem(fieldNames, indicator);
-
-      // TODO: start updater thread
-
-      if (indicator != null)
-        indicator.setIndeterminate(true);
+      try {
+        // takes care of read action business inside (this is where all the work happens)
+        synchronized (byItemLock) {
+          pByItem = makeProjectValuesByItem(fieldNames, indicator);
+        }
+      } finally {
+        if (indicator != null)
+          indicator.setIndeterminate(true);
+      }
 
     } finally { popScope(); }
-  }
 
-  private void backgroundUpdate() {
-    // make global name lookup trie (read actions taken care of inside)
-    String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
-      return PsiShortNamesCache.getInstance(project).getAllFieldNames();
-    }});
-
-    nameTrie = prepareNameTrie(fieldNames);
-
-    // takes care of read action business inside (this is where all the work happens)
-    pByItem = makeProjectValuesByItem(fieldNames, null);
-  }
-
-  public void dispose() {
-    // TODO: stop updater thread
+    // schedule the next update immediately if we've had another update request while we
+    // were in here
+    if (needUpdate)
+      scheduleUpdate(null);
   }
 
   private static void addBase(final Converter converter) {
@@ -282,17 +223,30 @@ public class JavaEnvironment {
   private int[] prepareNameTrie(String[] fieldNames) {
     pushScope("prepare lazy trie");
     try {
+      if (updateFuture.isCancelled())
+        return null;
+
       String[] classNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllClassNames();
       }});
+
+      if (updateFuture.isCancelled())
+        return null;
+
       String[] methodNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllMethodNames();
       }});
+
+      if (updateFuture.isCancelled())
+        return null;
 
       String[] allNames = new String[classNames.length + fieldNames.length + methodNames.length];
       System.arraycopy(classNames, 0, allNames, 0, classNames.length);
       System.arraycopy(fieldNames, 0, allNames, classNames.length, fieldNames.length);
       System.arraycopy(methodNames, 0, allNames, classNames.length+fieldNames.length, methodNames.length);
+
+      if (updateFuture.isCancelled())
+        return null;
 
       // there may be duplicates, but we don't particularly care
       Arrays.sort(allNames);
@@ -333,6 +287,10 @@ public class JavaEnvironment {
 
         @Override
         public boolean process(final PsiField f) {
+          // check if we've been cancelled
+          if (updateFuture.isCancelled())
+            return false;
+
           fqnLock.lock();
           try {
             // put this field into the string map for its type and all its supertypes
@@ -420,6 +378,9 @@ public class JavaEnvironment {
                 }
               }
             }
+
+            if (updateFuture.isCancelled())
+              throw new ProcessCanceledException();
           }
         }
 
@@ -436,7 +397,7 @@ public class JavaEnvironment {
   }
 
   // get a combined environment at the given place
-  Environment.Env getLocalEnvironment(@NotNull PsiElement place, final int lastEdit) {
+  public Environment.Env getLocalEnvironment(@NotNull PsiElement place, final int lastEdit) {
 
     pushScope("get local environment");
     try {
@@ -457,7 +418,7 @@ public class JavaEnvironment {
           final PsiShortNamesCache psicache = PsiShortNamesCache.getInstance(project);
           final GlobalSearchScope scope = ProjectScope.getContentScope(project);
           final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
-          final List<Items.Value> result = new ArrayList<Items.Value>();
+          final Set<Items.Value> result = new HashSet<Items.Value>();
           final EddyThread thread = EddyThread.getEddyThread();
           final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.scopeItems);
 
@@ -483,21 +444,26 @@ public class JavaEnvironment {
             // look up names in project
             String ts = type.qualified();
 
-            // grab current byItem (may be overwritten any time)
-            final Map<String, Set<String>> byItem = pByItem;
-            if (byItem != null && byItem.containsKey(ts)) {
-              if (thread != null) thread.pushSoftInterrupts();
-              for (String name : byItem.get(ts)) {
-                psicache.processFieldsWithName(name, proc, scope, filter);
+            // look up in pByItem (may be modified any time; we could make a copy of get(ts), but the background updater is not high priority
+            // and it's ok if that waits for us)
+            synchronized (byItemLock) {
+              if (pByItem != null && pByItem.containsKey(ts)) {
+                if (thread != null) thread.pushSoftInterrupts();
+                for (String name : pByItem.get(ts)) {
+                  psicache.processFieldsWithName(name, proc, scope, filter);
+                }
+                if (thread != null) thread.popSoftInterrupts();
               }
-              if (thread != null) thread.popSoftInterrupts();
             }
 
             // filter by real type
             int count = 0;
-            for (int i = 0; i < result.size(); ++i) {
-              if (result.get(i).item() == type)
-                count++;
+            Iterator<Items.Value> it = result.iterator();
+            while (it.hasNext()) {
+              Items.Value v = it.next();
+              if (v.item() != type) {
+                it.remove();
+              }
             }
 
             // look up in extraEnv
@@ -507,15 +473,11 @@ public class JavaEnvironment {
 
             // look up in vByItem
             Items.Value[] varr = vByItem.get(type);
-            Items.Value[] rarr = varr == null ? new Items.Value[count] : Arrays.copyOf(varr, varr.length + count);
-            count = varr == null ? 0 : varr.length;
-            for (int i = 0; i < result.size(); ++i) {
-              Items.Value vi = result.get(i);
-              if (vi.item() == type)
-                rarr[count++] = vi;
-            }
+            if (varr != null)
+              Collections.addAll(result, varr);
 
-            // TODO: there may be duplicates here, clean?
+            Items.Value[] rarr = new Items.Value[result.size()];
+            rarr = result.toArray(rarr);
 
             cache.put(type, rarr);
             return rarr;
@@ -548,7 +510,7 @@ public class JavaEnvironment {
       // copy the nameTrie structure pointer, may be overwritten any time
       final int[] structure = nameTrie;
       // make trie for global/project name lookup
-      final Tries.LazyTrie<Items.Item> trie = new Tries.LazyTrie<Items.Item>(structure, new PsiGenerator(project, ProjectScope.getAllScope(project), converter, false));
+      final Tries.LazyTrie<Items.Item> trie = new Tries.LazyTrie<Items.Item>(structure, new ItemGenerator(project, ProjectScope.getAllScope(project), converter, false));
 
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
       return Tarski.environment(trie, localTrie, vbi, ep.scopeItems, ep.placeInfo);
