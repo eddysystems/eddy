@@ -3,6 +3,7 @@ package com.eddysystems.eddy;
 import com.eddysystems.eddy.engine.ChangeTracker;
 import com.eddysystems.eddy.engine.EddyPsiListener;
 import com.eddysystems.eddy.engine.JavaEnvironment;
+import com.eddysystems.eddy.engine.TypeNameItemNamePair;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
@@ -119,10 +120,11 @@ public class EddyPlugin implements ProjectComponent {
     dropEnv();
 
     final ChangeTracker<String> nameTracker = new ChangeTracker<String>();
+    final ChangeTracker<TypeNameItemNamePair> valueTracker = new ChangeTracker<TypeNameItemNamePair>();
     if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
       // free env before allocating the new one
-      env = new JavaEnvironment(project,nameTracker);
-      psiListener = new EddyPsiListener(nameTracker);
+      env = new JavaEnvironment(project, nameTracker,valueTracker);
+      psiListener = new EddyPsiListener(nameTracker, valueTracker);
       PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
       try {
         env.updateSync(indicator);
@@ -138,8 +140,8 @@ public class EddyPlugin implements ProjectComponent {
       try {
         // can't have changes between when we make the environment and when we register the psi listener
         app.runReadAction(new Runnable() { @Override public void run() {
-          env = new JavaEnvironment(project,nameTracker);
-          psiListener = new EddyPsiListener(nameTracker);
+          env = new JavaEnvironment(project, nameTracker, valueTracker);
+          psiListener = new EddyPsiListener(nameTracker, valueTracker);
           PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
         }});
         env.updateSync(indicator);

@@ -47,6 +47,7 @@ public class JavaEnvironment {
 
   @NotNull final Project project;
   @NotNull final ChangeTracker<String> nameTracker;
+  @NotNull final ChangeTracker<TypeNameItemNamePair> valueTracker;
 
   private boolean _initialized = false;
   public boolean initialized() {
@@ -69,9 +70,10 @@ public class JavaEnvironment {
   private Future<?> updateFuture = null;
   private boolean needUpdate = false;
 
-  public JavaEnvironment(@NotNull Project project, @NotNull ChangeTracker<String> nameTracker) {
+  public JavaEnvironment(@NotNull Project project, @NotNull ChangeTracker<String> nameTracker, @NotNull ChangeTracker<TypeNameItemNamePair> valueTracker) {
     this.project = project;
     this.nameTracker = nameTracker;
+    this.valueTracker = valueTracker;
   }
 
   // make sure our background updater is done before we disappear
