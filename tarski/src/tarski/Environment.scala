@@ -143,10 +143,6 @@ object Environment {
         case Nil => s
         case i::is => exact(is,bestThen(Pr.exact,i,s))
       }
-      @tailrec def approx(is: List[Alt[Item]], as: List[Alt[Item]]): List[Alt[Item]] = is match {
-        case Nil => as
-        case Alt(p,i)::is => approx(is,Alt(p,i)::as)
-      }
       exact(_exactQuery(typed),if (exactOnly) fail(error)
                                else biased(Pr.typo,orError(_typoQuery(typed),error))) flatMap f
     }
