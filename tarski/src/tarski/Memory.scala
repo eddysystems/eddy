@@ -1,5 +1,8 @@
 package tarski
 
+import java.net.UnknownHostException
+
+import com.amazonaws.{AmazonServiceException, AmazonClientException}
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmts
@@ -96,7 +99,17 @@ object Memory {
     eddyBase(base, start, "Eddy.suggestion", input, results)
       .add("suggestion",suggestion)
 
+  // If we can't find a host, don't retry for a while
+  private val waitAfterFail = 300.0 // 5 min
+  private var lastFailedTime = Double.MinValue
+
   // Log to DynamoDB
   //   PutItem: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/JavaDocumentAPIItemCRUD.html#PutDocumentAPIJava
-  def log(i: Info): Future[Unit] = table map { _ putItem i.itemNow() }
+  def log(i: Info): Future[Unit] = table map { table =>
+    if (lastFailedTime < now()-waitAfterFail) {
+      // Suppress exceptions to be quiet if the internet is down
+      try table putItem i.itemNow()
+      catch { case _: Throwable => lastFailedTime = now() }
+    }
+  }
 }
