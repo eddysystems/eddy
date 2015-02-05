@@ -7,7 +7,7 @@ import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
-import tarski.Tries.{Queriable, DTrie, Trie}
+import tarski.Tries.{Queriable, Trie}
 import utility.Interrupts
 import utility.Locations._
 import scala.annotation.tailrec
@@ -15,17 +15,11 @@ import scala.collection.JavaConverters._
 
 object Tarski {
 
-  def makeTrie(jvalues: java.util.Collection[Item]): Trie[Item] = {
+  def makeTrie(jvalues: java.util.Collection[Item]): Trie[Item] =
     Trie(jvalues.asScala)
-  }
 
-  def makeTrie(jvalues: Array[Item]): Trie[Item] = {
+  def makeTrie(jvalues: Array[Item]): Trie[Item] =
     Trie(jvalues)
-  }
-
-  def makeDTrie(jvalues: java.util.Collection[Item]): DTrie[Item] = {
-    DTrie(jvalues.asScala)
-  }
 
   def environment(trie0: Queriable[Item], trie1: Queriable[Item], byItem: ValueByItemQuery,
                   scope: java.util.Map[Item,Integer], place: PlaceInfo): Env =

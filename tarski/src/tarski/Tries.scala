@@ -15,13 +15,6 @@ object Tries {
     def compareTo(o: Named) = name.compareTo(o.name)
   }
 
-  trait Delable {
-    var deleted: Boolean = false
-    def delete(): Unit = {
-      deleted = true
-    }
-  }
-
   trait Queriable[V] {
     def exact(s: Array[Char]): List[V]
     def typoQuery(typed: Array[Char]): Scored[V]
@@ -98,38 +91,8 @@ object Tries {
   }
 
   object LazyTrie {
-    def apply[V](input: Iterable[String], lookup: Generator[V]) = {
+    def apply[V](input: Iterable[String], lookup: Generator[V]) =
       new LazyTrie[V](JavaTrie.makeTrieStructure(toSorted(input)), lookup)
-    }
-  }
-
-  // a trie from which you can delete items
-  class DTrie[V <: Named with Delable](override val structure: Array[Int], override val values: Array[V]) extends Trie[V](structure, values) {
-
-    // nodevalues is a low-level function which will return deleted values. filter them yourself.
-
-    @inline override def exact(s: Array[Char]): List[V] = {
-      super.exact(s) filter (!_.deleted)
-    }
-    override def ++(t: Trie[V])(implicit tt: ClassTag[V]): DTrie[V] =
-      makeDHelper(mergeDelable(values,t.values)) // some wasted ifs if t is not a DTrie
-    override def ++(t: Iterable[V])(implicit tt: ClassTag[V]): DTrie[V] =
-      makeDHelper(mergeDelable(values,toSorted(t))) // some wasted ifs because t shouldn't contain deleted items
-
-    // replace a value with another value (which must have the same name)
-    def overwrite(value: V, replacement: V): Unit = {
-      assert(value.name == replacement.name)
-      val view = nodeValues(JavaTrie.exactNode(this.structure,value.name.toCharArray))
-      (0 until view.length).collectFirst( { case i if view(i) == value => view(i) = replacement } )
-    }
-  }
-
-  object DTrie {
-    def apply[V <: Named with Delable](input: Iterable[V])(implicit tt: ClassTag[V]): DTrie[V] =
-      makeDHelper(toSorted(input))
-
-    def empty[V <: Named with Delable](implicit tt: ClassTag[V]): DTrie[V] =
-      makeDHelper(Array.empty)
   }
 
   // Sort input into an array
@@ -157,52 +120,9 @@ object Tries {
                 else                                              { j += 1; v1(j-1) }
     both
   }
-  private def mergeDelable[V <: Named with Delable](v0: Array[V], v1: Array[V])(implicit tt: ClassTag[V]): Array[V] = {
-    val n0 = v0.size
-    val n1 = v1.size
-    var nd = 0
-    for (k <- 0 until n0)
-      if (v0(k).deleted) nd += 1
-    for (k <- 0 until n1)
-      if (v1(k).deleted) nd += 1
-    val nc = n0+n1-nd
-    val both = new Array[V](nc)
-    var i = 0
-    var j = 0
-    var k = 0
-
-    while(k != nc) {
-      if (i == n0) {
-        // copy the rest of v1
-        while (k != nc) {
-          while(v1(j).deleted) j += 1
-          both(k) = v1(j)
-          k += 1
-        }
-      } else if (j == n1) {
-        // copy the rest of v0
-        while (k != nc) {
-          while(v0(i).deleted) i += 1
-          both(k) = v0(i)
-          k += 1
-        }
-      } else {
-        while(i != n0 && v0(i).deleted) i += 1
-        while(j != n1 && v1(j).deleted) j += 1
-        both(k) = if (v0(i).name <= v1(j).name) { i+=1; v0(i-1) } else { j+=1; v1(j-1) }
-         k += 1
-      }
-    }
-    both
-  }
 
   // Assumes values is already sorted.  values must never change.
-  private def makeHelper[V <: Named](values: Array[V]): Trie[V] = {
+  private def makeHelper[V <: Named](values: Array[V]): Trie[V] =
     new Trie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
-  }
-
-  private def makeDHelper[V <: Named with Delable](values: Array[V]): DTrie[V] = {
-    new DTrie(JavaTrie.makeTrieStructure(values.asInstanceOf[Array[Named]]),values)
-  }
 }
 

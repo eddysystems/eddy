@@ -18,7 +18,7 @@ object Items {
   class ParentMismatchException(name: String, wanted: ParentItem, got: Parent) extends RuntimeException(s"Parent mismatch: $name expected $wanted, got $got") {}
 
   // A language item, given to us by someone who knows about the surrounding code
-  sealed trait Item extends RefEq with Tries.Named with Tries.Delable {
+  sealed trait Item extends RefEq with Tries.Named {
     def name: Name
     def qualified: Name = name // Overridden by Member
 
