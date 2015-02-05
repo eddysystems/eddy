@@ -85,9 +85,13 @@ object Tries {
       makeHelper(Array.empty)
   }
 
-  class LazyTrie[V](val structure: Array[Int], lookup: Generator[V]) extends Queriable[V] {
+  class LazyTrie[V](structure: Array[Int], lookup: Generator[V]) extends Queriable[V] {
     override def exact(s: Array[Char]): List[V] =
-      lookup.lookup(new String(s)).toList
+      if (JavaTrie.exactNode(structure,s) < 0) Nil
+      else lookup.lookup(new String(s)) match {
+        case null => Nil
+        case xs => xs.toList
+      }
 
     override def typoQuery(typed: Array[Char]): Scored[V] =
       JavaTrie.levenshteinLookupGenerated(structure, lookup, typed, Pr.maxTypos(typed.length), Pr.expectedTypos(typed.length), Pr.minimumProbability)

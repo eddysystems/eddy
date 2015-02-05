@@ -22,43 +22,13 @@ class ItemGenerator implements Generator<Items.Item> {
 
   final Project project;
   final GlobalSearchScope scope;
-  final boolean checkVisibility;
   final PsiShortNamesCache psicache;
   final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
   final Converter converter;
 
-  // true if there's a chance that element is visible from outside its file. Only elements that are private or
-  // inside private or anonymous elements or that are local are not potentially visible.
-  boolean possiblyVisible(PsiModifierListOwner element) {
-    PsiElement container = null;
-    try {
-      container = Place.containing(element, project);
-    } catch (Place.UnexpectedContainerError e) {
-      log(e.getMessage());
-      return false;
-    }
-
-    // anything toplevel in a package is at most protected
-    if (container instanceof PsiPackage) {
-      return true;
-    }
-
-    // anything private is out
-    if (element.hasModifierProperty(PsiModifier.PRIVATE)) {
-      return false;
-    }
-
-    // everything else, depends on the container
-    if (container instanceof PsiModifierListOwner) {
-      return possiblyVisible((PsiModifierListOwner)container);
-    } else
-      return false;
-  }
-
-  ItemGenerator(Project project, GlobalSearchScope scope, Converter conv, boolean checkVisibility) {
+  ItemGenerator(Project project, GlobalSearchScope scope, Converter conv) {
     this.project = project;
     this.scope = scope;
-    this.checkVisibility = checkVisibility;
     this.psicache = PsiShortNamesCache.getInstance(project);
     converter = conv;
   }
@@ -72,8 +42,7 @@ class ItemGenerator implements Generator<Items.Item> {
     public boolean process(PsiClass cls) {
       if (thread != null && thread.canceled())
         return false;
-      if (!checkVisibility || possiblyVisible(cls))
-        results.add(converter.addClass(cls));
+      results.add(converter.addClass(cls));
       return true;
     }
     };
@@ -83,8 +52,7 @@ class ItemGenerator implements Generator<Items.Item> {
     public boolean process(PsiMethod method) {
       if (thread != null && thread.canceled())
         return false;
-      if (!checkVisibility || possiblyVisible(method) && !Converter.isConstructor(method))
-        results.add(converter.addMethod(method));
+      results.add(converter.addMethod(method));
       return true;
     }
     };
@@ -94,8 +62,7 @@ class ItemGenerator implements Generator<Items.Item> {
     public boolean process(PsiField fld) {
       if (thread != null && thread.canceled())
         return false;
-      if (!checkVisibility || possiblyVisible(fld))
-        results.add(converter.addField(fld));
+      results.add(converter.addField(fld));
       return true;
     }
     };

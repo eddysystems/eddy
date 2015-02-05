@@ -16,11 +16,13 @@ import com.intellij.psi.search.PsiShortNamesCache;
 import com.intellij.psi.stubs.StubIndex;
 import com.intellij.psi.stubs.StubIndexImpl;
 import com.intellij.util.Processor;
+import com.intellij.util.SmartList;
 import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import tarski.*;
+import tarski.Items.Item;
 
 import java.util.*;
 import java.util.concurrent.CancellationException;
@@ -44,6 +46,7 @@ public class JavaEnvironment {
   }
 
   @NotNull final Project project;
+  @NotNull final ChangeTracker<String> nameTracker;
 
   private boolean _initialized = false;
   public boolean initialized() {
@@ -66,8 +69,9 @@ public class JavaEnvironment {
   private Future<?> updateFuture = null;
   private boolean needUpdate = false;
 
-  public JavaEnvironment(@NotNull Project project) {
+  public JavaEnvironment(@NotNull Project project, @NotNull ChangeTracker<String> nameTracker) {
     this.project = project;
+    this.nameTracker = nameTracker;
   }
 
   // make sure our background updater is done before we disappear
@@ -125,7 +129,7 @@ public class JavaEnvironment {
         DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() {
           @Override
           public void run() {
-            addBase(new Converter(project, new HashMap<PsiElement, Items.Item>()));
+            addBase(new Converter(project, new HashMap<PsiElement, Item>()));
           }
         });
       }
@@ -167,12 +171,12 @@ public class JavaEnvironment {
       final GlobalSearchScope scope = ProjectScope.getAllScope(converter.project);
 
       // Extra things don't correspond to PsiElements
-      final Set<Items.Item> extra =  new HashSet<Items.Item>();
+      final Set<Item> extra =  new HashSet<Item>();
       Collections.addAll(extra, Base.extraItems());
 
       // Add classes and packages
       final JavaPsiFacade facade = JavaPsiFacade.getInstance(converter.project);
-      for (Items.Item item : tarski.Base.baseItems()) {
+      for (final Item item : tarski.Base.baseItems()) {
         if (extra.contains(item) || item instanceof Items.ConstructorItem)
           continue;
         final String name = item.qualified();
@@ -192,7 +196,7 @@ public class JavaEnvironment {
       }
 
       // Add constructors
-      for (Items.Item item : tarski.Base.baseItems()) {
+      for (final Item item : tarski.Base.baseItems()) {
         if (!(item instanceof Items.ConstructorItem))
           continue;
         final String clsName = ((Items.ConstructorItem)item).parent().qualified();
@@ -206,7 +210,7 @@ public class JavaEnvironment {
       }
 
       // Add class members
-      for (Items.Item item : tarski.Base.baseItems()) {
+      for (final Item item : tarski.Base.baseItems()) {
         if (extra.contains(item) || !(item instanceof Items.ClassItem))
           continue;
         final String name = item.qualified();
@@ -235,7 +239,7 @@ public class JavaEnvironment {
       if (updateFuture.isCancelled())
         return null;
 
-      String[] allNames = new String[classNames.length + fieldNames.length + methodNames.length];
+      final String[] allNames = new String[classNames.length + fieldNames.length + methodNames.length];
       System.arraycopy(classNames, 0, allNames, 0, classNames.length);
       System.arraycopy(fieldNames, 0, allNames, classNames.length, fieldNames.length);
       System.arraycopy(methodNames, 0, allNames, classNames.length+fieldNames.length, methodNames.length);
@@ -396,7 +400,7 @@ public class JavaEnvironment {
 
     pushScope("get local environment");
     try {
-      final Map<PsiElement, Items.Item> items = new HashMap<PsiElement, Items.Item>();
+      final Map<PsiElement,Item> items = new HashMap<PsiElement,Item>();
       final Converter converter = new Converter(project, items);
 
       // we could cache the result of addBase, but it doesn't seem like it's worth it.
@@ -482,33 +486,77 @@ public class JavaEnvironment {
         popScope();
       }
 
-      // make a local trie of everything in scope which would not be found by the global lookup
-      pushScope("make local trie");
-      final Tries.Trie<Items.Item> localTrie;
-      try {
-        List<Items.Item> locals = new ArrayList<Items.Item>();
+      // Make trie for global/project name lookup
+      final int[] bigStructure = nameTrie;
+      final JavaTrie.Generator<Item> bigGenerator = new ItemGenerator(project, ProjectScope.getAllScope(project), converter);
+      final Tries.Queriable<Item> bigTrie = new Tries.LazyTrie<Item>(bigStructure, bigGenerator);
 
-        for (Items.Item item : ep.localItems) {
+      // Make a small trie with both locals and recently added names
+      pushScope("make small trie");
+      final Tries.Queriable<Item> smallTrie;
+      try {
+        final List<String> smallNames = new ArrayList<String>();
+
+        // Grab recent names from the change tracker.  Remove any that also occur in the big trie
+        final Set<String> recentSet = new HashSet<String>();
+        for (final String name : nameTracker.values())
+          if (JavaTrie.exactNode(bigStructure,name.toCharArray()) < 0) {
+            smallNames.add(name);
+            recentSet.add(name);
+          }
+
+        // Collect locals and extras
+        final List<Item> localsAndExtras = new ArrayList<Item>();
+        Collections.addAll(localsAndExtras, Base.extraItems());
+        for (final Item item : ep.localItems) {
           if (item instanceof Items.Local ||
-            item instanceof Types.TypeVar ||
-            item instanceof Items.ThisOrSuper) {
+              item instanceof Types.TypeVar ||
+              item instanceof Items.ThisOrSuper) {
             //log("added local " + item);
-            locals.add(item);
+            localsAndExtras.add(item);
           }
         }
-        Collections.addAll(locals, Base.extraItems());
-        localTrie = Tarski.makeTrie(locals);
+
+        // Turn locals and extras into a map
+        final Map<String,List<Item>> itemMap = new HashMap<String,List<Item>>();
+        for (final Item item : localsAndExtras) {
+          final String name = item.name();
+          List<Item> list = itemMap.get(name);
+          if (list == null) {
+            list = new SmartList<Item>();
+            itemMap.put(name,list);
+            smallNames.add(name);
+          }
+          list.add(item);
+        }
+
+        // Make a generator combining itemMap, recentSet, and the bigGenerator from above
+        final JavaTrie.Generator<Item> smallGenerator = new JavaTrie.Generator<Item>() {
+          public Item[] lookup(final String name) {
+            final Item[] recent = recentSet.contains(name) ? bigGenerator.lookup(name) : null;
+            final List<Item> items = itemMap.get(name);
+            if (items == null)
+              return recent;
+            final int ni = items.size();
+            final int nr = recent==null ? 0 : recent.length;
+            final Item[] results = new Item[ni+nr];
+            items.toArray(results);
+            if (recent != null)
+              System.arraycopy(recent,0,results,ni,nr);
+            return results;
+          }
+        };
+
+        // Build the small trie
+        Collections.sort(smallNames);
+        final int[] smallStructure = JavaTrie.makeTrieStructure(smallNames.toArray(new String[smallNames.size()]));
+        smallTrie = new Tries.LazyTrie<Item>(smallStructure,smallGenerator);
       } finally {
         popScope();
       }
 
-      // copy the nameTrie structure pointer, may be overwritten any time
-      final int[] structure = nameTrie;
-      // make trie for global/project name lookup
-      final Tries.LazyTrie<Items.Item> trie = new Tries.LazyTrie<Items.Item>(structure, new ItemGenerator(project, ProjectScope.getAllScope(project), converter, false));
-
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
-      return Tarski.environment(trie, localTrie, vbi, ep.scopeItems, ep.placeInfo);
+      return Tarski.environment(bigTrie, smallTrie, vbi, ep.scopeItems, ep.placeInfo);
     } finally {
       popScope();
     }

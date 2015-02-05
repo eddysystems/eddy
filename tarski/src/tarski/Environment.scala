@@ -165,9 +165,6 @@ object Environment {
     // Lookup by type.item
     def byItem(t: TypeItem): Scored[Value]
 
-    // Fragile or slow, only use for tests
-    def exactLocal(name: String): Local
-
     // get the innermost (current) ThisItem
     def getThis: ThisItem = scope.collect({ case (i:ThisItem,n) => (i,n) }).minBy(_._2)._1
   }
@@ -180,8 +177,8 @@ object Environment {
                scope,place)
   }
 
-  case class LazyEnv(private val trie: LazyTrie[Item], // creates items as they are queried
-                     private val localTrie: Trie[Item], // contains only the base items
+  case class LazyEnv(private val trie0: Queriable[Item], // creates items as they are queried
+                     private val trie1: Queriable[Item], // contains only the base items
                      private val added: QueriableItemList, // changed by this environment's extend functions (better be tiny)
                      private val byItem: ValueByItemQuery, // the JavaEnvironment has functions to compute this lazily, we just have to filter the result
                      scope: Map[Item,Int], place: PlaceInfo) extends Env {
@@ -190,10 +187,10 @@ object Environment {
 
     val emptyValues = new Array[Value](0)
 
-    override def move(to: PlaceInfo): Env = LazyEnv(trie,localTrie,added,byItem,scope,to)
+    override def move(to: PlaceInfo): Env = LazyEnv(trie0,trie1,added,byItem,scope,to)
 
     // Enter a block scope
-    override def pushScope: Env = LazyEnv(trie,localTrie,added,byItem,scope map { case (i,n) => (i,n+1) },place)
+    override def pushScope: Env = LazyEnv(trie0,trie1,added,byItem,scope map { case (i,n) => (i,n+1) },place)
 
     // Lookup by type.item
     override def byItem(t: TypeItem): Scored[Value] = {
@@ -203,32 +200,21 @@ object Environment {
 
     // return a new environment with one more item in it (doesn't recompute tries)
     override def add(item: Item, scope: Int): Env =
-      LazyEnv(trie,localTrie,added.add(item),byItem,this.scope+(item->scope),place)
+      LazyEnv(trie0,trie1,added.add(item),byItem,this.scope+(item->scope),place)
 
     override def extend(things: Array[Item], scope: Map[Item, Int]): Env = {
-      LazyEnv(trie,localTrie,added.add(things),byItem,this.scope++scope,place)
-    }
-
-    // Fragile or slow, only use for tests (does not look in base!)
-    override def exactLocal(name: String): Local = {
-      val query = name.toCharArray
-      def options(t: Queriable[Item]) = t exact query collect { case x:Local if x.accessible(place) => x }
-      options(trie) ++ options(added) match {
-        case List(x) => x
-        case Nil => throw new RuntimeException(s"No local variable $name")
-        case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
-      }
+      LazyEnv(trie0,trie1,added.add(things),byItem,this.scope++scope,place)
     }
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (localTrie.exact(typed) ++ trie.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
+      (trie1.exact(typed) ++ trie0.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
     }
 
     // Get exact and typo probabilities for string queries
     protected override def _typoQuery(typed: Array[Char]): Scored[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (localTrie.typoQuery(typed) ++ trie.typoQuery(typed) ++ added.typoQuery(typed))
+      (trie1.typoQuery(typed) ++ trie0.typoQuery(typed) ++ added.typoQuery(typed))
         .filter(_.accessible(place),s"Nothing accessible for ${typed.mkString}")
     }
 
@@ -255,17 +241,6 @@ object Environment {
 
     def move(to: PlaceInfo) =
       TwoEnv(trie0,trie1,byItem0,byItem1,scope,to)
-
-    // Fragile, only use for tests
-    def exactLocal(name: String): Local = {
-      val query = name.toCharArray
-      def options(t: Trie[Item]) = t exact query collect { case x: Local if x.accessible(place) => x }
-      options(trie0)++options(trie1) match {
-        case List(x) => x
-        case Nil => throw new RuntimeException(s"No local variable $name")
-        case xs => throw new RuntimeException(s"Multiple local variables $name: $xs")
-      }
-    }
 
     // Enter a new block scope
     def pushScope: Env =

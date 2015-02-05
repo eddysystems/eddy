@@ -7,7 +7,7 @@ import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
-import tarski.Tries.{LazyTrie, DTrie, Trie}
+import tarski.Tries.{Queriable, DTrie, Trie}
 import utility.Interrupts
 import utility.Locations._
 import scala.annotation.tailrec
@@ -27,9 +27,9 @@ object Tarski {
     DTrie(jvalues.asScala)
   }
 
-  def environment(trie: LazyTrie[Item], localTrie: Trie[Item], byItem: ValueByItemQuery,
+  def environment(trie0: Queriable[Item], trie1: Queriable[Item], byItem: ValueByItemQuery,
                   scope: java.util.Map[Item,Integer], place: PlaceInfo): Env =
-    new LazyEnv(trie, localTrie, QueriableItemList.empty, byItem, scope.asScala.toMap.mapValues(_.intValue), place)
+    new LazyEnv(trie0, trie1, QueriableItemList.empty, byItem, scope.asScala.toMap.mapValues(_.intValue), place)
 
   def print(is: Iterable[Alt[Item]]): Unit = {
     is foreach { case Alt(p,i) =>

@@ -8,6 +8,11 @@ import org.jetbrains.annotations.NotNull;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyPsiListener implements PsiTreeChangeListener {
+  final ChangeTracker<String> nameTracker;
+
+  public EddyPsiListener(final ChangeTracker<String> nameTracker) {
+    this.nameTracker = nameTracker;
+  }
 
   // TODO: keep track of how many and which items we have changed, and request full or partial environment updates at appropriate frequencies
 
