@@ -1,0 +1,96 @@
+<idea-plugin version="2">
+  <id>com.eddy.generator</id>
+  <name>Eddy</name>
+  <version>0.1-14</version>
+  <vendor email="support@eddy.systems" url="http://eddy.systems">Eddy</vendor>
+
+  <description><![CDATA[
+      Eddy helps write code. If you make mistakes, eddy will try to understand you anyway and propose proper Java. If Eddy
+      isn't sure what you meant, it'll show you options.<br>
+    ]]></description>
+
+  <change-notes><![CDATA[
+    ]]>
+  </change-notes>
+
+  <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges for description -->
+  <idea-version since-build="139" until-build="140"/>
+
+  <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Plugin+Compatibility+with+IntelliJ+Platform+Products
+       on how to target different products -->
+  <depends>com.intellij.modules.lang</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- Add your extensions here -->
+    <!--
+    <annotator language="JAVA" implementationClass="com.eddysystems.eddy.EddyAnnotator"/>
+      -->
+    <!-- set the implementation class for this to something Derived form EditorSmartKeysConfigurable to
+         offer additional options on the editor smart keys pane
+      <editorSmartKeysConfigurable/>
+      -->
+    <!-- generic handler for all editor actions - may be overkill
+      <editorActionHandler/>
+      -->
+    <!-- maybe the most "correct" way to implement smart enter keys, but looks complicated
+      <lang.smartEnterProcessor>
+      </lang.smartEnterProcessor>
+      -->
+    <!-- yey!
+      -->
+    <enterHandlerDelegate implementation="com.eddysystems.eddy.EddyEnterHandlerDelegate"/>
+
+    <intentionAction>
+        <className>com.eddysystems.eddy.EddyIntention</className>
+        <category>Other</category>
+        <descriptionDirectoryName>Eddy</descriptionDirectoryName>
+    </intentionAction>
+    <intentionAction>
+        <className>com.eddysystems.eddy.CorrectionIntention</className>
+        <category>Other</category>
+        <descriptionDirectoryName>EddyCorrection</descriptionDirectoryName>
+    </intentionAction>
+
+    <applicationConfigurable instance="com.eddysystems.eddy.Preferences">
+    </applicationConfigurable>
+  </extensions>
+
+  <application-components>
+    <!-- Add your application components here -->
+  </application-components>
+
+  <project-components>
+    <!-- Add your project components here -->
+      <component>
+          <implementation-class>com.eddysystems.eddy.EddyPlugin</implementation-class>
+      </component>
+      <!-- no need to instantiate here
+      <component>
+          <implementation-class>com.eddysystems.eddy.EddyIntention</implementation-class>
+      </component>
+      -->
+  </project-components>
+
+  <actions>
+      <action id="PrevEddySuggestion" class="com.eddysystems.eddy.actions.PrevSuggestion" text="Previous eddy suggestion"
+              description="Select previous eddy suggestion">
+          <keyboard-shortcut keymap="$default" first-keystroke="alt UP"/>
+      </action>
+      <action id="NextEddySuggestion" class="com.eddysystems.eddy.actions.NextSuggestion" text="Next eddy suggestion"
+              description="Select next eddy suggestion">
+          <add-to-group group-id="CodeMenu" anchor="last"/>
+          <keyboard-shortcut keymap="$default" first-keystroke="alt DOWN"/>
+      </action>
+      <action id="EddyReinitEnvironmentAction" class="com.eddysystems.eddy.actions.Reinit" text="Reinitialize eddy"
+              description="Reinitialize eddy's environment scan">
+          <add-to-group group-id="CodeMenu" anchor="last"/>
+      </action>
+<!--
+      <action id="EddyDumpEnvironmentAction" class="com.eddysystems.eddy.actions.DumpEnvironment" text="Dump environment"
+              description="Dump the environment at the cursor to ~/dump.jenv">
+          <add-to-group group-id="CodeMenu" anchor="last"/>
+      </action>
+-->
+  </actions>
+
+</idea-plugin>
