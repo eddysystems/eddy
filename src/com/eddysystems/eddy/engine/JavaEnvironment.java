@@ -1,6 +1,7 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
+import com.google.common.base.Predicate;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -48,6 +49,9 @@ public class JavaEnvironment {
   @NotNull final Project project;
   @NotNull final ChangeTracker<String> nameTracker;
   @NotNull final ChangeTracker<TypeNameItemNamePair> valueTracker;
+
+  final int rebuildByItemThreshold = 100;
+  final int rebuildNamesThreshold = 100;
 
   private boolean _initialized = false;
   public boolean initialized() {
@@ -136,7 +140,6 @@ public class JavaEnvironment {
         });
       }
 
-      // make global name lookup trie (read actions taken care of inside)
       String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllFieldNames();
       }});
@@ -146,14 +149,24 @@ public class JavaEnvironment {
       // we're initialized starting here, we can live without the makeProjectValuesByItem for a while
       _initialized = true;
 
+      nameTracker.forget(fieldNames);
+
       if (indicator != null)
         indicator.setIndeterminate(false);
 
       try {
-        // takes care of read action business inside (this is where all the work happens)
+        Map<String,Set<String>> newByItem = makeProjectValuesByItem(fieldNames, indicator);
         synchronized (byItemLock) {
-          pByItem = makeProjectValuesByItem(fieldNames, indicator);
+          pByItem = newByItem;
         }
+        valueTracker.forgetIf(new Predicate<TypeNameItemNamePair>() {
+          @Override public boolean apply(@Nullable TypeNameItemNamePair typeNameItemNamePair) {
+            if (typeNameItemNamePair == null)
+              return false;
+            Set<String> names = pByItem.get(typeNameItemNamePair.typename);
+            return names != null && names.contains(typeNameItemNamePair.itemname);
+          }
+        });
       } finally {
         if (indicator != null)
           indicator.setIndeterminate(true);
@@ -392,9 +405,7 @@ public class JavaEnvironment {
         // make sure the lock is released
         lock.release();
       }
-    } finally {
-      popScope();
-    }
+    } finally { popScope(); }
   }
 
   // get a combined environment at the given place
@@ -410,6 +421,16 @@ public class JavaEnvironment {
 
       // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
       final EnvironmentProcessor ep = new EnvironmentProcessor(converter, place, lastEdit);
+
+      // stuff from trackers
+      final List<TypeNameItemNamePair> newValuePairs = valueTracker.values();
+      final List<String> newNames = nameTracker.values();
+
+      // schedule a background update if the trackers get too large
+      // TODO: split requestUpdate into two
+      if (newValuePairs.size() > rebuildByItemThreshold || newNames.size() > rebuildNamesThreshold) {
+        requestUpdate();
+      }
 
       pushScope("make ValueByItemQuery");
       final ValueByItemQuery vbi;
@@ -448,6 +469,7 @@ public class JavaEnvironment {
             // look up in pByItem (may be modified any time; we could make a copy of get(ts), but the background updater is not high priority
             // and it's ok if that waits for us)
             synchronized (byItemLock) {
+              // use current global map
               if (pByItem != null && pByItem.containsKey(ts)) {
                 if (thread != null) thread.pushSoftInterrupts();
                 for (String name : pByItem.get(ts)) {
@@ -455,14 +477,22 @@ public class JavaEnvironment {
                 }
                 if (thread != null) thread.popSoftInterrupts();
               }
+
+              // changes since last global map was constructed
+              for (TypeNameItemNamePair tn : newValuePairs) {
+                if (tn.typename.equals(ts)) {
+                  if (thread != null) thread.pushSoftInterrupts();
+                  psicache.processFieldsWithName(tn.itemname, proc, scope, filter);
+                  if (thread != null) thread.popSoftInterrupts();
+                }
+              }
             }
 
             // filter by real type
-            int count = 0;
             Iterator<Items.Value> it = result.iterator();
             while (it.hasNext()) {
               Items.Value v = it.next();
-              if (v.item() != type) {
+              if (!Types.isSubitem(v.item(), type)) {
                 it.remove();
               }
             }
@@ -484,9 +514,7 @@ public class JavaEnvironment {
             return rarr;
           }
         };
-      } finally {
-        popScope();
-      }
+      } finally { popScope(); }
 
       // Make trie for global/project name lookup
       final int[] bigStructure = nameTrie;
@@ -501,7 +529,7 @@ public class JavaEnvironment {
 
         // Grab recent names from the change tracker.  Remove any that also occur in the big trie
         final Set<String> recentSet = new HashSet<String>();
-        for (final String name : nameTracker.values())
+        for (final String name : newNames)
           if (JavaTrie.exactNode(bigStructure,name.toCharArray()) < 0) {
             smallNames.add(name);
             recentSet.add(name);
@@ -553,15 +581,11 @@ public class JavaEnvironment {
         Collections.sort(smallNames);
         final int[] smallStructure = JavaTrie.makeTrieStructure(smallNames.toArray(new String[smallNames.size()]));
         smallTrie = new Tries.LazyTrie<Item>(smallStructure,smallGenerator);
-      } finally {
-        popScope();
-      }
+      } finally { popScope(); }
 
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
       return Tarski.environment(bigTrie, smallTrie, vbi, ep.scopeItems, ep.placeInfo);
-    } finally {
-      popScope();
-    }
+    } finally { popScope(); }
   }
 
 

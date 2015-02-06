@@ -1,11 +1,9 @@
 package com.eddysystems.eddy.engine;
 
+import com.google.common.base.Predicate;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 // Keep track of changes that may affect the environment.
 // This class is thread safe.
@@ -15,6 +13,14 @@ public class ChangeTracker<A> {
   private @NotNull List<A> recent = new ArrayList<A>(); // Stuff not yet added to all
 
   public ChangeTracker() {}
+
+  // Get the size of the change set
+  public int size() {
+    sync();
+    synchronized (all) {
+      return all.size();
+    }
+  }
 
   // Grab the current list
   public List<A> values() {
@@ -32,10 +38,22 @@ public class ChangeTracker<A> {
   }
 
   // Forgot about many values
-  public void forget(final Iterable<A> xs) {
+  public void forget(final A[] xs) {
     sync();
     for (final A x : xs)
       forget(x);
+  }
+
+  // Forget about all values for which pred returns true
+  public void forgetIf(final Predicate<A> pred) {
+    sync();
+    synchronized (all) {
+    Iterator<A> it = all.iterator();
+      while (it.hasNext()) {
+        if (pred.apply(it.next()))
+          it.remove();
+      }
+    }
   }
 
   // Add a new value.  Always very fast.

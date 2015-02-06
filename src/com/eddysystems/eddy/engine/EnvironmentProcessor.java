@@ -54,16 +54,14 @@ class EnvironmentProcessor {
     try {
       PsiScopesUtil.treeWalkUp(P, place, place.getContainingFile());
     } finally {
-      if (thread != null) thread.popSoftInterrupts();
       popScope();
+      if (thread != null) thread.popSoftInterrupts();
     }
     // only do this if we got through the processor
     pushScope("fillLocalInfo");
     try {
       this.placeInfo = fillLocalInfo(P,where,converter,lastEdit);
-    } finally {
-      popScope();
-    }
+    } finally { popScope(); }
   }
 
   /**
@@ -112,9 +110,7 @@ class EnvironmentProcessor {
 
       // .values() is undefined if it is modified during iteration, make sure this is thread-safe!
       localItems.addAll(env.items.values());
-    } finally {
-      popScope();
-    }
+    } finally { popScope(); }
 
     // find out which element we are inside (method, class or interface, or package)
     ParentItem placeItem = null;
@@ -189,9 +185,7 @@ class EnvironmentProcessor {
         place = place.getParent();
       }
       assert placeItem != null;
-    } finally {
-      popScope();
-    }
+    } finally { popScope(); }
 
     log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
 
