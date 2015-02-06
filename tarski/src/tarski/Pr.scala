@@ -70,11 +70,11 @@ object Pr {
     typoProbability(d, typed.length) // could be meant.length, but that's inconsistent with when we don't have meant available
   }
 
-  // Generic likelihood that the user omitted a qualifier (even though it was necessary), based on the possible values
+  // Generic likelihood that the user omitted the given qualifier (even though it was necessary), based on the possible values
   // for the qualifying objects, and the object chosen as qualifier
-  def omitQualifier(probs: Scored[Exp], choice: Exp, item: Item): Prob = {
+  def omitQualifier(probs: Scored[Exp], choice: ClassItem): Prob = {
     if (probs.isSingle) Prob("omit one choice",.8) // Only choice
-    else if (Items.inPackage(choice.item,Base.JavaLangPkg)) Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
+    else if (Items.inPackage(choice,Base.JavaLangPkg)) Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
   }
 
@@ -136,12 +136,6 @@ object Pr {
 
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
   def superDot(values: Scored[Exp], c: TypeItem, f: ChildItem) = Prob("super dot",.8)
-
-  // A field requires qualification (with obj), which requires a cast (to c), how likely is it that the user forgot the qualification?
-  def shadowedDot(values: Scored[Exp], obj: Exp, c: TypeItem, f: ChildItem): Prob = dot(values, obj, f)
-
-  // A field requires qualification with one of values, how likely is it that the user forgot to qualify with obj?
-  def dot(values: Scored[Exp], obj: Exp, f: ChildItem) = omitQualifier(values, obj, f)
 
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)

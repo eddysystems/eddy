@@ -120,22 +120,24 @@ object Semantics {
   def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] =
     objectsOfItem(c) flatMap { x => denoteValue(x,cr,qualifiers) }
 
+  // valuesOfItem biased by Pr.omitQualifier
+  def qualifiersOfItem(c: ClassItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] = {
+    val xs = valuesOfItem(c,cr,qualifiers,error)
+    biased(Pr.omitQualifier(xs,c),xs)
+  }
+
   def denoteFieldItem(i: FieldItem, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[FieldExp] = {
     val c = i.parent
     if (qualifiers.size >= 3) fail("Automatic field depth exceeded")
     else if (qualifiers contains i) fail(s"qualification loop $i -> $qualifiers")
-    else {
-      val objs = valuesOfItem(c,ir,i::qualifiers,s"Field ${show(i)}")
-      objs flatMap { xd => {
-        if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem])) {
-          xd match {
-            case ThisExp(tt:ThisItem,_) if tt.item.base.item == c => fail("We'll use super instead of this")
-            case _ => single(FieldExp(Some(CastExp(c.raw,SGroup.approx(ir),xd)),i,ir), Pr.shadowedDot(objs, xd,c,i))
-          }
-        } else
-          single(FieldExp(Some(xd),i,ir), Pr.dot(objs, xd, i))
-      }}
-    }
+    else qualifiersOfItem(c,ir,i::qualifiers,s"Field ${show(i)}") flatMap (xd =>
+      if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem]))
+        xd match {
+          case ThisExp(tt:ThisItem,_) if tt.item.base.item == c => fail("We'll use super instead of this")
+          case _ => known(FieldExp(Some(CastExp(c.raw,SGroup.approx(ir),xd)),i,ir))
+        }
+      else known(FieldExp(Some(xd),i,ir))
+    )
   }
 
   def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = {
@@ -154,10 +156,8 @@ object Semantics {
     }
   }
 
-  def denoteMethod(i: MethodItem, ir: SRange)(implicit env: Env): Scored[MethodDen] = {
-    val objs = valuesOfItem(i.parent,ir,Nil,s"Method ${show(i)}")
-    objs flatMap (xd => single(MethodDen(Some(xd),i,ir), Pr.dot(objs,xd,i)))
-  }
+  def denoteMethod(i: MethodItem, ir: SRange)(implicit env: Env): Scored[MethodDen] =
+    qualifiersOfItem(i.parent,ir,Nil,s"Method ${show(i)}") map (x => MethodDen(Some(x),i,ir))
 
   case class Mode(m: Int) extends AnyVal {
     def exp:     Boolean = (m&1)!=0
@@ -257,9 +257,7 @@ object Semantics {
 
       // evaluate x as a member expression of qe (pretend the user wrote new x.Y() when evaluating x.new Y())
       // evaluate x as a standalone expression as in the (illegal) xobj.new X.Y() => x.new Y()
-      val qden = denoteExp(qe)
-      val xden = denoteType(x)
-      val dens = product(qden,xden) flatMap {
+      val dens = product(denoteExp(qe),denoteType(x)) flatMap {
         // if x evaluates to a static class, drop qe, penalize heavily if x is not a member of qe.ty.item
         case (q,TypeDen(t:ClassType)) if t.item.isStatic =>
           addTypeArgs(uniform(if (memberIn(t.item, q)) Pr.qualifiedStaticNew else Pr.qualifiedNewWithUnrelatedObject,
@@ -270,16 +268,13 @@ object Semantics {
             addTypeArgs(uniform(Pr.qualifiedNew, t.item.constructors(env.place).map(NewDen(nr,Some(q),_,x.r)), "no accessible constructors"),ts)
           else
             // if x evaluates to an inner class which is not a member of qe.ty.item, try to find an object to use instead (penalize a lot)
-            biased(Pr.qualifiedNewWithUnrelatedObject, {
-              val objs = valuesOfItem(t.parent.asInstanceOf[ClassItem], qe.r, Nil, "cannot find object to qualify new for inner class")
-              objs flatMap { x => biased(Pr.omitQualifier(objs,x,t.item),
-                fixCall(m,expects,uniformGood(Pr.constructor,t.item.constructors(env.place)) map (NewDen(nr.before,Some(x),_,nr)))
-              )}
-            })
+            biased(Pr.qualifiedNewWithUnrelatedObject,
+              qualifiersOfItem(t.parent.asInstanceOf[ClassItem], qe.r, Nil, "cannot find object to qualify new for inner class") flatMap (x =>
+                fixCall(m,expects,uniformGood(Pr.constructor,t.item.constructors(env.place)) map (NewDen(nr.before,Some(x),_,nr)))))
         }
         case _ => impossible
       }
-      fixCall(m,expects, dens)
+      fixCall(m,expects,dens)
     }
     case NewAExp(qe,nr,None,x,ns) if m.callExp => // new array (without array)
       // TODO: check qe against x.parent. If it's a parent, don't be quite as harsh about the penalty
@@ -472,12 +467,9 @@ object Semantics {
   }
 
   // find objects to qualify a new statement
-  def qualifyNew(qualifierItem: ClassItem, qr: SRange, newItem: ClassItem, nr: SRange)(implicit env: Env) = {
-    val objs = valuesOfItem(qualifierItem, qr, Nil, "cannot find object to qualify new for inner class")
-    objs flatMap { x => biased(Pr.omitQualifier(objs,x,newItem),
-      uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr))
-    )}
-  }
+  def qualifyNew(qualifierItem: ClassItem, qr: SRange, newItem: ClassItem, nr: SRange)(implicit env: Env) =
+    qualifiersOfItem(qualifierItem, qr, Nil, "cannot find object to qualify new for inner class") flatMap (x =>
+      uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr)))
 
   def denoteName(n: Name, nr: SRange, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
     case v:Value if m.exp => denoteValue(v,nr,qualifiers=Nil)
