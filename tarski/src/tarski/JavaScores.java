@@ -347,23 +347,27 @@ public class JavaScores {
     }
 
     public Scored<A> extract(final double goal) {
-      if (xs == null) {
-        final Alt<String> s = heap.poll();
-        // s should never be null, since we check heap.isEmpty() below
-        xs = gen.lookup(s.x());
-        if (xs == null || xs.length==0) {
-          xs = null;
-          return heap.isEmpty() ? (Scored<A>)Empty$.MODULE$
-                                : new Extractor<A>(this);
+      do {
+        if (xs == null) {
+          final Alt<String> s = heap.poll();
+          // s should never be null, since we check heap.isEmpty() below
+          xs = gen.lookup(s.x());
+          if (xs == null || xs.length==0) {
+            if (heap.isEmpty())
+              return (Scored<A>)Empty$.MODULE$;
+            xs = null;
+            continue;
+          }
+          dp = s.dp();
+          k = 0;
         }
-        dp = s.dp();
-        k = 0;
-      }
-      final A x = xs[k++];
-      if (k == xs.length)
-        xs = null;
-      return new Best<A>(dp,x,xs == null && heap.isEmpty() ? (Scored<A>)Empty$.MODULE$
-                                                           : new Extractor<A>(this));
+        final A x = xs[k++];
+        if (k == xs.length)
+          xs = null;
+        return new Best<A>(dp,x,xs == null && heap.isEmpty() ? (Scored<A>)Empty$.MODULE$
+                                                             : new Extractor<A>(this));
+      } while (heap.peek().p() > goal); // We check heap.isEmpty above, so peek always succeeds here
+      return new Extractor<A>(this);
     }
   }
 
