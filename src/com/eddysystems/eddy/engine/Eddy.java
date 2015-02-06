@@ -12,6 +12,7 @@ import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
+import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
@@ -176,7 +177,6 @@ public class Eddy {
       PreferenceData data = Preferences.getData();
       double t = data.getNumericAutoApplyThreshold();
       double f = data.getNumericAutoApplyFactor();
-      log("confidence based on t = " + t + ", f = " + f + ", " + results.size() + " results.");
       if (results.size() >= 1 && results.get(0).p() >= t) {
         if (results.size() == 1)
           return true;
@@ -382,12 +382,12 @@ public class Eddy {
   }
 
   public Input input() throws Skip {
-    log("processing eddy...");
+    //log("processing eddy...");
     // Determine where we are
     final int cursor = editor.getCaretModel().getCurrentCaret().getOffset();
     final int line = document.getLineNumber(cursor);
     final TextRange range = TextRange.create(document.getLineStartOffset(line), document.getLineEndOffset(line));
-    log("  processing line " + line + ": " + document.getText(range));
+    //log("  processing line " + line + ": " + document.getText(range));
 
     // Find relevant statements and comments
     final List<PsiElement> elems = elementsContaining(document,range,getFile().findElementAt(cursor));
@@ -424,7 +424,7 @@ public class Eddy {
     final TextRange trim = Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
     final String before = document.getText(trim);
-    log("  before: " + before.replaceAll("[\n\t ]+", " "));
+    log("eddy before: " + before.replaceAll("[\n\t ]+", " "));
     return new Input(trim,tokens,place,before);
   }
 
@@ -494,7 +494,7 @@ public class Eddy {
           compute(env(input,lastEdit));
         } catch (Skip s) {
           // ignore skipped lines
-          log("skipping: " + s.getMessage());
+          //log("skipping: " + s.getMessage());
         }
       }
 
@@ -509,8 +509,8 @@ public class Eddy {
             unsafe();
           } catch (final Throwable e) {
             error = e;
-            if (!(e instanceof ThreadDeath))
-              logError("process()",e); // Log everything except for ThreadDeath, which happens all the time.
+            if (!(e instanceof ThreadDeath) && !(e instanceof RuntimeInterruptedException))
+              logError("process()",e); // Log everything except for ThreadDeath and RuntimeInterruptedException, which happens all the time.
             if (e instanceof Error && !(e instanceof AssertionError))
               throw (Error)e; // Rethrow most kinds of Errors
           }
