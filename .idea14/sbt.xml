@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ScalaSbtSettings">
+    <option name="customLauncherPath" value="/usr/local/Cellar/sbt/0.13.6/libexec/sbt-launch.jar" />
+  </component>
+</project>

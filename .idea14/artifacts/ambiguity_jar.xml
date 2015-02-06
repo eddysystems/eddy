@@ -1,0 +1,17 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="ambiguity:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/ambiguity_jar</output-path>
+    <root id="archive" name="ambiguity.jar">
+      <element id="directory" name="META-INF">
+        <element id="file-copy" path="$PROJECT_DIR$/out/ambiguity-manifest/META-INF/MANIFEST.MF" />
+      </element>
+      <element id="module-output" name="ambiguity" />
+      <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-reflect.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-library.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$APPLICATION_HOME_DIR$/plugins/testng/lib/testng.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="/usr/local/Cellar/scala/2.11.2/idea/lib/scala-compiler.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/net/sf/trove4j/trove4j/3.0.3/trove4j-3.0.3.jar" path-in-jar="/" />
+      <element id="module-output" name="utility" />
+    </root>
+  </artifact>
+</component>
