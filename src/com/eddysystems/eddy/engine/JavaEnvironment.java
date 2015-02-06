@@ -33,6 +33,7 @@ import java.util.concurrent.locks.Lock;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static com.eddysystems.eddy.engine.Utility.logError;
+import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
 import static java.lang.Thread.sleep;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
@@ -140,33 +141,30 @@ public class JavaEnvironment {
         });
       }
 
-      String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
+      final Snapshot[] nameSnap = new Snapshot[1];
+      final Snapshot[] valueSnap = new Snapshot[1];
+
+      final String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
+        nameSnap[0] = nameTracker.snapshot();
+        valueSnap[0] = valueTracker.snapshot();
         return PsiShortNamesCache.getInstance(project).getAllFieldNames();
       }});
 
       nameTrie = prepareNameTrie(fieldNames);
+      nameTracker.forget(nameSnap[0]);
 
       // we're initialized starting here, we can live without the makeProjectValuesByItem for a while
       _initialized = true;
-
-      nameTracker.forget(fieldNames);
 
       if (indicator != null)
         indicator.setIndeterminate(false);
 
       try {
-        Map<String,Set<String>> newByItem = makeProjectValuesByItem(fieldNames, indicator);
+        final Map<String,Set<String>> newByItem = makeProjectValuesByItem(fieldNames, indicator);
         synchronized (byItemLock) {
           pByItem = newByItem;
         }
-        valueTracker.forgetIf(new Predicate<TypeNameItemNamePair>() {
-          @Override public boolean apply(@Nullable TypeNameItemNamePair typeNameItemNamePair) {
-            if (typeNameItemNamePair == null)
-              return false;
-            Set<String> names = pByItem.get(typeNameItemNamePair.typename);
-            return names != null && names.contains(typeNameItemNamePair.itemname);
-          }
-        });
+        valueTracker.forget(valueSnap[0]);
       } finally {
         if (indicator != null)
           indicator.setIndeterminate(true);
@@ -428,9 +426,8 @@ public class JavaEnvironment {
 
       // schedule a background update if the trackers get too large
       // TODO: split requestUpdate into two
-      if (newValuePairs.size() > rebuildByItemThreshold || newNames.size() > rebuildNamesThreshold) {
+      if (newValuePairs.size() > rebuildByItemThreshold || newNames.size() > rebuildNamesThreshold)
         requestUpdate();
-      }
 
       pushScope("make ValueByItemQuery");
       final ValueByItemQuery vbi;
