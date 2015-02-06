@@ -10,7 +10,7 @@ import java.util.List;
 public class JavaTrie {
 
   // TODO: make a trie structure optimized for this use case (without a start index into the values array)
-  public static int[] makeTrieStructure(String[] values) {
+  public static int[] makeTrieStructure(final String[] values) {
     // Count nodes and determine maximum depth
     //      : *0-         : 1,3
     // a    : *1a#*0-     : 2,7
