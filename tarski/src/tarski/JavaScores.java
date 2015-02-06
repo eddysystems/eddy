@@ -425,6 +425,7 @@ public class JavaScores {
       this.x = x;
       this.y = y;
       this._p = x.p();
+      if (Interrupts.pending != 0) Interrupts.checkInterrupts();
     }
 
     public double p() {
