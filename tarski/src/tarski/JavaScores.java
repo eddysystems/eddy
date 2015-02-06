@@ -77,16 +77,18 @@ public class JavaScores {
 
   // s bias q
   static final class Biased<B> extends HasProb {
+    final double _p;
     final double/*Prob*/ q;
     final Scored<B> s;
 
     Biased(double/*Prob*/ q, Scored<B> s) {
       this.q = q;
       this.s = s;
+      this._p = pp(q)*s.p();
     }
 
     public double p() {
-      return pp(q)*s.p();
+      return _p;
     }
   }
 
