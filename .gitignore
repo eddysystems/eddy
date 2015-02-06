@@ -1,7 +1,8 @@
-.idea
 .DS_Store
 eddy.zip
 eddy.jar
 out/
 resources/eddy.properties
 javadoc/
+.idea
+.*.swp
