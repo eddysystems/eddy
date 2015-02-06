@@ -3,6 +3,7 @@ package utility
 import scala.annotation.tailrec
 import scala.collection.immutable.Set
 import scala.collection.mutable
+import org.apache.commons.lang.StringEscapeUtils.escapeJava
 
 object Utility {
   def notImplemented = throw new NotImplementedError("not implemented")
@@ -97,10 +98,8 @@ object Utility {
       loop(Nil,List(x),x,xs)
   }
 
-  def escape(raw: String): String = {
-    import scala.reflect.runtime.universe._
-    Literal(Constant(raw)).toString
-  }
+  def escape(raw: String): String =
+    escapeJava(raw)
 
   // Apply a partial function as much as we can to the front of a list
   def takeCollect[A,B](xs: List[A])(f: PartialFunction[A,B]): (List[B],List[A]) = {
