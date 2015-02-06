@@ -60,7 +60,7 @@ object ArgMatching {
         }
         // If desired, find values from the scope that fit
         val options1: Opts = if (!useEnv) options0 else biased(Pr.addArg,
-          env.byItem(f.params(k).item) flatMap (denoteValue(_,a.r,0)) flatMap (add(_,unused))) :: options0
+          env.byItem(f.params(k).item) flatMap (denoteValue(_,a.r,qualifiers=Nil)) flatMap (add(_,unused))) :: options0
         multiple(options1)
       }
     }

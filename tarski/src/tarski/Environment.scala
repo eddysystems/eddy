@@ -191,7 +191,9 @@ object Environment {
     // Lookup by type.item
     override def byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
-      uniform(Pr.objectOfItem, byItem.query(t) filter (_.accessible(place)), s"No value of type item ${show(t)} found")
+      val values = byItem.query(t) filter (_.accessible(place))
+      println("query for values of type " + t + " found " + values.toList)
+      uniform(Pr.objectOfItem, values, s"No value of type item ${show(t)} found")
     }
 
     // return a new environment with one more item in it (doesn't recompute tries)
