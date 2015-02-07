@@ -621,6 +621,25 @@ class TestDen {
     // TODO: This should only work as the first statement of a different constructor, which is not tracked by the PlaceInfo right now
   }
 
+  // Nonnullary functions are treated differently, so constructorForward is not enough
+  @Test def constructorForwardSome(): Unit = {
+    val A = NormalClassItem("A")
+    lazy val Y: ClassItem = NormalClassItem("Y", LocalPkg, constructors = Array(Yc))
+    lazy val Yc = NormalConstructorItem(Y,Nil,List(A))
+    lazy val X: ClassItem = NormalClassItem("X", LocalPkg, Nil, Y, constructors = Array(Xc,Xc2))
+    lazy val Xc = NormalConstructorItem(X, Nil, List(A))
+    lazy val Xc2 = NormalConstructorItem(X, Nil, List(IntType))
+    val x = NormalLocal("x",A)
+    val This = ThisItem(X)
+    val Super = SuperItem(Y)
+    implicit val env = Env(Array(Y,Yc,X,Xc,This,Super,x),
+                           Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2),(x,1)),
+                           PlaceInfo(Xc2))
+    test("this(x)", ApplyExp(ForwardDen(This,r,Xc),List(x),a,auto=false))
+    test("super(x)", ApplyExp(ForwardDen(Super,r,Yc),List(x),a,auto=false))
+    // TODO: This should only work as the first statement of a different constructor, which is not tracked by the PlaceInfo right now
+  }
+
   @Test def illegalConstructorForward(): Unit = {
     // cannot forward to constructor outside of constructor
     val Y = NormalClassItem("Y", LocalPkg)
