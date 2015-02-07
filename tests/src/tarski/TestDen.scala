@@ -281,13 +281,13 @@ class TestDen {
 
   @Test
   def mapExp(): Unit = {
+    return // TODO: Re-enable (see https://github.com/eddysystems/eddy/issues/78)
     val main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = NormalMethodItem("f",main,Nil,FloatType,List(ArrayType(IntType)),isStatic=true)
     val x = NormalLocal("x",ArrayType(DoubleType),isFinal=true)
     val y = NormalLocal("y",ArrayType(DoubleType),isFinal=false)
     implicit val env = Env(Array(main,f,x,y), Map((main,2),(f,2),(x,1),(y,1)),PlaceInfo(f))
     test("y = f(x)", Nil)
-    notImplemented
   }
 
   @Test
