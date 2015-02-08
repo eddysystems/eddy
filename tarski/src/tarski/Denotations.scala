@@ -388,8 +388,8 @@ object Denotations {
   }
   case class ApplyExp(f: Callable, args: List[Exp], a: SGroup, auto: Boolean) extends StmtExp {
     def r = f.r union a.r
-    def item = f.callItem
-    def ty = f.callType(Nil)
+    lazy val item = f.callItem
+    lazy val ty = f.callType(Nil)
   }
   case class IndexExp(e: Exp, i: Exp, a: SGroup) extends Exp {
     def r = e.r union a.r
