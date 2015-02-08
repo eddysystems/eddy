@@ -85,8 +85,8 @@ class TestPretty {
     val x = NormalLocal("a", A.simple, isFinal=false)
     val f = NormalMethodItem("f",A,Nil,A.simple,Nil,isStatic=true)
     implicit val env = Env(Array(A,f,x), Map((x,1),(f,2)),PlaceInfo(f))
-    test("a.f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(Some(LocalExp(x,r)),f,r),Nil,a,auto=false)),f,r),Nil,a,auto=false))
-    test("f().f()", ApplyExp(MethodDen(Some(ApplyExp(MethodDen(None,f,r),Nil,a,auto=false)),f,r),Nil,a,auto=false))
+    test("a.f().f()", ApplyExp(MethodDen(ApplyExp(MethodDen(x,f,r),Nil,a,auto=false),f,r),Nil,a,auto=false))
+    test("f().f()", ApplyExp(MethodDen(ApplyExp(f,Nil,a,auto=false),f,r),Nil,a,auto=false))
   }
 
   @Test def cond() = test("true ? 1 : 0",CondExp(true,r,1,r,0,IntType))
@@ -98,4 +98,11 @@ class TestPretty {
 
   @Test def newArray() = test("new int[]{1,2}",ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2),a,auto=false))
   @Test def newArrayN() = test("new int[2][]",ApplyExp(NewArrayDen(r,IntType,r,List(Grouped(2:Exp,a)),List(a)),Nil,a,auto=false))
+
+  @Test def fieldIndex() = {
+    val A = NormalClassItem("A")
+    val x = NormalLocal("x",A)
+    val y = NormalFieldItem("y",ArrayType(IntType),A)
+    test("x.y[0]",IndexExp(FieldExp(x,y,r),0,a))
+  }
 }
