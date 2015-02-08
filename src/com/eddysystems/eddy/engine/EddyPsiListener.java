@@ -178,19 +178,19 @@ public class EddyPsiListener implements PsiTreeChangeListener {
 
   @Override
   public void childAdded(@NotNull PsiTreeChangeEvent event) {
-    log("child " + event.getChild() + " added to " + event.getParent());
+    //log("child " + event.getChild() + " added to " + event.getParent());
     addElement(event.getChild());
   }
 
   @Override
   public void childRemoved(@NotNull PsiTreeChangeEvent event) {
-    log("child " + event.getChild() + " removed from " + event.getParent());
+    //log("child " + event.getChild() + " removed from " + event.getParent());
     removeElement(event.getChild());
   }
 
   @Override
   public void childReplaced(@NotNull PsiTreeChangeEvent event) {
-    log("child " + event.getOldChild() + " in " + event.getParent() + " replaced with " + event.getNewChild());
+    //log("child " + event.getOldChild() + " in " + event.getParent() + " replaced with " + event.getNewChild());
     removeElement(event.getOldChild());
     addElement(event.getNewChild());
   }
@@ -205,13 +205,13 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   // Can ignore these because we'll also get detailed events like childReplaced
   @Override
   public void childrenChanged(@NotNull PsiTreeChangeEvent event) {
-    log("children of " + event.getParent() + " changed.");
+    //log("children of " + event.getParent() + " changed.");
   }
 
   // Probably doesn't matter, and we've never seen it anyway
   @Override
   public void childMoved(@NotNull PsiTreeChangeEvent event) {
-    log("child " + event.getChild() + " moved from " + event.getOldParent() + " to " + event.getNewParent());
+    //log("child " + event.getChild() + " moved from " + event.getOldParent() + " to " + event.getNewParent());
   }
 
   // Doesn't matter
@@ -224,6 +224,6 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   // Doesn't matter
   @Override
   public void propertyChanged(@NotNull PsiTreeChangeEvent event) {
-    log("property " + event.getPropertyName() + " changed in " + event.getElement());
+    //log("property " + event.getPropertyName() + " changed in " + event.getElement());
   }
 }
