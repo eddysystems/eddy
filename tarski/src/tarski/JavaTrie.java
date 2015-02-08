@@ -190,7 +190,7 @@ public class JavaTrie {
     final int cols = typed_length+1;
     final float[] d = workspace((meant_length+1)*cols);
 
-    // d(i,j) is cost to obtain the first i character of meant having used the first j characters of typed
+    // d(i,j) is cost to obtain the first i characters of meant having used the first j characters of typed
 
     // fill first column (moving down equals deletion of a character in meant
     for (int i = 0; i <= meant_length; ++i) {
@@ -328,7 +328,7 @@ public class JavaTrie {
                             : new Extractor<V>(new GeneratorState<V>(lookup,result));
   }
 
-  static class TriePos {
+  static final class TriePos {
     public int node_idx; // start index of node in structure array
     public int n_children; // number of children
     public int child; // index of current child (in node's children array)
