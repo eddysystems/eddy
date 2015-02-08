@@ -17,6 +17,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
 import org.jetbrains.annotations.NotNull;
 
@@ -38,6 +39,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   // an action that shows up as an intention action (lives longer than the hint)
   private static EddyFileListener active_instance = null;
   private static EddyAction active_action = null;
+  private static LightweightHint active_hint = null;
   private static int active_line = -1;
 
   // to keymapped actions that should affect the file listener that showed the last hint
@@ -123,7 +125,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       // show hint only if we found something really good
       if (output.shouldShowHint()) {
         final int offset = editor.getCaretModel().getOffset();
-        final LightweightHint hint = EddyHintLabel.makeHint(output);
+        active_hint = EddyHintLabel.makeHint(output);
 
         // we can only show hints from the UI thread, so schedule that
         ApplicationManager.getApplication().invokeLater(new Runnable() {
@@ -133,15 +135,29 @@ public class EddyFileListener implements CaretListener, DocumentListener {
             // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
             // no synchronization is needed in here
             active_hint_instance = EddyFileListener.this;
-            HintManagerImpl.getInstanceImpl().showQuestionHint(editor, offset, offset + 1, hint, action, HintManager.ABOVE);
+            HintManagerImpl.getInstanceImpl().showQuestionHint(editor, offset, offset + 1, active_hint, action, HintManager.ABOVE);
           }
         }, new Condition() {
           @Override
           public boolean value(Object o) {
-            // do not synchronize this!
+            // do not synchronize this -- we're still in the sync block!
             return action != active_action;
           }
         });
+      } else {
+        // if we shouldn't show a hint, make sure any old hint is hidden
+        final Hint current_hint = active_hint;
+        active_hint = null;
+        if (current_hint != null) {
+          ApplicationManager.getApplication().invokeLater(new Runnable() {
+            @Override
+            public void run() {
+              if (current_hint.isVisible()) {
+                current_hint.hide();
+              }
+            }
+          });
+        }
       }
     }
   }
