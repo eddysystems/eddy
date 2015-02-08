@@ -14,6 +14,7 @@ import com.intellij.openapi.editor.event.DocumentListener;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.TextEditor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.ui.LightweightHint;
@@ -126,12 +127,19 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
         // we can only show hints from the UI thread, so schedule that
         ApplicationManager.getApplication().invokeLater(new Runnable() {
-          @Override public void run() {
+          @Override
+          public void run() {
             // whoever showed the hint last is it
             // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
             // no synchronization is needed in here
             active_hint_instance = EddyFileListener.this;
             HintManagerImpl.getInstanceImpl().showQuestionHint(editor, offset, offset + 1, hint, action, HintManager.ABOVE);
+          }
+        }, new Condition() {
+          @Override
+          public boolean value(Object o) {
+            // do not synchronize this!
+            return action != active_action;
           }
         });
       }
