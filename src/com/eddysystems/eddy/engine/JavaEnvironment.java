@@ -1,7 +1,6 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
-import com.google.common.base.Predicate;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
@@ -31,9 +30,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 
+import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
 import static com.eddysystems.eddy.engine.Utility.log;
 import static com.eddysystems.eddy.engine.Utility.logError;
-import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
 import static java.lang.Thread.sleep;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
@@ -151,7 +150,11 @@ public class JavaEnvironment {
       }});
 
       nameTrie = prepareNameTrie(fieldNames);
-      nameTracker.forget(nameSnap[0]);
+
+      pushScope("forget names");
+      try {
+        nameTracker.forget(nameSnap[0]);
+      } finally { popScope(); }
 
       // we're initialized starting here, we can live without the makeProjectValuesByItem for a while
       _initialized = true;
@@ -164,7 +167,10 @@ public class JavaEnvironment {
         synchronized (byItemLock) {
           pByItem = newByItem;
         }
-        valueTracker.forget(valueSnap[0]);
+        pushScope("forget values");
+        try {
+          valueTracker.forget(valueSnap[0]);
+        } finally { popScope(); }
       } finally {
         if (indicator != null)
           indicator.setIndeterminate(true);
@@ -184,7 +190,7 @@ public class JavaEnvironment {
       final GlobalSearchScope scope = ProjectScope.getAllScope(converter.project);
 
       // Extra things don't correspond to PsiElements
-      final Set<Item> extra =  new HashSet<Item>();
+      final Set<Item> extra = new HashSet<Item>();
       Collections.addAll(extra, Base.extraItems());
 
       // Add classes and packages
@@ -197,29 +203,29 @@ public class JavaEnvironment {
         if (item instanceof Items.Package)
           psi = facade.findPackage(name);
         else if (item instanceof Items.ClassItem)
-          psi = facade.findClass(name,scope);
+          psi = facade.findClass(name, scope);
         else
-          throw new NotImplementedError("Unknown base type "+item.getClass());
+          throw new NotImplementedError("Unknown base type " + item.getClass());
         if (psi == null)
           throw new NoJDKError("Couldn't find " + name);
         //log("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
 
         if (!converter.knows(psi))
-          converter.put(psi,item);
+          converter.put(psi, item);
       }
 
       // Add constructors
       for (final Item item : tarski.Base.baseItems()) {
         if (!(item instanceof Items.ConstructorItem))
           continue;
-        final String clsName = ((Items.ConstructorItem)item).parent().qualified();
-        final PsiClass cls = facade.findClass(clsName,scope);
+        final String clsName = ((Items.ConstructorItem) item).parent().qualified();
+        final PsiClass cls = facade.findClass(clsName, scope);
         assert cls != null;
         final PsiMethod[] cons = cls.getConstructors();
         if (cons.length != 1)
           log("found " + cons.length + " constructors for object " + cls);
         if (!converter.knows(cons[0]))
-          converter.put(cons[0],item);
+          converter.put(cons[0], item);
       }
 
       // Add class members
@@ -228,7 +234,7 @@ public class JavaEnvironment {
           continue;
         final String name = item.qualified();
         converter.addClassMembers(facade.findClass(name, scope), (Items.ClassItem) item);
-       }
+      }
     } finally { popScope(); }
   }
 
@@ -426,8 +432,10 @@ public class JavaEnvironment {
 
       // schedule a background update if the trackers get too large
       // TODO: split requestUpdate into two
-      if (newValuePairs.size() > rebuildByItemThreshold || newNames.size() > rebuildNamesThreshold)
+      if (newValuePairs.size() > rebuildByItemThreshold || newNames.size() > rebuildNamesThreshold) {
+        log("requesting background update for " + newValuePairs.size() + " values, " + newNames.size() + " names.");
         requestUpdate();
+      }
 
       pushScope("make ValueByItemQuery");
       final ValueByItemQuery vbi;
