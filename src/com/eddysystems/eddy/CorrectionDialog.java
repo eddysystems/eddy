@@ -35,7 +35,7 @@ public class CorrectionDialog extends DialogWrapper {
         if (e.getValueIsAdjusting())
           return;
         if (action != null && action.getOutput().results != null && action.getOutput().results.size() > e.getFirstIndex()) {
-          eddyOutput.setText(action.getOutput().format(eddyOutputList.getSelectedIndex(),new Tokens.ShowFlags(false, true)));
+          eddyOutput.setText(action.getOutput().format(eddyOutputList.getSelectedIndex(),new Tokens.ShowFlags(false, false, true)));
         }
       }
     });

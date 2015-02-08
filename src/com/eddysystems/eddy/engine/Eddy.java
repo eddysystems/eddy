@@ -6,7 +6,12 @@ import com.eddysystems.eddy.PreferenceData;
 import com.eddysystems.eddy.Preferences;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
+import com.intellij.formatting.*;
 import com.intellij.lang.ASTNode;
+import com.intellij.lang.LanguageFormatting;
+import com.intellij.lang.PsiBuilder;
+import com.intellij.lang.java.parser.JavaParser;
+import com.intellij.lang.java.parser.JavaParserUtil;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -21,11 +26,20 @@ import com.intellij.openapi.editor.ex.DocumentEx;
 import com.intellij.openapi.fileEditor.impl.FileDocumentManagerImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
+import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
+import com.intellij.psi.codeStyle.CodeStyleSettings;
+import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
+import com.intellij.psi.impl.source.DummyHolder;
+import com.intellij.psi.impl.source.JavaDummyElement;
+import com.intellij.psi.impl.source.SourceTreeToPsiMap;
+import com.intellij.psi.impl.source.codeStyle.CodeFormatterFacade;
 import com.intellij.psi.impl.source.tree.LeafElement;
 import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
+import com.intellij.psi.util.PsiUtil;
+import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -40,9 +54,7 @@ import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
 import tarski.Tarski.ShowStmts;
-import tarski.Tokens.ShowFlags;
-import tarski.Tokens.Token;
-import tarski.Tokens.WhitespaceTok;
+import tarski.Tokens.*;
 import utility.Locations.Loc;
 import utility.Utility.Unchecked;
 
@@ -50,8 +62,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.*;
-import static tarski.Tokens.abbrevShowFlags;
-import static tarski.Tokens.fullShowFlags;
+import static tarski.Tokens.*;
 import static utility.Utility.unchecked;
 
 public class Eddy {
@@ -101,7 +112,7 @@ public class Eddy {
     }
 
     static String format(final ShowStmts ss, final ShowFlags f) {
-      return f.abbreviate() ? ss.abbrev() : ss.full();
+      return f.den() ? ss.den() : f.abbreviate() ? ss.abbrev() : ss.full();
     }
     public String format(final int i, final ShowFlags f) {
       return format(results.get(i).x(),f);
@@ -119,7 +130,7 @@ public class Eddy {
     }
 
     public String[] getResultSummary() {
-      return formats(new ShowFlags(true,true), true).toArray(new String[results.size()]);
+      return formats(new ShowFlags(false,true,true), true).toArray(new String[results.size()]);
     }
 
     public boolean foundSomething() {
@@ -189,13 +200,13 @@ public class Eddy {
 
       // reindent
       CodeStyleManager csm = CodeStyleManager.getInstance(eddy.project);
-      int sline = document.getLineNumber(input.range.getStartOffset());
-      int fline = document.getLineNumber(input.range.getEndOffset() + offsetDiff);
+      final int sline = document.getLineNumber(input.range.getStartOffset());
+      final int fline = document.getLineNumber(input.range.getEndOffset() + offsetDiff);
       for (int i = sline; i <= fline; ++i) {
         csm.adjustLineIndent(document, document.getLineStartOffset(i));
       }
 
-      Memory.log(Memory.eddyAutoApply(eddy.base,Memory.now(),input.input,results,code));
+      Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.input, results, code));
       return offsetDiff;
     }
 
@@ -465,7 +476,7 @@ public class Eddy {
           throw new ThreadDeath();
         final Function2<String,ShowFlags,String> format = new AbstractFunction2<String,ShowFlags,String>() {
           @Override public String apply(final String sh, final ShowFlags f) {
-            return reformat(input.place,sh,f);
+            return reformat(input.place,sh);
           }
         };
         final long startTime = System.nanoTime();
@@ -476,7 +487,7 @@ public class Eddy {
             delays.add(delay);
             Eddy.Output output = new Output(Eddy.this,input,results);
             if (isDebug())
-              System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(abbrevShowFlags(),true)));
+              System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(denotationShowFlags(),true)));
 
             updateIntentions();
             return takeoutput.take(output);
@@ -523,34 +534,8 @@ public class Eddy {
   }
 
   // The string should be a single syntactically valid statement
-  private String reformat(final PsiElement place, final @NotNull String show, final ShowFlags f) {
-    final CodeStyleManager csm = CodeStyleManager.getInstance(project);
-    final PsiElementFactory ef = JavaPsiFacade.getElementFactory(project);
-    final String blockText = '{' + show + "\n}";
-    PsiCodeBlock block = ef.createCodeBlockFromText(blockText,place);
-
-    // make sure the associated document does not require locks by making the document ourselves
-    @NotNull final PsiFile file = block.getContainingFile();
-    @NotNull final DocumentEx doc = new LightDocument(block.getText());
-    doc.setModificationStamp(file.getModificationStamp());
-    doc.setReadOnly(false);
-    FileDocumentManagerImpl.registerDocument(doc, block.getContainingFile().getViewProvider().getVirtualFile());
-
-    block = (PsiCodeBlock)csm.reformat(block,true);
-
-    // strip whitespace at the beginning and end of the block
-    PsiElement elem = block.getFirstBodyElement();
-    // skip whitespace at the beginning of the block
-    if (elem instanceof PsiWhiteSpace)
-      elem = elem.getNextSibling();
-    String result = "";
-    while (elem != null && elem != block.getRBrace()) {
-      if (elem instanceof PsiWhiteSpace && elem.getNextSibling() == block.getRBrace()) // don't believe IntelliJ, this is important!
-        break;
-      result += elem.getText();
-      elem = elem.getNextSibling();
-    }
-    return result;
+  private String reformat(final PsiElement place, final @NotNull String show) {
+    return new Formatter(project,place).reformat(show);
   }
 
 }

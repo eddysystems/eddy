@@ -18,10 +18,11 @@ object Tokens {
   sealed abstract class ToIdentToken extends SimpleToken // Converts to IdentTok before parsing
 
   // Flags controlling show for fancy tokens
-  case class ShowFlags(abbreviate: Boolean, valid: Boolean)
-  val abbrevShowFlags = ShowFlags(abbreviate=true,valid=false)
-  val sentinelShowFlags = ShowFlags(abbreviate=true,valid=true)
-  val fullShowFlags = ShowFlags(abbreviate=false,valid=true)
+  case class ShowFlags(den: Boolean, abbreviate: Boolean, valid: Boolean)
+  val denotationShowFlags = ShowFlags(den=true,abbreviate=false,valid=false)
+  val abbrevShowFlags = ShowFlags(den=false,abbreviate=true,valid=false)
+  val sentinelShowFlags = ShowFlags(den=false,abbreviate=true,valid=true)
+  val fullShowFlags = ShowFlags(den=false,abbreviate=false,valid=true)
 
   // Sentinel registry for use with ShowFlags
   object ShowFlags {
