@@ -39,33 +39,33 @@ class ItemGenerator implements Generator<Items.Item> {
     final List<Items.Item> results = new ArrayList<Items.Item>();
 
     final Processor<PsiClass> classProc = new Processor<PsiClass>() {
-    @Override
-    public boolean process(PsiClass cls) {
-      if (thread != null && thread.canceled())
-        return false;
-      results.add(converter.addClass(cls));
-      return true;
-    }
+      @Override
+      public boolean process(PsiClass cls) {
+        if (thread != null && thread.canceled())
+          return false;
+        results.add(converter.addClass(cls));
+        return true;
+      }
     };
 
     final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
-    @Override
-    public boolean process(PsiMethod method) {
-      if (thread != null && thread.canceled())
-        return false;
-      results.add(converter.addMethod(method));
-      return true;
-    }
+      @Override
+      public boolean process(PsiMethod method) {
+        if (thread != null && thread.canceled())
+          return false;
+        results.add(converter.addMethod(method));
+        return true;
+      }
     };
 
     final Processor<PsiField> fieldProc = new Processor<PsiField>() {
-    @Override
-    public boolean process(PsiField fld) {
-      if (thread != null && thread.canceled())
-        return false;
-      results.add(converter.addField(fld));
-      return true;
-    }
+      @Override
+      public boolean process(PsiField fld) {
+        if (thread != null && thread.canceled())
+          return false;
+        results.add(converter.addField(fld));
+        return true;
+      }
     };
 
     if (thread != null) thread.pushSoftInterrupts();
