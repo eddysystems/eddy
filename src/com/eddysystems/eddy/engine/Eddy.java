@@ -428,6 +428,16 @@ public class Eddy {
     if (tokens.isEmpty())
       throw new Skip("No tokens");
 
+    // Skip if we're entirely comments and whitespace
+    boolean allSpace = true;
+    for (final Loc<Token> t : tokens)
+      if (!(t.x() instanceof SpaceTok)) {
+        allSpace = false;
+        break;
+      }
+    if (allSpace)
+      throw new Skip("All whitespace and comments");
+
     // Compute range to be replaced.  We rely on !tokens.isEmpty
     final TextRange trim = Tokenizer.range(tokens.get(0)).union(Tokenizer.range(tokens.get(tokens.size()-1)));
 
