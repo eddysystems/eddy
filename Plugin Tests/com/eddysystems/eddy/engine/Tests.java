@@ -501,5 +501,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testAssertInstanceOf() { testMargin("assertInstanceOf.java", "assert elem instanceof List;", .9); }
 
+  public void testCustomException() {
+    testMargin("super.java", "super(\"prefix\" + s);", .9);
+  }
+
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 }

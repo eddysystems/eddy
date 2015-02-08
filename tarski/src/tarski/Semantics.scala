@@ -472,6 +472,24 @@ object Semantics {
       uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr)))
 
   def denoteName(n: Name, nr: SRange, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
+    case i:ThisOrSuper if m.callExp => // ThisOrSuper <: Value, so this case must go first
+      def es: Scored[Exp] = denoteValue(i,nr,qualifiers=Nil)
+      def cs: Scored[Callable] = i match {
+        case i:ThisItem =>
+          if (env.place.forwardThisPossible(i.item))
+            biasedNotNew(m,uniformGood(Pr.forwardThis,i.item.constructors(env.place)) flatMap {
+              case cons if cons == env.place.place => fail("Can't forward to current constructor")
+              case cons => known(ForwardDen(i,nr,cons))
+            })
+          else fail(s"Can't forward to this: ${i.item}")
+        case i:SuperItem  =>
+          if (env.place.forwardSuperPossible(i.item))
+            biasedNotNew(m, uniformGood(Pr.forwardSuper,i.item.constructors(env.place)) map (ForwardDen(i,nr,_)))
+          else fail(s"Can't forward to super: ${i.item}")
+      }
+      if (!m.call) es
+      else if (!m.exp) cs
+      else es ++ cs
     case v:Value if m.exp => denoteValue(v,nr,qualifiers=Nil)
     case t:TypeItem =>
       denoteTypeItem(t) flatMap { tden =>
@@ -483,19 +501,9 @@ object Semantics {
         }
         if (m.ty) knownThen(tden,s) else s
       }
-    case c:PseudoCallableItem if m.callExp => fixCall(m,expects,c match {
-      case i:MethodItem if i.isStatic || env.inScope(i) => single(MethodDen(None,i,nr),dropNew(m,Pr.scope(i)))
-      case i:MethodItem => biasedNotNew(m,denoteMethod(i,nr))
-      case i:ThisItem if env.place.forwardThisPossible(i.item) =>
-        biasedNotNew(m,uniformGood(Pr.forwardThis,i.item.constructors(env.place)) flatMap {
-          case cons if cons == env.place.place => fail("Can't forward to current constructor")
-          case cons => known(ForwardDen(i,nr,cons))
-        })
-      case i:SuperItem if env.place.forwardSuperPossible(i.item) => biasedNotNew(m,{
-        uniformGood(Pr.forwardSuper,i.item.constructors(env.place)) map (ForwardDen(i,nr,_))
-      })
-      case _ => fail(s"Unusable callable $c")
-    })
+    case i:MethodItem if m.callExp => fixCall(m,expects,
+      if (i.isStatic || env.inScope(i)) single(MethodDen(None,i,nr),dropNew(m,Pr.scope(i)))
+      else biasedNotNew(m,denoteMethod(i,nr)))
     case p:Package if m.pack => known(p)
     case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
   })

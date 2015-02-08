@@ -77,16 +77,18 @@ public class JavaScores {
 
   // s bias q
   static final class Biased<B> extends HasProb {
+    final double _p;
     final double/*Prob*/ q;
     final Scored<B> s;
 
     Biased(double/*Prob*/ q, Scored<B> s) {
       this.q = q;
       this.s = s;
+      this._p = pp(q)*s.p();
     }
 
     public double p() {
-      return pp(q)*s.p();
+      return _p;
     }
   }
 
@@ -371,58 +373,6 @@ public class JavaScores {
     }
   }
 
-  // For use in JavaTrie
-  static public final class TrieState<A> extends State<A> {
-    static public final class AltRange extends HasProb {
-      private final double/*Prob*/ dp;
-      private final int lo;
-      private final int hi;
-
-      AltRange(final double/*Prob*/ dp, final int lo, final int hi) {
-        this.dp = dp;
-        this.lo = lo;
-        this.hi = hi;
-      }
-
-      public double p() {
-        return pp(dp);
-      }
-    }
-
-    private final A[] values;
-    private final PriorityQueue<AltRange> heap;
-    private double/*Prob*/ dp;
-    private int lo;
-    private int hi;
-
-    public TrieState(final A[] values, final Collection<AltRange> ranges) {
-      this.values = values;
-      this.heap = new PriorityQueue<AltRange>(ranges);
-      final AltRange r = heap.poll();
-      this.dp = r.dp;
-      this.lo = r.lo;
-      this.hi = r.hi;
-    }
-
-    public double p() {
-      return pp(dp);
-    }
-
-    public Scored<A> extract(final double goal) {
-      final double/*Prob*/ p = dp;
-      final A x = values[lo++];
-      if (lo == hi) {
-        final AltRange r = heap.poll();
-        if (r != null) {
-          this.dp = r.dp;
-          this.lo = r.lo;
-          this.hi = r.hi;
-        }
-      }
-      return new Best<A>(p,x,lo == hi ? (Scored<A>)Empty$.MODULE$ : new Extractor<A>(this));
-    }
-  }
-
   // Lazy version of x bias q
   static public final class LazyBias<A> extends LazyScored<A> {
     private LazyScored<A> x;
@@ -475,6 +425,7 @@ public class JavaScores {
       this.x = x;
       this.y = y;
       this._p = x.p();
+      if (Interrupts.pending != 0) Interrupts.checkInterrupts();
     }
 
     public double p() {

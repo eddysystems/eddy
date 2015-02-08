@@ -313,7 +313,7 @@ object Items {
     def item = ty.item
   }
   case class NormalLocal(name: Name, ty: Type, isFinal: Boolean = true) extends Local {}
-  sealed abstract class ThisOrSuper extends Value with PseudoCallableItem {
+  sealed abstract class ThisOrSuper extends Value {
     def ty: ClassType
   }
   case class ThisItem(item: ClassItem) extends ThisOrSuper {
@@ -348,13 +348,12 @@ object Items {
   }
 
   // Callables
-  sealed trait PseudoCallableItem extends Item // MethodItem or this or super
   sealed abstract class CallableItem extends SimpleParentItem with GenericItem with ClassMember {
     def parent: ClassItem
     def params: List[Type]
     def simple: Parent = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
   }
-  abstract class MethodItem extends CallableItem with PseudoCallableItem with ChildItem {
+  abstract class MethodItem extends CallableItem with ChildItem {
     def retVal: Type
   }
   abstract class ConstructorItem extends CallableItem {
