@@ -21,7 +21,6 @@ import com.intellij.psi.formatter.java.AbstractJavaBlock;
 import com.intellij.psi.impl.source.DummyHolder;
 import com.intellij.psi.impl.source.JavaDummyElement;
 import com.intellij.psi.impl.source.SourceTreeToPsiMap;
-import com.intellij.psi.impl.source.codeStyle.CodeFormatterFacade;
 import com.intellij.psi.impl.source.codeStyle.PreFormatProcessor;
 import com.intellij.psi.impl.source.codeStyle.PsiBasedFormatterModelWithShiftIndentInside;
 import com.intellij.psi.impl.source.tree.TreeElement;
@@ -29,6 +28,8 @@ import com.intellij.psi.util.PsiUtil;
 import com.intellij.util.IncorrectOperationException;
 import org.jetbrains.annotations.NotNull;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.logError;
@@ -55,6 +56,29 @@ public class Formatter {
   @NotNull final FormatterTagHandler tagHandler;
 
   @NotNull final LanguageLevel context_level;
+
+  static private class VersionIncompatibilityCircumventer {
+    static @NotNull CommonCodeStyleSettings.IndentOptions getIndentOptions(@NotNull final CodeStyleSettings css, @NotNull final PsiFile file, @NotNull final TextRange range) {
+      try {
+        // does css have a getIndentOptionsByFile?
+        Method getter = css.getClass().getMethod("getIndentOptionsByFile",PsiFile.class,TextRange.class);
+        return (CommonCodeStyleSettings.IndentOptions)getter.invoke(file, range);
+      } catch (NoSuchMethodException e) {
+        // old version of intellij, fall back to by file type below
+      } catch (SecurityException e) {
+        // wtf? fall back to old version handling, hope that works.
+      } catch (IllegalAccessException e) {
+        // really shouldn't happen, we just got that method using a call that respects access control
+      } catch (IllegalArgumentException e) {
+        // really shouldn't happen, we just got that method using a call that respects access control
+      } catch (InvocationTargetException e) {
+        // the method threw an exception, it really shouldn't.
+      }
+
+      // no? then use getIndentOptions(filetype)
+      return css.getIndentOptions(file.getFileType());
+    }
+  }
 
   Formatter(@NotNull Project project, @NotNull final PsiElement place) {
     this.project = project;
@@ -116,9 +140,8 @@ public class Formatter {
 
     // inline CodeStyleManager.reformat(block,true)
     assert psiElement.getLanguage() instanceof JavaLanguage;
-    final CodeFormatterFacade cff = new CodeFormatterFacade(css, JavaLanguage.INSTANCE);
 
-    // inlining final ASTNode node = cff.processElement(treeElement);
+    // inlining final ASTNode node = new CodeFormatterFacade(css, JavaLanguage.INSTANCE).processElement(treeElement);
     final int startOffset = treeElement.getStartOffset();
     final int endOffset = startOffset + treeElement.getTextLength();
 
@@ -134,11 +157,11 @@ public class Formatter {
     Block block = AbstractJavaBlock.createJavaBlock(treeElement, commonSettings, customJavaSettings);
     FormattingDocumentModelImpl fmodel = new FormattingDocumentModelImpl(doc, holder);
     final FormattingModel model = new PsiBasedFormatterModelWithShiftIndentInside(holder, block, fmodel);
-
+    final CommonCodeStyleSettings.IndentOptions indentOptions = VersionIncompatibilityCircumventer.getIndentOptions(css,holder,range);
     if (holder.getTextLength() > 0) {
       try {
         FormatterEx.getInstanceEx().format(
-          model, css, css.getIndentOptionsByFile(holder, range), new FormatTextRanges(range, true)
+          model, css, indentOptions, new FormatTextRanges(range, true)
         );
 
         // line wrapping only does anything if file is backed by real editor, so we don't do it here
