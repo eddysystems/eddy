@@ -127,7 +127,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       }
 
       final TestTake take = new TestTake();
-      makeEddy().process(myFixture.getEditor(),lastEdit,take);
+      makeEddy().process(lastEdit,take);
       return take.output;
     } finally { popScope(); }
   }
