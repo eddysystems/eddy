@@ -21,7 +21,7 @@ class EddyHintLabel extends JPanel {
   private JLabel myIcon;
 
   public static final Color QUESTION_COLOR = new JBColor(new Color(181, 208, 251), new Color(55, 108, 137));
-  public static final Color AUTOAPPLY_COLOR = new JBColor(new Color(255, 187, 200), new Color(252, 77, 120));
+  public static final Color AUTOAPPLY_COLOR = new JBColor(new Color(255, 187, 200), new Color(111, 32, 63)); //new Color(252, 77, 120));
 
   EddyHintLabel() {
     setLayout(new BorderLayout());
@@ -94,7 +94,7 @@ class EddyHintLabel extends JPanel {
 
   protected static LightweightHint makeHint(final Eddy.Output output) {
     final boolean auto = output.shouldAutoApply();
-    final String text = output.bestTextAbbrev() + (output.single() ? "" : " (multiple options...)");
+    final String text = output.bestTextAbbrev() + ((auto || output.single()) ? "" : " (multiple options...)");
     final String hintText = ' ' + text + ' '
       + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(
           auto ? IdeActions.ACTION_EDITOR_ENTER : IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
