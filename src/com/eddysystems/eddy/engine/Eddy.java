@@ -456,7 +456,7 @@ public class Eddy {
     }
   }
 
-  public void process(final @NotNull Editor editor, final int lastEdit, final Take takeoutput) {
+  public void process(final int lastEdit, final Take takeoutput) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
       final double start = Memory.now();
@@ -487,7 +487,7 @@ public class Eddy {
             return takeoutput.take(output);
           }
         };
-        Tarski.fixTake(input.input,env,format,take);
+        Tarski.fixTake(input.input,env,format,take /*, Preferences.getData().getNumericMinProbability()*/);
       }
 
       void unsafe() {

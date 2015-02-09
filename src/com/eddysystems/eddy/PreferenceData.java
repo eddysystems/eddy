@@ -85,6 +85,10 @@ public class PreferenceData {
     }
 }
 
+  public double getNumericMinProbability() {
+    return numericMinProbability;
+  }
+
   public String getMinProbability() {
     return minProbability;
   }
