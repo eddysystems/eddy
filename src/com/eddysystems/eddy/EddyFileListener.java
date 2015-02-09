@@ -131,12 +131,16 @@ public class EddyFileListener implements CaretListener, DocumentListener {
         ApplicationManager.getApplication().invokeLater(new Runnable() {
           @Override
           public void run() {
-            // whoever showed the hint last is it
-            // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
-            // no synchronization is needed in here
-            active_hint_instance = EddyFileListener.this;
-            int use_offset = Math.min(offset, editor.getDocument().getTextLength());
-            HintManagerImpl.getInstanceImpl().showQuestionHint(editor, use_offset, use_offset, active_hint, action, HintManager.ABOVE);
+            try {
+              // whoever showed the hint last is it
+              // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
+              // no synchronization is needed in here
+              active_hint_instance = EddyFileListener.this;
+              int use_offset = Math.min(offset, editor.getDocument().getTextLength());
+              HintManagerImpl.getInstanceImpl().showQuestionHint(editor, use_offset, use_offset, active_hint, action, HintManager.ABOVE);
+            } catch (NullPointerException e) {
+              // silence null pointer exceptions in HintUtil
+            }
           }
         }, new Condition() {
           @Override
