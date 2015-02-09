@@ -91,8 +91,8 @@ object Pretty {
   val PostfixFix   = N("Postfix") // 15.14
   val WildFix      = N("Wild") // ? extends T (? alone is HighestFix)
   val JuxtFix      = N("Juxt") // Juxtaposition lists
-  val FieldFix     = L("Field") // x.y
   val ApplyFix     = L("Apply") // x[y], x(y)
+  val FieldFix     = L("Field") // x.y
   val NewFix       = N("New") // new x
   val HighestFix   = N("Highest") // Parentheses, etc.
 
@@ -484,9 +484,9 @@ object Pretty {
   }
   implicit def prettyCallable(call: Callable)(implicit env: Scope): FixTokens = {
     def method[A <: HasRange](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
-      fix(FieldFix,left(_,x) ::: Loc(DotTok,dot) :: tokens(f.name,fr))
+      fix(ApplyFix,left(_,x) ::: Loc(DotTok,dot) :: tokens(f.name,fr))
     def methodTs[A <: HasRange](x: A, dot: SRange, ts: List[TypeArg], a: SGroup, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
-      fix(FieldFix,left(_,x) ::: Loc(DotTok,dot) :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
+      fix(ApplyFix,left(_,x) ::: Loc(DotTok,dot) :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
     def gnu(nr: SRange, qe: Option[Exp], c: ConstructorItem, cr: SRange,
             ts0: Option[Grouped[List[TypeArg]]], ts1: List[TypeArg], a1: => SGroup): FixTokens = {
       (NewFix, (qe match {
