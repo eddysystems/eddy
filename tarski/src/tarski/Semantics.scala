@@ -50,6 +50,7 @@ object Semantics {
       case VoidType => fail("Can't use void as a type argument")
     }
     e match {
+      case ScoredAExp(s,_) => s flatMap denoteTypeArg
       // TODO: passing _, *, or a name should probably also work just as well as '?' (names at least for extends).
       // TODO: Fix List<int> into List<Integer>, but not List<void> into List<Void>.
       // The name would be made into a class definition like so:
@@ -212,6 +213,8 @@ object Semantics {
     }
 
   def denote(e: AExp, m: Mode, expects: Option[Type] = None)(implicit env: Env): Scored[Den] = e match {
+    case ScoredAExp(s,_) => s flatMap (denote(_,m,expects))
+
     case x:ALit if m.exp => denoteLit(x)
     case NameAExp(n,r) => denoteName(n,r,m,expects)
 
@@ -670,6 +673,7 @@ object Semantics {
   def denoteStmt(s: AStmt)(env: Env): Scored[Stmt] = {
     implicit val imp = env
     s match {
+      case ScoredAStmt(s,_) => s flatMap (denoteStmt(_)(env))
       case SemiAStmt(x,sr) => denoteStmt(x)(env) map (addSemi(_,sr))
       case EmptyAStmt(r) => single(EmptyStmt(r,env),Pr.emptyStmt)
       case HoleAStmt(r) => single(HoleStmt(r,env),Pr.holeStmt)

@@ -13,6 +13,8 @@ import tarski.Tokens._
 import tarski.Types._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
+import tarski.Expand._
+import scala.language.implicitConversions
 
 class TestParse {
   implicit val r = SRange.unknown
@@ -75,10 +77,13 @@ class TestParse {
 
   def prep(s: String): List[Loc[Token]] = prepare(lex(s) map noLoc)
 
+  def parseExpand(ts: List[Loc[Token]]): Scored[List[AStmt]] =
+    uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed") flatMap (Expand.expand(_))
+
   def testAST(s: String, ss: List[AStmt]*): Unit = {
     val tokens = prep(s)
     println(s"tokens = $tokens")
-    val asts = ParseEddy.parse(tokens)
+    val asts = parseExpand(tokens).stream.toList.map(_.x)
     for (e <- ss if !asts.contains(e)) {
       println()
     }
@@ -88,13 +93,13 @@ class TestParse {
   def testASTPossible(s: String, ss: List[AStmt]): Unit = {
     val tokens = prep(s)
     println(s"tokens = $tokens")
-    val asts = ParseEddy.parse(tokens)
+    val asts = parseExpand(tokens).stream.toList.map(_.x)
     assertIn(ss,asts.toSet)
   }
 
   def testBest(s: String, ss: List[AStmt]): Unit = {
     val tokens = prep(s)
-    val asts = Mismatch.repair(tokens) flatMap (ts => uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed"))
+    val asts = Mismatch.repair(tokens) flatMap parseExpand
     asts.best match {
       case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
       case Right(ast) => assertEquals(ss,ast)

@@ -142,6 +142,7 @@ object Parse {
       "scala.Tuple3",
       "scala.Tuple4",
       "scala.Option",
+      "tarski.Scores.*",
       "static utility.Locations.*",
       "static tarski.ParseEddyActions.*"
     ) map (i => s"import $i;"))
@@ -341,10 +342,24 @@ object Parse {
           if (G.isSimple(n))
             ("boolean found = false;",
              List(s"if (found) { ${dump}slices.put($s,1); }"))
-          else
-            ("final int prev = values.size();",
-             List(s"final int count = values.size()-prev;",
-                  s"if (count != 0) { ${dump}slices.put($s,(long)prev<<$valueBits|count); }"))
+          else {
+            val ty = jty(n,Box)
+            val start = "final int prev = values.size();"
+            val slice = s"if (count != 0) { ${dump}slices.put($s,(long)prev<<$valueBits|count); }"
+            if (!G.isScored(ty)) (start,List(
+              "final int count = values.size()-prev;",
+              slice))
+            else (start,
+              "int size = values.size();" ::
+              "int count = size-prev;" ::
+              ifs(List("count > 1"),List(
+                s"Scored<$ty> s = (Scored)Empty$$.MODULE$$;",
+                s"for (int i=0;i<count;i++)",
+                s"  s = new Best<$ty>(Pr.parse(),($ty)values.remove(--size),s);",
+                s"values.add(new Scored$ty(s,range));",
+                s"count = 1;")) :::
+              List(slice))
+          }
         }
         start :: ps ::: finish
       })

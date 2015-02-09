@@ -6,6 +6,7 @@ import tarski.Mods._
 import tarski.Denotations._
 import tarski.Items._
 import tarski.Operators._
+import tarski.Scores.Scored
 import tarski.Tokens._
 import tarski.Types._
 import utility.Locations._
@@ -286,6 +287,7 @@ object Pretty {
       fix(s, left(_,e) ::: around(xs,a)._2)
     }
     case InstanceofAExp(e,ir,t) => fix(RelFix,s => left(s,e) ::: Loc(InstanceofTok,ir) :: right(s,t))
+    case ScoredAExp(s,r) => prettyScored(s,r)
   }
   implicit def prettyATypeArgs(t: Option[Grouped[KList[AExp]]]): FixTokens = (HighestFix, t match {
     case None => Nil
@@ -326,6 +328,7 @@ object Pretty {
       case TryAStmt(tr,s,cs,f) => (SemiFix, Loc(TryTok,tr) :: tokens(s)
         ::: cs.flatMap({case (ci,cs) => tokens(ci) ::: tokens(cs)})
         ::: f.toList.flatMap({case(fr,fs) => Loc(FinallyTok,fr) :: tokens(fs)}))
+      case ScoredAStmt(s,r) => prettyScored(s,r)
     }
   }
   def whileUntil(r: SRange, flip: Boolean): Loc[Token]= Loc(if (flip) UntilTok else WhileTok,r)
@@ -612,4 +615,6 @@ object Pretty {
     case x:Callable => prettyCallable(x)
     case TypeDen(t) => implicit val tr = SRange.unknown; prettyType(t)
   }
+  def prettyScored[A <: HasRange](xs: Scored[A], r: SRange)(implicit p: Pretty[A]): FixTokens =
+    (ApplyFix,Loc(IdentTok("Scored"),r) :: Loc(LParenTok,r) :: commas(xs.stream.toList.map(_.x)) ::: List(Loc(RParenTok,r)))
 }

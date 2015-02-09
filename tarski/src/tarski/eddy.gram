@@ -2,6 +2,7 @@ name ParseEddy
 start Stmts
 token Token
 simple (?<!Lit|Ident|Stmt|Elif)Tok
+scored ^(AExp|AStmt)$
 
 preamble package tarski
 preamble import tarski.Tokens._

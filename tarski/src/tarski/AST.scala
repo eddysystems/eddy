@@ -3,6 +3,7 @@ package tarski
 import tarski.Arounds._
 import tarski.Mods._
 import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
+import tarski.Scores.Scored
 import tarski.Tokens.{IdentTok, StmtTok}
 import utility.Locations._
 
@@ -22,6 +23,7 @@ object AST {
   }
 
   sealed abstract class AStmt extends HasRange
+  case class ScoredAStmt(s: Scored[AStmt], r: SRange) extends AStmt
   case class SemiAStmt(s: AStmt, sr: SRange) extends AStmt {
     def r = s.r union sr
   }
@@ -89,6 +91,7 @@ object AST {
   }
 
   sealed abstract class AExp extends HasRange
+  case class ScoredAExp(s: Scored[AExp], r: SRange) extends AExp
   case class NameAExp(name: Name, r: SRange) extends AExp
   case class ParenAExp(e: AExp, a: YesAround) extends AExp {
     def r = a.a.r
