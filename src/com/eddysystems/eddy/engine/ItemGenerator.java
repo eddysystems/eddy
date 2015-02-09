@@ -24,7 +24,6 @@ class ItemGenerator implements Generator<Items.Item> {
   final Project project;
   final GlobalSearchScope scope;
   final PsiShortNamesCache psicache;
-  final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
   final Converter converter;
 
   ItemGenerator(Project project, GlobalSearchScope scope, Converter conv) {
@@ -70,6 +69,7 @@ class ItemGenerator implements Generator<Items.Item> {
 
     if (thread != null) thread.pushSoftInterrupts();
     try {
+      final IdFilter filter = null;
       psicache.processClassesWithName(s, classProc, scope, filter);
       psicache.processMethodsWithName(s, methodProc, scope, filter);
       psicache.processFieldsWithName(s, fieldProc, scope, filter);
