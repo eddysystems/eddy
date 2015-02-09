@@ -10,8 +10,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 
-import static com.eddysystems.eddy.engine.Utility.log;
-
 class EddyInjector implements FileEditorManagerListener {
   private final Project project;
   private final HashMap<FileEditor, EddyFileListener> injected = new HashMap<FileEditor, EddyFileListener>();
@@ -73,6 +71,9 @@ class EddyInjector implements FileEditorManagerListener {
   }
 
   @Override
-  public void selectionChanged(@NotNull FileEditorManagerEvent fileEditorManagerEvent) {
+  public void selectionChanged(@NotNull FileEditorManagerEvent e) {
+    // kill the eddy thread whenever we switch editors
+    //log("switch editor from " + e.getOldFile() + " to " + e.getNewFile());
+    EddyThread.kill();
   }
 }
