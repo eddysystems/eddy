@@ -42,7 +42,6 @@ object Denotations {
   sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasRange {
     def tparams: List[TypeVar]
     def params: List[Type]
-    def callItem: TypeItem
     def callType(ts: List[TypeArg]): Type
   }
   sealed abstract class NotTypeApply extends Callable
@@ -55,7 +54,6 @@ object Denotations {
       c.params map (_.substitute)
     }
     lazy val result = c.callType(ts)
-    def callItem = c.callItem
     def callType(ts2: List[TypeArg]) = ts2 match {
       case Nil => result
       case _ => throw new RuntimeException("TypeApply already has type arguments")
@@ -72,7 +70,6 @@ object Denotations {
     def tparams = f.tparams
     lazy val params = f.params.map(_.substitute(parentEnv))
     lazy val result = f.retVal.substitute(parentEnv)
-    def callItem = f.retVal.item
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
   }
   case class ForwardDen(x: ThisOrSuper, xr: SRange, f: ConstructorItem) extends NotTypeApply {
@@ -83,7 +80,6 @@ object Denotations {
       f.params map (_.substitute)
     }
     def result = VoidType
-    def callItem = VoidItem
     def callType(ts: List[TypeArg]) = VoidType
   }
   // the full expression could be "parentObj.new<targs> type.Class<classArgs>", which is then a callable.
@@ -109,7 +105,6 @@ object Denotations {
     }
     lazy val params = f.params map (_.substitute(env))
     lazy val result = f.parent.inside.substitute(env)
-    def callItem = f.parent
     def callType(ts: List[TypeArg]) = {
       val args = classArgs match {
         case None => ts.take(f.parent.arity)
@@ -125,7 +120,6 @@ object Denotations {
   case class NewArrayDen(nr: SRange, t: Type, tr: SRange, ns: List[Grouped[Exp]], ds: List[SGroup]) extends NotTypeApply {
     def r = nr unionR ns union ds
     lazy val result = arrays(t,ns.size+ds.size)
-    def callItem = ArrayItem
     def callType(ts: List[TypeArg]) = { assert(ts.isEmpty); result }
     def tparams = Nil
     def params = if (ns.nonEmpty) Nil
@@ -388,7 +382,7 @@ object Denotations {
   }
   case class ApplyExp(f: Callable, args: List[Exp], a: SGroup, auto: Boolean) extends StmtExp {
     def r = f.r union a.r
-    lazy val item = f.callItem
+    lazy val item = ty.item
     lazy val ty = f.callType(Nil)
   }
   case class IndexExp(e: Exp, i: Exp, a: SGroup) extends Exp {
