@@ -37,7 +37,7 @@ object Tarski {
   case class ShowStmts(ss: List[Stmt], show: String, den: String, full: String, abbrev: String, fullTokens: List[Loc[Token]]) {
     // Compare ignoring locations and whitespace
     def similar(ts: List[Loc[Token]]): Boolean = {
-      def strip(ts: List[Loc[Token]]): List[Token] = ts collect { case Loc(t,_) if !isSpace(t) => t }
+      def strip(ts: List[Loc[Token]]): List[Token] = ts collect { case Loc(t,_) if !isSpace(t) && t != HoleTok => t }
       strip(ts) == strip(fullTokens)
     }
     def similar(ts: JList[Loc[Token]]): Boolean = similar(ts.asScala.toList)
