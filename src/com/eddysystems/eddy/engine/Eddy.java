@@ -1,17 +1,11 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
-import com.eddysystems.eddy.LightDocument;
 import com.eddysystems.eddy.PreferenceData;
 import com.eddysystems.eddy.Preferences;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
-import com.intellij.formatting.*;
 import com.intellij.lang.ASTNode;
-import com.intellij.lang.LanguageFormatting;
-import com.intellij.lang.PsiBuilder;
-import com.intellij.lang.java.parser.JavaParser;
-import com.intellij.lang.java.parser.JavaParserUtil;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
@@ -22,24 +16,13 @@ import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.ex.DocumentEx;
-import com.intellij.openapi.fileEditor.impl.FileDocumentManagerImpl;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.codeStyle.CodeStyleSettings;
-import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
-import com.intellij.psi.impl.source.DummyHolder;
-import com.intellij.psi.impl.source.JavaDummyElement;
-import com.intellij.psi.impl.source.SourceTreeToPsiMap;
-import com.intellij.psi.impl.source.codeStyle.CodeFormatterFacade;
 import com.intellij.psi.impl.source.tree.LeafElement;
 import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
-import com.intellij.psi.util.PsiUtil;
-import com.intellij.util.IncorrectOperationException;
 import com.intellij.util.SmartList;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -63,6 +46,7 @@ import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.*;
 import static tarski.Tokens.*;
+import static utility.JavaUtils.isDebug;
 import static utility.Utility.unchecked;
 
 public class Eddy {
@@ -497,7 +481,7 @@ public class Eddy {
             delays.add(delay);
             Eddy.Output output = new Output(Eddy.this,input,results);
             if (isDebug())
-              System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(denotationShowFlags(),true)));
+              System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(denotationShowFlags(), true)));
 
             updateIntentions();
             return takeoutput.take(output);

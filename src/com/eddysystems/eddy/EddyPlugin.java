@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
-import static com.eddysystems.eddy.engine.Utility.isDebug;
+import static utility.JavaUtils.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyPlugin implements ProjectComponent {

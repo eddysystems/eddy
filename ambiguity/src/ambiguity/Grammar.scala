@@ -25,6 +25,7 @@ object Grammar {
     def isToken(s: Symbol) = !types.contains(s)
     def isSimple(t: Symbol) = if (isToken(t)) simple.findFirstIn(t).isDefined else types(t) == "Unit"
     def isScored(ty: Type) = scored.findFirstIn(ty).isDefined
+    def isNullable(a: Action) = """\bnull\b""".r.findFirstIn(a).isDefined // TODO: This is a hack
 
     val nullable: Set[Symbol] = {
       lazy val f: Symbol => Boolean = fixpoint(false, s =>

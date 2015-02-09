@@ -2,10 +2,13 @@ package tarski
 
 import tarski.Arounds._
 import tarski.Mods._
-import tarski.Operators.{AssignOp, BinaryOp, UnaryOp}
-import tarski.Scores.Scored
-import tarski.Tokens.{IdentTok, StmtTok}
+import tarski.Operators._
+import tarski.Scores._
+import tarski.JavaScores.pp
+import tarski.Tokens.StmtTok
 import utility.Locations._
+
+import scala.annotation.tailrec
 
 object AST {
   type Name = String
@@ -94,7 +97,7 @@ object AST {
   case class ScoredAExp(s: Scored[AExp], r: SRange) extends AExp
   case class NameAExp(name: Name, r: SRange) extends AExp
   case class ParenAExp(e: AExp, a: YesAround) extends AExp {
-    def r = a.a.r
+    def r = a.a.lr
   }
   case class FieldAExp(e: AExp, dot: SRange, t: Option[Grouped[KList[AExp]]], f: Name, fr: SRange) extends AExp {
     def r = e.r union fr
@@ -146,4 +149,61 @@ object AST {
   case class DoubleALit(v: String, r: SRange) extends ALit
   case class CharALit(v: String, r: SRange) extends ALit
   case class StringALit(v: String, r: SRange) extends ALit
+
+  // Rule out certain patterns in the grammar
+
+  // Bare conditions for while, if, and do loops shouldn't start parenthesized
+  private def noStartsWithParen(e: AExp): Scored[AExp] = e match {
+    case ScoredAExp(s,_) => s flatMap noStartsWithParen
+    case ParenAExp(_,_) => Empty
+    case FieldAExp(e,dot,t,f,fr) => noStartsWithParen(e) map (FieldAExp(_,dot,t,f,fr))
+    case MethodRefAExp(e,ccr,t,f,fr) => noStartsWithParen(e) map (MethodRefAExp(_,ccr,t,f,fr))
+    case NewRefAExp(e,cc,t,newr) => noStartsWithParen(e) map (NewRefAExp(_,cc,t,newr))
+    case TypeApplyAExp(e,t,tr,after) => if (after) noStartsWithParen(e) map (TypeApplyAExp(_,t,tr,after)) else Empty
+    case ApplyAExp(e,xs,l) => noStartsWithParen(e) map (ApplyAExp(_,xs,l))
+    case NewAExp(Some(qe),newr,t,e,ns) => noStartsWithParen(qe) map (qe => NewAExp(Some(qe),newr,t,e,ns))
+    case UnaryAExp(op:PostOp,opr,e) => noStartsWithParen(e) map (UnaryAExp(op,opr,_))
+    case BinaryAExp(op,opr,e0,e1) => noStartsWithParen(e0) map (BinaryAExp(op,opr,_,e1))
+    case CastAExp(t,a,e) if a.L == Paren => Empty
+    case CondAExp(c,qr,x,cr,y) => noStartsWithParen(c) map (CondAExp(_,qr,x,cr,y))
+    case AssignAExp(op,opr,x,y) => noStartsWithParen(x) map (AssignAExp(op,opr,_,y))
+    case ArrayAExp(_,_@YesAround(Paren,_,_))|ArrayAExp(_,_:NoAround) => Empty
+    case InstanceofAExp(e,ir,t) => noStartsWithParen(e) map (InstanceofAExp(_,ir,t))
+    case _:NewAExp|_:UnaryAExp|_:CastAExp|_:ArrayAExp|_:NameAExp|_:WildAExp|_:ALit => known(e)
+  }
+
+  private def hackExp(s: Scored[AExp], r: SRange): AExp = s.strict match {
+    case Best(p,x,r) if r.isEmpty => assert(pp(p)==1); x
+    case s => ScoredAExp(s,r)
+  }
+
+  def filterNoStartsWithParen[A >: Null](e: AExp)(f: AExp => A): A = {
+    val s = noStartsWithParen(e)
+    if (s.isEmpty) null
+    else f(hackExp(s,e.r))
+  }
+
+  @tailrec private def filterJuxtHelper(xr: SRange, ys: List[AExp], rs: List[AExp])(f: List[AExp] => AExp): AExp = ys match {
+    case Nil => f(rs.reverse)
+    case UnaryAExp(PosOp|NegOp,_,_)::_ => null // Unary expression that should be a binary expression
+    case y::zs =>
+      val yr = y.r
+      if (xr.hi == yr.lo) { // Adjacent elements f and (...) with no space in between
+        val s = noStartsWithParen(y)
+        if (s.isEmpty) null
+        else filterJuxtHelper(yr,zs,hackExp(s,yr)::rs)(f)
+      } else filterJuxtHelper(yr,zs,y::rs)(f)
+  }
+
+  // Juxtaposed argument lists should contain apparent function calls or missed binary expressions
+  def filterApplyArgs(xs: KList[AExp])(f: KList[AExp] => AExp): AExp = xs match {
+    case JuxtList2(x::ys) => filterJuxtHelper(x.r,ys,Nil)(ys => f(JuxtList2(x::ys)))
+    case _ => f(xs)
+  }
+  def filterJuxtApply(x: AExp, ys: JuxtList[AExp])(f: JuxtList[AExp] => AExp): AExp = {
+    filterJuxtHelper(x.r,ys.list,Nil)({
+      case List(y) => f(SingleList(y))
+      case ys => f(JuxtList2(ys))
+    })
+  }
 }

@@ -168,25 +168,4 @@ public class Utility {
     log("trace: ");
     log(e.getStackTrace());
   }
-
-  // Are we in debug mode?
-  private static int _isDebug = 2; // 0 for no, 1 for yes, 2 for uninitialized
-  public static boolean isDebug() {
-    if (_isDebug == 2) {
-      // See https://stackoverflow.com/questions/3776204/how-to-find-out-if-debug-mode-is-enabled
-      _isDebug = java.lang.management.ManagementFactory.getRuntimeMXBean()
-                   .getInputArguments().toString().contains("jdwp") ? 1 : 0;
-    }
-    return _isDebug == 1;
-  }
-
-  // Push and pop temporary debug mode (for use in unit tests).  Always use popDebug in a finally block.
-  private static Stack<Boolean> debugStack = new Stack<Boolean>();
-  public static void pushDebug() {
-    debugStack.push(isDebug());
-    _isDebug = 1;
-  }
-  public static void popDebug() {
-    _isDebug = debugStack.pop() ? 1 : 0;
-  }
 }

@@ -31,7 +31,7 @@ object Expand {
     case SingleList(x) => e(x) map (SingleList(_))
     case CommaList2(l,sep) => product(l map e) map (CommaList2(_,sep))
     case AndList2(l,sep) => product(l map e) map (AndList2(_,sep))
-    case JuxtList(l) => product(l map e) map (JuxtList(_))
+    case JuxtList2(l) => product(l map e) map (JuxtList2(_))
   }
 
   implicit def expandSRange(r: SRange): Scored[SRange] = known(r)

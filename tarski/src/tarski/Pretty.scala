@@ -202,7 +202,7 @@ object Pretty {
     case SingleList(x) => pretty(x)
     case CommaList2(xs,rs) => fix(CommaListFix,separate(xs,_,CommaTok,rs))
     case AndList2(xs,rs) => fix(AndListFix,separate(xs,_,AndTok,rs))
-    case JuxtList(xs) => fix(JuxtFix,separateAfter(xs,_,spaceRaw))
+    case JuxtList2(xs) => fix(JuxtFix,separateAfter(xs,_,spaceRaw))
   }
 
   // Operators

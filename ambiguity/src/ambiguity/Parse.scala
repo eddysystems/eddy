@@ -288,9 +288,14 @@ object Parse {
             (cs mkString "; ") :: body(vs)
           }
         }
-        def add(prod: Prod, vs: List[List[String]], rs: List[List[String]]): Code = List(
-          if (G.isSimple(n)) "found = true;"
-          else s"values.add(${act(n,prod,vs.flatten,rs.flatten,r)});")
+        def add(prod: Prod, vs: List[List[String]], rs: List[List[String]]): Code =
+          if (G.isSimple(n)) List("found = true;")
+          else {
+            val a = act(n,prod,vs.flatten,rs.flatten,r)
+            if (G.isNullable(prod._2)) List(s"final ${jty(n,Box)} x = $a;",
+                                            s"if (x != null) values.add(x);")
+            else List(s"values.add($a);")
+          }
         def parse(prod: Prod, d: Divide): Code = {
           val range = {
             val lo = prod._1.map(G.minSize).sum
