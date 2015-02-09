@@ -17,7 +17,6 @@ import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiManager;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
@@ -34,7 +33,7 @@ import tarski.Types;
 
 import java.util.List;
 
-import static com.eddysystems.eddy.engine.Utility.*;
+import static com.eddysystems.eddy.engine.Utility.log;
 import static tarski.Tokens.abbrevShowFlags;
 import static tarski.Tokens.fullShowFlags;
 import static utility.JavaUtils.*;
@@ -87,7 +86,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       setUp();
     } catch (Exception e) { log("setup threw: " + e); }
 
-    PsiManager.getInstance(myFixture.getProject()).dropResolveCaches();
+    //PsiManager.getInstance(myFixture.getProject()).dropResolveCaches();
     EddyPlugin.getInstance(myFixture.getProject()).dropEnv();
     EddyPlugin.getInstance(myFixture.getProject()).initEnv(null);
     log("Document:");

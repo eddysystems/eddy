@@ -8,6 +8,13 @@ public class PreferenceData {
   private double numericAutoApplyThreshold;
   private String autoApplyFactor;
   private double numericAutoApplyFactor;
+  private String minProbability;
+  private double numericMinProbability;
+
+  public static final boolean defaultAutoApply = false;
+  public static final String defaultAutoApplyThreshold = "90%";
+  public static final String defaultAutoApplyFactor = "2";
+  public static final String defaultMinProbability = "1e-6";
 
   public PreferenceData() {
   }
@@ -61,7 +68,7 @@ public class PreferenceData {
     try {
       this.numericAutoApplyThreshold = toNumber(autoApplyThreshold);
     } catch (NumberFormatException e) {
-      this.numericAutoApplyThreshold = 1.;
+      this.numericAutoApplyThreshold = toNumber(PreferenceData.defaultAutoApplyThreshold);
     }
   }
 
@@ -74,7 +81,20 @@ public class PreferenceData {
     try {
       this.numericAutoApplyFactor = toNumber(autoApplyFactor);
     } catch (NumberFormatException e) {
-      this.numericAutoApplyFactor = 10.;
+      this.numericAutoApplyFactor = toNumber(PreferenceData.defaultAutoApplyFactor);
     }
 }
+
+  public String getMinProbability() {
+    return minProbability;
+  }
+
+  public void setMinProbability(final String minProbability) {
+    this.minProbability = minProbability;
+    try {
+      this.numericMinProbability = toNumber(minProbability);
+    } catch (NumberFormatException e) {
+      this.numericMinProbability = toNumber(PreferenceData.defaultMinProbability);
+    }
+  }
 }
