@@ -519,7 +519,7 @@ public class JavaScores {
   static public final class LazyProductWith<A,B,C> extends LazyScored<C> {
     private Scored<A> x;
     private Scored<B> y;
-    private final double _p, yp;
+    private final double _p, xp, yp;
     private Function2<A,B,C> f;
     private Scored<C> s;
 
@@ -527,8 +527,9 @@ public class JavaScores {
       this.x = x;
       this.y = y;
       this.f = f;
+      xp = x.p();
       yp = y.p();
-      _p = x.p()*yp;
+      _p = xp*yp;
     }
 
     public double p() {
@@ -558,54 +559,60 @@ public class JavaScores {
         final double px = pdiv(p,yp);
         Scored<A> x = this.x; this.x = null;
         Scored<B> y = this.y; this.y = null;
+        double xp = this.xp;
+        double yp = this.yp;
         final Function2<A,B,C> f = this.f; this.f = null;
         for (boolean first=true;;first=false) {
-          if (x instanceof LazyScored) {
-            final LazyScored<A> _x = (LazyScored<A>)x;
-            if (first || _x.p() > px) {
-              x = _x.force(px);
-              continue;
-            } else
-              s = new LazyProductWith<A,B,C>(x,y,f);
-          } else if (x instanceof EmptyOrBad) {
-            s = (Scored)x;
-          } else {
-            final Best<A> _x = (Best<A>)x;
-            final double xp = _x.p();
-            final double py = pdiv(p,xp);
-            for (;;first=false) {
-              if (y instanceof LazyScored) {
-                final LazyScored<B> _y = (LazyScored<B>)y;
-                if (first || y.p() > py) {
-                  y = _y.force(py);
-                  continue;
-                } else
-                  s = new LazyProductWith<A,B,C>(x,y,f);
-              } else if (y instanceof EmptyOrBad)
-                s = (Scored)y;
-              else {
-                final Best<B> _y = (Best<B>)y;
-                final double/*Prob*/ xdp = _x.dp();
-                final double/*Prob*/ ydp = _y.dp();
-                final A xx = _x.x();
-                final B yx = _y.x();
-                final Scored<A> xr = _x.r();
-                final Scored<B> yr = _y.r();
-                LazyScored<C> r0 = yr instanceof EmptyOrBad ? null : new FX<A,B,C>(xdp,xx,yr,f),
-                              r1 = xr instanceof EmptyOrBad ? null : new FY<A,B,C>(ydp,xr,yx,f);
-                if ((r0 == null ? -1 : r0.p()) < (r1 == null ? -1 : r1.p())) {
-                  final LazyScored<C> t = r0; r0 = r1; r1 = t;
-                }
-                if (r1 != null)
-                  r0 = new LazyPlus<C>(r0,r1);
-                final Scored<C> r = r0 == null ? (Scored<C>)Empty$.MODULE$
-                                               : new LazyPlus<C>(r0,new LazyProductWith<A,B,C>(xr,yr,f));
-                s = new Best<C>(pmul(xdp,ydp),f.apply(xx,yx),r);
-              }
-              break;
-            }
+          // Stay lazy if we're below the goal
+          if (!first && xp*yp <= p) {
+            s = new LazyProductWith<A,B,C>(x,y,f);
             break;
           }
+
+          // Force either x or y if necessary.
+          // If both can be forced, force the higher probability one.
+          // Unfortunately, this heuristic doesn't help very much.
+          final boolean xLazy = x instanceof LazyScored;
+          final boolean yLazy = y instanceof LazyScored;
+          if (xLazy || yLazy) {
+            if (xLazy && (!yLazy || xp > yp)) {
+              x = ((LazyScored<A>)x).force(pdiv(p,yp));
+              xp = x.p();
+              if (xp == 0 && x instanceof EmptyOrBad) {
+                s = (Scored)x;
+                break;
+              }
+            } else {
+              y = ((LazyScored<B>)y).force(pdiv(p,xp));
+              yp = y.p();
+              if (yp == 0 && y instanceof EmptyOrBad) {
+                s = (Scored)y;
+                break;
+              }
+            }
+            continue;
+          }
+
+          // We found alternatives for both x and y!
+          final Best<A> _x = (Best<A>)x;
+          final Best<B> _y = (Best<B>)y;
+          final double/*Prob*/ xdp = _x.dp();
+          final double/*Prob*/ ydp = _y.dp();
+          final A xx = _x.x();
+          final B yx = _y.x();
+          final Scored<A> xr = _x.r();
+          final Scored<B> yr = _y.r();
+          LazyScored<C> r0 = yr instanceof EmptyOrBad ? null : new FX<A,B,C>(xdp,xx,yr,f),
+                        r1 = xr instanceof EmptyOrBad ? null : new FY<A,B,C>(ydp,xr,yx,f);
+          if ((r0 == null ? -1 : r0.p()) < (r1 == null ? -1 : r1.p())) {
+            final LazyScored<C> t = r0; r0 = r1; r1 = t; // Swap r0 and r1
+          }
+          if (r1 != null)
+            r0 = new LazyPlus<C>(r0,r1);
+          final Scored<C> r = r0 == null ? (Scored<C>)Empty$.MODULE$
+                            : r1 == null ? r0
+                                         : new LazyPlus<C>(r0,new LazyProductWith<A,B,C>(xr,yr,f));
+          s = new Best<C>(pmul(xdp,ydp),f.apply(xx,yx),r);
           break;
         }
       }
