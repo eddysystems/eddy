@@ -55,12 +55,19 @@ object Tarski {
 
   // Feed results to a take instance until it's satisfied
   def fixTake(tokens: java.util.List[Loc[Token]], env: Env,
-              format: (String,ShowFlags) => String, take: Take): Unit = {
+              format: (String,ShowFlags) => String, take: Take, cutoff: Double): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
     val sp = spaces(toks)
 
     println("input: " + Tokens.print(toks map (_.x))(abbrevShowFlags))
+
+    def streamCutoff[A](s: Scored[A]): Stream[Alt[A]] = s match {
+      case _ if s.p <= cutoff => Stream.Empty
+      case s:LazyScored[A] => streamCutoff(s.force(cutoff))
+      case Best(p,x,r) => Alt(p,x) #:: streamCutoff(r)
+      case Empty => Stream.empty
+    }
 
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
     @tailrec def mergeTake(s: Stream[Alt[ShowStmts]], m: Map[String,Alt[ShowStmts]], notify: Boolean): Unit = {
@@ -98,7 +105,7 @@ object Tarski {
       case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("  error: "))
       case _:Best[_] => ()
     }
-    mergeTake(sc.stream, Map.empty, notify=false)
+    mergeTake(streamCutoff(sc), Map.empty, notify=false)
   }
 
   def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[List[Stmt]] = {

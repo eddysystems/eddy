@@ -487,7 +487,7 @@ public class Eddy {
             return takeoutput.take(output);
           }
         };
-        Tarski.fixTake(input.input,env,format,take /*, Preferences.getData().getNumericMinProbability()*/);
+        Tarski.fixTake(input.input,env,format,take,Preferences.getData().getNumericMinProbability());
       }
 
       void unsafe() {
