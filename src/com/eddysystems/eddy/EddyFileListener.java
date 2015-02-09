@@ -135,7 +135,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
             // the execution order of later-invoked things is the same as the call order, and it's on a single thread, so
             // no synchronization is needed in here
             active_hint_instance = EddyFileListener.this;
-            HintManagerImpl.getInstanceImpl().showQuestionHint(editor, offset, offset + 1, active_hint, action, HintManager.ABOVE);
+            int use_offset = Math.min(offset, editor.getDocument().getTextLength());
+            HintManagerImpl.getInstanceImpl().showQuestionHint(editor, use_offset, use_offset, active_hint, action, HintManager.ABOVE);
           }
         }, new Condition() {
           @Override
