@@ -142,6 +142,7 @@ object Parse {
       "scala.Tuple3",
       "scala.Tuple4",
       "scala.Option",
+      "tarski.Scores.*",
       "static utility.Locations.*",
       "static tarski.ParseEddyActions.*"
     ) map (i => s"import $i;"))
@@ -287,9 +288,14 @@ object Parse {
             (cs mkString "; ") :: body(vs)
           }
         }
-        def add(prod: Prod, vs: List[List[String]], rs: List[List[String]]): Code = List(
-          if (G.isSimple(n)) "found = true;"
-          else s"values.add(${act(n,prod,vs.flatten,rs.flatten,r)});")
+        def add(prod: Prod, vs: List[List[String]], rs: List[List[String]]): Code =
+          if (G.isSimple(n)) List("found = true;")
+          else {
+            val a = act(n,prod,vs.flatten,rs.flatten,r)
+            if (G.isNullable(prod._2)) List(s"final ${jty(n,Box)} x = $a;",
+                                            s"if (x != null) values.add(x);")
+            else List(s"values.add($a);")
+          }
         def parse(prod: Prod, d: Divide): Code = {
           val range = {
             val lo = prod._1.map(G.minSize).sum
@@ -341,10 +347,24 @@ object Parse {
           if (G.isSimple(n))
             ("boolean found = false;",
              List(s"if (found) { ${dump}slices.put($s,1); }"))
-          else
-            ("final int prev = values.size();",
-             List(s"final int count = values.size()-prev;",
-                  s"if (count != 0) { ${dump}slices.put($s,(long)prev<<$valueBits|count); }"))
+          else {
+            val ty = jty(n,Box)
+            val start = "final int prev = values.size();"
+            val slice = s"if (count != 0) { ${dump}slices.put($s,(long)prev<<$valueBits|count); }"
+            if (!G.isScored(ty)) (start,List(
+              "final int count = values.size()-prev;",
+              slice))
+            else (start,
+              "int size = values.size();" ::
+              "int count = size-prev;" ::
+              ifs(List("count > 1"),List(
+                s"Scored<$ty> s = (Scored)Empty$$.MODULE$$;",
+                s"for (int i=0;i<count;i++)",
+                s"  s = new Best<$ty>(Pr.parse(),($ty)values.remove(--size),s);",
+                s"values.add(new Scored$ty(s,range));",
+                s"count = 1;")) :::
+              List(slice))
+          }
         }
         start :: ps ::: finish
       })

@@ -4,10 +4,11 @@ object Operators {
   sealed abstract class UnaryOp
   sealed abstract class ImpOp extends UnaryOp
   sealed abstract class NonImpOp extends UnaryOp
+  sealed abstract class PostOp extends ImpOp
   case object PreDecOp extends ImpOp
   case object PreIncOp extends ImpOp
-  case object PostDecOp extends ImpOp
-  case object PostIncOp extends ImpOp
+  case object PostDecOp extends PostOp
+  case object PostIncOp extends PostOp
   case object PosOp extends NonImpOp
   case object NegOp extends NonImpOp
   case object CompOp extends NonImpOp

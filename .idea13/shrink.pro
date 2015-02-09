@@ -61,6 +61,7 @@
 -dontnote com.amazonaws.metrics.internal.cloudwatch.DefaultMetricCollectorFactory
 -dontnote org.bouncycastle.jce.provider.BouncyCastleProvider
 -dontnote org.joda.time.DateTimeZone
+-dontnote com.eddysystems.eddy.engine.Formatter$VersionIncompatibilityCircumventer
 
 # Weird scala issue
 -dontwarn tarski.Semantics$$anonfun$denoteStmt$27$$anonfun$tarski$Semantics$$anonfun$$rest$1$1

@@ -13,6 +13,8 @@ import tarski.Tokens._
 import tarski.Types._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
+import tarski.Expand._
+import scala.language.implicitConversions
 
 class TestParse {
   implicit val r = SRange.unknown
@@ -21,10 +23,13 @@ class TestParse {
   val bracks = YesAround(Brack,Brack,a)
   val curlys = YesAround(Curly,Curly,a)
   def commas[A](x0: A, x1: A, xs: A*): CommaList[A] = CommaList2(x0::x1::xs.toList,List.fill(xs.size+1)(r))
-  def juxts [A](x0: A, x1: A, xs: A*): JuxtList[A]  = JuxtList  (x0::x1::xs.toList)
+  def juxts [A](x0: A, x1: A, xs: A*): JuxtList[A]  = JuxtList2 (x0::x1::xs.toList)
   def noLoc[A](x: Loc[A]): Loc[A] = Loc(x.x,r)
   def clean(s: String): String = s.replaceAllLiterally(",SRange.unknown","").replaceAllLiterally("SRange.unknown,","")
   implicit val showFlags = abbrevShowFlags
+
+  case class Flags(loc: Boolean)
+  implicit val f = Flags(loc=false)
 
   @Test def lexer(): Unit = {
     // Utilities
@@ -73,42 +78,56 @@ class TestParse {
     check("(1 + 2) * 3", mul(add(1,2),3))
   }
 
-  def prep(s: String): List[Loc[Token]] = prepare(lex(s) map noLoc)
+  def prep(s: String)(implicit f: Flags): List[Loc[Token]] = prepare(if (f.loc) lex(s) else lex(s) map noLoc)
 
-  def testAST(s: String, ss: List[AStmt]*): Unit = {
+  def parseExpand(ts: List[Loc[Token]]): Scored[List[AStmt]] =
+    uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed") flatMap (Expand.expand(_))
+
+  def testAST(s: String, ss: List[AStmt]*)(implicit f: Flags): Unit = {
     val tokens = prep(s)
     println(s"tokens = $tokens")
-    val asts = ParseEddy.parse(tokens)
+    val asts = parseExpand(tokens).stream.toList.map(_.x)
     for (e <- ss if !asts.contains(e)) {
       println()
     }
     assertSetsEqual(ss,asts,clean=clean)
   }
 
-  def testASTPossible(s: String, ss: List[AStmt]): Unit = {
+  def testASTPossible(s: String, ss: List[AStmt])(implicit f: Flags): Unit = {
     val tokens = prep(s)
     println(s"tokens = $tokens")
-    val asts = ParseEddy.parse(tokens)
+    val asts = parseExpand(tokens).stream.toList.map(_.x)
     assertIn(ss,asts.toSet)
   }
 
-  def testBest(s: String, ss: List[AStmt]): Unit = {
+  def testBest(s: String, ss: List[AStmt])(implicit f: Flags): Unit = {
     val tokens = prep(s)
-    val asts = Mismatch.repair(tokens) flatMap (ts => uniform(Pr.parse,ParseEddy.parse(ts),"Parse failed"))
+    val asts = Mismatch.repair(tokens) flatMap parseExpand
     asts.best match {
       case Left(e) => throw new RuntimeException("\n"+e.prefixed("error: "))
       case Right(ast) => assertEquals(ss,ast)
     }
   }
 
+  // Warning: Extremely brittle
+  def testCount(count: Int, s: String)(implicit f: Flags): Unit = {
+    val asts = parseExpand(prep(s)).stream.toList.map(_.x)
+    if (asts.size != count)
+      throw new RuntimeException(s"\nCount test failed: expected $count, got ${asts.size}\n\n${asts mkString "\n"}")
+  }
+
   @Test def hole() = testAST("",Nil)
   @Test def x() = testAST("x",NameAExp("x",r))
 
   @Test
-  def nestApply() =
+  def nestApply() = {
+    implicit val f = Flags(loc=true)
+    def r(lo: Int, hi: Int) = SRange(SLoc(lo),SLoc(hi))
+    def a(lo: Int, hi: Int) = YesAround(Paren,Paren,SGroup.approx(r(lo,hi)))
     testAST("x = A(Object())",
-      AssignAExp(None,r,"x",ApplyAExp("A",ApplyAExp("Object",EmptyList,parens),parens)),
-      AssignAExp(None,r,"x",ApplyAExp("A",juxts("Object",ArrayAExp(EmptyList,parens)),parens)))
+      AssignAExp(None,r(2,3),NameAExp("x",r(0,1)),
+        ApplyAExp(NameAExp("A",r(4,5)),ApplyAExp(NameAExp("Object",r(6,12)),EmptyList,a(12,14)),a(5,15))))
+  }
 
   @Test
   def primTypes() =
@@ -214,4 +233,10 @@ class TestParse {
              BlockAStmt(List(ExpAStmt(AssignAExp(None,r,"x",2))),a))), None))
   @Test def tryCatchFinallyStmt() = testAST("try x = 1 finally ",
     TryAStmt(r,AssignAExp(None,r,"x",1), Nil, Some(r,HoleAStmt(SRange.empty))))
+
+  // A complicated example
+  @Test def complicated() = {
+    implicit val f = Flags(loc=true)
+    testCount(1,"while (!tokens.isEmpty() && tokens.get(tokens.size()-1).x() instanceof WhitespaceTok) tokens.remove(tokens.size()-1)")
+  }
 }

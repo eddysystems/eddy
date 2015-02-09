@@ -37,8 +37,7 @@ import java.util.List;
 import static com.eddysystems.eddy.engine.Utility.*;
 import static tarski.Tokens.abbrevShowFlags;
 import static tarski.Tokens.fullShowFlags;
-import static utility.JavaUtils.popScope;
-import static utility.JavaUtils.pushScope;
+import static utility.JavaUtils.*;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
 

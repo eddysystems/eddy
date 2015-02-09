@@ -44,13 +44,14 @@ object Arounds {
   }
   sealed trait CommaList[+A] extends KList[A]
   sealed trait AndList[+A] extends KList[A]
+  sealed trait JuxtList[+A] extends KList[A]
   sealed trait CommaList1[+A] extends CommaList[A] { def preComma[B >: A](x: B, s: SRange): CommaList2[B] }
   sealed trait AndList1[+A] extends AndList[A] { def preAnd[B >: A](x: B, s: SRange): AndList2[B] }
   case object EmptyList extends CommaList[Nothing] with AndList[Nothing] {
     def list = Nil
     def map[B](f: Nothing => B) = EmptyList
   }
-  case class SingleList[+A](x: A) extends CommaList1[A] with AndList1[A] {
+  case class SingleList[+A](x: A) extends CommaList1[A] with AndList1[A] with JuxtList[A] {
     def preComma[B >: A](y: B, s: SRange) = CommaList2(List(y,x),List(s))
     def preAnd[B >: A](y: B, s: SRange) = AndList2(List(y,x),List(s))
     def list = List(x)
@@ -64,7 +65,7 @@ object Arounds {
     def preAnd[B >: A](x: B, s: SRange) = AndList2(x::list,s::seps)
     def map[B](f: A => B) = AndList2(list map f,seps)
   }
-  case class JuxtList[+A](list: List[A]) extends KList[A] {
-    def map[B](f: A => B) = JuxtList(list map f)
+  case class JuxtList2[+A](list: List[A]) extends JuxtList[A] {
+    def map[B](f: A => B) = JuxtList2(list map f)
   }
 }

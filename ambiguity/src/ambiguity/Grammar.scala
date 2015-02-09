@@ -18,11 +18,14 @@ object Grammar {
                      start: Symbol,
                      token: Type,
                      simple: Regex, // Is a token simple?
+                     scored: Regex, // Does a type have a Scored case?
                      types: Map[Symbol,Type],
                      prods: Map[Symbol,Set[Prod]]) {
 
     def isToken(s: Symbol) = !types.contains(s)
     def isSimple(t: Symbol) = if (isToken(t)) simple.findFirstIn(t).isDefined else types(t) == "Unit"
+    def isScored(ty: Type) = scored.findFirstIn(ty).isDefined
+    def isNullable(a: Action) = """\bnull\b""".r.findFirstIn(a).isDefined // TODO: This is a hack
 
     val nullable: Set[Symbol] = {
       lazy val f: Symbol => Boolean = fixpoint(false, s =>
@@ -51,7 +54,7 @@ object Grammar {
 
     def modify(types: Map[Symbol,Type],
                prods: Map[Symbol,Set[Prod]]) =
-      Grammar(name,preamble,start,token,simple,types,prods)
+      Grammar(name,preamble,start,token,simple,scored,types,prods)
   }
 
   // Split a list of symbols by terminals (t) and nonterminals (n)
@@ -266,6 +269,7 @@ object Grammar {
     var start: Option[Symbol] = None
     var token: Option[Type] = None
     var simple: Option[String] = None
+    var scored: Option[String] = None
     var scope: Option[Symbol] = None
     val types = mutable.Map[Symbol,Type]()
     val prods = mutable.Map[Symbol,Set[Prod]]()
@@ -310,6 +314,7 @@ object Grammar {
                 case "start" => start = Some(t)
                 case "token" => token = Some(t)
                 case "simple" => simple = Some(t)
+                case "scored" => scored = Some(t)
                 case "alias" => ty match {
                   case List(from,to) => aliases(from) = to
                   case _ => throw new RuntimeException(s"bad alias: '$line'")
@@ -353,6 +358,7 @@ object Grammar {
             unpack(start,"at least one nonterminal required"),
             unpack(token,"token type required"),
             unpack(simple,"simple required").r,
+            unpack(scored,"scored required").r,
             types.toMap,
             prods.toMap.mapValues(_ map unaliasProd))
   }

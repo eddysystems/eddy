@@ -15,6 +15,7 @@ import scala.Tuple2;
 import scala.Tuple3;
 import scala.Tuple4;
 import scala.Option;
+import tarski.Scores.*;
 import static utility.Locations.*;
 import static tarski.ParseEddyActions.*;
 
@@ -1255,7 +1256,15 @@ class ParseEddy {
           }
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpParens<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -1845,7 +1854,15 @@ class ParseEddy {
       }
       if (hi-lo==1 && type[lo]==iStmtTok)
         values.add(Block1((StmtTok)input[lo],ranges[lo]));
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AStmt> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AStmt>(Pr.parse(),(AStmt)values.remove(--size),s);
+        values.add(new ScoredAStmt(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iBlock<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2114,7 +2131,15 @@ class ParseEddy {
           }
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpPrimary<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2151,7 +2176,15 @@ class ParseEddy {
             values.add(ExpNew2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpNew<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2163,8 +2196,10 @@ class ParseEddy {
             final long s1 = slices.get(iExpHigh__Left<<24|lo<<12|j); if (s1 == 0) continue;
             final long s3 = slices.get(iList_ExpAssignNC__Right<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpHighNA0((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+              for (int k3=0;k3<(s3&vMask);k3++) {
+                final AExp x = ExpHighNA0((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3));
+                if (x != null) values.add(x);
+              }
             }
           }
         }
@@ -2176,7 +2211,15 @@ class ParseEddy {
             values.add(ExpHighNA1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpHighNA<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2201,7 +2244,15 @@ class ParseEddy {
             values.add(ExpHighNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpHighNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2221,7 +2272,15 @@ class ParseEddy {
             values.add(ExpHigh1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpHigh<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2241,7 +2300,15 @@ class ParseEddy {
             values.add(ExpWild1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2278,8 +2345,10 @@ class ParseEddy {
             final long s1 = slices.get(iExpWild<<24|lo<<12|j); if (s1 == 0) continue;
             final long s3 = slices.get(iSingleJuxt1_ExpWildNA<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3)));
+              for (int k3=0;k3<(s3&vMask);k3++) {
+                final AExp x = ExpJuxt0((AExp)values.get((int)(s1>>32)+k1),(JuxtList)values.get((int)(s3>>32)+k3));
+                if (x != null) values.add(x);
+              }
             }
           }
         }
@@ -2291,7 +2360,15 @@ class ParseEddy {
             values.add(ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2340,7 +2417,15 @@ class ParseEddy {
             values.add(ExpUnary_ExpJuxt3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpUnary_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2389,7 +2474,15 @@ class ParseEddy {
             values.add(ExpMul_ExpJuxt3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpMul_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2426,7 +2519,15 @@ class ParseEddy {
             values.add(ExpAdd_ExpJuxt2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAdd_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2475,7 +2576,15 @@ class ParseEddy {
             values.add(ExpShift_ExpJuxt3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpShift_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2548,7 +2657,15 @@ class ParseEddy {
             values.add(ExpRel_ExpJuxt5((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpRel_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2585,7 +2702,15 @@ class ParseEddy {
             values.add(ExpEq_ExpJuxt2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpEq_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2610,7 +2735,15 @@ class ParseEddy {
             values.add(ExpAnd_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAnd_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2635,7 +2768,15 @@ class ParseEddy {
             values.add(ExpXor_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpXor_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2660,7 +2801,15 @@ class ParseEddy {
             values.add(ExpOr_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpOr_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2685,7 +2834,15 @@ class ParseEddy {
             values.add(ExpAndAnd_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAndAnd_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2710,7 +2867,15 @@ class ParseEddy {
             values.add(ExpOrOr_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpOrOr_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2735,7 +2900,15 @@ class ParseEddy {
             values.add(ExpCond_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpCond_ExpJuxt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2760,7 +2933,15 @@ class ParseEddy {
             values.add(ExpAssignNC1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAssignNC<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2883,7 +3064,15 @@ class ParseEddy {
             values.add(ExpCommas1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpCommas<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2908,7 +3097,15 @@ class ParseEddy {
             values.add(ExpAssign1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAssign<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -2964,6 +3161,20 @@ class ParseEddy {
             values.add(StmtHelperBS4((Option)values.get((int)(s1>>32)+k),ranges[lo]));
         }
       }
+      if (hi-lo>=2) {
+        for (int j=lo+1;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iWhileUntil<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iExpAssignNP<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++) {
+                final AStmt x = StmtHelperBS5((Loc)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3));
+                if (x != null) values.add(x);
+              }
+            }
+          }
+        }
+      }
       if (hi-lo>=3) {
         for (int j=lo+1;j<=hi-2;j++) {
           {
@@ -2971,7 +3182,7 @@ class ParseEddy {
             final long s3 = slices.get(iWhileUntil__MaybeParenExp<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS5((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS6((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
             }
           }
         }
@@ -2983,7 +3194,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpAssign<<24|j+1<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS6((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),ranges[lo],ranges[j]));
+                values.add(StmtHelperBS7((AExp)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3),ranges[lo],ranges[j]));
             }
           }
         }
@@ -2995,7 +3206,7 @@ class ParseEddy {
             final long s3 = slices.get(iBlock<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS7((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),ranges[lo]));
+                values.add(StmtHelperBS8((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3),ranges[lo]));
             }
           }
         }
@@ -3004,7 +3215,7 @@ class ParseEddy {
         final long s1 = slices.get(iBlock<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS8((AStmt)values.get((int)(s1>>32)+k)));
+            values.add(StmtHelperBS9((AStmt)values.get((int)(s1>>32)+k)));
         }
       }
       if (hi-lo>=2) {
@@ -3014,7 +3225,7 @@ class ParseEddy {
             final long s3 = slices.get(iOption_Type__List1_VarDecl<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS9((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS10((List)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
             }
           }
         }
@@ -3026,7 +3237,7 @@ class ParseEddy {
             final long s3 = slices.get(iCatchBlocks__Option_FinallyBlock<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS10((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS11((Tuple2)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
             }
           }
         }
@@ -3038,7 +3249,7 @@ class ParseEddy {
             final long s3 = slices.get(iMaybeDo__Stmt<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS11((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
+                values.add(StmtHelperBS12((Tuple2)values.get((int)(s1>>32)+k1),(AStmt)values.get((int)(s3>>32)+k3)));
             }
           }
         }
@@ -3047,33 +3258,21 @@ class ParseEddy {
         final long s1 = slices.get(iAfterIfB<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS12((PreIf)values.get((int)(s1>>32)+k),ranges[lo]));
+            values.add(StmtHelperBS13((PreIf)values.get((int)(s1>>32)+k),ranges[lo]));
         }
       }
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpAssign<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS13((AExp)values.get((int)(s1>>32)+k)));
+            values.add(StmtHelperBS14((AExp)values.get((int)(s1>>32)+k)));
         }
       }
       if (hi-lo>=2 && type[lo]==iAssertTok) {
         final long s1 = slices.get(iExpAssign<<24|lo+1<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(StmtHelperBS14((AExp)values.get((int)(s1>>32)+k),ranges[lo]));
-        }
-      }
-      if (hi-lo>=2) {
-        for (int j=lo+1;j<=hi-1;j++) {
-          {
-            final long s1 = slices.get(iWhileUntil<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iExpAssignNP<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(StmtHelperBS15((Loc)values.get((int)(s1>>32)+k1),(AExp)values.get((int)(s3>>32)+k3)));
-            }
-          }
+            values.add(StmtHelperBS15((AExp)values.get((int)(s1>>32)+k),ranges[lo]));
         }
       }
       if (hi-lo>=1 && type[lo]==iReturnTok) {
@@ -3102,7 +3301,15 @@ class ParseEddy {
           }
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AStmt> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AStmt>(Pr.parse(),(AStmt)values.remove(--size),s);
+        values.add(new ScoredAStmt(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iStmtHelperBS<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3198,7 +3405,15 @@ class ParseEddy {
             values.add(StmtHelper5((ForInfo)values.get((int)(s1>>32)+k),ranges[lo]));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AStmt> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AStmt>(Pr.parse(),(AStmt)values.remove(--size),s);
+        values.add(new ScoredAStmt(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iStmtHelper<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3220,7 +3435,15 @@ class ParseEddy {
       }
       if (hi-lo==1 && type[lo]==iSemiTok)
         values.add(Stmt2(ranges[lo]));
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AStmt> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AStmt>(Pr.parse(),(AStmt)values.remove(--size),s);
+        values.add(new ScoredAStmt(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iStmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3238,7 +3461,15 @@ class ParseEddy {
           }
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AStmt> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AStmt>(Pr.parse(),(AStmt)values.remove(--size),s);
+        values.add(new ScoredAStmt(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iMaybeDo__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3256,7 +3487,15 @@ class ParseEddy {
           }
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AStmt> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AStmt>(Pr.parse(),(AStmt)values.remove(--size),s);
+        values.add(new ScoredAStmt(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iMaybeThen__Stmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3269,7 +3508,15 @@ class ParseEddy {
             values.add(MaybeStmt0((AStmt)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AStmt> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AStmt>(Pr.parse(),(AStmt)values.remove(--size),s);
+        values.add(new ScoredAStmt(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iMaybeStmt<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3388,7 +3635,15 @@ class ParseEddy {
             values.add(ExpUnary_ExpWild3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpUnary_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3437,7 +3692,15 @@ class ParseEddy {
             values.add(ExpMul_ExpWild3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpMul_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3474,7 +3737,15 @@ class ParseEddy {
             values.add(ExpAdd_ExpWild2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAdd_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3523,7 +3794,15 @@ class ParseEddy {
             values.add(ExpShift_ExpWild3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpShift_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3596,7 +3875,15 @@ class ParseEddy {
             values.add(ExpRel_ExpWild5((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpRel_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3633,7 +3920,15 @@ class ParseEddy {
             values.add(ExpEq_ExpWild2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpEq_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3658,7 +3953,15 @@ class ParseEddy {
             values.add(ExpAnd_ExpWild1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAnd_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3683,7 +3986,15 @@ class ParseEddy {
             values.add(ExpXor_ExpWild1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpXor_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3708,7 +4019,15 @@ class ParseEddy {
             values.add(ExpOr_ExpWild1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpOr_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3733,7 +4052,15 @@ class ParseEddy {
             values.add(ExpAndAnd_ExpWild1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAndAnd_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3758,7 +4085,15 @@ class ParseEddy {
             values.add(ExpOrOr_ExpWild1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpOrOr_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3783,7 +4118,15 @@ class ParseEddy {
             values.add(ExpCond_ExpWild1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpCond_ExpWild<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3823,7 +4166,15 @@ class ParseEddy {
             values.add(Type1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iType<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3982,7 +4333,15 @@ class ParseEddy {
             values.add(ExpWildNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpWildNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -3994,8 +4353,10 @@ class ParseEddy {
             final long s1 = slices.get(iExpWild<<24|lo<<12|j); if (s1 == 0) continue;
             final long s3 = slices.get(iSingleJuxt1_ExpWildNA<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(KList)values.get((int)(s3>>32)+k3)));
+              for (int k3=0;k3<(s3&vMask);k3++) {
+                final AExp x = ExpJuxtNP0((AExp)values.get((int)(s1>>32)+k1),(JuxtList)values.get((int)(s3>>32)+k3));
+                if (x != null) values.add(x);
+              }
             }
           }
         }
@@ -4007,7 +4368,15 @@ class ParseEddy {
             values.add(ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4056,7 +4425,15 @@ class ParseEddy {
             values.add(ExpUnary_ExpJuxtNP3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpUnary_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4105,7 +4482,15 @@ class ParseEddy {
             values.add(ExpMul_ExpJuxtNP3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpMul_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4142,7 +4527,15 @@ class ParseEddy {
             values.add(ExpAdd_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAdd_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4191,7 +4584,15 @@ class ParseEddy {
             values.add(ExpShift_ExpJuxtNP3((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpShift_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4264,7 +4665,15 @@ class ParseEddy {
             values.add(ExpRel_ExpJuxtNP5((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpRel_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4301,7 +4710,15 @@ class ParseEddy {
             values.add(ExpEq_ExpJuxtNP2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpEq_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4326,7 +4743,15 @@ class ParseEddy {
             values.add(ExpAnd_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAnd_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4351,7 +4776,15 @@ class ParseEddy {
             values.add(ExpXor_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpXor_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4376,7 +4809,15 @@ class ParseEddy {
             values.add(ExpOr_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpOr_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4401,7 +4842,15 @@ class ParseEddy {
             values.add(ExpAndAnd_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAndAnd_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4426,7 +4875,15 @@ class ParseEddy {
             values.add(ExpOrOr_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpOrOr_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4451,7 +4908,15 @@ class ParseEddy {
             values.add(ExpCond_ExpJuxtNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpCond_ExpJuxtNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4476,7 +4941,15 @@ class ParseEddy {
             values.add(ExpAssignNP1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpAssignNP<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 
@@ -4596,8 +5069,10 @@ class ParseEddy {
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpAssignNP<<24|lo<<12|hi);
         if (s1 != 0) {
-          for (int k=0;k<(s1&vMask);k++)
-            values.add(MaybeParenExp1((AExp)values.get((int)(s1>>32)+k)));
+          for (int k=0;k<(s1&vMask);k++) {
+            final Tuple2<AExp,Around> x = MaybeParenExp1((AExp)values.get((int)(s1>>32)+k));
+            if (x != null) values.add(x);
+          }
         }
       }
       final int count = values.size()-prev;
@@ -4700,7 +5175,15 @@ class ParseEddy {
             values.add(ExpWildNA1((AExp)values.get((int)(s1>>32)+k)));
         }
       }
-      final int count = values.size()-prev;
+      int size = values.size();
+      int count = size-prev;
+      if (count > 1) {
+        Scored<AExp> s = (Scored)Empty$.MODULE$;
+        for (int i=0;i<count;i++)
+          s = new Best<AExp>(Pr.parse(),(AExp)values.remove(--size),s);
+        values.add(new ScoredAExp(s,range));
+        count = 1;
+      }
       if (count != 0) { slices.put(iExpWildNA<<24|lo<<12|hi,(long)prev<<32|count); }
     }
 

@@ -146,6 +146,7 @@ object Scores {
   object Empty extends EmptyOrBad {
     def error = OneError("unknown error")
     override def ++[B](s: Scored[B]) = s
+    override def toString = "Empty"
   }
 
   // One best possibility, then lazily more
