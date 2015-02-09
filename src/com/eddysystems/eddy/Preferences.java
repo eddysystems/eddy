@@ -86,7 +86,7 @@ public class Preferences implements Configurable {
 
     String correctedMinProbability;
     try {
-      correctedMinProbability = String.format("%f", PreferenceData.toNumber(data.getMinProbability()));
+      correctedMinProbability = String.format("%.2g", PreferenceData.toNumber(data.getMinProbability()));
     } catch (NumberFormatException e) {
       throw new ConfigurationException("minimum probability must be a number or percentage");
     }
