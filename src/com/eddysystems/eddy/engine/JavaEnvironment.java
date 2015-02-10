@@ -310,7 +310,9 @@ public class JavaEnvironment {
 
           fqnLock.lock();
           try {
-            // TODO: restrict this to only public fields, and add FieldItems to vByItem
+            // restrict this to only public fields, FieldItems in scope (protected or private) are added to vByItem
+            if (!f.hasModifierProperty(PsiModifier.PUBLIC))
+              return true;
 
             // put this field into the string map for its type and all its supertypes
             String name = f.getName();
