@@ -49,6 +49,7 @@ public class JavaEnvironment {
   @NotNull final ChangeTracker<String> nameTracker;
   @NotNull final ChangeTracker<TypeNameItemNamePair> valueTracker;
 
+  // scope and id filter for byItem lookups
   @NotNull final GlobalSearchScope scope;
   @NotNull final IdFilter filter;
 
@@ -80,7 +81,7 @@ public class JavaEnvironment {
     this.nameTracker = nameTracker;
     this.valueTracker = valueTracker;
 
-    scope = ProjectScope.getAllScope(project);
+    scope = ProjectScope.getProjectScope(project);
     filter = IdFilter.getProjectIdFilter(project, true);
   }
 
@@ -209,7 +210,6 @@ public class JavaEnvironment {
           throw new NotImplementedError("Unknown base type " + item.getClass());
         if (psi == null)
           throw new NoJDKError("Couldn't find " + name);
-        //log("adding base item " + item + " for " + psi + "@" + psi.hashCode() + " original " + psi.getOriginalElement().hashCode());
 
         if (!converter.knows(psi))
           converter.put(psi, item);
@@ -310,6 +310,8 @@ public class JavaEnvironment {
 
           fqnLock.lock();
           try {
+            // TODO: restrict this to only public fields, and add FieldItems to vByItem
+
             // put this field into the string map for its type and all its supertypes
             String name = f.getName();
             seen.clear();
@@ -419,7 +421,7 @@ public class JavaEnvironment {
 
       // we could cache the result of addBase, but it doesn't seem like it's worth it.
       addBase(converter);
-
+      
       // ep will fill scopeItems (and it has its own store for special non-psi items and constructors)
       final EnvironmentProcessor ep = new EnvironmentProcessor(converter, place, lastEdit);
 
@@ -442,7 +444,7 @@ public class JavaEnvironment {
           final PsiShortNamesCache psicache = PsiShortNamesCache.getInstance(project);
           final Set<Items.Value> result = new HashSet<Items.Value>();
           final EddyThread thread = EddyThread.getEddyThread();
-          final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.scopeItems);
+          final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.localItems);
 
           final Processor<PsiField> proc = new Processor<PsiField>() {
             @Override

@@ -17,6 +17,10 @@ public class JavaItems {
     return valuesByItem(a);
   }
 
+  public static Map<TypeItem, Value[]> valuesByItem(java.util.List<Item> vs) {
+    return valuesByItem(vs.toArray(new Item[vs.size()]));
+  }
+
   public static <V extends Item> Map<TypeItem,Value[]> valuesByItem(V[] vs) {
     // Turn debugging on or off
     final boolean debug = false;

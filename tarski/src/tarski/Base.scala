@@ -177,8 +177,17 @@ object Base {
   if (ObjectItem.constructors.length==0)
     ObjectItem.constructors = Array(ObjectConsItem)
 
-  // Standard base environment
+  // Classes that have important statics inside should be added here so we find them in valueByItem
+  case object SystemItem extends SimpleClassItem {
+    val name = "System"
+    val isFinal = true
+    val interfaces: List[ClassType] = Nil
+    val base: ClassType = ObjectType
+    val supers: List[ClassType] = base :: interfaces
+    val superItems: List[ClassItem] = supers map (_.item)
+  }
 
+  // Standard base environment. Must only contain things that are always visible (although they may be shadowed)
   val baseItems = Array(
     // Packages
     JavaPkg,JavaLangPkg,JavaIoPkg,
@@ -188,6 +197,7 @@ object Base {
     ObjectItem,VoidItem,
     EnumBaseItem,ThrowableItem,StringItem,BooleanItem,CharacterItem,
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
+    SystemItem,
     // Interfaces
     CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem,
     // exception base classes

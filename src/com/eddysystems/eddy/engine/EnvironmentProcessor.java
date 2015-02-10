@@ -187,7 +187,7 @@ class EnvironmentProcessor {
       assert placeItem != null;
     } finally { popScope(); }
 
-    log("environment (" + localItems.size() + " local items) taken inside " + placeItem);
+    log("environment (" + localItems.size() + " local items, " + scopeItems.size() + " in scope) taken inside " + placeItem);
 
     return Environment.PlaceInfoJava(placeItem,where.place,inside_breakable,inside_continuable,lastEdit);
   }
