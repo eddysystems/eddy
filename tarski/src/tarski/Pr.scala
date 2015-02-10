@@ -9,6 +9,7 @@ import tarski.Scores._
 import tarski.Types.Type
 import tarski.JavaScores._
 import tarski.Environment._
+import scala.collection.JavaConverters._
 
 object Pr {
 
@@ -237,4 +238,9 @@ object Pr {
   val notDropNew = Prob("not drop new",1)
   val reasonable = Prob("reasonable",1)
   val ignoreMissingType = Prob("ignore missing type",1)
+
+  val priors: java.util.Map[String,java.lang.Double] = Map[String,java.lang.Double](
+    "java.lang.System.err" -> new java.lang.Double(.99)
+  ).asJava
+  def objectPrior(s: String) = { val p = priors.get(s); Prob("prior", if (p == null) 1.0 else p) } // for now, no prior means 1
 }

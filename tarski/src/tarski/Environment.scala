@@ -145,7 +145,7 @@ object Environment {
         case i::is => exact(is,if (filter.isDefinedAt(i)) bestThen(Pr.exact,filter.apply(i),s) else s)
       }
       exact(_exactQuery(typed),if (exactOnly) fail(error)
-                               else biased(Pr.typo,_typoQuery(typed).collect(filter,error)))
+                               else biased(Pr.typo,_typoQuery(typed).collect(filter,error))) // FIXME
     }
     protected def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
@@ -153,8 +153,10 @@ object Environment {
         case i::is => exact(is,bestThen(Pr.exact,i,s))
       }
       exact(_exactQuery(typed),if (exactOnly) fail(error)
-                               else biased(Pr.typo,orError(_typoQuery(typed),error))) flatMap f
+                               else biased(Pr.typo,orError(_typoQuery(typed),error))) flatMap f // FIXME
     }
+
+    protected def _byItem(t: TypeItem): Scored[Value]
 
     // Convenience aliases taking String (only used in tests)
     @inline final def exactQuery(typed: String): List[Item] = _exactQuery(typed.toCharArray)
@@ -168,7 +170,9 @@ object Environment {
     }
 
     // Lookup by type.item
-    def byItem(t: TypeItem): Scored[Value]
+    def byItem(t: TypeItem): Scored[Value] = {
+      _byItem(t) flatMap { i => single(i,Pr.objectPrior(i.qualified)) }
+    }
 
     // get the innermost (current) ThisItem
     def getThis: ThisItem = scope.collect({ case (i:ThisItem,n) => (i,n) }).minBy(_._2)._1
@@ -198,7 +202,7 @@ object Environment {
     override def pushScope: Env = LazyEnv(trie0,trie1,added,byItem,scope map { case (i,n) => (i,n+1) },place)
 
     // Lookup by type.item
-    override def byItem(t: TypeItem): Scored[Value] = {
+    protected override def _byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
       val values = (byItem.query(t) ++ added.query(t)) filter (_.accessible(place))
       uniform(Pr.objectOfItem, values, s"No value of type item ${show(t)} found")
@@ -220,10 +224,10 @@ object Environment {
     // Get exact and typo probabilities for string queries
     protected override def _typoQuery(typed: Array[Char]): Scored[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-      (trie1.typoQuery(typed) ++ trie0.typoQuery(typed) ++ added.typoQuery(typed))
-        .filter(_.accessible(place),s"Nothing accessible for ${typed.mkString}")
+      (trie1.typoQuery(typed) ++ trie0.typoQuery(typed) ++ added.typoQuery(typed)).filter({
+        case i:Item => i.accessible(place)
+      }, s"Nothing accessible for ${typed.mkString}")
     }
-
   }
 
   // Store two tries and two byItems: one large one for globals, one small one for locals.
@@ -263,7 +267,7 @@ object Environment {
     protected override def _exactQuery(typed: Array[Char]): List[Item] =
       (trie1.exact(typed) ++ trie0.exact(typed)) filter (_.accessible(place))
 
-    def byItem(t: TypeItem): Scored[Value] = {
+    protected override def _byItem(t: TypeItem): Scored[Value] = {
       implicit val env: Env = this
       val v0 = byItem1.get(t)
       val v1 = byItem0.get(t)
