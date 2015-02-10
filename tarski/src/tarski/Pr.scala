@@ -74,7 +74,7 @@ object Pr {
   // for the qualifying objects, and the object chosen as qualifier
   def omitQualifier(probs: Scored[Exp], choice: ClassItem): Prob = {
     if (probs.isSingle) Prob("omit one choice",.8) // Only choice
-    else if (Items.inPackage(choice,Base.JavaLangPkg)) Prob("omit java.lang",.8) // stuff in java.lang (like System.*)
+    else if (Items.inPackage(choice,Base.JavaPkg)) Prob("omit java.*",.8) // stuff in java.lang or java.io (like System.out)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
   }
 
@@ -83,7 +83,7 @@ object Pr {
   }
 
   def omitPackage(t:TypeItem, p: Items.Package): Prob = {
-    if (Items.inPackage(t,Base.JavaLangPkg)) Prob("omit java.lang for type",.9)
+    if (Items.inPackage(t,Base.JavaLangPkg)) Prob("omit java.lang for type",.9) // if shadowed
     else if (Items.inPackage(p,Base.JavaPkg)) Prob("omit java.* for type",.7)
     else Prob("omit package import",.5)
   }
@@ -125,13 +125,17 @@ object Pr {
 
   // Unqualified values that are in or out of scope
   val inScope = Prob("in scope",1)
-  val outOfScope = Prob("out of scope",.7)
-  private val outOfScopeOtherClass = Prob("out of scope, other class",.3)
+  val outOfScope = Prob("out of scope",.8)
+  private val outOfScopeJavaLangPkg = Prob("out of scope, java.lang package", .8)
+  private val outOfScopeSamePkg = Prob("out of scope, other class, same pkg", .7)
+  private val outOfScopeJavaPkg = Prob("out of scope, java.* package", .6)
   private val outOfScopeOtherPackage = Prob("out of scope, other package",.1)
   def scope(i: ChildItem)(implicit env: Env): Prob =
     if (env.inScope(i)) Pr.inScope
     else if (inClass(env.place.place,i.parent)) Pr.outOfScope
-    else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeOtherClass
+    else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeSamePkg
+    else if (inPackage(i, Base.JavaLangPkg)) Pr.outOfScopeJavaLangPkg
+    else if (inPackage(i, Base.JavaPkg)) Pr.outOfScopeJavaPkg
     else Pr.outOfScopeOtherPackage
 
   // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
