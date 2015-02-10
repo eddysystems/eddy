@@ -1,15 +1,16 @@
 package tarski;
 
-import scala.collection.JavaConversions;
+import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
-import scala.collection.immutable.$colon$colon$;
-import tarski.Scores.*;
 import tarski.Items.Item;
+import tarski.Scores.Alt;
+import tarski.Scores.Scored;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class QueriableItemList implements Tries.Queriable<Item> {
+public class QueriableItemList implements Tries.Queriable<Item>, ValueByItemQuery {
   private final Item[] items;
 
   public static final QueriableItemList empty = new QueriableItemList(new Item[0]);
@@ -58,5 +59,14 @@ public class QueriableItemList implements Tries.Queriable<Item> {
       }
     }
     return JavaScores.listGood(results);
+  }
+
+  @Override public Items.Value[] query(Items.TypeItem t) {
+    java.util.List<Items.Value> results = new ArrayList<Items.Value>();
+    for (Items.Item it : items) {
+      if (it instanceof Items.Value && Types.isSubitem(((Items.Value)it).item(), t))
+        results.add((Items.Value)it);
+    }
+    return results.toArray(new Items.Value[results.size()]);
   }
 }
