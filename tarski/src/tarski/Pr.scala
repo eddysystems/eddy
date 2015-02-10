@@ -1,5 +1,6 @@
 package tarski
 
+import gnu.trove.TObjectDoubleHashMap
 import utility.JavaUtils.poissonPDF
 import tarski.AST._
 import tarski.Arounds._
@@ -239,8 +240,10 @@ object Pr {
   val reasonable = Prob("reasonable",1)
   val ignoreMissingType = Prob("ignore missing type",1)
 
-  val priors: java.util.Map[String,java.lang.Double] = Map[String,java.lang.Double](
-    "java.lang.System.err" -> new java.lang.Double(.99)
-  ).asJava
-  def objectPrior(s: String) = { val p = priors.get(s); Prob("prior", if (p == null) 1.0 else p) } // for now, no prior means 1
+  val priors: TObjectDoubleHashMap[String] = {
+    val m = new TObjectDoubleHashMap[String]()
+    m.put("java.lang.System.err",.99)
+    m
+  }
+  def objectPrior(s: String) = { val p = priors.get(s); Prob("prior", if (p == 0.0) 1.0 else p) } // for now, no prior means 1
 }
