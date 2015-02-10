@@ -3,7 +3,20 @@
 
 ### How does eddy work?
 
+This question is a little much for the FAQ, but we will write blog posts that
+explain the inner workings in more detail.
 
+In broad strokes: Eddy uses structured AI to find out what you mean when you
+write incomplete or broken code. It knows a lot about Java and about code, and
+it uses that knowledge to compute a probabilistic model of what you meant to write
+given what you actually typed.
+
+Specifically, eddy parses what you wrote using an ambiguous grammar, and then
+tries to find an interpretation that makes sense (type-checks, and matches known
+programming patterns). Eddy controls the exponential complexity of this process
+by looking at code much like a human would: it first looks at the most likely
+possibilities and explores ways to make them work. Only if simple fixes fail
+does it explore more esoteric solutions.
 
 ### Eddy doesn't understand me!
 
@@ -40,13 +53,13 @@ seeing bad formatting it is likely that IntelliJ is incorrectly configured.
 The settings can be adjusted in IntelliJ via `Preferences / Code Style / Java`. 
 Note that changes made to the settings only take effects after a restart.
 
-### Eddy and Other Languages
+### Eddy and other languages
 
 In order to suggest solutions, eddy scans libraries and project files for
 classes. Eddy may not fully understand classes defined in non-Java files
-interpreted by other IntelliJ plugins (for instance, the wonderful Scala
-plugin). Therefore, eddy may not have suggestions for code involving classes
-defined in languages other than Java.
+interpreted by other IntelliJ plugins (for instance, the Scala plugin).
+Therefore, eddy may not have suggestions for code involving classes defined
+in languages other than Java.
 
 ### Why is eddy "phoning home"?
 
