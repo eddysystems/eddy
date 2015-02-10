@@ -42,6 +42,7 @@ object Expand {
   implicit def expandAStmt(s: AStmt): Scored[AStmt] = s match {
     case ScoredAStmt(s,_) => s flatMap (expand(_))
     case SemiAStmt(s,sr) => expand(s) map (SemiAStmt(_,sr))
+    case ParenAStmt(x,a) => expand(x) map (ParenAStmt(_,a))
     case VarAStmt(m,t,vs) => productWith(expand(t),expand(vs))(VarAStmt(m,_,_))
     case BlockAStmt(b,a) => product(b map (expand(_))) map (BlockAStmt(_,a))
     case ExpAStmt(e) => expand(e) map ExpAStmt

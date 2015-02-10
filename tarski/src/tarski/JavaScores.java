@@ -10,6 +10,7 @@ import scala.collection.immutable.Nil$;
 import tarski.Scores.*;
 import tarski.JavaTrie.Generator;
 import utility.Interrupts;
+import java.util.ArrayList;
 
 import java.util.Collection;
 import java.util.PriorityQueue;

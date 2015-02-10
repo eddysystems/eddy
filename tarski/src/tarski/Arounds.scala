@@ -7,6 +7,7 @@ object Arounds {
   case object Paren extends Group
   case object Brack extends Group
   case object Curly extends Group
+  case object AnyGroup extends Group
 
   sealed abstract class Around extends HasRange {
     def a: SGroup

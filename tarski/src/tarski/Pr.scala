@@ -115,6 +115,9 @@ object Pr {
   val stringLit = base
 
   val weirdParens = Prob("parens around type or callable",.8)
+  val weirdParensStmt = Prob("parens around stmt",.1)
+  val parensInsideParens = Prob("parens inside parens",.7)
+  val parens = Prob("parens",1)
 
   // denoteType(AType)
   // Type[]
