@@ -23,13 +23,14 @@ class ItemGenerator implements Generator<Items.Item> {
 
   final Project project;
   final GlobalSearchScope scope;
+  final IdFilter filter;
   final PsiShortNamesCache psicache;
-  final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
   final Converter converter;
 
   ItemGenerator(Project project, GlobalSearchScope scope, Converter conv) {
     this.project = project;
     this.scope = scope;
+    filter = IdFilter.getProjectIdFilter(project, true);
     this.psicache = PsiShortNamesCache.getInstance(project);
     converter = conv;
   }

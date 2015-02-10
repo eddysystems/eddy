@@ -504,4 +504,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
+
+  public void testSystemOut() {
+    test("println.java", "System.out.println(\"\");");
+  }
 }

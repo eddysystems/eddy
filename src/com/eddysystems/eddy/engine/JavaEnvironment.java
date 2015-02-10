@@ -31,8 +31,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 
 import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
-import static com.eddysystems.eddy.engine.Utility.log;
-import static com.eddysystems.eddy.engine.Utility.logError;
+import static com.eddysystems.eddy.engine.Utility.*;
 import static java.lang.Thread.sleep;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
@@ -50,6 +49,9 @@ public class JavaEnvironment {
   @NotNull final ChangeTracker<String> nameTracker;
   @NotNull final ChangeTracker<TypeNameItemNamePair> valueTracker;
 
+  @NotNull final GlobalSearchScope scope;
+  @NotNull final IdFilter filter;
+
   final int rebuildByItemThreshold = 100;
   final int rebuildNamesThreshold = 100;
 
@@ -66,8 +68,7 @@ public class JavaEnvironment {
   // a trie encapsulating the global list of all names. This is never edited, so it's safe to use without a lock
   private int[] nameTrie = null;
 
-  // map types to items of that type. Use only with the lock in hand.
-  private final Object byItemLock = new Object();
+  // map types to items of that type.
   private Map<String, Set<String>> pByItem = null;
 
   // the background update thread
@@ -78,6 +79,9 @@ public class JavaEnvironment {
     this.project = project;
     this.nameTracker = nameTracker;
     this.valueTracker = valueTracker;
+
+    scope = ProjectScope.getAllScope(project);
+    filter = IdFilter.getProjectIdFilter(project, true);
   }
 
   // make sure our background updater is done before we disappear
@@ -163,10 +167,7 @@ public class JavaEnvironment {
         indicator.setIndeterminate(false);
 
       try {
-        final Map<String,Set<String>> newByItem = makeProjectValuesByItem(fieldNames, indicator);
-        synchronized (byItemLock) {
-          pByItem = newByItem;
-        }
+        pByItem = makeProjectValuesByItem(fieldNames, indicator);
         pushScope("forget values");
         try {
           valueTracker.forget(valueSnap[0]);
@@ -295,9 +296,7 @@ public class JavaEnvironment {
     try {
       final Map<String,Set<String>> result = new HashMap<String,Set<String>>();
 
-      final GlobalSearchScope scope = ProjectScope.getContentScope(project);
       final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
-      final IdFilter filter = IdFilter.getProjectIdFilter(project, false);
       final Processor<PsiField> proc = new Processor<PsiField>() {
 
         final Stack<PsiType> work = new Stack<PsiType>();
@@ -331,7 +330,6 @@ public class JavaEnvironment {
 
               // add to map
               String type = t.getCanonicalText();
-              //log("found field " + f + " with type " + type);
               Set<String> values = result.get(type);
               if (values == null) {
                 values = new HashSet<String>();
@@ -404,7 +402,6 @@ public class JavaEnvironment {
 
         // don't need synchronized, access functions should copy pointer before working on it
         return result;
-
       } finally {
         // make sure the lock is released
         lock.release();
@@ -443,8 +440,6 @@ public class JavaEnvironment {
         vbi = new ValueByItemQuery() {
           final Map<Items.TypeItem, Items.Value[]> cache = new HashMap<Items.TypeItem, Items.Value[]>();
           final PsiShortNamesCache psicache = PsiShortNamesCache.getInstance(project);
-          final GlobalSearchScope scope = ProjectScope.getContentScope(project);
-          final IdFilter filter = new IdFilter() { @Override public boolean containsFileId(int id) { return true; } };
           final Set<Items.Value> result = new HashSet<Items.Value>();
           final EddyThread thread = EddyThread.getEddyThread();
           final Map<Items.TypeItem, Items.Value[]> vByItem = JavaItems.valuesByItem(ep.scopeItems);
@@ -471,25 +466,24 @@ public class JavaEnvironment {
             // look up names in project
             String ts = type.qualified();
 
-            // look up in pByItem (may be modified any time; we could make a copy of get(ts), but the background updater is not high priority
-            // and it's ok if that waits for us)
-            synchronized (byItemLock) {
-              // use current global map
-              if (pByItem != null && pByItem.containsKey(ts)) {
-                if (thread != null) thread.pushSoftInterrupts();
-                for (String name : pByItem.get(ts)) {
-                  psicache.processFieldsWithName(name, proc, scope, filter);
-                }
-                if (thread != null) thread.popSoftInterrupts();
-              }
+            // look up in pByItem (don't let the update switch it out from under us)
+            final Map<String, Set<String>> byItem = pByItem;
 
-              // changes since last global map was constructed
-              for (TypeNameItemNamePair tn : newValuePairs) {
-                if (tn.typename.equals(ts)) {
-                  if (thread != null) thread.pushSoftInterrupts();
-                  psicache.processFieldsWithName(tn.itemname, proc, scope, filter);
-                  if (thread != null) thread.popSoftInterrupts();
-                }
+            // use current global map
+            if (byItem.containsKey(ts)) {
+              if (thread != null) thread.pushSoftInterrupts();
+              for (String name : byItem.get(ts)) {
+                psicache.processFieldsWithName(name, proc, scope, filter);
+              }
+              if (thread != null) thread.popSoftInterrupts();
+            }
+
+            // changes since last global map was constructed
+            for (TypeNameItemNamePair tn : newValuePairs) {
+              if (tn.typename.equals(ts)) {
+                if (thread != null) thread.pushSoftInterrupts();
+                psicache.processFieldsWithName(tn.itemname, proc, scope, filter);
+                if (thread != null) thread.popSoftInterrupts();
               }
             }
 
@@ -514,6 +508,8 @@ public class JavaEnvironment {
 
             Items.Value[] rarr = new Items.Value[result.size()];
             rarr = result.toArray(rarr);
+
+            // TODO: remove duplicates?
 
             cache.put(type, rarr);
             return rarr;
