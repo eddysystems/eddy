@@ -74,48 +74,47 @@ public class EddyAction implements QuestionAction {
       }
 
       // show selection dialog
-      final BaseListPopupStep<ListEntry> step =
-        new BaseListPopupStep<ListEntry>("eddy thinks:", entries) {
-          @Override
-          public boolean isAutoSelectionEnabled() {
-            return false;
-          }
+      final BaseListPopupStep<ListEntry> step = new BaseListPopupStep<ListEntry>("eddy thinks:", entries) {
+        @Override
+        public boolean isAutoSelectionEnabled() {
+          return false;
+        }
 
-          @Override
-          public boolean isSpeedSearchEnabled() {
-            return true;
-          }
+        @Override
+        public boolean isSpeedSearchEnabled() {
+          return true;
+        }
 
-          @Override
-          public PopupStep onChosen(final ListEntry selectedValue, final boolean finalChoice) {
-            if (selectedValue == null) {
-              return FINAL_CHOICE;
-            }
-
-            if (finalChoice) {
-              output.apply(selectedValue.index);
-              return FINAL_CHOICE;
-            }
-
+        @Override
+        public PopupStep onChosen(final ListEntry selectedValue, final boolean finalChoice) {
+          if (selectedValue == null) {
             return FINAL_CHOICE;
           }
 
-          @Override
-          public boolean hasSubstep(ListEntry selectedValue) {
-            return false;
+          if (finalChoice) {
+            output.apply(selectedValue.index);
+            return FINAL_CHOICE;
           }
 
-          @NotNull
-          @Override
-          public String getTextFor(ListEntry value) {
-            return value.text;
-          }
+          return FINAL_CHOICE;
+        }
 
-          @Override
-          public Icon getIconFor(ListEntry value) {
-            return null;
-          }
-        };
+        @Override
+        public boolean hasSubstep(ListEntry selectedValue) {
+          return false;
+        }
+
+        @NotNull
+        @Override
+        public String getTextFor(ListEntry value) {
+          return value.text;
+        }
+
+        @Override
+        public Icon getIconFor(ListEntry value) {
+          return null;
+        }
+      };
       DataManager.getInstance().getDataContextFromFocus().doWhenDone(new Runnable() { @Override public void run() {
         JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(editor);
       }});
