@@ -83,7 +83,9 @@ object Items {
     override def toString = s"Package($qualified)"
   }
   case class RootPackage(name: Name) extends Package
-  case class ChildPackage(parent: Package, name: Name) extends Package with Member
+  case class ChildPackage(parent: Package, name: Name) extends Package with Member {
+    def isStatic = true
+  }
   case object LocalPkg extends Package {
     def name = ""
     override def toString = "LocalPkg"
@@ -293,14 +295,13 @@ object Items {
   trait Member extends Item with PackageOrMember {
     def name: Name
     def parent: ParentItem // Package, class, or callable
+    def isStatic: Boolean
     override def qualified = { val pq = parent.qualified; if (pq.isEmpty) name else pq + "." + name }
   }
   trait ClassMember extends Member {
     def parent: ClassItem
   }
-  trait ChildItem extends ClassMember { // FieldItem or MethodItem
-    def isStatic: Boolean
-  }
+  trait ChildItem extends ClassMember // FieldItem or MethodItem
 
   // Values
   sealed abstract class Value extends Item {
@@ -358,6 +359,7 @@ object Items {
   }
   abstract class ConstructorItem extends CallableItem {
     def name = parent.name
+    def isStatic = false
   }
 
   // Normal callables

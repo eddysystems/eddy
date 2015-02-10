@@ -1160,4 +1160,41 @@ class TestDen {
     testFail("void x = f()")
     testFail("int x = f()")
   }
+
+  @Test def recursiveContainer() = {
+    val T = SimpleTypeVar("T")
+    val A = NormalClassItem("A",tparams=List(T))
+    val get = NormalMethodItem("get",A,Nil,T,Nil,isStatic=false)
+    val empty = NormalMethodItem("empty",A,Nil,BooleanType,Nil,isStatic=false)
+    val x = NormalLocal("x",A.generic(List(A.raw)))
+    val f = NormalLocal("f",BooleanType,isFinal=false)
+    implicit val env = localEnvWithBase().extend(Array(A,x,f,get,empty),Map(A->3,x->1,f->1))
+    test("f = x.get().empty()",
+      AssignExp(None,r,f,ApplyExp(MethodDen(ApplyExp(MethodDen(x,get,r),Nil,a,auto=false),empty,r),Nil,a,auto=false)))
+  }
+
+  @Test def twoCalls() = {
+    val T = SimpleTypeVar("T")
+    val A = NormalClassItem("A",tparams=List(T))
+    val get = NormalMethodItem("get",A,Nil,T,Nil,isStatic=false)
+    val B = NormalClassItem("B")
+    val empty = NormalMethodItem("empty",B,Nil,BooleanType,Nil,isStatic=false)
+    val x = NormalLocal("x",A.generic(List(B)))
+    val f = NormalLocal("f",BooleanType,isFinal=false)
+    implicit val env = localEnvWithBase().extend(Array(A,B,x,f,get,empty),Map(A->3,B->3,x->1,f->1))
+    test("f = x.get().empty()",
+      AssignExp(None,r,f,ApplyExp(MethodDen(ApplyExp(MethodDen(x,get,r),Nil,a,auto=false),empty,r),Nil,a,auto=false)))
+  }
+
+  @Test def unnecessaryThisDot() = {
+    val A = NormalClassItem("A")
+    lazy val B: ClassItem = NormalClassItem("B",parent=A,constructors=Array(cons),isStatic=false)
+    lazy val cons = DefaultConstructorItem(B)
+    val This = ThisItem(A)
+    for (static <- List(false,true)) {
+      val f = NormalMethodItem("f",A,Nil,B,Nil,isStatic=static)
+      implicit val env = baseEnv.extend(Array(A,B,This,f),Map(B->1,This->1)).move(PlaceInfo(f))
+      test("return new B",ReturnStmt(r,ApplyExp(NewDen(r,if (static) This else None,cons,r,None),Nil,a,auto=true),env))
+    }
+  }
 }

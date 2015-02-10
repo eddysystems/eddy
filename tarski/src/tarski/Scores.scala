@@ -92,7 +92,10 @@ object Scores {
     def flatMap[B](f: A => Scored[B]): Scored[B] = new Extractor[B](new FlatMapState(this,f))
 
     // We are assumed independent of t
-    def productWith[B,C](s: Scored[B])(f: (A,B) => C): Scored[C] = new LazyProductWith(this,s,f)
+    def productWith[B,C](s: Scored[B])(f: (A,B) => C): Scored[C] = s match {
+      case s:EmptyOrBad => s
+      case _ => new LazyProductWith(this,s,f)
+    }
 
     // Filter, turning Empty into given error
     final def filter(f: A => Boolean, error: => String): Scored[A] = _filter(f, if (trackErrors) () => error else null)

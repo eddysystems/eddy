@@ -71,6 +71,7 @@ class ItemGenerator implements Generator<Items.Item> {
 
     if (thread != null) thread.pushSoftInterrupts();
     try {
+      final IdFilter filter = null;
       psicache.processClassesWithName(s, classProc, scope, filter);
       psicache.processMethodsWithName(s, methodProc, scope, filter);
       psicache.processFieldsWithName(s, fieldProc, scope, filter);

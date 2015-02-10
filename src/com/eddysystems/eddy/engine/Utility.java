@@ -134,7 +134,7 @@ public class Utility {
 
   // can't use logger in test mode. Sucks.
   public static void log(Logger logger, Level level, String msg) {
-    if (ApplicationManager.getApplication().isHeadlessEnvironment() || logger == null)
+    if (logger == null || ApplicationManager.getApplication().isHeadlessEnvironment())
       System.out.println(msg);
     else if (level == Level.INFO)
       logger.info(msg);
