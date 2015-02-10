@@ -141,6 +141,9 @@ object Tokens {
   case object AtTok extends FixedToken("@")
   case object ColonColonTok extends FixedToken("::")
 
+  // Unknown right group
+  case object RightAnyTok extends FixedToken(")")
+
   // Operators: 3.12
   case object EqTok extends FixedToken("=")
   case object GtTok extends FixedToken(">")

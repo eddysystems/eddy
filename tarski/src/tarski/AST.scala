@@ -32,6 +32,9 @@ object AST {
   }
   case class EmptyAStmt(r: SRange) extends AStmt
   case class HoleAStmt(r: SRange) extends AStmt
+  case class ParenAStmt(s: AStmt, a: Around) extends AStmt {
+    def r = a.a.lr
+  }
   case class VarAStmt(m: Mods, t: Option[AExp], v: KList[AVarDecl]) extends AStmt {
     def r = v.list.last.r unionR m unionR t
   }

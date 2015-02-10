@@ -225,9 +225,11 @@ object Semantics {
       else fixCall(m,expects,addTypeArgs(denoteField(denoteParent(x),x.r,f,fr,m.onlyCall,None,e),ts,a))
 
     // Parentheses.  Java doesn't allow parentheses around types or callables, but we do.
-    case ParenAExp(x,a) if m==ExpMode => denoteExp(x,expects) map (ParenExp(_,a.a))
     case ParenAExp(x,a) if m.exp => denote(x,m,expects) flatMap {
-      case x:Exp => known(ParenExp(x,a.a))
+      case x:Exp => single(ParenExp(x,a.a),x match {
+        case _:ParenExp => Pr.parensInsideParens
+        case _ => Pr.parens
+      })
       case x:TypeOrPackage => single(x,Pr.weirdParens)
       case x:Callable => if (m.call) single(x,Pr.weirdParens)
                          else bareCall(x,expects) map (ParenExp(_,a.a))
@@ -686,6 +688,7 @@ object Semantics {
       case EmptyAStmt(r) => single(EmptyStmt(r,env),Pr.emptyStmt)
       case HoleAStmt(r) => single(HoleStmt(r,env),Pr.holeStmt)
       case TokAStmt(t,r) => known(TokStmt(t,r,env))
+      case ParenAStmt(x,_) => biased(Pr.weirdParensStmt,denoteStmt(x)(env) map needBlock)
       case VarAStmt(m,t,ds) => modifiers(m,Final) flatMap (isFinal => {
         def process(d: AVarDecl)(env: Env, x: Local): Scored[VarDecl] = d match {
           case AVarDecl(_,xr,k,None) => known(VarDecl(x,xr,k,None,env))

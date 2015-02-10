@@ -63,7 +63,9 @@ class TestDen {
                                    s"\nwanted margin $margin, got ${pp(n.dp)} / ${pp(p)} = ${pp(n.dp) / pp(p)}" +
                                    s"\nbest: $sb\nnext: ${sh(n.x)}" +
                                    s"\nbest p = ${fp(p)}" +
-                                   s"\nnext p = ${fp(n.dp)}")
+                                   s"\nnext p = ${fp(n.dp)}" +
+                                   s"\nbest (full): $b" +
+                                   s"\nnext (full): ${n.x}")
         }
         if (fl.fixpoint) {
           // Verify that locations are correctly threaded, by rerunning fix with full locations
@@ -594,8 +596,13 @@ class TestDen {
     val f = NormalMethodItem("f",X,Nil,VoidType,Nil,isStatic=false)
     implicit val env = localEnv(X,cons,f)
     val best = ApplyExp(MethodDen(ParenExp(ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=false),a),f,r),Nil,a,auto=false)
-    test("((X()).f()",best,margin=1)
+    test("((X()).f()",best)
     test("((X()).f(",best)
+  }
+
+  @Test def mismatchedIf() = {
+    implicit val env = localEnvWithBase()
+    test("if true)",IfStmt(r,true,a,HoleStmt(r,env)))
   }
 
   @Test def omittedEmptyCallParens() = {
@@ -1197,4 +1204,6 @@ class TestDen {
       test("return new B",ReturnStmt(r,ApplyExp(NewDen(r,if (static) This else None,cons,r,None),Nil,a,auto=true),env))
     }
   }
+
+  @Test def parensAroundStmt() = test("(if true)",BlockStmt(IfStmt(r,true,a,h),a,env))
 }

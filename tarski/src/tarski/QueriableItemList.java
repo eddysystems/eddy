@@ -6,6 +6,7 @@ import scala.collection.immutable.Nil$;
 import tarski.Items.Item;
 import tarski.Scores.Alt;
 import tarski.Scores.Scored;
+import static tarski.JavaScores.pp;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,8 +54,9 @@ public class QueriableItemList implements Tries.Queriable<Item>, ValueByItemQuer
     for (final Item item : items) {
       final String meant = item.name();
       if (!meant.equals(typed)) {
-        final double/*Prob*/ p = Pr.typoProbability(meant,typed);
-        if (p > Pr.minimumProbability())
+        //final JavaScores.DebugProb p = Pr.typoProbability(meant,typed);
+        final double p = Pr.typoProbability(meant,typed);
+        if (pp(p) > Pr.minimumProbability())
           results = $colon$colon$.MODULE$.apply(new Alt<Item>(p,item),results);
       }
     }

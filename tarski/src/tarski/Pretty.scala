@@ -116,8 +116,8 @@ object Pretty {
   implicit def prettyToken(x: Loc[Token]): FixTokens = (HighestFix,List(x))
   def around[A](x: A, a: Around)(implicit p: Pretty[A]): FixTokens = {
     val t = pretty(x)
-    def left (g: Group) = g match { case Paren => LParenTok; case Brack => LBrackTok; case Curly => LCurlyTok }
-    def right(g: Group) = g match { case Paren => RParenTok; case Brack => RBrackTok; case Curly => RCurlyTok }
+    def left (g: Group) = g match { case Paren => LParenTok; case Brack => LBrackTok; case Curly => LCurlyTok; case AnyGroup => impossible }
+    def right(g: Group) = g match { case Paren => RParenTok; case Brack => RBrackTok; case Curly => RCurlyTok; case AnyGroup => RightAnyTok }
     a match {
       case NoAround(_) => t
       case YesAround(l,r,a) => (HighestFix,Loc(left(l),a.l) :: t._2 ::: List(Loc(right(r),a.r)))
@@ -309,6 +309,7 @@ object Pretty {
       case SemiAStmt(s,sr) => prettyAStmtHelper(s,sr)
       case EmptyAStmt(_) => (SemiFix,sem)
       case HoleAStmt(r) => (HighestFix,hole(r))
+      case ParenAStmt(x,a) => around(x,a)
       case VarAStmt(m,t,v) => (SemiFix, m.map(tokens).flatten ::: tokens(t) ::: spaceBefore(v.list.head.r) :: tokens(v) ::: sem)
       case BlockAStmt(b,a) => (HighestFix, Loc(LCurlyTok,a.l) :: tokens(b) ::: List(Loc(RCurlyTok,a.r)))
       case TokAStmt(b,r) => (HighestFix, List(Loc(b,r)))

@@ -177,7 +177,8 @@ class TestParse {
     SemiAStmt(ExpAStmt(ApplyAExp(FieldAExp(ParenAExp(ApplyAExp("X",EmptyList,parens),parens),r,None,"f",r),EmptyList,parens)),r))
 
   @Test def weirdParens() = testAST("([{)]}",
-    ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,YesAround(Curly,Paren,a))),bracks),YesAround(Paren,Curly,a)))
+    ParenAExp(ArrayAExp(SingleList(ArrayAExp(EmptyList,YesAround(Curly,Paren,a))),bracks),YesAround(Paren,Curly,a)),
+    ParenAStmt(ArrayAExp(SingleList(ArrayAExp(EmptyList,YesAround(Curly,Paren,a))),bracks),YesAround(Paren,Curly,a)))
 
   @Test def thisForward() = testAST("this()",ApplyAExp("this",EmptyList,parens))
   @Test def superForward() = testAST("super()",ApplyAExp("super",EmptyList,parens))

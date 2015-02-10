@@ -160,6 +160,7 @@ StmtHelperBS AStmt
   SynchronizedTok MaybeParenExp Block                        { SyncAStmt($1r,$2._1,$2._2,$3) }
   TryTok Stmt CatchBlocks Option[FinallyBlock]               { TryAStmt($1r,$2,$3,$4) }
   // Switch
+  LParenTok Stmt Right                                       { ParenAStmt($2,Around(Paren,$1r,$3)) }
 AfterIf PreIf
   AfterIfA                                                   { $1 }
   AfterIfB                                                   { $1 }
@@ -340,9 +341,10 @@ Left Loc[Group]
   LBrackTok { Loc(Brack,$r) }
   LCurlyTok { Loc(Curly,$r) }
 Right Loc[Group]
-  RParenTok { Loc(Paren,$r) }
-  RBrackTok { Loc(Brack,$r) }
-  RCurlyTok { Loc(Curly,$r) }
+  RightAnyTok { Loc(AnyGroup,$r) }
+  RParenTok   { Loc(Paren,$r) }
+  RBrackTok   { Loc(Brack,$r) }
+  RCurlyTok   { Loc(Curly,$r) }
 LeftNP Loc[Group]
   LBrackTok { Loc(Brack,$r) }
   LCurlyTok { Loc(Curly,$r) }

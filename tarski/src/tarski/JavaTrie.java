@@ -315,7 +315,7 @@ public class JavaTrie {
             final double p = Pr.typoProbability(d,expected,maxDistance); //utility.JavaUtils.poissonPDF(expected, (int)Math.ceil(d));
             if (p > minProb) {
               // Leave the following line here for trackProbabilities use
-              //results.add(new Alt<String>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),name));
+              //result.add(new Alt<String>(new JavaScores.NameProb("typo e " + expected + ", d " + d,p),name));
               result.add(new Alt<String>(p,name));
             }
           }

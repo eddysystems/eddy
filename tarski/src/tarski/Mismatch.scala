@@ -18,7 +18,7 @@ object Mismatch {
 
   def part(t: Loc[Token]): Loc[Part] = t map {
     case t@(LParenTok|LBrackTok|LCurlyTok) => Left(t)
-    case t@(RParenTok|RBrackTok|RCurlyTok) => Right(t)
+    case t@(RParenTok|RBrackTok|RCurlyTok|RightAnyTok) => Right(t)
     case t => Other(t)
   }
   type Segments = List[(Loc[Part],List[Loc[Part]])]
@@ -38,8 +38,8 @@ object Mismatch {
   // Penalty turning from parens into to parens
   def pr(from: Int, to: Int): Prob = Prob(s"change parens $from -> $to",
     if (from == to) 1
-    else if (from == 0) 1.0 / to // Adding parentheses on the ends is more likely
-    else .5 / (from+abs(from-to))
+    else if (from == 0) 1.0 / (1+to)
+    else from.toDouble / (from+abs(from-to))
   )
 
   // Ensure that ps starts and ends with all kinds of parentheses
@@ -55,8 +55,7 @@ object Mismatch {
     val rR = ps.last._1.r
     def L(t: Token, r: Segments) = add(Loc(Left(t) ,rL),r)
     def R(t: Token, r: Segments) = add(Loc(Right(t),rR),r)
-    L(LCurlyTok,L(LParenTok,L(LBrackTok,
-    R(RCurlyTok,R(RParenTok,R(RBrackTok,ps.reverse))).reverse)))
+    L(LCurlyTok,L(LParenTok,L(LBrackTok,R(RightAnyTok,ps.reverse).reverse)))
   }
 
   // Coerce a segment of one length into another, keeping track of as much location information as possible
@@ -85,12 +84,35 @@ object Mismatch {
         j flatMap (j => mutate(rs,n-abs(i-j)) map ((k,tweak(k,is,j))::_))
     }
 
+  def kindErrors(ts: List[Loc[Token]]): Int = {
+    @tailrec def loop(ts: List[Token], stack: List[Token], errors: Int): Int = (ts,stack) match {
+      case (Nil,Nil) => errors
+      case ((t@(LParenTok|LBrackTok|LCurlyTok))::ts,s) => loop(ts,t::s,errors)
+      case (RightAnyTok::ts,_::s) => loop(ts,s,errors)
+      case (RParenTok::ts,LParenTok::s) => loop(ts,s,errors)
+      case (RBrackTok::ts,LBrackTok::s) => loop(ts,s,errors)
+      case (RCurlyTok::ts,LCurlyTok::s) => loop(ts,s,errors)
+      case ((RParenTok|RBrackTok|RCurlyTok)::ts,_::s) => loop(ts,s,errors+1)
+      case (_::ts,s) => loop(ts,s,errors)
+      case (Nil,_) => impossible
+    }
+    loop(ts map (_.x),Nil,0)
+  }
+
   def repair(ts: List[Loc[Token]]): Scored[List[Loc[Token]]] = if (ts.isEmpty) known(ts) else {
     val rs = ensure(segmentBy(ts map part)(_.x==_.x) map { case ps => (ps.head,ps) })
     if (matched(rs)) known(ts)
     else {
       // Mutate at most 2 times
-      mutate(rs,2).filter(matched,"Mismatched parentheses") map (s => s.map(_._2).flatten map (_ map (_.t)))
+      val ts0 = mutate(rs,2).filter(matched,"Mismatched parentheses") map (s => s.map(_._2).flatten map (_ map (_.t)))
+      val ts1 = ts0 flatMap (ts => single(ts,Prob("kind errors",pow(.5,kindErrors(ts)))))
+      if (false) {
+        println("repaired to:")
+        implicit val f = fullShowFlags
+        for (Alt(p,ts) <- ts1.stream.toList)
+          println(s"  $p : ${ts map (_.x.show) mkString " "}")
+      }
+      ts1
     }
   }
 }
