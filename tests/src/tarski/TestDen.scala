@@ -1185,4 +1185,16 @@ class TestDen {
     test("f = x.get().empty()",
       AssignExp(None,r,f,ApplyExp(MethodDen(ApplyExp(MethodDen(x,get,r),Nil,a,auto=false),empty,r),Nil,a,auto=false)))
   }
+
+  @Test def unnecessaryThisDot() = {
+    val A = NormalClassItem("A")
+    lazy val B: ClassItem = NormalClassItem("B",parent=A,constructors=Array(cons),isStatic=false)
+    lazy val cons = DefaultConstructorItem(B)
+    val This = ThisItem(A)
+    for (static <- List(false,true)) {
+      val f = NormalMethodItem("f",A,Nil,B,Nil,isStatic=static)
+      implicit val env = baseEnv.extend(Array(A,B,This,f),Map(B->1,This->1)).move(PlaceInfo(f))
+      test("return new B",ReturnStmt(r,ApplyExp(NewDen(r,if (static) This else None,cons,r,None),Nil,a,auto=true),env))
+    }
+  }
 }

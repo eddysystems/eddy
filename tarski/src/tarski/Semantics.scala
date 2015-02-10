@@ -495,14 +495,22 @@ object Semantics {
       else es ++ cs
     case v:Value if m.exp => denoteValue(v,nr,qualifiers=Nil)
     case t:TypeItem =>
-      denoteTypeItem(t) flatMap { tden =>
-        val s = if (!m.callExp) fail("Not in call mode") else tden.item match {
-          case t:ClassItem if t.constructors(env.place).length == 0 => fail(s"$t has no accessible constructors")
-          case t:ClassItem if t.isStatic => fixCall(m,expects,uniformGood(Pr.constructor,t.constructors(env.place)) map (NewDen(nr.before,None,_,nr)))
-          case t:ClassItem if !t.isStatic && t.parent.isInstanceOf[ClassItem] => fixCall(m,expects,qualifyNew(t.parent.asInstanceOf[ClassItem], nr.before, t, nr))
-          case t => fail(s"$t is not a (static) class")
+      denoteTypeItem(t) flatMap { t =>
+        val s = if (!m.callExp) fail("Not in call mode") else t.item match {
+          case t:ClassItem =>
+            val cons = t.constructors(env.place)
+            def unqualified = fixCall(m,expects,uniformGood(Pr.constructor,cons) map (NewDen(nr.before,None,_,nr)))
+            if (cons.length == 0) fail(s"$t has no accessible constructors")
+            else if (t.isStatic) unqualified
+            else t.parent match {
+              case tp:ClassItem =>
+                if (env.place.inClassNonstatic(tp)) unqualified
+                else fixCall(m,expects,qualifyNew(tp,nr.before,t,nr))
+              case tp => fail(s"$t's parent $tp is not a class")
+            }
+          case _ => fail(s"$t is not a (static) class")
         }
-        if (m.ty) knownThen(tden,s) else s
+        if (m.ty) knownThen(t,s) else s
       }
     case i:MethodItem if m.callExp => fixCall(m,expects,
       if (i.isStatic || env.inScope(i)) single(MethodDen(None,i,nr),dropNew(m,Pr.scope(i)))

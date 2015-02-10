@@ -44,6 +44,15 @@ object Environment {
       case _ => false
     }
 
+    // Are we inside the given class in a nonstatic context?
+    def inClassNonstatic(c: ClassItem): Boolean = {
+      @tailrec def loop(x: ParentItem): Boolean = x==c || (x match {
+        case x:Member => !x.isStatic && loop(x.parent)
+        case _ => false
+      })
+      loop(place)
+    }
+
     def lastEditIn(r: SRange): Boolean = r contains lastEdit
   }
   val localPlace = PlaceInfo(LocalPkg)
