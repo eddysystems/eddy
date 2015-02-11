@@ -18,4 +18,8 @@ ArrayList<Object> x = new ArrayList<Object>();
 if x contains y
 if (x.contains(y))
 
+println (xs size)
+println (size xs)
+System.out.println(xs.size());
+
 // typos
