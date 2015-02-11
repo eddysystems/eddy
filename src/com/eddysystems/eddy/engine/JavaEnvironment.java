@@ -196,17 +196,22 @@ public class JavaEnvironment {
       Collections.addAll(extra, Base.extraItems());
 
       // Add classes and packages
+      final EddyThread thread = EddyThread.getEddyThread();
       final JavaPsiFacade facade = JavaPsiFacade.getInstance(converter.project);
       for (final Item item : tarski.Base.baseItems()) {
         if (extra.contains(item) || item instanceof Items.ConstructorItem)
           continue;
         final String name = item.qualified();
         PsiElement psi;
-        if (item instanceof Items.Package)
+        if (item instanceof Items.Package) {
+          if (thread != null) thread.pushSoftInterrupts();
           psi = facade.findPackage(name);
-        else if (item instanceof Items.ClassItem)
+          if (thread != null) thread.popSoftInterrupts();
+        } else if (item instanceof Items.ClassItem) {
+          if (thread != null) thread.pushSoftInterrupts();
           psi = facade.findClass(name, scope);
-        else
+          if (thread != null) thread.popSoftInterrupts();
+        } else
           throw new NotImplementedError("Unknown base type " + item.getClass());
         if (psi == null)
           throw new NoJDKError("Couldn't find " + name);
@@ -220,7 +225,9 @@ public class JavaEnvironment {
         if (!(item instanceof Items.ConstructorItem))
           continue;
         final String clsName = ((Items.ConstructorItem) item).parent().qualified();
+        if (thread != null) thread.pushSoftInterrupts();
         final PsiClass cls = facade.findClass(clsName, scope);
+        if (thread != null) thread.popSoftInterrupts();
         assert cls != null;
         final PsiMethod[] cons = cls.getConstructors();
         if (cons.length != 1)
@@ -234,7 +241,9 @@ public class JavaEnvironment {
         if (extra.contains(item) || !(item instanceof Items.ClassItem))
           continue;
         final String name = item.qualified();
+        if (thread != null) thread.pushSoftInterrupts();
         converter.addClassMembers(facade.findClass(name, scope), (Items.ClassItem) item);
+        if (thread != null) thread.popSoftInterrupts();
       }
     } finally { popScope(); }
   }
