@@ -161,7 +161,7 @@ public class Eddy {
 
     public int autoApply() {
       // Automatically apply the best found result
-      return rawApply(eddy.document, format(0, abbrevShowFlags()));
+      return rawApply(eddy.document, format(0, fullShowFlags()));
     }
 
     public boolean shouldAutoApply() {
@@ -195,7 +195,7 @@ public class Eddy {
     }
 
     public void apply(final int index) {
-      final String full = format(results.get(index).x(),fullShowFlags());
+      final String full = format(index,fullShowFlags());
       ApplicationManager.getApplication().runWriteAction(new Runnable() {
         @Override
         public void run() {
