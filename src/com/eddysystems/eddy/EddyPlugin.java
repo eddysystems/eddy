@@ -4,6 +4,7 @@ import com.eddysystems.eddy.engine.ChangeTracker;
 import com.eddysystems.eddy.engine.EddyPsiListener;
 import com.eddysystems.eddy.engine.JavaEnvironment;
 import com.eddysystems.eddy.engine.TypeNameItemNamePair;
+import com.intellij.ide.PowerSaveMode;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
@@ -21,6 +22,7 @@ import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiTreeChangeListener;
 import com.intellij.util.PathUtil;
 import com.intellij.util.ResourceUtil;
+import com.intellij.util.messages.MessageBusConnection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -102,6 +104,7 @@ public class EddyPlugin implements ProjectComponent {
   private boolean initializing = false;
   private Object initLock = new Object();
   public boolean isInitialized() { return env != null && env.initialized(); }
+  public boolean isReady() { return isInitialized() && !PowerSaveMode.isEnabled(); }
 
   public void dropEnv() {
     if (env != null) {
@@ -225,8 +228,21 @@ public class EddyPlugin implements ProjectComponent {
   public void initComponent() {
     log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
 
+    final MessageBusConnection connection = project.getMessageBus().connect();
+
     // register our injector
-    project.getMessageBus().connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
+    connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
+
+    // register for Powersave notifications
+    connection.subscribe(PowerSaveMode.TOPIC, new PowerSaveMode.Listener() {
+      @Override
+      public void powerSaveStateChanged() {
+        widget.update();
+        if (PowerSaveMode.isEnabled()) {
+          EddyThread.kill();
+        }
+      }
+    });
 
     // initialize the global environment
     if (!app.isHeadlessEnvironment()) {

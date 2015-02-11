@@ -1,5 +1,6 @@
 package com.eddysystems.eddy;
 
+import com.intellij.ide.PowerSaveMode;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.wm.StatusBar;
 import com.intellij.openapi.wm.StatusBarWidget;
@@ -21,6 +22,7 @@ class EddyWidget implements StatusBarWidget {
 
   static private Icon eddyIcon;
   static private Icon eddyIconGray;
+  static private Icon eddyIconSleep;
 
   static public Icon getIcon() {
     if (eddyIcon == null) {
@@ -29,10 +31,16 @@ class EddyWidget implements StatusBarWidget {
     return eddyIcon;
   }
   static public Icon getIconGray() {
-    if (eddyIconGray== null) {
+    if (eddyIconGray == null) {
       makeIcons();
     }
     return eddyIconGray;
+  }
+  static public Icon getIconSleep() {
+    if (eddyIconSleep == null) {
+      makeIcons();
+    }
+    return eddyIconSleep;
   }
 
   static private void makeIcons() {
@@ -43,11 +51,14 @@ class EddyWidget implements StatusBarWidget {
       log("looking for resources in directory: " + pathname);
       eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
       eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
+      eddyIconSleep = new ImageIcon(new File(path, "eddy-icon-16-sleep.png").getPath());
     } else {
       final URL colorurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16.png");
       final URL greyurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-gray.png");
+      final URL sleepurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-sleep.png");
       eddyIcon = new ImageIcon(colorurl);
       eddyIconGray = new ImageIcon(greyurl);
+      eddyIconSleep = new ImageIcon(sleepurl);
     }
   }
 
@@ -68,7 +79,9 @@ class EddyWidget implements StatusBarWidget {
         else
           return "eddy is scanning libraries.";
       } else {
-        if (plugin.isInitialized())
+        if (PowerSaveMode.isEnabled())
+          return "eddy is disabled in power save mode.";
+        else if (plugin.isInitialized())
           return "eddy ready.";
         else
           return "eddy disabled.";
@@ -85,7 +98,9 @@ class EddyWidget implements StatusBarWidget {
     @NotNull
     @Override
     public Icon getIcon() {
-      if (busy())
+      if (PowerSaveMode.isEnabled())
+        return EddyWidget.getIconSleep();
+      else if (busy())
         return EddyWidget.getIcon();
       else
         return EddyWidget.getIconGray();
