@@ -16,6 +16,7 @@ import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.editor.RangeMarker;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
@@ -179,19 +180,24 @@ public class Eddy {
     }
 
     public int rawApply(final @NotNull Document document, final @NotNull String code) {
-      final int offsetDiff = code.length() - input.range.getLength();
       document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
+      final int afterOffset = input.range.getStartOffset() + code.length();
+
+      // remember offset
+      RangeMarker rm = document.createRangeMarker(input.range.getStartOffset(), afterOffset);
 
       // reindent
       CodeStyleManager csm = CodeStyleManager.getInstance(eddy.project);
       final int sline = document.getLineNumber(input.range.getStartOffset());
-      final int fline = document.getLineNumber(input.range.getEndOffset() + offsetDiff);
+      final int fline = document.getLineNumber(afterOffset);
       for (int i = sline; i <= fline; ++i) {
         csm.adjustLineIndent(document, document.getLineStartOffset(i));
       }
 
+      // check where original offset is now
       Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.input, results, code));
-      return offsetDiff;
+
+      return rm.getEndOffset();
     }
 
     public void apply(final int index) {
@@ -203,8 +209,8 @@ public class Eddy {
           new WriteCommandAction(eddy.project, eddy.getFile()) {
             @Override
             public void run(@NotNull Result result) {
-              final int newOffset = input.range.getEndOffset() + rawApply(eddy.document,full);
-              editor.getCaretModel().moveToOffset(newOffset);
+              int offset = rawApply(eddy.document, full);
+              editor.getCaretModel().moveToOffset(offset);
               PsiDocumentManager.getInstance(eddy.project).commitDocument(eddy.document);
             }
           }.execute();

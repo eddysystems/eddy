@@ -40,7 +40,7 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
     if (project == null)
       return Result.Continue;
 
-    caretOffset.set(caretOffset.get() + action.autoExecute());
+    caretOffset.set(caretOffset.get() - co + action.autoExecute());
     PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument());
     return Result.DefaultSkipIndent;
   }
