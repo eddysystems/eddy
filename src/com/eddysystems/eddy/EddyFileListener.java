@@ -183,6 +183,12 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     }
   }
 
+  static public boolean isHintShowing() {
+    synchronized (active_lock) {
+      return active_hint != null && active_hint.isVisible();
+    }
+  }
+
   @Override
   public void caretPositionChanged(CaretEvent e) {
     if (inChange)

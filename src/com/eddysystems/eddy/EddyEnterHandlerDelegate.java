@@ -26,6 +26,11 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
     if (action == null)
       return Result.Continue;
 
+    // only do this if a hint is showing
+    if (!EddyFileListener.isHintShowing()) {
+      return Result.Continue;
+    }
+
     // only do this if we're at the end of the line
     LogicalPosition pos = editor.getCaretModel().getCurrentCaret().getLogicalPosition();
     int co = editor.getCaretModel().getCurrentCaret().getOffset();
