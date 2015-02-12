@@ -1,6 +1,8 @@
 package com.eddysystems.eddy;
 
 import javax.swing.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
 public class PreferencesForm {
 
@@ -9,8 +11,16 @@ public class PreferencesForm {
   private JTextField autoApplyThresholdTextField;
   private JTextField autoApplyFactorTextField;
   private JTextField minProbabilityTextField;
+  private JTextField minRelativeProbability;
+  private JButton resetButton;
 
   public PreferencesForm() {
+    resetButton.addActionListener(new ActionListener() {
+      @Override
+      public void actionPerformed(ActionEvent actionEvent) {
+        Preferences.resetToDefaults();
+      }
+    });
   }
 
   public JPanel getPanel() {
@@ -22,6 +32,7 @@ public class PreferencesForm {
     autoApplyThresholdTextField.setText(data.getAutoApplyThreshold());
     autoApplyFactorTextField.setText(data.getAutoApplyFactor());
     minProbabilityTextField.setText(data.getMinProbability());
+    minRelativeProbability.setText(data.getMinRelativeProbability());
   }
 
   public void getData(PreferenceData data) {
@@ -29,6 +40,7 @@ public class PreferencesForm {
     data.setAutoApplyThreshold(autoApplyThresholdTextField.getText());
     data.setAutoApplyFactor(autoApplyFactorTextField.getText());
     data.setMinProbability(minProbabilityTextField.getText());
+    data.setMinRelativeProbability(minRelativeProbability.getText());
   }
 
   public boolean isModified(PreferenceData data) {
@@ -38,6 +50,8 @@ public class PreferencesForm {
     if (autoApplyFactorTextField.getText() != null ? !autoApplyFactorTextField.getText().equals(data.getAutoApplyFactor()) : data.getAutoApplyFactor() != null)
       return true;
     if (minProbabilityTextField.getText() != null ? !minProbabilityTextField.getText().equals(data.getMinProbability()) : data.getMinProbability() != null)
+      return true;
+    if (minRelativeProbability.getText() != null ? !minRelativeProbability.getText().equals(data.getMinRelativeProbability()) : data.getMinRelativeProbability() != null)
       return true;
     return false;
   }

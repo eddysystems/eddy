@@ -10,11 +10,14 @@ public class PreferenceData {
   private double numericAutoApplyFactor;
   private String minProbability;
   private double numericMinProbability;
+  private String minRelativeProbability;
+  private double numericMinRelativeProbability;
 
-  public static final boolean defaultAutoApply = false;
+  public static final boolean defaultAutoApply = true;
   public static final String defaultAutoApplyThreshold = "90%";
-  public static final String defaultAutoApplyFactor = "2";
+  public static final String defaultAutoApplyFactor = "3";
   public static final String defaultMinProbability = "1e-6";
+  public static final String defaultMinRelativeProbability = "0.1%";
 
   public PreferenceData() {
   }
@@ -68,7 +71,7 @@ public class PreferenceData {
     try {
       this.numericAutoApplyThreshold = toNumber(autoApplyThreshold);
     } catch (NumberFormatException e) {
-      this.numericAutoApplyThreshold = toNumber(PreferenceData.defaultAutoApplyThreshold);
+      this.numericAutoApplyThreshold = toNumber(defaultAutoApplyThreshold);
     }
   }
 
@@ -81,7 +84,7 @@ public class PreferenceData {
     try {
       this.numericAutoApplyFactor = toNumber(autoApplyFactor);
     } catch (NumberFormatException e) {
-      this.numericAutoApplyFactor = toNumber(PreferenceData.defaultAutoApplyFactor);
+      this.numericAutoApplyFactor = toNumber(defaultAutoApplyFactor);
     }
 }
 
@@ -98,7 +101,24 @@ public class PreferenceData {
     try {
       this.numericMinProbability = toNumber(minProbability);
     } catch (NumberFormatException e) {
-      this.numericMinProbability = toNumber(PreferenceData.defaultMinProbability);
+      this.numericMinProbability = toNumber(defaultMinProbability);
+    }
+  }
+
+  public double getNumericMinRelativeProbability() {
+    return numericMinRelativeProbability;
+  }
+
+  public String getMinRelativeProbability() {
+    return minRelativeProbability;
+  }
+
+  public void setMinRelativeProbability(final String minRelativeProbability) {
+    this.minRelativeProbability = minRelativeProbability;
+    try {
+      this.numericMinRelativeProbability = toNumber(minRelativeProbability);
+    } catch (NumberFormatException e) {
+      this.numericMinRelativeProbability = toNumber(defaultMinRelativeProbability);
     }
   }
 }

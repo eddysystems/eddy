@@ -52,12 +52,22 @@ public class Preferences implements Configurable {
     return form.isModified(data);
   }
 
-  static private void load() {
+  static public void load() {
     data.setAutoApply(props.getBoolean("com.eddysystems.Props.autoApply", PreferenceData.defaultAutoApply));
     data.setAutoApplyThreshold(props.getValue("com.eddysystems.Props.autoApplyThreshold", PreferenceData.defaultAutoApplyThreshold));
     data.setAutoApplyFactor(props.getValue("com.eddysystems.Props.autoApplyFactor", PreferenceData.defaultAutoApplyFactor));
     data.setMinProbability(props.getValue("com.eddysystems.Props.minProbability", PreferenceData.defaultMinProbability));
+    data.setMinRelativeProbability(props.getValue("com.eddysystems.Props.minRelativeProbability", PreferenceData.defaultMinRelativeProbability));
     initialized = true;
+  }
+
+  static public void resetToDefaults() {
+    data.setAutoApply(PreferenceData.defaultAutoApply);
+    data.setAutoApplyThreshold(PreferenceData.defaultAutoApplyThreshold);
+    data.setAutoApplyFactor(PreferenceData.defaultAutoApplyFactor);
+    data.setMinProbability(PreferenceData.defaultMinProbability);
+    data.setMinRelativeProbability(PreferenceData.defaultMinRelativeProbability);
+    form.setData(data);
   }
 
   @Override
@@ -92,6 +102,14 @@ public class Preferences implements Configurable {
     }
     data.setMinProbability(correctedMinProbability);
 
+    String correctedRelativeMinProbability;
+    try {
+      correctedRelativeMinProbability = String.format("%.2f%%", PreferenceData.toPercentage(data.getMinRelativeProbability()));
+    } catch (NumberFormatException e) {
+      throw new ConfigurationException("minimum relative probability must be a number or percentage");
+    }
+    data.setAutoApplyThreshold(correctedRelativeMinProbability);
+
     form.setData(data);
 
     // save to file
@@ -99,6 +117,7 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.autoApplyThreshold", data.getAutoApplyThreshold(), PreferenceData.defaultAutoApplyThreshold);
     props.setValue("com.eddysystems.Props.autoApplyFactor", data.getAutoApplyFactor(), PreferenceData.defaultAutoApplyFactor);
     props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
+    props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
   }
 
   @Override

@@ -20,8 +20,6 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
 import org.jetbrains.annotations.NotNull;
-import tarski.Scores;
-import tarski.Tarski;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
@@ -102,12 +100,17 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       @Override
       public void run() {
         final double cutoff = Preferences.getData().getNumericMinProbability();
+        final double relCutoff = Preferences.getData().getNumericMinRelativeProbability();
         synchronized (active_lock) {
           EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
             @Override public double take(final Eddy.Output output) {
-              if (!output.results.isEmpty())
+              double thisCutoff = cutoff;
+              if (!output.results.isEmpty()) {
                 showHint(output);
-              return output.results.size() < 4 ? cutoff : 1;
+                // get best probability
+                thisCutoff = Math.max(output.results.get(0).p() * relCutoff, cutoff);
+              }
+              return output.results.size() < 4 ? thisCutoff : 1;
             }
           }));
           active_editor = editor;
