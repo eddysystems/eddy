@@ -239,8 +239,8 @@ public class Eddy {
   }
 
   public static interface Take {
-    // return true if we're done absorbing output, false if more is desired
-    public boolean take(Output output);
+    // Returns a new cutoff probability.  To stop entirely, return 1.
+    public double take(Output output);
   }
 
   public Eddy(@NotNull final Project project, final Editor editor) {
@@ -462,7 +462,7 @@ public class Eddy {
     }
   }
 
-  public void process(final int lastEdit, final Take takeoutput) {
+  public void process(final int lastEdit, final Take takeOutput) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
       final double start = Memory.now();
@@ -481,19 +481,20 @@ public class Eddy {
         };
         final long startTime = System.nanoTime();
         final Tarski.Take take = new Tarski.Take() {
-          @Override public boolean take(final List<Alt<ShowStmts>> rs) {
-            results = rs;
-            double delay = (System.nanoTime() - startTime)/1e9;
-            delays.add(delay);
-            Eddy.Output output = new Output(Eddy.this,input,results);
-            if (isDebug())
-              System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(denotationShowFlags(), true)));
-
-            updateIntentions();
-            return takeoutput.take(output);
+          @Override public double take(final List<Alt<ShowStmts>> rs) {
+            final Eddy.Output output = new Output(Eddy.this,input,rs);
+            if (!rs.isEmpty()) {
+              results = rs;
+              final double delay = (System.nanoTime() - startTime)/1e9;
+              delays.add(delay);
+              if (isDebug())
+                System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(denotationShowFlags(), true)));
+              updateIntentions();
+            }
+            return takeOutput.take(output);
           }
         };
-        Tarski.fixTake(input.input,env,format,take,Preferences.getData().getNumericMinProbability());
+        Tarski.fixTake(input.input,env,format,take);
       }
 
       void unsafe() {

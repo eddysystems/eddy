@@ -49,45 +49,36 @@ object Tarski {
   type JResults = JList[Alt[ShowStmts]]
 
   abstract class Take {
-    // Accept some results, returning true if we've had enough.
-    def take(rs: JResults): Boolean
+    // Accept some results, returning a probability cutoff for continuing searches.  To stop, return 1.
+    def take(rs: JResults): Double
   }
 
   // Feed results to a take instance until it's satisfied
   def fixTake(tokens: java.util.List[Loc[Token]], env: Env,
-              format: (String,ShowFlags) => String, take: Take, cutoff: Double): Unit = {
+              format: (String,ShowFlags) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
     val r = fix(toks)(env)
     val sp = spaces(toks)
 
     println("input: " + Tokens.print(toks map (_.x))(abbrevShowFlags))
 
-    def streamCutoff[A](s: Scored[A]): Stream[Alt[A]] = s match {
-      case _ if s.p <= cutoff => Stream.Empty
-      case s:LazyScored[A] => streamCutoff(s.force(cutoff))
-      case Best(p,x,r) => Alt(p,x) #:: streamCutoff(r)
-      case Empty => Stream.empty
-    }
-
     // Take elements until we have enough, merging duplicates and adding their probabilities if found
-    @tailrec def mergeTake(s: Stream[Alt[ShowStmts]], m: Map[String,Alt[ShowStmts]], notify: Boolean): Unit = {
+    def mergeTake(s: Scored[ShowStmts], m: Map[String,Alt[ShowStmts]]): Unit = {
       // Check interrupts (as the probabilities decline, we hardly ever do env lookups)
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
-
-      val rs = (m.values.toList sortBy (-_.p)).asJava
-      val done = notify && take.take(rs) // if we shouldn't notify take, it gets no say in whether to continue, there's no new information.
-      if (!done && s.nonEmpty) {
-        val Alt(p,b) = s.head
-        val a = b.abbrev
-        println(s"found in stream: $p: $a")
-        if (m contains a)
-          mergeTake(s.tail, m, notify=false)
-        else
-          mergeTake(s.tail, m + ((a,Alt(p,b))), notify=true)
-      } else if (!done && m.isEmpty) {
-        // first time we get called, m is empty. If s is empty too, notify once with empty rs
-        take.take(rs)
-      }
+      val cutoff = take.take((m.values.toList sortBy (-_.p)).asJava)
+      @tailrec def loop(s: Scored[ShowStmts]): Unit =
+        if (s.p <= cutoff)
+          println(s"stopping search: p ${s.p} <= cutoff $cutoff")
+        else s match {
+          case s:LazyScored[ShowStmts] => loop(s.force(cutoff))
+          case _:EmptyOrBad => ()
+          case Best(p,b,s) =>
+            val a = b.abbrev
+            println(s"found in stream: $p: $a")
+            mergeTake(s, if (m contains a) m else m + ((a,Alt(p,b))))
+        }
+      loop(s)
     }
 
     val sc = r map (ss => {
@@ -105,7 +96,7 @@ object Tarski {
       case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("  error: "))
       case _:Best[_] => ()
     }
-    mergeTake(streamCutoff(sc), Map.empty, notify=false)
+    mergeTake(sc, Map.empty)
   }
 
   def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[List[Stmt]] = {

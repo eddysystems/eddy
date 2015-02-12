@@ -172,7 +172,7 @@ public class EddyThread extends Thread {
         EddyPlugin.getInstance(project).getWidget().moreBusy();
         try {
           eddy.process(lastEditLocation, new Eddy.Take() {
-            @Override public boolean take(Eddy.Output output) {
+            @Override public double take(final Eddy.Output output) {
               EddyThread.this.output = output;
               return cont.take(output);
             }
