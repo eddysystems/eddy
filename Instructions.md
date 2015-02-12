@@ -42,6 +42,33 @@ set of things that it understands. Our philosophy is that if it was clear what y
 are trying to say, Eddy should understand it. If eddy doesn't understand something,
 you should [leave a suggestion](TODO).
 
+## Examples
+
+Here are a few examples of the kind of things eddy understands and fixes for you:
+
+# Abbreviated control flow syntax
+
+// TODO
+
+# Abbreviated variable declarations
+
+> x = 5 => int x = 5;
+> x = Object() => Object x = new Object();
+
+# Omitted qualifiers
+
+> x = 5 => this.x = 5;
+> s = "" => OuterClass.this.s = ""
+> static_d = 0.0 => SomeClass.static_d = 0.0
+
+# Typos
+
+// TODO
+
+# Rearranging arguments
+
+// TODO
+
 ### Installing eddy
 
 Eddy is plugin for the excellent [IntelliJ IDEA](TODO) Java IDE. It is compatible
@@ -144,5 +171,30 @@ there is an `Eddy` entry in the `IDE Settings` section, in IntelliJ 14, `Eddy` i
 `Other Settings`. In either case, searching for `Eddy` in the search box will find it
 quickly. Once you bring up the configuration dialog, it looks something like this:
 
-// TODO
+// TODO (with labels)
 
+You can configure two main settings here: 1-3 control when eddy shows auto-apply hints
+(suggestions that are applied on enter, not alt+enter), and 4-5 control when eddy stops
+looking for more solutions.
+
+## Configuring auto-apply
+
+The checkbox 1 turns auto-apply on or off. If it is on, auto-apply will only be offered
+if the probability of the best found solution is above the threshold given in 2, *and*
+if there is either no other solution, or if the probability of the second best solution
+is worse by at least the factor given in 3.
+
+The default values are fairly conservative. We want to avoid showing auto-apply hints
+in situations where we could be wrong. If you find yourself often accepting the first
+hint, you may want to reduce the numbers in 2 and 3 to better reflect your preferences.
+The more you get used to eddy, the more you will use its abbreviation and shortcut
+features, and you will want to immediately accept suggestions with lower absolute
+probabilities.
+
+Eddy will stop looking for solutions once their probability falls below the threshold
+given in 4. To avoid not seeing more esoteric solutions, absolute threshold in 4 should
+not be set too high. We frequently see useful solutions with probabilities barely above
+1e-4, depending how much you use eddy's more advanced fixes. The field 5 sets a relative
+bound: eddy will stop looking once it knows there are no more solutions whose
+probabilities are above the probability of the best found solution times the factor
+given in 5.
