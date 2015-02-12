@@ -68,13 +68,17 @@ public class Eddy {
     final List<Loc<Token>> input;
     final PsiElement place;
     final String before_text;
+    final boolean atEOL;
 
-    Input(final TextRange range, final List<Loc<Token>> input, final PsiElement place, final String before_text) {
+    Input(final TextRange range, final List<Loc<Token>> input, final PsiElement place, final String before_text, final boolean atEOL) {
       this.range = range;
       this.input = input;
       this.place = place;
       this.before_text = before_text;
+      this.atEOL = atEOL;
     }
+
+    public boolean isAtEOL() { return atEOL; }
 
     public String getText() {
       return before_text;
@@ -165,7 +169,7 @@ public class Eddy {
       return rawApply(eddy.document, format(0, fullShowFlags()));
     }
 
-    public boolean shouldAutoApply() {
+    public boolean isConfident() {
       // check if we're confident enough to apply the best found result automatically
       PreferenceData data = Preferences.getData();
       double t = data.getNumericAutoApplyThreshold();
@@ -177,6 +181,10 @@ public class Eddy {
           return results.get(0).p()/results.get(1).p() > f;
       }
       return false;
+    }
+
+    public boolean shouldAutoApply() {
+      return isConfident() && input.isAtEOL();
     }
 
     public int rawApply(final @NotNull Document document, final @NotNull String code) {
@@ -433,7 +441,11 @@ public class Eddy {
 
     final String before = document.getText(trim);
     log("eddy before: " + before.replaceAll("[\n\t ]+", " "));
-    return new Input(trim,tokens,place,before);
+
+    // find out whether we're functionally at the end of the line (not counting whitespace)
+    boolean atEOL = editor.getDocument().getText(new TextRange(cursor, range.getEndOffset())).trim().isEmpty();
+
+    return new Input(trim,tokens,place,before,atEOL);
   }
 
   public Env env(final Input input, final int lastEdit) {

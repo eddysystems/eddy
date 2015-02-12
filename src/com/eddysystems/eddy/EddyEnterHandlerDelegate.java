@@ -4,11 +4,9 @@ import com.eddysystems.eddy.actions.EddyAction;
 import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegate;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.LogicalPosition;
 import com.intellij.openapi.editor.actionSystem.EditorActionHandler;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Ref;
-import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
@@ -31,13 +29,7 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
       return Result.Continue;
     }
 
-    // only do this if we're at the end of the line
-    LogicalPosition pos = editor.getCaretModel().getCurrentCaret().getLogicalPosition();
-    int co = editor.getCaretModel().getCurrentCaret().getOffset();
-    int nextLine = editor.getDocument().getLineStartOffset(pos.line+1);
-    if (!editor.getDocument().getText(new TextRange(co,nextLine)).trim().isEmpty())
-      return Result.Continue;
-
+    // check if we should be auto-applying
     if (!action.getOutput().shouldAutoApply())
       return Result.Continue;
 
@@ -45,6 +37,7 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
     if (project == null)
       return Result.Continue;
 
+    int co = editor.getCaretModel().getCurrentCaret().getOffset();
     caretOffset.set(caretOffset.get() - co + action.autoExecute());
     PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument());
     return Result.DefaultSkipIndent;
