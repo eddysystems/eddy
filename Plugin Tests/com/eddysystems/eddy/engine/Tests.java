@@ -115,14 +115,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
       class TestTake implements Eddy.Take {
         Eddy.Output output = null;
-        @Override public boolean take(Eddy.Output output) {
+        @Override public double take(Eddy.Output output) {
           this.output = output;
-          if (output.results.size() < 4) return false;
-          if (special == null) return true;
+          if (output.results.size() < 4) return 0;
+          if (special == null) return 1;
           for (final Alt<ShowStmts> r : output.results)
             if (Eddy.Output.format(r.x(),abbrevShowFlags()).equals(special))
-              return true;
-          return false;
+              return 1;
+          return 0;
         }
       }
 

@@ -111,24 +111,26 @@ object ParseEddyActions {
   def ExpOrOr_ExpJuxtNP1(x1: AExp): AExp = x1
   def StmtHelperBS0(x1: AExp, x2: KList[AVarDecl]): AStmt = VarAStmt(Nil,Some(x1),x2)
   def StmtHelperBS1(x2: ForInfo, x4: AStmt, x1r: Range): AStmt = ForAStmt(x1r,x2,NoAround(x2.r),x4)
-  def StmtHelperBS2(x2: AExp, x1r: Range): AStmt = ThrowAStmt(x1r,x2)
-  def StmtHelperBS3(x1: Loc[Boolean], x2: (AExp,AStmt)): AStmt = WhileAStmt(x1.r,x1.x,x2._1,NoAround(x2._2.r),x2._2)
-  def StmtHelperBS4(x2: AStmt, x3: Loc[Group], x1r: Range): AStmt = ParenAStmt(x2,Around(Paren,x1r,x3))
-  def StmtHelperBS5(x2: Option[Loc[String]], x1r: Range): AStmt = BreakAStmt(x1r,x2)
-  def StmtHelperBS6(x1: Loc[Boolean], x2: AExp): AStmt = /* null */ { val er = x2.r; filterNoStartsWithParen[AStmt](x2)(WhileAStmt(x1.r,x1.x,_,NoAround(er),EmptyAStmt(er.after))) }
-  def StmtHelperBS7(x1: (Long,AStmt), x2: (Loc[Boolean],(AExp,Around))): AStmt = DoAStmt(x1._1,x1._2,x2._1.r,x2._1.x,x2._2._1,x2._2._2)
-  def StmtHelperBS8(x2: AExp, x4: AExp, x1r: Range, x3r: Range): AStmt = AssertAStmt(x1r,x2,Some((x3r:SRange,x4)))
-  def StmtHelperBS9(x2: (AExp,Around), x3: AStmt, x1r: Range): AStmt = SyncAStmt(x1r,x2._1,x2._2,x3)
-  def StmtHelperBS10(x1: AStmt): AStmt = x1
-  def StmtHelperBS11(x1: List[Loc[Mod]], x2: (Option[AExp],KList[AVarDecl])): AStmt = VarAStmt(x1,x2._1,x2._2)
-  def StmtHelperBS12(x1: (Long,AStmt), x2: (List[(CatchInfo,AStmt)],Option[(SRange,AStmt)])): AStmt = TryAStmt(x1._1,x1._2,x2._1,x2._2)
-  def StmtHelperBS13(x1: (Loc[Boolean],(AExp,Around)), x2: AStmt): AStmt = WhileAStmt(x1._1.r,x1._1.x,x1._2._1,x1._2._2,x2)
-  def StmtHelperBS14(x2: PreIf, x1r: Range): AStmt = x2(x1r)
-  def StmtHelperBS15(x1: AExp): AStmt = ExpAStmt(x1)
-  def StmtHelperBS16(x2: AExp, x1r: Range): AStmt = AssertAStmt(x1r,x2,None)
-  def StmtHelperBS17(x2: Option[AExp], x1r: Range): AStmt = ReturnAStmt(x1r,x2)
-  def StmtHelperBS18(x2: Option[Loc[String]], x1r: Range): AStmt = ContinueAStmt(x1r,x2)
-  def StmtHelperBS19(x1: (Long,Loc[Group],ForInfo), x2: (Loc[Group],AStmt)): AStmt = ForAStmt(x1._1,x1._3,Around(x1._2,x2._1),x2._2)
+  def StmtHelperBS2(x2: AExp, x3: AStmt, x1r: Range): AStmt = SyncAStmt(x1r,x2,NoAround(x2.r),x3)
+  def StmtHelperBS3(x2: AExp, x1r: Range): AStmt = ThrowAStmt(x1r,x2)
+  def StmtHelperBS4(x1: Loc[Boolean], x2: (AExp,AStmt)): AStmt = WhileAStmt(x1.r,x1.x,x2._1,NoAround(x2._2.r),x2._2)
+  def StmtHelperBS5(x2: AStmt, x3: Loc[Group], x1r: Range): AStmt = ParenAStmt(x2,Around(Paren,x1r,x3))
+  def StmtHelperBS6(x2: Option[Loc[String]], x1r: Range): AStmt = BreakAStmt(x1r,x2)
+  def StmtHelperBS7(x2: AExp, x4: AStmt, x1r: Range): AStmt = SyncAStmt(x1r,x2,NoAround(x2.r),x4)
+  def StmtHelperBS8(x1: Loc[Boolean], x2: AExp): AStmt = /* null */ { val er = x2.r; filterNoStartsWithParen[AStmt](x2)(WhileAStmt(x1.r,x1.x,_,NoAround(er),EmptyAStmt(er.after))) }
+  def StmtHelperBS9(x1: (Long,AStmt), x2: (Loc[Boolean],(AExp,Around))): AStmt = DoAStmt(x1._1,x1._2,x2._1.r,x2._1.x,x2._2._1,x2._2._2)
+  def StmtHelperBS10(x2: AExp, x4: AExp, x1r: Range, x3r: Range): AStmt = AssertAStmt(x1r,x2,Some((x3r:SRange,x4)))
+  def StmtHelperBS11(x1: AStmt): AStmt = x1
+  def StmtHelperBS12(x1: List[Loc[Mod]], x2: (Option[AExp],KList[AVarDecl])): AStmt = VarAStmt(x1,x2._1,x2._2)
+  def StmtHelperBS13(x1: (Long,AStmt), x2: (List[(CatchInfo,AStmt)],Option[(SRange,AStmt)])): AStmt = TryAStmt(x1._1,x1._2,x2._1,x2._2)
+  def StmtHelperBS14(x1: (Loc[Boolean],(AExp,Around)), x2: AStmt): AStmt = WhileAStmt(x1._1.r,x1._1.x,x1._2._1,x1._2._2,x2)
+  def StmtHelperBS15(x2: PreIf, x1r: Range): AStmt = x2(x1r)
+  def StmtHelperBS16(x1: AExp): AStmt = ExpAStmt(x1)
+  def StmtHelperBS17(x2: AExp, x1r: Range): AStmt = AssertAStmt(x1r,x2,None)
+  def StmtHelperBS18(x2: Option[AExp], x1r: Range): AStmt = ReturnAStmt(x1r,x2)
+  def StmtHelperBS19(x1: (Long,(AExp,Around)), x2: AStmt): AStmt = SyncAStmt(x1._1,x1._2._1,x1._2._2,x2)
+  def StmtHelperBS20(x2: Option[Loc[String]], x1r: Range): AStmt = ContinueAStmt(x1r,x2)
+  def StmtHelperBS21(x1: (Long,Loc[Group],ForInfo), x2: (Loc[Group],AStmt)): AStmt = ForAStmt(x1._1,x1._3,Around(x1._2,x2._1),x2._2)
   def ExpEq_ExpJuxt0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(NeOp,x2r,x1,x3)
   def ExpEq_ExpJuxt1(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(EqOp,x2r,x1,x3)
   def ExpEq_ExpJuxt2(x1: AExp): AExp = x1
@@ -324,6 +326,7 @@ object ParseEddyActions {
   def Stmts1(x1: AStmt): List[AStmt] = List(x1)
   def Stmts2(x2: List[AStmt], x1r: Range): List[AStmt] = SemiAStmt(EmptyAStmt(x1r.before),x1r) :: x2
   def Stmts3(): List[AStmt] = Nil
+  def SynchronizedTok__ParenExp0(x2: (AExp,Around), x1r: Range): (Long,(AExp,Around)) = (x1r,x2)
   def AssignOp__ExpAssign0(x1: Loc[Option[AssignOp]], x2: AExp): (Loc[Option[AssignOp]],AExp) = (x1,x2)
   def ExpRel_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GtOp,x2r,x1,x3)
   def ExpRel_ExpWild1(x1: AExp, x3: AExp, x2r: Range): AExp = InstanceofAExp(x1,x2r,x3)
@@ -333,9 +336,9 @@ object ParseEddyActions {
   def ExpRel_ExpWild5(x1: AExp): AExp = x1
   def List_ExpAssignNC__Right0(x1: KList[AExp], x2: Loc[Group]): (KList[AExp],Loc[Group]) = (x1,x2)
   def StmtHelper0(x1: AStmt): AStmt = x1
-  def StmtHelper1(x2: PreIf, x1r: Range): AStmt = x2(x1r)
-  def StmtHelper2(x1: (Long,Loc[Group]), x2: (ForInfo,Loc[Group])): AStmt = ForAStmt(x1._1,x2._1,Around(x1._2,x2._2),HoleAStmt(x2._2.r.after))
-  def StmtHelper3(x2: (AExp,Around), x1r: Range): AStmt = SyncAStmt(x1r,x2._1,x2._2,HoleAStmt(x2._2.r.after))
+  def StmtHelper1(x2: (AExp,Around), x1r: Range): AStmt = SyncAStmt(x1r,x2._1,x2._2,HoleAStmt(x2._2.r.after))
+  def StmtHelper2(x2: PreIf, x1r: Range): AStmt = x2(x1r)
+  def StmtHelper3(x1: (Long,Loc[Group]), x2: (ForInfo,Loc[Group])): AStmt = ForAStmt(x1._1,x2._1,Around(x1._2,x2._2),HoleAStmt(x2._2.r.after))
   def StmtHelper4(x1: Loc[Boolean], x2: ((AExp,Around),Option[SRange])): AStmt = WhileAStmt(x1.r,x1.x,x2._1._1,x2._1._2,HoleAStmt(x2._1._2.r.union(x2._2).after))
   def StmtHelper5(x2: ForInfo, x1r: Range): AStmt = { val ir = x2.r; ForAStmt(x1r,x2,NoAround(ir),HoleAStmt(ir.after)) }
   def ExpUnary_ExpWild0(x1: (Long,AExp), x2: (Loc[Group],AExp)): AExp = CastAExp(x1._2,Around(Paren,x1._1,x2._1),x2._2)
