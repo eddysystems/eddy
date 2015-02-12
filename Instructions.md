@@ -2,7 +2,9 @@
 
 Eddy is a plugin for IntelliJ that helps you write code faster. It can auto-correct
 broken Java to legal Java, correcting syntax as well as many common semantic errors.
-Even considering IntelliJ's pretty advanced inspection and correction features, you
+No matter whether you're new to Java and figuring out its syntax, or whether you're
+a seasoned Java programmer who wants to write shorthand, eddy is for you. Even
+considering IntelliJ's pretty advanced inspection and correction features, you
 will save a lot of time. Consider this input:
 
 > TODO
@@ -70,10 +72,77 @@ different than what you wrote, it also shows a [hint](TODO).
 
 ## Eddy hints
 
+If eddy finds only solutions that are not the same as what's already there, it
+will show a hint. Most commonly, you will see this kind of hint:
 
+// TODO
+
+This is eddy's way of telling you it has found a solution, and it's different
+from what you wrote. If eddy has found only one solution, you can hit Alt+Enter
+to immediately apply the solution. Your cursor will be at the same point in the
+line as before.
+
+If eddy found several possible solutions, the hint will say so, like this:
+
+// TODO
+
+Then, hitting Alt+Enter will open a menu with up to four possible solutions, from
+which you can select one to apply.
+
+If you have enabled the auto-apply feature in eddy's settings [link below](TODO),
+and if eddy is very confident about its preferred solution, the hint will look
+like this:
+
+// TODO
+
+Eddy will only show these hints if you are at the end of the line. If you hit
+enter, the solution will be applied automatically, and your cursor will be in the
+next line (as you would expect when you hit enter). If you don't want eddy's
+suggestion, press escape. The hint will go away and enter will behave normally.
+
+Eddy shows hints after you have edited the file, or if you moved to a different
+line. It will not show hints if you move around within a line.
 
 ## Eddy's intention action
 
+Even if eddy does not show a hint, you can still look at eddy's solutions through
+IntelliJ's intention action system. Once IntelliJ's lightbulb shows
+
+// TODO
+
+hit Alt+Enter to access the intentions menu. Eddy offers two intentions. If it found
+anything, you will see the "eddy thinks..." action (if eddy found a unique solution,
+it will tell you here). Selecting it has the same effect as hitting Alt+Enter when a
+hint is shown.
+
+Whenever eddy is available, you will also see the "suggest solution" action. It's
+described below.
+
 ## Suggesting a solution for eddy
 
+Whenever eddy doesn't find what you're looking for, you can suggest the correct
+solution using the ["suggest solution"](TODO) intention action. This will bring up
+this dialog:
+
+// TODO
+
+It shows the input eddy was processing, and the list of abbreviated solutions it found.
+Each solution comes with a score (roughly, a probability). If you click on any solution,
+an expanded version (the text that would have been inserted) is shown in the text field
+below.
+
+You can enter your preferred solution in the text field on the bottom of the dialog.
+It's just text, so feel free to add any information you feel would be helpful to
+understand why eddy's solution is not the best one, for example, information about
+classes used in the line, your intentions when writing the original line, or maybe
+some surrounding code that eddy should have used as input but didn't.
+
 ### Configuring eddy
+
+You can access eddy's configuration in IntelliJ's preferences dialog. In IntelliJ 13,
+there is an `Eddy` entry in the `IDE Settings` section, in IntelliJ 14, `Eddy` is under
+`Other Settings`. In either case, searching for `Eddy` in the search box will find it
+quickly. Once you bring up the configuration dialog, it looks something like this:
+
+// TODO
+
