@@ -526,6 +526,7 @@ class TestDen {
   @Test def sync () = test("synchronized null", SyncStmt(r,NullLit(r),a,BlockStmt(List(h),a,env)))
   @Test def sync2() = test("synchronized null {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a,env)))
   @Test def sync3() = test("synchronized (null) {}", SyncStmt(r,NullLit(r),a,BlockStmt(Nil,a,env)))
+  @Test def sync4() = test("synchronized (null) return", SyncStmt(r,NullLit(r),a,BlockStmt(List(ReturnStmt(r,None,env)),a,env)))
 
   // inserting a cast to bool
   @Test def insertIntComparison() = test("if 1 then;", IfStmt(r,BinaryExp(NeOp,r,1,0),a,es))

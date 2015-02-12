@@ -137,7 +137,7 @@ StmtHelper AStmt
   WhileUntil MaybeParenExp MaybeDo                           { WhileAStmt($1.r,$1.x,$2._1,$2._2,HoleAStmt($2._2.r.union($3).after)) }
   ForTok Left ForInfo Right                                  { ForAStmt($1r,$3,Around($2,$4),HoleAStmt($4.r.after)) }
   ForTok ForInfo                                             { { val ir = $2.r; ForAStmt($1r,$2,NoAround(ir),HoleAStmt(ir.after)) } }
-  SynchronizedTok MaybeParenExp                              { SyncAStmt($1r,$2._1,$2._2,HoleAStmt($2._2.r.after)) }
+  SynchronizedTok MaybeParenExp MaybeDo                      { SyncAStmt($1r,$2._1,$2._2,HoleAStmt($2._2.r.after)) }
 StmtHelperBS AStmt
   Type List1[VarDecl]                                        { VarAStmt(Nil,Some($1),$2) }
   Juxts1[Mod] Option[Type] List1[VarDecl]                    { VarAStmt($1,$2,$3) }
@@ -157,7 +157,9 @@ StmtHelperBS AStmt
   DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($1r,$2,$3.r,$3.x,$4._1,$4._2) }
   ForTok Left ForInfo Right Stmt                             { ForAStmt($1r,$3,Around($2,$4),$5) }
   ForTok ForInfo DoTok Stmt                                  { ForAStmt($1r,$2,NoAround($2.r),$4) }
-  SynchronizedTok MaybeParenExp Block                        { SyncAStmt($1r,$2._1,$2._2,$3) }
+  SynchronizedTok ParenExp MaybeDo Stmt                      { SyncAStmt($1r,$2._1,$2._2,$4) }
+  SynchronizedTok ExpAssignNP DoTok Stmt                     { SyncAStmt($1r,$2,NoAround($2.r),$4) }
+  SynchronizedTok ExpAssignNP Block                          { SyncAStmt($1r,$2,NoAround($2.r),$3) }
   TryTok Stmt CatchBlocks Option[FinallyBlock]               { TryAStmt($1r,$2,$3,$4) }
   // Switch
   LParenTok Stmt Right                                       { ParenAStmt($2,Around(Paren,$1r,$3)) }
