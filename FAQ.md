@@ -71,7 +71,8 @@ to improve eddy. You can read more about how we use your data in our [privacy po
 
 ### Can I opt out of knowledge collection?
 
-Not yet. In the free version of eddy, you get to use eddy, and eddy gets to learn
-from how you use it. In the future, we will offer paid subscriptions in which you can
+In the free version of eddy, you get to use eddy, and eddy gets to learn from how 
+you use it. In the future, we will offer paid subscriptions in which you can
 opt out of data collection entirely or restrict the use of your inputs only to your
-own eddy account.
+own eddy account. If you don't want to wait, [contact us](TODO), and I'm sure we
+can work something out.
