@@ -2,11 +2,18 @@
   <id>com.eddy.generator</id>
   <name>Eddy</name>
   <version>0.1-14</version>
-  <vendor email="support@eddy.systems" url="http://eddy.systems">Eddy</vendor>
+  <vendor email="info@eddy.systems" url="https://eddy.systems">Eddy</vendor>
 
   <description><![CDATA[
-      Eddy helps write code. If you make mistakes, eddy will try to understand you anyway and propose proper Java. If Eddy
-      isn't sure what you meant, it'll show you options.<br>
+      <p>
+      Eddy helps write code. If you make mistakes, eddy will try to understand you anyway and propose proper Java.
+      If eddy isn't sure what you meant, it'll show you options.
+      </p><p>
+      For examples of what eddy can do, see our
+      <a href="https://eddy.systems/instructions.html">instructions page</a>.  To report an issue,
+      use the <a href="https://github.com/eddysystems/issues/issues">issue tracker</a> or ask a question
+      on the <a href="https://eddy.systems/forum.html">mailing list</a>.
+      </p>
     ]]></description>
 
   <change-notes><![CDATA[
