@@ -184,6 +184,9 @@ public class Eddy {
     }
 
     public boolean shouldAutoApply() {
+      if (!Preferences.getData().isAutoApply())
+        return false;
+
       return isConfident() && input.isAtEOL();
     }
 
