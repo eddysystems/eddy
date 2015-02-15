@@ -2,7 +2,6 @@ package tarski
 
 import tarski.Mods.Final
 import utility.Locations._
-import utility.Utility._
 import tarski.AST._
 import tarski.Base._
 import tarski.Denotations._
@@ -1207,4 +1206,8 @@ class TestDen {
   }
 
   @Test def parensAroundStmt() = test("(if true)",BlockStmt(IfStmt(r,true,a,h),a,env))
+
+  @Test def integer() = test("x = Integer(4)", "x", x => {
+    VarStmt(Nil,IntegerItem.simple,r,List(VarDecl(x,r,0,Some((r,ApplyExp(NewDen(r,None,IntegerConsItem,r,None),List(4),a,auto=false))),env)),env)
+  })
 }

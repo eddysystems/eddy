@@ -508,4 +508,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testSystemOut() {
     test("println.java", "System.out.println(\"\");");
   }
+
+  public void testInteger() {
+    test("integer.java", "Integer x = new Integer(4);");
+  }
 }

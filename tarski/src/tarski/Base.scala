@@ -176,6 +176,9 @@ object Base {
   val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
   if (ObjectItem.constructors.length==0)
     ObjectItem.constructors = Array(ObjectConsItem)
+  val IntegerConsItem = NormalConstructorItem(IntegerItem,Nil,List(ubIntItem.simple))
+  if (IntegerItem.constructors.length==0)
+    IntegerItem.constructors = Array(IntegerConsItem)
 
   // Classes that have important statics inside should be added here so we find them in valueByItem
   case object SystemItem extends SimpleClassItem {
@@ -203,7 +206,7 @@ object Base {
     // exception base classes
     ThrowableItem, ErrorItem, ExceptionItem,
     // Constructors
-    ObjectConsItem,
+    ObjectConsItem, IntegerConsItem,
     // Literals
     trueLit,falseLit,nullLit
   )
