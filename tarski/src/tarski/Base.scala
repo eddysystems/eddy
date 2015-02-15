@@ -67,11 +67,23 @@ object Base {
     val superItems = supers map (_.item)
     def isFinal = false
   }
-
+  case object ErrorItem extends SimpleClassItem {
+    def name = "Error"
+    val base = ThrowableType
+    val interfaces = Nil
+    val supers = List(base)
+    val superItems = List(ThrowableItem)
+    def isFinal = false
+  }
+  case object ExceptionItem extends SimpleClassItem {
+    def name = "Exception"
+    val base = ThrowableType
+    val interfaces = Nil
+    val supers = List(base)
+    val superItems = List(ThrowableItem)
+    def isFinal = false
+  }
   val ThrowableType = ThrowableItem.simple
-  val ErrorItem = NormalClassItem("Error", JavaLangPkg, base=ThrowableItem.simple)
-  val ErrorType = ErrorItem.simple
-  val ExceptionItem = NormalClassItem("Exception",JavaLangPkg, base=ThrowableItem.simple)
   val ExceptionType = ExceptionItem.simple
 
   // Iterable
@@ -170,15 +182,12 @@ object Base {
   // Literals
   val trueLit = LitValue(BooleanLit(true,_))
   val falseLit = LitValue(BooleanLit(false,_))
-  val nullLit = LitValue(NullLit(_))
+  val nullLit = LitValue(NullLit)
 
-  // Basic callables for test use
-  val ObjectConsItem = NormalConstructorItem(ObjectItem,Nil,Nil)
+  // Basic callables for test use.  Overwritten in normal JavaEnvironment processing.
+  val ObjectConsItem = DefaultConstructorItem(ObjectItem)
   if (ObjectItem.constructors.length==0)
     ObjectItem.constructors = Array(ObjectConsItem)
-  val IntegerConsItem = NormalConstructorItem(IntegerItem,Nil,List(ubIntItem.simple))
-  if (IntegerItem.constructors.length==0)
-    IntegerItem.constructors = Array(IntegerConsItem)
 
   // Classes that have important statics inside should be added here so we find them in valueByItem
   case object SystemItem extends SimpleClassItem {
@@ -203,10 +212,8 @@ object Base {
     SystemItem,
     // Interfaces
     CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem,
-    // exception base classes
+    // Exception base classes
     ThrowableItem, ErrorItem, ExceptionItem,
-    // Constructors
-    ObjectConsItem, IntegerConsItem,
     // Literals
     trueLit,falseLit,nullLit
   )

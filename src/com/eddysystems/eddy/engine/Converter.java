@@ -552,7 +552,7 @@ class Converter {
          // if we are forced to recurse, we may still have to add fields that were previously unseen
          // don't do this for TypeVars
          if (recurse && i instanceof ClassItem)
-           addClassMembers(cls, (ClassItem)i);
+           addClassMembers(cls, (ClassItem)i, false);
          return (RefTypeItem)i;
        }
      }
@@ -565,22 +565,30 @@ class Converter {
 
      // if we're a class, all our members should really be ok
      if (recurse)
-       addClassMembers(cls,item);
+       addClassMembers(cls,item,false);
      return item;
    }
 
-   void addClassMembers(PsiClass cls, ClassItem item) {
+   // Returns null if collectConstructors is false, otherwise a list of constructors
+   List<ConstructorItem> addClassMembers(final PsiClass cls, final ClassItem item, final boolean collectConstructors) {
      final Set<String> set = item instanceof BaseItem ? ((BaseItem)item).fieldNames() : null;
      for (PsiField f : cls.getFields()) {
        if (set != null)
          set.add(f.getName());
        addField(f);
      }
-     for (PsiMethod m : cls.getMethods())
-       addMethod(m);
+
+     final List<ConstructorItem> cons = collectConstructors ? new SmartList<ConstructorItem>() : null;
+     for (PsiMethod m : cls.getMethods()) {
+       final CallableItem mi = addMethod(m);
+       if (collectConstructors && mi instanceof ConstructorItem)
+         cons.add((ConstructorItem) mi);
+     }
 
      for (PsiClass c : cls.getInnerClasses())
        addClassRecursively(c);
+
+     return cons;
    }
 
    private scala.collection.immutable.List<TypeVar> tparams(PsiTypeParameterListOwner owner) {

@@ -1207,7 +1207,10 @@ class TestDen {
 
   @Test def parensAroundStmt() = test("(if true)",BlockStmt(IfStmt(r,true,a,h),a,env))
 
-  @Test def integer() = test("x = Integer(4)", "x", x => {
-    VarStmt(Nil,IntegerItem.simple,r,List(VarDecl(x,r,0,Some((r,ApplyExp(NewDen(r,None,IntegerConsItem,r,None),List(4),a,auto=false))),env)),env)
-  })
+  @Test def integer() = {
+    val cons = NormalConstructorItem(IntegerItem,Nil,List(IntType))
+    IntegerItem.constructors = Array(cons)
+    test("x = Integer(4)", "x", x =>
+      VarStmt(Nil,IntegerItem,r,List(VarDecl(x,r,0,Some((r,ApplyExp(NewDen(r,None,cons,r,None),List(4),a,auto=false))),env)),env))
+  }
 }

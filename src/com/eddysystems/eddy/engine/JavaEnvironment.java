@@ -23,6 +23,9 @@ import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import tarski.*;
 import tarski.Items.Item;
+import tarski.Items.BaseItem;
+import tarski.Items.ClassItem;
+import tarski.Items.ConstructorItem;
 
 import java.util.*;
 import java.util.concurrent.CancellationException;
@@ -199,7 +202,7 @@ public class JavaEnvironment {
       final EddyThread thread = EddyThread.getEddyThread();
       final JavaPsiFacade facade = JavaPsiFacade.getInstance(converter.project);
       for (final Item item : tarski.Base.baseItems()) {
-        if (extra.contains(item) || item instanceof Items.ConstructorItem)
+        if (extra.contains(item))
           continue;
         final String name = item.qualified();
         PsiElement psi;
@@ -220,30 +223,19 @@ public class JavaEnvironment {
           converter.put(psi, item);
       }
 
-      // Add constructors
-      for (final Item item : tarski.Base.baseItems()) {
-        if (!(item instanceof Items.ConstructorItem))
-          continue;
-        final String clsName = ((Items.ConstructorItem) item).parent().qualified();
-        if (thread != null) thread.pushSoftInterrupts();
-        final PsiClass cls = facade.findClass(clsName, scope);
-        if (thread != null) thread.popSoftInterrupts();
-        assert cls != null;
-        final PsiMethod[] cons = cls.getConstructors();
-        if (cons.length != 1)
-          log("found " + cons.length + " constructors for object " + cls);
-        if (!converter.knows(cons[0]))
-          converter.put(cons[0], item);
-      }
-
       // Add class members
       for (final Item item : tarski.Base.baseItems()) {
         if (extra.contains(item) || !(item instanceof Items.ClassItem))
           continue;
+        final ClassItem item_ = (ClassItem) item;
         final String name = item.qualified();
+        final boolean isClass = item_.isClass();
+        assert !isClass || item instanceof BaseItem; // Required for constructors to work
         if (thread != null) thread.pushSoftInterrupts();
-        converter.addClassMembers(facade.findClass(name, scope), (Items.ClassItem) item);
+        final List<ConstructorItem> cons = converter.addClassMembers(facade.findClass(name, scope), item_, isClass);
         if (thread != null) thread.popSoftInterrupts();
+        if (isClass)
+          ((BaseItem)item).constructors_$eq(cons.toArray(new ConstructorItem[cons.size()]));
       }
     } finally { popScope(); }
   }
