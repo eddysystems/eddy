@@ -506,10 +506,14 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   // TODO: make sure resolution precedence between imports is correct (do we need sublevels between import statements?)
 
   public void testSystemOut() {
-    test("println.java", "System.out.println(\"\");");
+    testMargin("println.java", "System.out.println(\"\");", .995);
   }
 
   public void testInteger() {
-    test("integer.java", "Integer x = new Integer(4);");
+    testMargin("integer.java", "Integer x = new Integer(4);", .9);
+  }
+
+  public void testPackages() {
+    testMargin("packages.java", "java.util.ArrayList<Integer> x = new java.util.ArrayList<Integer>();", .9);
   }
 }
