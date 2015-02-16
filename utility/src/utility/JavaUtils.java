@@ -95,4 +95,20 @@ public class JavaUtils {
   public static void popDebug() {
     _isDebug = debugStack.pop() ? 1 : 0;
   }
+
+  // Concatenate a bunch of arrays
+  public static <A> A[] concatenate(final A[]... arrays) {
+    assert arrays.length > 0;
+    int total = 0;
+    for (int i=0;i<arrays.length;i++)
+      total += arrays[i].length;
+    final A[] all = (A[])java.lang.reflect.Array.newInstance(arrays[0].getClass().getComponentType(),total);
+    int offset = 0;
+    for (int i=0;i<arrays.length;i++) {
+      final A[] a = arrays[i];
+      System.arraycopy(a,0,all,offset,a.length);
+      offset += a.length;
+    }
+    return all;
+  }
 }

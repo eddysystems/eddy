@@ -36,8 +36,7 @@ import java.util.concurrent.locks.Lock;
 import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
 import static com.eddysystems.eddy.engine.Utility.*;
 import static java.lang.Thread.sleep;
-import static utility.JavaUtils.popScope;
-import static utility.JavaUtils.pushScope;
+import static utility.JavaUtils.*;
 
 // a class storing information about the environment.
 public class JavaEnvironment {
@@ -246,24 +245,21 @@ public class JavaEnvironment {
       if (updateFuture.isCancelled())
         return null;
 
-      String[] classNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
+      final String[] classNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllClassNames();
       }});
 
       if (updateFuture.isCancelled())
         return null;
 
-      String[] methodNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
+      final String[] methodNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         return PsiShortNamesCache.getInstance(project).getAllMethodNames();
       }});
 
       if (updateFuture.isCancelled())
         return null;
 
-      final String[] allNames = new String[classNames.length + fieldNames.length + methodNames.length];
-      System.arraycopy(classNames, 0, allNames, 0, classNames.length);
-      System.arraycopy(fieldNames, 0, allNames, classNames.length, fieldNames.length);
-      System.arraycopy(methodNames, 0, allNames, classNames.length+fieldNames.length, methodNames.length);
+      final String[] allNames = concatenate(classNames,fieldNames,methodNames);
 
       if (updateFuture.isCancelled())
         return null;
