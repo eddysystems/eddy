@@ -427,6 +427,7 @@ object Pretty {
   implicit def prettyParent(p: Parent)(implicit env: Scope, r: SRange): FixTokens = p match {
     case t:ClassType => prettyClassType(t)
     case t:SimpleParent => pretty(t.item)
+    case t:ArrayType => prettyType(t)
   }
 
   // Denotations
@@ -468,7 +469,7 @@ object Pretty {
     case e@FieldExp(Some(x),f,fr) => prettyField(x,e.dot,f,fr)
     case IndexExp(e,i,a) => fix(ApplyFix, left(_,e) ::: Loc(LBrackTok,a.l) :: tokens(i) ::: List(Loc(RBrackTok,a.r)))
     case ArrayExp(t,xs,a) => implicit val tr = a.r
-                             (ApplyFix, Loc(NewTok,a.l) :: tokens(ArrayType(t)) ::: prettyArrayExp(xs,a)._2)
+                             (ApplyFix, Loc(NewTok,a.l) :: prettyType(ArrayType(t))._2 ::: prettyArrayExp(xs,a)._2)
     case EmptyArrayExp(t,is) => {
       val lr = is.head.a.l
       val rr = is.last.a.r

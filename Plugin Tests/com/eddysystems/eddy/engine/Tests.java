@@ -516,4 +516,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testPackages() {
     testMargin("packages.java", "java.util.ArrayList<Integer> x = new java.util.ArrayList<Integer>();", .9);
   }
+
+  public void testLength() {
+    testMargin("length.java", "return xs.length;", .9);
+  }
 }

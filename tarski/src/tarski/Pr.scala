@@ -74,7 +74,7 @@ object Pr {
 
   // Generic likelihood that the user omitted the given qualifier (even though it was necessary), based on the possible values
   // for the qualifying objects, and the object chosen as qualifier
-  def omitQualifier(probs: Scored[Exp], choice: ClassItem): Prob = {
+  def omitQualifier(probs: Scored[Exp], choice: ClassOrArrayItem): Prob = {
     if (probs.isSingle) Prob("omit one choice",.8) // Only choice
     else if (Items.inPackage(choice,Base.JavaPkg)) Prob("omit java.*",.8) // stuff in java.lang or java.io (like System.out)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?

@@ -50,7 +50,7 @@ object Items {
     case x:UnknownContainerItemBase => x.pkg
   }
   // Are we inside a class?
-  @tailrec def inClass(x: PackageOrMember, c: ClassItem): Boolean = x==c || (x match {
+  @tailrec def inClass(x: PackageOrMember, c: ClassOrArrayItem): Boolean = x==c || (x match {
     case _:Package => false
     case x:Member => inClass(x.parent,c)
     case _:UnknownContainerItemBase => false
@@ -126,7 +126,16 @@ object Items {
     def simple: RefType
   }
 
-  abstract class ClassItem extends RefTypeItem with ParentItem with Member with GenericItem {
+  sealed trait ClassOrArrayItem extends RefTypeItem with ParentItem with Member {
+    def inside: ClassOrArrayType
+    def raw: ClassOrArrayType
+    def simple: ClassOrArrayType
+
+    // true if this class (not its supers) declare a field with this name
+    def declaresField(kid: Name): Boolean
+  }
+
+  abstract class ClassItem extends ClassOrArrayItem with Member with GenericItem {
     def parent: ParentItem
     def isClass: Boolean // true for class, false for interface
     def isEnum: Boolean // true only for descendants of Enum<E>
@@ -172,9 +181,6 @@ object Items {
     }
 
     def generic(args: List[TypeArg]): ClassType = generic(args,parent.simple)
-
-    // true if this class (not its supers) declare a field with this name
-    def declaresField(kid: Name): Boolean
 
     // All constructors of this class
     def constructors: Array[ConstructorItem]
@@ -270,7 +276,7 @@ object Items {
       new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,isStatic,fields,constructors)
   }
 
-  case object ArrayItem extends RefTypeItem {
+  case object ArrayItem extends ClassOrArrayItem {
     def name = "Array"
     def parent = JavaLangPkg
     private def error = throw new RuntimeException("Array<T> is special: T can be primitive, and is covariant")
@@ -281,7 +287,17 @@ object Items {
     def raw = error
     def simple = error
     def generic(args: List[TypeArg], parent: Parent) = error
+    def isStatic = true
+    def declaresField(kid: Name) = kid == "length"
   }
+  case object lengthItem extends FieldItem {
+    def name = "length"
+    def parent = ArrayItem
+    def inside = IntType
+    def isStatic = false
+    def isFinal = true
+  }
+
   case object NoTypeItem extends RefTypeItem {
     def name = "NoTypeItem"
     def supers = Nil
@@ -299,7 +315,7 @@ object Items {
     override def qualified = { val pq = parent.qualified; if (pq.isEmpty) name else pq + "." + name }
   }
   trait ClassMember extends Member {
-    def parent: ClassItem
+    def parent: ClassOrArrayItem
   }
   trait ChildItem extends ClassMember // FieldItem or MethodItem
 

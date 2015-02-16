@@ -17,6 +17,7 @@ import tarski.Tokens._
 import tarski.Types._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
+import utility.Utility._
 import scala.annotation.tailrec
 
 class TestDen {
@@ -1212,5 +1213,11 @@ class TestDen {
     IntegerItem.constructors = Array(cons)
     test("x = Integer(4)", "x", x =>
       VarStmt(Nil,IntegerItem,r,List(VarDecl(x,r,0,Some((r,ApplyExp(NewDen(r,None,cons,r,None),List(4),a,auto=false))),env)),env))
+  }
+
+  @Test def arrayLength() = {
+    val xs = NormalLocal("xs",ArrayType(IntType),isFinal=true)
+    implicit val env = localEnvWithBase(xs)
+    test("n = xs.length","n",n => VarStmt(Nil,IntType,r,(n,FieldExp(xs,lengthItem,r)),env))
   }
 }

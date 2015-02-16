@@ -215,7 +215,9 @@ object Base {
     // Exception base classes
     ThrowableItem, ErrorItem, ExceptionItem,
     // Literals
-    trueLit,falseLit,nullLit
+    trueLit,falseLit,nullLit,
+    // Array length
+    lengthItem
   )
   val baseSet = baseItems.toSet
   val baseEnv = silenced(Env(baseItems))
@@ -228,7 +230,8 @@ object Base {
   // Things that EnvironmentProcessor won't add on its own
   val extraItems = Array(
     trueLit,falseLit,nullLit,
-    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem
+    ubVoidItem,ubBooleanItem,ubByteItem,ubShortItem,ubIntItem,ubLongItem,ubFloatItem,ubDoubleItem,ubCharItem,
+    lengthItem
   )
 
   val extraEnv = silenced(Env(extraItems))

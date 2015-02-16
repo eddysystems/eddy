@@ -333,7 +333,7 @@ object Denotations {
       val t = x.get.ty
       val fp = f.parent
       collectOne(supers(t)){
-        case t:ClassType if t.item==fp => f.inside.substitute(t.env)
+        case t:ClassOrArrayType if t.item==fp => f.inside.substitute(t.env)
       }.getOrElse(throw new RuntimeException(s"Field $f not found in $t"))
     }
   }

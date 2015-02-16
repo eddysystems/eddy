@@ -39,7 +39,7 @@ object Environment {
     }
 
     // Are we inside a constructor of the given class?
-    def insideConstructorOf(cls: ClassItem): Boolean = place match {
+    def insideConstructorOf(cls: ClassOrArrayItem): Boolean = place match {
       case cons:ConstructorItem => cons.parent == cls
       case _ => false
     }
@@ -322,7 +322,7 @@ object Environment {
       case m:MethodItem => known(m.retVal)
       case c:ConstructorItem => known(VoidType)
       case _:Package => die("package")
-      case _:ClassItem => die("class or interface")
+      case _:ClassOrArrayItem => die("class or interface or array")
       case _:UnknownContainerItemBase => die("non-Java item")
     }
   }

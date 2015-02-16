@@ -122,7 +122,7 @@ object Semantics {
     objectsOfItem(c) flatMap { x => denoteValue(x,cr,qualifiers) }
 
   // valuesOfItem biased by Pr.omitQualifier
-  def qualifiersOfItem(c: ClassItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] = {
+  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] = {
     val xs = valuesOfItem(c,cr,qualifiers,error)
     biased(Pr.omitQualifier(xs,c),xs)
   }
@@ -462,6 +462,7 @@ object Semantics {
         case p:ClassItem => biased(Pr.omitNestedClass(t,p,!omittedNestedClass), denoteTypeItem(p,omittedNestedClass=true))
         case p:Package => single(TypeDen(t.raw),Pr.omitPackage(t,p)) // need to import a package or qualify with a package name to avoid shadowing
         case _:CallableItem|_:UnknownContainerItemBase => impossible // t is accessible, so local classes are not ok.
+        case ArrayItem => impossible // ArrayItems are never parents of types
       }
       case _:TypeVar => fail("out of scope typevar cannot be qualified to be in scope")
       case t:LangTypeItem => impossible // can't be out of scope and accessible if it's a builtin
@@ -523,13 +524,13 @@ object Semantics {
 
   // Is f a field of x?
   def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
-    case (x:ExpOrType,p:ClassItem) => isSubitem(x.item,p)
+    case (x:ExpOrType,p:ClassOrArrayItem) => isSubitem(x.item,p)
     case (x:Package,p) => x.p eq p
     case _ => false
   }
 
   def denoteField(xs: Scored[Den], xr: SRange, f: Name, fr: SRange, mc: Mode, expects: Option[Type], error: AExp)(implicit env: Env): Scored[Den] = {
-    def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassItem]
+    def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassOrArrayItem]
     val fs = env.collect(f,s"$f doesn't look like a field (mode $mc)",{
       case f:Value with Member if mc.exp && maybeMemberIn(f) => f
       case f:TypeItem with Member => f

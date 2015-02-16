@@ -133,8 +133,16 @@ object Types {
     def captureAll: RefType
   }
 
+  // Classes or arrays (so that arrays can have length)
+  sealed abstract class ClassOrArrayType extends RefType with Parent {
+    def item: ClassOrArrayItem
+    def substitute(implicit env: Tenv): ClassOrArrayType
+    def safe: Option[ClassOrArrayType]
+    def raw: ClassOrArrayType
+  }
+
   // Class types are either Object, simple, raw, or generic
-  sealed abstract class ClassType extends RefType with GenericParent {
+  sealed abstract class ClassType extends ClassOrArrayType with GenericParent {
     def item: ClassItem
     def parent: Parent
     def base: ClassType = item.base.substitute(env)
@@ -268,7 +276,8 @@ object Types {
     def raw = IntersectType(ts map (_.raw))
     def captureAll = IntersectType(ts map (_.captureAll))
   }
-  case class ArrayType(t: Type) extends RefType {
+  case class ArrayType(t: Type) extends ClassOrArrayType {
+    def env = Map.empty
     def item = ArrayItem
     def supers = CloneableItem.simple :: SerializableItem.simple :: (t match {
       case t: RefType => t.supers map ArrayType
@@ -276,6 +285,10 @@ object Types {
     })
     def isFinal = t.isFinal
     def isSimple = t.isSimple
+    def isRaw = t match {
+      case t:ClassType => t.isRaw
+      case _ => false
+    }
     def known(implicit env: Tenv) = t.known
     def substitute(implicit env: Tenv) = ArrayType(t.substitute)
     def safe = t.safe map ArrayType
