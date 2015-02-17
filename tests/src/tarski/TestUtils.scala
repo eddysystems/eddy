@@ -11,6 +11,7 @@ import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
 import tarski.Tokens._
 import tarski.Types._
+import tarski.Mods._
 import scala.language.implicitConversions
 
 object TestUtils {
@@ -40,6 +41,7 @@ object TestUtils {
   implicit def toAExps[A](xs: KList[A])(implicit to: A => AExp): KList[AExp] = xs map to
   implicit def toAExps[A](x: A)(implicit to: A => AExp): SingleList[AExp] = SingleList(to(x))
   implicit def toAVarDecls(v: AVarDecl): KList[AVarDecl] = SingleList(v)
+  implicit def toMods(m: Mod): Mods = List(Loc(m,r))
 
   // Denotation implicit conversions
   implicit def toExp(b: Boolean): Exp = BooleanLit(b,r)

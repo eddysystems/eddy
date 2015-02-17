@@ -804,6 +804,7 @@ object Semantics {
       }
       case ForAStmt(fr,info@Foreach(m,t,v,vr,n,cr,e),a,s) => modifiers(m,Final) flatMap (explicitFinal => {
         val isFinal = explicitFinal || t.isEmpty
+        val mf = if (isFinal && !explicitFinal) Loc(Final,vr) :: m else m
         def hole = show(ForAStmt(fr,info,a,HoleAStmt(s.r)))
         val tr = t match { case None => vr.before; case Some(t) => t.r }
         val sr = s.r
@@ -816,7 +817,7 @@ object Semantics {
             case Some(te) =>
               def rest(t: Type): Scored[Stmt] = {
                 val (after,x) = f(t)
-                denoteStmt(s)(after.pushScope) map (ForeachStmt(fr,m,t,tr,x,vr,e,a.a,_,env))
+                denoteStmt(s)(after.pushScope) map (ForeachStmt(fr,mf,t,tr,x,vr,e,a.a,_,env))
               }
               t match {
                 case Some(t) =>

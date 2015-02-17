@@ -485,7 +485,7 @@ class TestDen {
                    VarStmt(Nil,DoubleType,r,(y,8.1),env),
                    ForStmt(r,Nil,Some(t),r,Nil,a,h)),a,env))
   @Test def foreach()     = test("for (x : 1,2)", "x", x => {
-    assertFinal(x); ForeachStmt(r,Nil,IntType,r,x,r,ArrayExp(IntType,List(1,2),a),a,h,env) })
+    assertFinal(x); ForeachStmt(r,Final,IntType,r,x,r,ArrayExp(IntType,List(1,2),a),a,h,env) })
 
   @Test def sideEffects() = {
     lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
