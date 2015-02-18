@@ -152,9 +152,7 @@ class EnvironmentProcessor {
           localItems.add(ti);
           scopeItems.put(ti,p);
 
-          final ClassType s = c.base();
-          assert s.item().isClass();
-          final SuperItem si = new SuperItem(s);
+          final SuperItem si = new SuperItem(c);
           localItems.add(si);
           scopeItems.put(si,p);
         }

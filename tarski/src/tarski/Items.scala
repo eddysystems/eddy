@@ -330,18 +330,21 @@ object Items {
     def item = ty.item
   }
   case class NormalLocal(name: Name, ty: Type, isFinal: Boolean = true) extends Local {}
-  sealed abstract class ThisOrSuper extends Value {
+  sealed abstract class ThisOrSuper extends Value with ClassMember {
     def ty: ClassType
+    def isFinal = true
+    def isStatic = false
   }
   case class ThisItem(item: ClassItem) extends ThisOrSuper {
     def name = "this"
     def ty = item.inside
-    def isFinal = true
+    def parent = item // For qualified A.this
   }
-  case class SuperItem(ty: ClassType) extends ThisOrSuper {
+  case class SuperItem(self: ClassItem) extends ThisOrSuper {
     def name = "super"
-    def item = ty.item
-    def isFinal = true
+    val ty = self.base
+    val item = ty.item
+    def parent = self // For qualified A.super
   }
   abstract class FieldItem extends Value with ChildItem {
     def inside: Type

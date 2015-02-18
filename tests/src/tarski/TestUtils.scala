@@ -51,7 +51,7 @@ object TestUtils {
   implicit def toExp(d: Double): Exp = DoubleLit(d,d.toString,r)
   implicit def toExp(s: String): Exp = StringLit(s,'"'+escapeJava(s)+'"',r)
   implicit def toExp(x: Local): Exp = LocalExp(x,r)
-  implicit def toExp(x: ThisItem): Exp = ThisExp(x,r)
+  implicit def toExp(x: ThisOrSuper): Exp = ThisOrSuperExp(x,r)
   implicit def toExps[A](xs: List[A])(implicit to: A => Exp): List[Exp] = xs map to
   implicit def toExps(e: Exp): List[Exp] = List(e)
   implicit def toOExp[A](x: A)(implicit to: A => Exp): Option[Exp] = Some(to(x))

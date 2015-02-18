@@ -3,7 +3,6 @@ package tarski
 import utility.Locations.SRange
 import utility.Utility._
 import tarski.TestUtils._
-import tarski.Denotations.ThisExp
 import tarski.Environment._
 import tarski.Items._
 import tarski.JavaItems._
@@ -39,8 +38,8 @@ class TestEnvironment {
     val tX = ThisItem(X)
     val tY = ThisItem(Y)
     implicit val env = Env(Array(X,Y,tX,tY), Map((tX,2),(X,2),(tY,1),(Y,1)))
-    assertEquals(tokens(ThisExp(tX,r)) map (_.x), List(IdentTok("X"),DotTok,ThisTok))
-    assertEquals(tokens(ThisExp(tY,r)) map (_.x), List(ThisTok))
+    assertEquals(tokens(tX) map (_.x), List(IdentTok("X"),DotTok,ThisTok))
+    assertEquals(tokens(tY) map (_.x), List(ThisTok))
   }
 
   @Test def levenshteinDistance(): Unit = {

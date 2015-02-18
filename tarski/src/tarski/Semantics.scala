@@ -134,7 +134,7 @@ object Semantics {
     else qualifiersOfItem(c,ir,i::qualifiers,s"Field ${show(i)}") flatMap (xd =>
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem]))
         xd match {
-          case ThisExp(tt:ThisItem,_) if tt.item.base.item == c => fail("We'll use super instead of this")
+          case ThisOrSuperExp(tt:ThisItem,_) if tt.item.base.item == c => fail("We'll use super instead of this")
           case _ => known(FieldExp(Some(CastExp(c.raw,SGroup.approx(ir),xd)),i,ir))
         }
       else known(FieldExp(Some(xd),i,ir))
@@ -152,8 +152,7 @@ object Semantics {
       case LitValue(f) => known(f(ir))
       case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i))
                           else denoteFieldItem(i,ir,qualifiers)
-      case i:ThisItem => penalize(ThisExp(i,ir))
-      case i:SuperItem => penalize(SuperExp(i,ir))
+      case i:ThisOrSuper => penalize(ThisOrSuperExp(i,ir))
     }
   }
 
@@ -544,18 +543,21 @@ object Semantics {
     }
     product(xs,fs) flatMap {case (p,f) => p match {
       case _:Callable => fail(s"${show(p)}: Callables do not have fields (such as $f)")
-      case nm:ParentDen if !memberIn(f,nm) => fail(nm match {
-        case nm:ExpOrType => s"${show(nm)}: Item ${show(nm.item)} does not contain $f"
-        case nm:PackageDen => s"${show(nm)}: Package does not contain $f"
+      case p:ParentDen if !memberIn(f,p) => fail(p match {
+        case p:ExpOrType => s"${show(p)}: Item ${show(p.item)} does not contain $f"
+        case p:PackageDen => s"${show(p)}: Package does not contain $f"
       })
       case p:ParentDen => f match {
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (p,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
+
           case (x:Exp,    f:FieldItem) => if (f.isStatic && automatic(x)) fail(s"${show(error)}: Implicit call . static field is silly")
                                           else single(FieldExp(Some(x),f,fr),
                                                       if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
           case (t:TypeDen,f:FieldItem) => if (f.isStatic) known(FieldExp(None,f,fr))
                                           else fail(s"Can't access non-static field $f without object")
+          case (t:TypeDen,f:ThisOrSuper) => known(ThisOrSuperExp(f,fr))
+          case _ => fail(s"${show(p)}: $f is not a field of p")
         }
         case f:TypeItem =>
           val types = if (!mc.ty) fail(s"${show(error)}: Unexpected or invalid type field") else p match {
@@ -630,7 +632,7 @@ object Semantics {
 
   @tailrec def isVariable(e: Exp)(implicit env: Env): Boolean = e match {
     // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
-    case _:Lit|_:ThisExp|_:SuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
+    case _:Lit|_:ThisOrSuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
     case LocalExp(i,_) => !i.isFinal
     case _:CastExp => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
@@ -642,7 +644,7 @@ object Semantics {
     // TODO: This code captures only the common case, and ignores issues of definite assignment.
     case FieldExp(x,f,_) => !f.isFinal || (!f.isStatic && (x match {
       case None => env.place.insideConstructorOf(f.parent)
-      case Some(ThisExp(ThisItem(cls),_)) => f.parent==cls && env.place.insideConstructorOf(cls)
+      case Some(ThisOrSuperExp(ThisItem(cls),_)) => f.parent==cls && env.place.insideConstructorOf(cls)
       case _ => false
     }))
   }

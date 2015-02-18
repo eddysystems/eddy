@@ -386,10 +386,10 @@ class TestDen {
 
     val m = NormalMethodItem("m", Y, Nil, VoidType, List(Q.simple), false)
     val This = ThisItem(Y)
-    val Super = SuperItem(Y.base)
+    val Super = SuperItem(Y)
     implicit val env = Env(Array(X,Y,Xf,Yf,m,This,Super), Map((This,2),(Super,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
 
-    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(SuperExp(Super,r),Xf,r)),a,auto=false))
+    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(Super,Xf,r)),a,auto=false))
   }
 
   @Test
@@ -399,8 +399,7 @@ class TestDen {
     val x = NormalLocal("x",StringType,isFinal=false)
     val t = ThisItem(X)
     implicit val env = Env(Array(X,Xx,x,t), Map((x,1),(X,2),(t,2),(Xx,2)))
-
-    test("x = 1", AssignExp(None,r,FieldExp(ThisExp(t,r),Xx,r),1))
+    test("x = 1", AssignExp(None,r,FieldExp(t,Xx,r),1))
   }
 
   /*
@@ -620,7 +619,7 @@ class TestDen {
     lazy val Xc = NormalConstructorItem(X, Nil, Nil)
     lazy val Xc2 = NormalConstructorItem(X, Nil, List(IntType))
     val This = ThisItem(X)
-    val Super = SuperItem(Y)
+    val Super = SuperItem(X)
     implicit val env = Env(Array(Y,Yc,X,Xc,This,Super),
                            Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2)),
                            PlaceInfo(Xc2))
@@ -639,7 +638,7 @@ class TestDen {
     lazy val Xc2 = NormalConstructorItem(X, Nil, List(IntType))
     val x = NormalLocal("x",A)
     val This = ThisItem(X)
-    val Super = SuperItem(Y)
+    val Super = SuperItem(X)
     implicit val env = Env(Array(Y,Yc,X,Xc,This,Super,x),
                            Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2),(x,1)),
                            PlaceInfo(Xc2))
@@ -1219,5 +1218,22 @@ class TestDen {
     val xs = NormalLocal("xs",ArrayType(IntType),isFinal=true)
     implicit val env = localEnvWithBase(xs)
     test("n = xs.length","n",n => VarStmt(Nil,IntType,r,(n,FieldExp(xs,lengthItem,r)),env))
+  }
+
+  @Test def qualifiedThis() = {
+    val C = NormalClassItem("C")
+    val A = NormalClassItem("A",base=C)
+    val B = NormalClassItem("B",parent=A,base=C)
+    val At = ThisItem(A)
+    val Bt = ThisItem(B)
+    val As = SuperItem(A)
+    val Bs = SuperItem(B)
+    val f = NormalMethodItem("f",NormalClassItem("F"),Nil,VoidType,List(C),isStatic=true)
+    implicit val env = localEnvWithBase().extend(Array(A,B,At,Bt,As,Bs,f),Map(A->2,B->1,f->3))
+    def ff(x: Exp) = ApplyExp(f,List(x),a,auto=false)
+    test("f(A.this)",ff(At))
+    test("f(B.this)",ff(Bt))
+    test("f(A.super)",ff(As))
+    test("f(B.super)",ff(Bs))
   }
 }
