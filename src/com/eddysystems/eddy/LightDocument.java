@@ -1069,27 +1069,7 @@ public class LightDocument extends UserDataHolderBase implements DocumentEx {
 
   @Override
   public final void setInBulkUpdate(boolean value) {
-    if (myDoingBulkUpdate == value) {
-      // do not fire listeners or otherwise updateStarted() will be called more times than updateFinished()
-      return;
-    }
     myDoingBulkUpdate = value;
-    if (value) {
-      getPublisher().updateStarted(this);
-    }
-    else {
-      getPublisher().updateFinished(this);
-    }
-  }
-
-  private static class DocumentBulkUpdateListenerHolder {
-    private static final DocumentBulkUpdateListener ourBulkChangePublisher =
-      ApplicationManager.getApplication().getMessageBus().syncPublisher(DocumentBulkUpdateListener.TOPIC);
-  }
-
-  @NotNull
-  private static DocumentBulkUpdateListener getPublisher() {
-    return DocumentBulkUpdateListenerHolder.ourBulkChangePublisher;
   }
 
   @Override
