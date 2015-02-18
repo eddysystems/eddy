@@ -4,7 +4,9 @@ import com.eddysystems.eddy.EddyThread;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiField;
+import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiMethod;
+import com.intellij.psi.impl.file.PsiPackageImpl;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.PsiShortNamesCache;
 import com.intellij.util.Processor;
@@ -25,19 +27,29 @@ class ItemGenerator implements Generator<Items.Item> {
   final GlobalSearchScope scope;
   final IdFilter filter;
   final PsiShortNamesCache psicache;
+  final PsiManager psiManager;
   final Converter converter;
+  final PackageIndex packageIndex;
 
-  ItemGenerator(Project project, GlobalSearchScope scope, Converter conv) {
+  ItemGenerator(Project project, GlobalSearchScope scope, Converter conv, PackageIndex packageIndex) {
     this.project = project;
     this.scope = scope;
     filter = IdFilter.getProjectIdFilter(project, true);
     this.psicache = PsiShortNamesCache.getInstance(project);
+    psiManager = PsiManager.getInstance(project);
     converter = conv;
+    this.packageIndex = packageIndex;
   }
 
   private Items.Item[] generate(String s) {
     final EddyThread thread = EddyThread.getEddyThread();
     final List<Items.Item> results = new ArrayList<Items.Item>();
+
+    // find and add packages
+    for (String pkgQualifiedName: packageIndex.get(s)) {
+      Items.Package pkg = (Items.Package) converter.addContainer(new PsiPackageImpl(psiManager, pkgQualifiedName));
+      results.add(pkg);
+    }
 
     final Processor<PsiClass> classProc = new Processor<PsiClass>() {
       @Override

@@ -592,7 +592,8 @@ object Semantics {
           case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f,fr))
           case x:TypeDen => fail(s"${show(error)}: Can't call non-static $f without object")
         })
-        case _ => fail(s"Invalid field ${show(p)}  .  ${show(f)}")
+        case f:Package => known(f)
+        case _ => fail(s"Invalid field $p . $f")
       }
     }}
   }

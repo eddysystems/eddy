@@ -74,6 +74,9 @@ public class JavaEnvironment {
   // map types to items of that type.
   private Map<String, Set<String>> pByItem = null;
 
+  // map package short names (e.g. math) to a list of all qualified names (java.math, com.google.common.math)
+  private PackageIndex packageIndex = null;
+
   // the background update thread
   private Future<?> updateFuture = null;
   private boolean needUpdate = false;
@@ -139,22 +142,49 @@ public class JavaEnvironment {
       // call this once so initialization fails if no JDK is present
       if (!_initialized) {
         // add base items
-        DumbService.getInstance(project).runReadActionInSmartMode(new Runnable() {
+        if (indicator != null)
+          indicator.setText2("adding base environment");
+
+        // don't throw inside there -- Catch and rethrow to avoid logging
+        RuntimeException error = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<RuntimeException>() {
           @Override
-          public void run() {
-            addBase(new Converter(project, new HashMap<PsiElement, Item>()));
+          public RuntimeException compute() {
+            try {
+              addBase(new Converter(project, new HashMap<PsiElement, Item>()));
+              return null;
+            } catch (NoJDKError e) {
+              return e;
+            }
           }
         });
+
+        if (error != null)
+          throw error;
       }
+
+      if (indicator != null)
+        indicator.setText2("building package index");
+
+      pushScope("build package index");
+      try {
+        // TODO: needs to be updated on file system changes, our current update requests are not the correct ones for this
+        packageIndex = new PackageIndex(project);
+      } finally { popScope(); }
 
       final Snapshot[] nameSnap = new Snapshot[1];
       final Snapshot[] valueSnap = new Snapshot[1];
+
+      if (indicator != null)
+        indicator.setText2("computing field names");
 
       final String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
         nameSnap[0] = nameTracker.snapshot();
         valueSnap[0] = valueTracker.snapshot();
         return PsiShortNamesCache.getInstance(project).getAllFieldNames();
       }});
+
+      if (indicator != null)
+        indicator.setText2("building trie");
 
       nameTrie = prepareNameTrie(fieldNames);
 
@@ -166,8 +196,10 @@ public class JavaEnvironment {
       // we're initialized starting here, we can live without the makeProjectValuesByItem for a while
       _initialized = true;
 
-      if (indicator != null)
+      if (indicator != null) {
+        indicator.setText2("computing type map");
         indicator.setIndeterminate(false);
+      }
 
       try {
         pByItem = makeProjectValuesByItem(fieldNames, indicator);
@@ -520,7 +552,7 @@ public class JavaEnvironment {
 
       // Make trie for global/project name lookup
       final int[] bigStructure = nameTrie;
-      final JavaTrie.Generator<Item> bigGenerator = new ItemGenerator(project, ProjectScope.getAllScope(project), converter);
+      final JavaTrie.Generator<Item> bigGenerator = new ItemGenerator(project, ProjectScope.getAllScope(project), converter, packageIndex);
       final Tries.Queriable<Item> bigTrie = new Tries.LazyTrie<Item>(bigStructure, bigGenerator);
 
       // Make a small trie with both locals and recently added names
