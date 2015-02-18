@@ -14,6 +14,7 @@ import utility.Utility._
 
 import scala.collection.mutable
 import scala.language.implicitConversions
+import scala.collection.JavaConverters._
 
 object Pretty {
   // Pretty only needs a small part of the environment
@@ -158,7 +159,11 @@ object Pretty {
     case Nil => (HighestFix,tokens(x,r))
     case _ => (ApplyFix, tokens(x,r) ::: n.map(g => List(Loc(LBrackTok,g.l),Loc(RBrackTok,g.r))).flatten)
   }
-  def tokens(x: Name, r: SRange): Tokens = List(Loc(IdentTok(x),r))
+  private val specialNames: java.util.Map[String,Token] = Map("this" -> (ThisTok:Token), "super" -> SuperTok).asJava
+  def tokens(x: Name, r: SRange): Tokens = List(Loc({
+    val t = specialNames get x
+    if (t != null) t else IdentTok(x)
+  },r))
 
   // Options
   implicit def prettyOption[A](x: Option[A])(implicit p: Pretty[A]): FixTokens = x match {
@@ -445,15 +450,14 @@ object Pretty {
   },x.r)))
   def prettyField(x: Exp, dot: SRange, f: Item, fr: SRange)(implicit env: Scope): FixTokens =
     fix(FieldFix, left(_,x) ::: Loc(DotTok,dot) :: tokens(f.name,fr))
+  private def thisOrSuper(i: ThisOrSuper): Token = i match {
+    case _:ThisItem => ThisTok
+    case _:SuperItem => SuperTok
+  }
   implicit def prettyExp(e: Exp)(implicit env: Scope): FixTokens = e match {
     case l:Lit => pretty(l)
     case LocalExp(x,r) => prettyItem(x)(env,r)
-    case ThisExp(i,r) => implicit val r_ = r
-                         if (env.inScope(i)) (HighestFix,List(Loc(ThisTok,r)))
-                         else (FieldFix, tokens(i.item) ::: Loc(DotTok,r) :: List(Loc(ThisTok,r)))
-    case SuperExp(i,r) => implicit val r_ = r
-                          if (env.inScope(i)) (HighestFix,List(Loc(SuperTok,r)))
-                          else (FieldFix, tokens(i.ty) ::: List(Loc(DotTok,r),Loc(SuperTok,r)))
+    case ThisOrSuperExp(x,r) => prettyItem(x)(env,r)
     case CastExp(t,a,x) => implicit val tr = a.r
                            fix(PrefixFix, parens(t,a) ::: right(_,x))
     case e:UnaryExp if isPrefix(e.op) => fix(PrefixFix, Loc(token(e.op),e.opr) :: right(_,e.e))

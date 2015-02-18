@@ -337,14 +337,9 @@ object Denotations {
       }.getOrElse(throw new RuntimeException(s"Field $f not found in $t"))
     }
   }
-  case class ThisExp(t: ThisItem, r: SRange) extends Exp {
-    def item = t.item
-    def ty = t.ty
-  }
-  // t is the type super is used in, t.base is the type of this expression
-  case class SuperExp(s: SuperItem, r: SRange) extends Exp {
-    def item = s.item
-    def ty = s.ty
+  case class ThisOrSuperExp(i: ThisOrSuper, r: SRange) extends Exp {
+    def item = i.item
+    def ty = i.ty
   }
   case class CastExp(ty: Type, a: SGroup, e: Exp) extends Exp {
     def r = a.l union e.r
@@ -418,7 +413,7 @@ object Denotations {
 
   // Is an expression definitely side effect free?
   def noEffects(e: Exp): Boolean = e match {
-    case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => true
+    case _:Lit|_:LocalExp|_:ThisOrSuperExp => true
     case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp => false
     case FieldExp(None,_,_) => true
     case FieldExp(Some(x),_,_) => noEffects(x)
@@ -441,7 +436,7 @@ object Denotations {
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
   def effects(e: Exp)(implicit env: Env): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e,env))
-    case _:Lit|_:LocalExp|_:ThisExp|_:SuperExp => Nil
+    case _:Lit|_:LocalExp|_:ThisOrSuperExp => Nil
     case CastExp(_,_,x) => effects(x)
     case IndexExp(e,i,_) => effects(e)++effects(i)
     case FieldExp(None,_,_) => Nil
