@@ -8,6 +8,8 @@ import com.intellij.ide.PowerSaveMode;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.progress.PerformInBackgroundOption;
@@ -35,8 +37,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
-import static utility.JavaUtils.isDebug;
 import static com.eddysystems.eddy.engine.Utility.log;
+import static utility.JavaUtils.isDebug;
 
 public class EddyPlugin implements ProjectComponent {
   @NotNull final private Application app;
@@ -56,6 +58,39 @@ public class EddyPlugin implements ProjectComponent {
       }
     }
     return _install;
+  }
+
+  private static Boolean _acceptedTOS = null;
+  public static boolean checkTOS(boolean force) {
+    if (force || _acceptedTOS == null) {
+      final PropertiesComponent props = PropertiesComponent.getInstance();
+      final String name = "com.eddysystems.Props.acceptedTOS";
+      String accepted = props.getValue(name);
+      if (force || accepted == null) {
+
+        Runnable showRunner = new Runnable() {
+          @Override
+          public void run() {
+            final TOSDialog d = new TOSDialog();
+            d.showAndGet();
+            _acceptedTOS = d.isAccepted();
+          }
+        };
+
+        // go to dispatch to show dialog
+        if (!ApplicationManager.getApplication().isDispatchThread()) {
+          LaterInvocator.invokeAndWait(showRunner, ModalityState.current());
+        } else {
+          showRunner.run();
+        }
+
+        accepted = _acceptedTOS ? "true" : "false";
+        props.setValue(name, accepted);
+      } else {
+        _acceptedTOS = accepted.equals("true");
+      }
+    }
+    return _acceptedTOS;
   }
 
   static private Properties _properties = null;
@@ -184,8 +219,6 @@ public class EddyPlugin implements ProjectComponent {
     injector = new EddyInjector(project);
     listener = new EddyApplicationListener();
     app.addApplicationListener(listener);
-
-    // TODO: talk to server to send usage info
   }
 
   public EddyWidget getWidget() {
@@ -225,18 +258,36 @@ public class EddyPlugin implements ProjectComponent {
     }
   }
 
+  public static void initAll() {
+    for (EddyPlugin plugin : projectMap.values()) {
+      plugin.initComponent();
+    }
+  }
+
   public void initComponent() {
+
     log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
+
+    if (!app.isHeadlessEnvironment() && !checkTOS(false)) {
+      log("TOS not accepted, starting in disabled mode.");
+      StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
+        @Override
+        public void run() {
+          widget.requestInstall();
+        }
+      });
+      return;
+    }
 
     final MessageBusConnection connection = project.getMessageBus().connect();
 
     // register our injector
-    connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, injector);
+    connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER,injector);
 
     // register for Powersave notifications
-    connection.subscribe(PowerSaveMode.TOPIC, new PowerSaveMode.Listener() {
+    connection.subscribe(PowerSaveMode.TOPIC,new PowerSaveMode.Listener() {
       @Override
-      public void powerSaveStateChanged() {
+      public void powerSaveStateChanged () {
         widget.update();
         if (PowerSaveMode.isEnabled()) {
           EddyThread.kill();
@@ -245,7 +296,7 @@ public class EddyPlugin implements ProjectComponent {
     });
 
     // initialize the global environment
-    if (!app.isHeadlessEnvironment()) {
+    if(!app.isHeadlessEnvironment()) {
       StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
         @Override
         public void run() {
