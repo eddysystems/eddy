@@ -7,10 +7,9 @@ import scala.collection.JavaConversions;
 import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
-import tarski.Scores.*;
 import tarski.JavaTrie.Generator;
+import tarski.Scores.*;
 import utility.Interrupts;
-import java.util.ArrayList;
 
 import java.util.Collection;
 import java.util.PriorityQueue;
@@ -161,7 +160,9 @@ public class JavaScores {
                 bs.add(new Biased<B>(b.q,r));
               return new Best<B>(pmul(b.q,bb.dp()),bb.x(),new Extractor<B>(this));
             } else if (bads != null)
-              bads = $colon$colon$.MODULE$.<Bad>apply((Bad)b.s,bads);
+              if (b.s instanceof Bad) // b.s may be empty
+                bads = $colon$colon$.MODULE$.<Bad>apply((Bad)b.s,bads);
+
             continue;
           }
         }
