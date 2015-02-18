@@ -29,9 +29,8 @@ public class PackageIndex {
       @Override
       public boolean processFile(VirtualFile fileOrDir) {
         if (fileOrDir.isDirectory()) {
-          if (idx.isExcluded(fileOrDir) || idx.isUnderIgnored(fileOrDir)) {
+          if (idx.isIgnored(fileOrDir))
             return true;
-          }
 
           // ignore resource files (some resource directories are just sitting in regular packages. Not
           // much we can do. Those will just never have classes in them.
