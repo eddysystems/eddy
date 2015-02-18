@@ -520,4 +520,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testLength() {
     testMargin("length.java", "return xs.length;", .9);
   }
+
+  public void testPrivateField() {
+    testMargin("privateField.java", "myManager = new X();", .9);
+  }
 }
