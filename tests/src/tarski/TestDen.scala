@@ -1236,4 +1236,10 @@ class TestDen {
     test("f(A.super)",ff(As))
     test("f(B.super)",ff(Bs))
   }
+
+  @Test def boxCompare() = {
+    val x = NormalLocal("x",DoubleType.box)
+    implicit val env = localEnvWithBase(x)
+    test("if (x < 1) return",IfStmt(r,BinaryExp(LtOp,r,x,1),a,ReturnStmt(r,None,env)))
+  }
 }

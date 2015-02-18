@@ -74,45 +74,37 @@ public class Preferences implements Configurable {
   public void apply() throws ConfigurationException {
     form.getData(data);
 
-    // check and correct form values here
-    String correctedThreshold;
+    // Check and correct form values
     try {
-      correctedThreshold = String.format("%.2f%%", PreferenceData.toPercentage(data.getAutoApplyThreshold()));
+      data.setAutoApplyThreshold(String.format("%.2f%%", PreferenceData.toPercentage(data.getAutoApplyThreshold())));
     } catch (NumberFormatException e) {
       throw new ConfigurationException("auto apply threshold must be a number or percentage");
     }
-    data.setAutoApplyThreshold(correctedThreshold);
 
-    String correctedFactor;
     try {
-      Double d = new Double(data.getAutoApplyFactor());
+      final Double d = new Double(data.getAutoApplyFactor());
       if (d <= 1)
         throw new NumberFormatException();
-      correctedFactor = String.format("%.2f",d);
+      data.setAutoApplyFactor(String.format("%.2f",d));
     } catch (NumberFormatException e) {
       throw new ConfigurationException("auto apply factor must be a number >= 1");
     }
-    data.setAutoApplyFactor(correctedFactor);
 
-    String correctedMinProbability;
     try {
-      correctedMinProbability = String.format("%.2g", PreferenceData.toNumber(data.getMinProbability()));
+      data.setMinProbability(String.format("%.2g", PreferenceData.toNumber(data.getMinProbability())));
     } catch (NumberFormatException e) {
       throw new ConfigurationException("minimum probability must be a number or percentage");
     }
-    data.setMinProbability(correctedMinProbability);
 
-    String correctedRelativeMinProbability;
     try {
-      correctedRelativeMinProbability = String.format("%.2f%%", PreferenceData.toPercentage(data.getMinRelativeProbability()));
+      data.setMinRelativeProbability(String.format("%.2f%%", PreferenceData.toPercentage(data.getMinRelativeProbability())));
     } catch (NumberFormatException e) {
       throw new ConfigurationException("minimum relative probability must be a number or percentage");
     }
-    data.setAutoApplyThreshold(correctedRelativeMinProbability);
 
     form.setData(data);
 
-    // save to file
+    // Save to file
     props.setValue("com.eddysystems.Props.autoApply", Boolean.toString(data.isAutoApply()), Boolean.toString(PreferenceData.defaultAutoApply));
     props.setValue("com.eddysystems.Props.autoApplyThreshold", data.getAutoApplyThreshold(), PreferenceData.defaultAutoApplyThreshold);
     props.setValue("com.eddysystems.Props.autoApplyFactor", data.getAutoApplyFactor(), PreferenceData.defaultAutoApplyFactor);

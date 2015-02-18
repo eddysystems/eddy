@@ -127,7 +127,7 @@ object Base {
     val interfaces = List(comparable(inside),SerializableType)
     val supers = interfaces
     val superItems = supers map (_.item)
-    override def unbox = Some(BooleanType)
+    override val unbox = Some(BooleanType)
     override def unboxesToBoolean = true
     def isFinal = true
   }
@@ -137,7 +137,7 @@ object Base {
     val interfaces = List(comparable(inside),SerializableType)
     val supers = interfaces
     val superItems = supers map (_.item)
-    override def unbox = Some(CharType)
+    override val unbox = Some(CharType)
     override def unboxNumeric = Some(CharType)
     override def unboxIntegral = Some(CharType)
     def isFinal = true
@@ -155,7 +155,7 @@ object Base {
     val interfaces = List(comparable(inside),SerializableType)
     val supers = base :: interfaces
     val superItems = supers map (_.item)
-    override def unbox = Some(ty)
+    override val unbox = Some(ty)
     override def unboxNumeric = Some(ty)
     def isFinal = true
   }

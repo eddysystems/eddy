@@ -172,6 +172,10 @@ object Types {
     def isRaw = parent.isRaw
     def isSimple = parent.isSimple
     override def unbox = item.unbox
+    override def unboxNumeric = item.unboxNumeric
+    override def unboxIntegral = item.unboxIntegral
+    override def unboxesToNumeric = item.unboxesToNumeric
+    override def unboxesToBoolean = item.unboxesToBoolean
     def known(implicit env: Tenv) = parent.known
     def substitute(implicit env: Tenv) = SimpleType(item,parent.substitute)
     def safe = parent.safe map (SimpleType(item,_))
