@@ -93,7 +93,6 @@ public class TOSDialog extends DialogWrapper {
   }
 
   @Nullable
-  @Override
   protected ActionListener createCancelAction() {
     return null;//Prevent closing by <Esc>
   }

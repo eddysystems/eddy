@@ -66,7 +66,8 @@ class ItemGenerator implements Generator<Items.Item> {
       public boolean process(PsiMethod method) {
         if (thread != null && thread.canceled())
           return false;
-        results.add(converter.addMethod(method));
+        if (!method.isConstructor())
+          results.add(converter.addMethod(method));
         return true;
       }
     };

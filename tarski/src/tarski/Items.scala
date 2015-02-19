@@ -141,6 +141,7 @@ object Items {
     def isEnum: Boolean // true only for descendants of Enum<E>
     def isFinal: Boolean
     def isStatic: Boolean
+    def isAbstract: Boolean
     def base: ClassType
     def supers: List[RefType]
 
@@ -194,7 +195,8 @@ object Items {
     val fieldNames: java.util.Set[String] = new java.util.HashSet[String]()
     var constructors: Array[ConstructorItem] = noConstructors
     def declaresField(kid: Name) = fieldNames.contains(kid)
-    override def isStatic = true // only top-level classes in base
+    override def isStatic = true // Only top-level classes in base
+    def isAbstract = !isClass // No abstract classes in base
   }
 
   case object ObjectItem extends BaseItem {
@@ -227,6 +229,7 @@ object Items {
     def isEnum = false
     def isFinal = false
     def isStatic = true
+    def isAbstract = true
     def declaresField(kid: Name) = fields contains kid
     lazy val constructors = _constructors
 
@@ -248,7 +251,8 @@ object Items {
 
   class NormalClassItem(val name: Name, val parent: ParentItem = LocalPkg, val tparams: List[TypeVar] = Nil,
                         val base: ClassType = ObjectType, val interfaces: List[ClassType] = Nil,
-                        val isFinal: Boolean = false, val isStatic: Boolean = true, val fields: Set[String] = Set(),
+                        val isFinal: Boolean = false, val isStatic: Boolean = true, val isAbstract: Boolean = false,
+                        val fields: Set[String] = Set(),
                         _constructors: => Array[ConstructorItem] = noConstructors) extends ClassItem {
     def supers = base :: interfaces
     def superItems = supers map (_.item)
@@ -271,9 +275,9 @@ object Items {
   object NormalClassItem {
     def apply(name: Name, parent: ParentItem = LocalPkg, tparams: List[TypeVar] = Nil,
               base: ClassType = ObjectType, interfaces: List[ClassType] = Nil,
-              isFinal: Boolean = false, isStatic: Boolean=true, fields: Set[String] = Set(),
+              isFinal: Boolean = false, isStatic: Boolean=true, isAbstract: Boolean=false, fields: Set[String] = Set(),
               constructors: => Array[ConstructorItem] = noConstructors): ClassItem =
-      new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,isStatic,fields,constructors)
+      new NormalClassItem(name,parent,tparams,base,interfaces,isFinal,isStatic,isAbstract,fields,constructors)
   }
 
   case object ArrayItem extends ClassOrArrayItem {
