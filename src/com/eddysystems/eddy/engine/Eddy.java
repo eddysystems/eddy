@@ -498,7 +498,7 @@ public class Eddy {
           compute(env(input,lastEdit));
         } catch (Skip s) {
           // ignore skipped lines, but let caller know we did nothing
-          takeOutput.take(new Output(Eddy.this,input,null));
+          //takeOutput.take(new Output(Eddy.this,input,null));
           //log("skipping: " + s.getMessage());
         }
       }
