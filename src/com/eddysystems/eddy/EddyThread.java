@@ -26,7 +26,7 @@ public class EddyThread extends Thread {
   // Results, if we've found something
   Eddy.Output output = null;
 
-  // Cancelation flags
+  // Cancellation flags
   private int softInterrupts = 0;
   private boolean _canceled = false;
 

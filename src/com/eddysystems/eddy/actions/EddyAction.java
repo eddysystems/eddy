@@ -33,7 +33,7 @@ public class EddyAction implements QuestionAction {
 
   public String getText() {
     if (!output.foundSomething())
-      return "eddy knows nothing (action)";
+      return "eddy knows nothing";
     if (output.results.size() == 1)
       return "eddy says: " + output.format(0,abbrevShowFlags());
     else

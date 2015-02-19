@@ -2,9 +2,12 @@ package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
+import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
+import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.CaretEvent;
@@ -17,6 +20,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
 import org.jetbrains.annotations.NotNull;
@@ -105,8 +109,10 @@ public class EddyFileListener implements CaretListener, DocumentListener {
           EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
             @Override public double take(final Eddy.Output output) {
               double thisCutoff = cutoff;
+              showHint(output);
+              if (output.skipped())
+                return 0.;
               if (!output.results.isEmpty()) {
-                showHint(output);
                 // get best probability
                 thisCutoff = Math.max(output.results.get(0).p() * relCutoff, cutoff);
               }
@@ -119,9 +125,30 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     });
   }
 
-  private void showHint(final Eddy.Output output) {
-    if (output == null)
-      return; // Don't make a hint if there's no output
+  private void updateIntentions() {
+    if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
+      LaterInvocator.invokeLater(new Runnable() {
+        @Override
+        public void run() {
+          final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
+          assert file != null;
+          ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
+          ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
+          if (!intentions.isEmpty()) {
+            try {
+              if (editor.getComponent().isDisplayable())
+                IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+            } catch (final NullPointerException e) {
+              // Log and ignore
+              log("updateIntentions: Can't show hint due to NullPointerException");
+            }
+          }
+        }
+      }, project.getDisposed());
+    }
+  }
+
+  private void showHint(@NotNull final Eddy.Output output) {
     final int line = editor.getCaretModel().getLogicalPosition().line;
     final EddyAction action = new EddyAction(output,editor);
     synchronized (active_lock) {
@@ -172,6 +199,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
         }
       }
     }
+    updateIntentions();
   }
 
   public void nextResult() {

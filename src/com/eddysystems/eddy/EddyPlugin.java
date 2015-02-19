@@ -67,7 +67,6 @@ public class EddyPlugin implements ProjectComponent {
       final String name = "com.eddysystems.Props.acceptedTOS";
       String accepted = props.getValue(name);
       if (force || accepted == null) {
-
         final Object done = new Object();
         final Runnable showRunner = new Runnable() {
           @Override

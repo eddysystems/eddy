@@ -3,8 +3,6 @@ package com.eddysystems.eddy.engine;
 import com.eddysystems.eddy.EddyPlugin;
 import com.eddysystems.eddy.PreferenceData;
 import com.eddysystems.eddy.Preferences;
-import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
-import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.lang.ASTNode;
 import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
@@ -12,7 +10,6 @@ import com.intellij.notification.Notifications;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.application.RuntimeInterruptedException;
-import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
@@ -100,6 +97,10 @@ public class Eddy {
       this.results = results;
     }
 
+    public boolean skipped() {
+      return results == null;
+    }
+
     static String format(final ShowStmts ss, final ShowFlags f) {
       return f.den() ? ss.den() : f.abbreviate() ? ss.abbrev() : ss.full();
     }
@@ -123,11 +124,13 @@ public class Eddy {
     }
 
     public boolean foundSomething() {
-      return !results.isEmpty();
+      return !skipped() && !results.isEmpty();
     }
 
     // Did we find useful meanings, and are those meanings different from what's already there?
     public boolean shouldShowHint() {
+      if (!foundSomething())
+        return false;
       for (final Alt<ShowStmts> r : results)
         if (r.x().similar(input.input))
           return false; // We found what's already there
@@ -455,28 +458,6 @@ public class Eddy {
     return EddyPlugin.getInstance(project).getEnv().getLocalEnvironment(input.place, lastEdit);
   }
 
-  private void updateIntentions() {
-    if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
-      LaterInvocator.invokeLater(new Runnable() {
-        @Override
-        public void run() {
-          final PsiFile file = getFile();
-          ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
-          ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
-          if (!intentions.isEmpty()) {
-            try {
-              if (editor.getComponent().isDisplayable())
-                IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
-            } catch (final NullPointerException e) {
-              // Log and ignore
-              log("updateIntentions: Can't show hint due to NullPointerException");
-            }
-          }
-        }
-      }, project.getDisposed());
-    }
-  }
-
   public void process(final int lastEdit, final Take takeOutput) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
@@ -504,7 +485,6 @@ public class Eddy {
               delays.add(delay);
               if (isDebug())
                 System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(denotationShowFlags(), true)));
-              updateIntentions();
             }
             return takeOutput.take(output);
           }
@@ -517,7 +497,8 @@ public class Eddy {
           input = Eddy.this.input();
           compute(env(input,lastEdit));
         } catch (Skip s) {
-          // ignore skipped lines
+          // ignore skipped lines, but let caller know we did nothing
+          takeOutput.take(new Output(Eddy.this,input,null));
           //log("skipping: " + s.getMessage());
         }
       }
