@@ -23,11 +23,11 @@ eddy.jar: eddy.zip .idea/shrink.pro
 	proguard @shrink.pro
 
 .PHONY: install
-install:
+install: eddy.jar
 	cp eddy.jar "${HOME}/Library/Application Support/IdeaIC13"
 
 .PHONY: install14
-install14:
+install14: eddy.jar
 	cp eddy.jar "${HOME}/Library/Application Support/IdeaIC14"
 
 .PHONY: uninstall14
