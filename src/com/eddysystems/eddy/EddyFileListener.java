@@ -100,6 +100,32 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       return;
     }
 
+    synchronized (active_lock) {
+      // remember who last started a computation and where
+      active_instance = this;
+      active_line = editor.getCaretModel().getLogicalPosition().line;
+
+      // everything below gets set to something non-null if eddy returns with a result
+      active_action = null;
+      active_hint_instance = null;
+
+      // hide old hint
+      final Hint current_hint = active_hint;
+      active_hint = null;
+      if (current_hint != null) {
+        ApplicationManager.getApplication().invokeLater(new Runnable() {
+          @Override
+          public void run() {
+            if (current_hint.isVisible()) {
+              current_hint.hide();
+            }
+          }
+        });
+      }
+    }
+    // nix old intention action
+    updateIntentions();
+
     PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
       @Override
       public void run() {
@@ -111,7 +137,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
               double thisCutoff = cutoff;
               showHint(output);
               if (output.skipped())
-                return 0.;
+                return 1.; // return value doesn't matter, we're only being told that we're skipping this line
               if (!output.results.isEmpty()) {
                 // get best probability
                 thisCutoff = Math.max(output.results.get(0).p() * relCutoff, cutoff);
@@ -149,14 +175,10 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   private void showHint(@NotNull final Eddy.Output output) {
-    final int line = editor.getCaretModel().getLogicalPosition().line;
     final EddyAction action = new EddyAction(output,editor);
     synchronized (active_lock) {
-      active_instance = this;
-      active_line = line;
       active_action = action;
-      active_hint_instance = null;
-      // show hint only if we found something really good
+      // show hint only if we found something good
       if (output.shouldShowHint()) {
         final int offset = editor.getCaretModel().getOffset();
         active_hint = EddyHintLabel.makeHint(output);
@@ -179,27 +201,14 @@ public class EddyFileListener implements CaretListener, DocumentListener {
         }, new Condition() {
           @Override
           public boolean value(Object o) {
+            // don't show if the action has since switched
             // do not synchronize this -- we're still in the sync block!
             return action != active_action;
           }
         });
-      } else {
-        // if we shouldn't show a hint, make sure any old hint is hidden
-        final Hint current_hint = active_hint;
-        active_hint = null;
-        if (current_hint != null) {
-          ApplicationManager.getApplication().invokeLater(new Runnable() {
-            @Override
-            public void run() {
-              if (current_hint.isVisible()) {
-                current_hint.hide();
-              }
-            }
-          });
-        }
       }
+      updateIntentions();
     }
-    updateIntentions();
   }
 
   public void nextResult() {
