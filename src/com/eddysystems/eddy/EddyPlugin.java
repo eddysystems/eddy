@@ -8,7 +8,7 @@ import com.intellij.ide.PowerSaveMode;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
@@ -68,22 +68,34 @@ public class EddyPlugin implements ProjectComponent {
       String accepted = props.getValue(name);
       if (force || accepted == null) {
 
-        Runnable showRunner = new Runnable() {
+        final Object done = new Object();
+        final Runnable showRunner = new Runnable() {
           @Override
           public void run() {
             final TOSDialog d = new TOSDialog();
             d.showAndGet();
             _acceptedTOS = d.isAccepted();
+            synchronized (done) {
+              done.notifyAll();
+            }
           }
         };
 
         // go to dispatch to show dialog
         if (!ApplicationManager.getApplication().isDispatchThread()) {
-          LaterInvocator.invokeAndWait(showRunner, ModalityState.current());
+          // we have to wait manually, because getting the current modality isn't a thing that 13 lets us do outside of
+          // dispatch
+          LaterInvocator.invokeLater(showRunner);
+          try {
+            synchronized (done) {
+              done.wait();
+            }
+          } catch (InterruptedException e) {
+            throw new RuntimeInterruptedException(e);
+          }
         } else {
           showRunner.run();
         }
-
         accepted = _acceptedTOS ? "true" : "false";
         props.setValue(name, accepted);
       } else {
