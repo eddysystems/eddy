@@ -342,15 +342,15 @@ class TestDen {
       m(f); // should resolve to m( ((X)y).f )
      */
 
-    val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
-    val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
+    val Q = NormalClassItem("Q")
+    val R = NormalClassItem("R")
 
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, false, Set("f"))
+    val X = NormalClassItem("X",fields=Set("f"))
     val Xf = NormalFieldItem("f",Q.simple,X,true)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, false, Set("f"))
+    val Y = NormalClassItem("Y",base=X,fields=Set("f"))
     val Yf = NormalFieldItem("f",R.simple,Y,true)
 
-    val Z = NormalClassItem("Z", LocalPkg, Nil, ObjectType, Nil)
+    val Z = NormalClassItem("Z")
     val m = NormalMethodItem("m", Z, Nil, VoidType, List(Q.simple), false)
     val y = NormalLocal("y",Y.simple,isFinal=true)
     implicit val env = Env(Array(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
@@ -376,12 +376,12 @@ class TestDen {
       }
      */
 
-    val Q = NormalClassItem("Q", LocalPkg, Nil, ObjectType, Nil)
-    val R = NormalClassItem("R", LocalPkg, Nil, ObjectType, Nil)
+    val Q = NormalClassItem("Q")
+    val R = NormalClassItem("R")
 
-    val X = NormalClassItem("X", LocalPkg, Nil, ObjectType, Nil, false, false, Set("f"))
+    val X = NormalClassItem("X",fields=Set("f"))
     val Xf = NormalFieldItem("f",Q.simple,X,true)
-    val Y = NormalClassItem("Y", LocalPkg, Nil, X.simple, Nil, false, false, Set("f"))
+    val Y = NormalClassItem("Y",base=X,fields=Set("f"))
     val Yf = NormalFieldItem("f",R.simple,Y,true)
 
     val m = NormalMethodItem("m", Y, Nil, VoidType, List(Q.simple), false)
@@ -1249,5 +1249,12 @@ class TestDen {
     lazy val cons = DefaultConstructorItem(B)
     implicit val env = localEnvWithBase().extend(Array(A,B),Map(A->2))
     test("BBBBB",ApplyExp(NewDen(r,None,cons,r,None),Nil,a,auto=true))
+  }
+
+  @Test def abstractClass() = {
+    lazy val A: ClassItem = NormalClassItem("A",isAbstract=true,constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(A)
+    implicit val env = localEnvWithBase(A)
+    testFail("new A()")
   }
 }

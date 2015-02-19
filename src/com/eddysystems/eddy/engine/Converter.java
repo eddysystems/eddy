@@ -202,6 +202,7 @@ class Converter {
      @NotNull Parent _parent;
      boolean _isFinal = false;
      boolean _isStatic = false;
+     boolean _isAbstract = false;
      scala.collection.immutable.List<TypeArg> _targs;
      scala.collection.immutable.List<TypeVar> _tparams = null;
      ClassItem _resolved = null;
@@ -218,6 +219,7 @@ class Converter {
 
        if (cls instanceof PsiModifierListOwner) {
          _isFinal = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.FINAL);
+         _isAbstract = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.ABSTRACT);
          _isStatic = Place.isStatic((PsiModifierListOwner) cls);
        }
 
@@ -232,6 +234,7 @@ class Converter {
      public boolean isEnum() { return false; }
      public boolean isFinal() { return _isFinal; }
      public boolean isStatic() { return _isStatic; }
+     public boolean isAbstract() { return _isAbstract; }
      public ParentItem parent() { return _parent.item(); }
      public ClassType base() { return ObjectType$.MODULE$; }
      public scala.collection.immutable.List<RefType> supers() { return _supers; }
@@ -362,9 +365,10 @@ class Converter {
    static protected class LazyClass extends ClassItem implements PsiEquivalent {
      private final Converter env;
      private final PsiClass cls;
-     private boolean _isFinal;
-     private boolean _isStatic;
-     private String _name;
+     private final boolean _isFinal;
+     private final boolean _isStatic;
+     private final boolean _isAbstract;
+     private final String _name;
 
      // Lazy fields
      private ParentItem _parent;
@@ -379,6 +383,7 @@ class Converter {
        this.cls = cls;
        this._name = cls.getName();
        this._isFinal = cls.hasModifierProperty(PsiModifier.FINAL);
+       this._isAbstract = cls.isInterface() || cls.hasModifierProperty(PsiModifier.ABSTRACT);
        this._isStatic = Place.isStatic(cls);
      }
 
@@ -399,6 +404,8 @@ class Converter {
       }
 
      public boolean isStatic() { return _isStatic; }
+
+     public boolean isAbstract() { return _isAbstract; }
 
      public boolean isClass() {
         return !cls.isInterface();
