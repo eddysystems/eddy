@@ -80,9 +80,9 @@ object Pr {
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
   }
 
-  def omitNestedClass(t: TypeItem, c: ClassItem, first: Boolean): Prob = {
-    if (first) Prob("omit first qualifier for nested class",.8) else Prob("omit deep qualifier for nested class",.9)
-  }
+  def omitNestedClass(t: TypeItem, c: ClassItem, first: Boolean): Prob =
+    if (first) Prob("omit first qualifier for nested class",.8)
+    else Prob("omit deep qualifier for nested class",.9)
 
   def omitPackage(t:TypeItem, p: Items.Package): Prob = {
     if (Items.inPackage(t,Base.JavaLangPkg)) Prob("omit java.lang for type",.9) // if shadowed

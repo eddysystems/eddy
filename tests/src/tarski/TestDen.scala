@@ -1242,4 +1242,12 @@ class TestDen {
     implicit val env = localEnvWithBase(x)
     test("if (x < 1) return",IfStmt(r,BinaryExp(LtOp,r,x,1),a,ReturnStmt(r,None,env)))
   }
+
+  @Test def nestedClass() = {
+    val A = NormalClassItem("AAAAA")
+    lazy val B: ClassItem = NormalClassItem("BBBBB",parent=A,constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(B)
+    implicit val env = localEnvWithBase().extend(Array(A,B),Map(A->2))
+    test("BBBBB",ApplyExp(NewDen(r,None,cons,r,None),Nil,a,auto=true))
+  }
 }

@@ -451,25 +451,25 @@ object Semantics {
     }
   }
 
-
-  def denoteTypeItem(t: TypeItem, omittedNestedClass: Boolean = false)(implicit env: Env): Scored[TypeDen] = {
-    // this function must only be called for TypeItems that are _.accessible!
+  def denoteTypeItem(t: TypeItem)(implicit env: Env): Scored[TypeDen] =
+    // This function must only be called for TypeItems that are _.accessible!
     if (env.inScope(t))
       known(TypeDen(t.raw))
     else t match {
-      case t:ClassItem => t.parent match {
-        case p:ClassItem => biased(Pr.omitNestedClass(t,p,!omittedNestedClass), denoteTypeItem(p,omittedNestedClass=true))
-        case p:Package => single(TypeDen(t.raw),Pr.omitPackage(t,p)) // need to import a package or qualify with a package name to avoid shadowing
-        case _:CallableItem|_:UnknownContainerItemBase => impossible // t is accessible, so local classes are not ok.
-        case ArrayItem => impossible // ArrayItems are never parents of types
-      }
-      case _:TypeVar => fail("out of scope typevar cannot be qualified to be in scope")
+      case t:ClassItem =>
+        def prob(p: ParentItem, first: Boolean): Prob = p match {
+          case p:ClassItem => pmul(Pr.omitNestedClass(t,p,first),prob(p.parent,first=false))
+          case p:Package => Pr.omitPackage(t,p) // Need to import a package or qualify with a package name to avoid shadowing
+          case _:CallableItem|_:UnknownContainerItemBase => impossible // t is accessible, so local classes are not ok.
+          case ArrayItem => impossible // ArrayItems are never parents of types
+        }
+        single(TypeDen(t.raw),prob(t.parent,first=true))
+      case _:TypeVar => fail("out of scope type var cannot be qualified to be in scope")
       case t:LangTypeItem => impossible // can't be out of scope and accessible if it's a builtin
       case ArrayItem => impossible // we come from the environment, so we're definitely not the special array base class
       case NoTypeItem => impossible // hopefully not.
       case _:RefTypeItem => impossible // RefTypeItem is only not sealed so TypeVar can inherit from it.
     }
-  }
 
   // find objects to qualify a new statement
   def qualifyNew(qualifierItem: ClassItem, qr: SRange, newItem: ClassItem, nr: SRange)(implicit env: Env) =
@@ -510,7 +510,7 @@ object Semantics {
                 else fixCall(m,expects,qualifyNew(tp,nr.before,t,nr))
               case tp => fail(s"$t's parent $tp is not a class")
             }
-          case _ => fail(s"$t is not a (static) class")
+          case _ => fail(s"$t is not a class")
         }
         if (m.ty) knownThen(t,s) else s
       }
