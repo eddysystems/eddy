@@ -82,11 +82,13 @@ class TestPretty {
 
   @Test def applyFixity() = {
     val A = NormalClassItem("A", LocalPkg)
+    val y = NormalFieldItem("y",IntType,A)
     val x = NormalLocal("a", A.simple, isFinal=false)
     val f = NormalMethodItem("f",A,Nil,A.simple,Nil,isStatic=true)
     implicit val env = Env(Array(A,f,x), Map((x,1),(f,2)),PlaceInfo(f))
     test("a.f().f()", ApplyExp(MethodDen(ApplyExp(MethodDen(x,f,r),Nil,a,auto=false),f,r),Nil,a,auto=false))
     test("f().f()", ApplyExp(MethodDen(ApplyExp(f,Nil,a,auto=false),f,r),Nil,a,auto=false))
+    test("a.f().f().y", FieldExp(ApplyExp(MethodDen(ApplyExp(MethodDen(x,f,r),Nil,a,auto=false),f,r),Nil,a,auto=false),y,r))
   }
 
   @Test def cond() = test("true ? 1 : 0",CondExp(true,r,1,r,0,IntType))
