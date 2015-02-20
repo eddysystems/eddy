@@ -31,6 +31,7 @@ import scala.runtime.AbstractFunction2;
 import scala.runtime.BoxedUnit;
 import scala.util.Try;
 import tarski.Environment.Env;
+import tarski.JavaScores;
 import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
@@ -42,7 +43,9 @@ import utility.Utility.Unchecked;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.eddysystems.eddy.engine.Utility.*;
+import static com.eddysystems.eddy.engine.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.logError;
+import static tarski.JavaScores.ppretty;
 import static tarski.Tokens.*;
 import static utility.JavaUtils.isDebug;
 import static utility.Utility.unchecked;
@@ -483,8 +486,18 @@ public class Eddy {
               results = rs;
               final double delay = (System.nanoTime() - startTime)/1e9;
               delays.add(delay);
-              if (isDebug())
-                System.out.println(String.format("output %.3fs: ", delay) + logString(output.formats(denotationShowFlags(), true)));
+              if (isDebug()) {
+                System.out.println(String.format("output %.3fs: ", delay));
+                if (JavaScores.trackProbabilities) {
+                  for (int i = 0; i < output.results.size(); ++i) {
+                    Alt<ShowStmts> ss = output.results.get(i);
+                    System.out.println(ppretty(ss.dp()).prefixed("  "));
+                    System.out.println(output.format(i, denotationShowFlags()));
+                  }
+                } else {
+                  System.out.println(output.formats(denotationShowFlags(),true));
+                }
+              }
             }
             return takeOutput.take(output);
           }

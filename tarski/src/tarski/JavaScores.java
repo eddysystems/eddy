@@ -28,7 +28,7 @@ public class JavaScores {
   static double pdiv(double x, double y) { return y == 0 ? 2 : x/y; }
 
   // Indirection functions so that we can swap in DebugProb for debugging
-  static final boolean trackProbabilities = false;
+  public static final boolean trackProbabilities = false;
   static double pp(double x) { return x; }
   static double pmul(double x, double y) { return x*y; }
   static public Scores.Error ppretty(double x) { return new OneError(""+x); }
@@ -68,7 +68,7 @@ public class JavaScores {
       if (y instanceof MulProb) ((MulProb)y).flatten(es); else if (!y.known()) es.add(y.pretty());
     }
   }
-  static final boolean trackProbabilities = true;
+  public static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
   static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
