@@ -42,6 +42,7 @@ object Denotations {
   sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasRange {
     def tparams: List[TypeVar]
     def params: List[Type]
+    def variadic: Boolean
     def callType(ts: List[TypeArg]): Type
   }
   sealed abstract class NotTypeApply extends Callable
@@ -53,6 +54,7 @@ object Denotations {
       implicit val env = capture(c.tparams,ts,Map.empty)._1
       c.params map (_.substitute)
     }
+    def variadic = c.variadic
     lazy val result = c.callType(ts)
     def callType(ts2: List[TypeArg]) = ts2 match {
       case Nil => result
@@ -68,6 +70,7 @@ object Denotations {
       case Some(x) => x.ty.asInstanceOf[ClassType].env // x must be a class for MethodDen to make sense
     }
     def tparams = f.tparams
+    def variadic = f.variadic
     lazy val params = f.params.map(_.substitute(parentEnv))
     lazy val result = f.retVal.substitute(parentEnv)
     def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
@@ -75,6 +78,7 @@ object Denotations {
   case class ForwardDen(x: ThisOrSuper, xr: SRange, f: ConstructorItem) extends NotTypeApply {
     def r = xr
     def tparams = f.tparams
+    def variadic = f.variadic
     def params = {
       implicit val env: Tenv = x.ty.env
       f.params map (_.substitute)
@@ -104,6 +108,7 @@ object Denotations {
       case Some(_) => f.tparams // We already have the class type arguments
     }
     lazy val params = f.params map (_.substitute(env))
+    def variadic = f.variadic
     lazy val result = f.parent.inside.substitute(env)
     def callType(ts: List[TypeArg]) = {
       val args = classArgs match {
@@ -121,6 +126,7 @@ object Denotations {
     def r = nr unionR ns union ds
     lazy val result = arrays(t,ns.size+ds.size)
     def callType(ts: List[TypeArg]) = { assert(ts.isEmpty); result }
+    def variadic = false
     def tparams = Nil
     def params = if (ns.nonEmpty) Nil
                  else throw new RuntimeException("Should be variadic, but we don't handle that yet")

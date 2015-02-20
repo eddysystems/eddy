@@ -26,10 +26,10 @@ object ArgMatching {
     // Should we find missing arguments in the environment?
     val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
-    val n = f.params.size
+    val np = f.params.size
     val na = args.size
     def process(k: Int, targs: List[TypeArg], used: List[Exp], unused: Exps): Scored[A] = {
-      if (k == n)
+      if (k == np)
         cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,targs,a,hide=true),used,a,auto),unused)
       else {
         def add(x: Exp, xs: List[Scored[Exp]]): Scored[A] = {
@@ -70,8 +70,8 @@ object ArgMatching {
         case None => fail(s"Can't apply $f to no arguments")
         case Some(ts) => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts,a,hide=true),Nil,a,auto),args)
       }
-    if (!useEnv && n > na) fail(s"Too few arguments for function $f: $na < $n")
-    else orError(biased(Pr.dropArgs(math.max(0,na-n)),if (n>0) process(0,null,Nil,args) else processNullary),
+    if (!useEnv && np > na) fail(s"Too few arguments for function $f: $na < $np")
+    else orError(biased(Pr.dropArgs(math.max(0,na-np)),if (np>0) process(0,null,Nil,args) else processNullary),
                  s"Can't match arguments for function $f")
   }
 }

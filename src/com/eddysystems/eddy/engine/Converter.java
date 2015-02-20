@@ -616,10 +616,12 @@ class Converter {
      private ClassItem _parent;
      private scala.collection.immutable.List<TypeVar> _tparams;
      private scala.collection.immutable.List<Type> _params;
+     private boolean _isVarArgs;
 
      LazyConstructor(Converter env, PsiMethod method) {
        this.env = env;
        this.method = method;
+       this._isVarArgs = method.isVarArgs();
      }
 
      public String toString() { return "LazyConstructor:" + name(); }
@@ -639,6 +641,9 @@ class Converter {
        if (_params == null)
          _params = env.params(method);
        return _params;
+     }
+     public boolean variadic() {
+       return _isVarArgs;
      }
 
      public PsiElement psi() {
@@ -662,6 +667,7 @@ class Converter {
      final PsiMethod method;
      private String _name;
      private boolean _isStatic;
+     private boolean _isVarArgs;
 
      // Lazy fields (null initially)
      private ClassItem _parent;
@@ -674,6 +680,7 @@ class Converter {
        this.method = method;
        this._name = method.getName();
        this._isStatic = method.hasModifierProperty(PsiModifier.STATIC);
+       this._isVarArgs = method.isVarArgs();
      }
 
      public String toString() { return "LazyMethod:" + _name; }
@@ -685,6 +692,7 @@ class Converter {
      public boolean isStatic() {
             return _isStatic;
           }
+     public boolean variadic() { return _isVarArgs; }
      public ClassItem parent() {
        if (_parent == null)
          _parent = (ClassItem)env.addClass(method.getContainingClass());

@@ -375,6 +375,9 @@ object Items {
   sealed abstract class CallableItem extends SimpleParentItem with GenericItem with ClassMember {
     def parent: ClassItem
     def params: List[Type]
+    def variadic: Boolean
+    // if variadic, last param must be an array type
+    if (variadic) assert(params.size > 0 && params.last.isInstanceOf[ArrayType])
     def simple: Parent = throw new RuntimeException("For CallableParentItem, only inside is valid, not simple")
   }
   abstract class MethodItem extends CallableItem with ChildItem {
@@ -387,13 +390,14 @@ object Items {
 
   // Normal callables
   case class NormalMethodItem(name: Name, parent: ClassItem, tparams: List[TypeVar], retVal: Type,
-                              params: List[Type], isStatic: Boolean) extends MethodItem
+                              params: List[Type], isStatic: Boolean, variadic: Boolean = false) extends MethodItem
   case class NormalConstructorItem(parent: ClassItem, tparams: List[TypeVar],
-                                   params: List[Type]) extends ConstructorItem {
+                                   params: List[Type], variadic: Boolean = false) extends ConstructorItem {
     override def toString = s"NormalConstructorItem(${parent.name},$tparams,$params)"
   }
   case class DefaultConstructorItem(parent: ClassItem) extends ConstructorItem {
     val tparams = Nil
+    val variadic = false
     val params = Nil
   }
 

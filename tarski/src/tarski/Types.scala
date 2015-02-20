@@ -667,17 +667,17 @@ object Types {
   // Check a function call
   // TODO: Handle variable arity
   def compatible(f: Signature, ts: List[Type], expects: Option[Type],
-                 form: Inference.Form, context: (Type,Type) => Boolean): Option[List[TypeArg]] =
+                 form: Inference.Form, context: (Type,Type) => Boolean): Option[List[TypeArg]] = {
+    val ps = f.params.slice(0,ts.size)
     if (f.tparams.isEmpty)
-      if ((f.params.slice(0,ts.size),ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
+      if ((ps,ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
       else None
     else {
-      val ps = f.params.slice(0,ts.size)
       expects match {
         case None => Inference.infer(f.tparams,ps,ts)(form)
         case Some(t) => Inference.infer(f.tparams,t::ps,f.result::ts)(form)
       }
-    }
+    }}
   //def potentiallyCompatible(f: F): Boolean = f.params.size >= n && {
   //  (f.params,ts).zipped forall {case (p,t) => true}} // TODO: Handle poly expression constraints
   def strictCompatible(f: Signature, ts: List[Type], expects: Option[Type]): Option[List[TypeArg]] =
