@@ -1257,4 +1257,10 @@ class TestDen {
     implicit val env = localEnvWithBase(A)
     testFail("new A()")
   }
+
+  @Test def cStyleNull() = {
+    val A = NormalClassItem("A")
+    implicit val env = localEnvWithBase(A)
+    test("A a = 0", "a", a => VarStmt(Nil,A.simple,r,List(VarDecl(a,r,0,Some((r,NullLit(r))),env)),env))
+  }
 }
