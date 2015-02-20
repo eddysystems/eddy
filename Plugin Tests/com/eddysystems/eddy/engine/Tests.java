@@ -524,4 +524,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testPrivateField() {
     testMargin("privateField.java", "myManager = new X();", .9);
   }
+
+  public void testInfix() {
+    testMargin("infixCall.java", "if (x.contains(0)) return;", .9);
+  }
 }
