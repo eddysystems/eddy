@@ -1,18 +1,22 @@
 <idea-plugin version="2">
   <id>com.eddy.generator</id>
-  <name>Eddy</name>
+  <name>eddy</name>
   <version>0.1-14</version>
-  <vendor email="info@eddy.systems" url="https://eddy.systems">Eddy</vendor>
+  <vendor email="info@eddy.systems" url="https://eddy.systems">Eddy Systems</vendor>
 
   <description><![CDATA[
       <p>
-      Eddy helps write code. If you make mistakes, eddy will try to understand you anyway and propose proper Java.
+      eddy helps write code. If you make mistakes, eddy will try to understand you anyway and propose proper Java.
       If eddy isn't sure what you meant, it'll show you options.
       </p><p>
       For examples of what eddy can do, see our
       <a href="https://eddy.systems/instructions">instructions page</a>.  To report an issue,
       use the <a href="https://github.com/eddysystems/issues/issues">issue tracker</a> or ask a question
       on the <a href="https://eddy.systems/forum">mailing list</a>.
+      </p><p>
+      Note: eddy is a learning system and will report usage statistics back home in order to improve. This information
+      is anonymous, and includes what it saw, what it proposed, and which suggestions the user accepted. Please see our
+      <a href="https://eddy.systems/privacy">privacy policy</a> for details.
       </p>
     ]]></description>
 
