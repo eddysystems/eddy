@@ -128,12 +128,14 @@ object Tokens {
   case class StringLitTok(s: String) extends SimpleToken
 
   // Separators: 3.11
-  case object LParenTok extends FixedToken("(")
-  case object RParenTok extends FixedToken(")")
-  case object LCurlyTok extends FixedToken("{")
-  case object RCurlyTok extends FixedToken("}")
-  case object LBrackTok extends FixedToken("[")
-  case object RBrackTok extends FixedToken("]")
+  sealed trait LeftTok extends SimpleToken
+  sealed trait RightTok extends SimpleToken
+  case object LParenTok extends FixedToken("(") with LeftTok
+  case object RParenTok extends FixedToken(")") with RightTok
+  case object LCurlyTok extends FixedToken("{") with LeftTok
+  case object RCurlyTok extends FixedToken("}") with RightTok
+  case object LBrackTok extends FixedToken("[") with LeftTok
+  case object RBrackTok extends FixedToken("]") with RightTok
   case object SemiTok extends FixedToken(";")
   case object CommaTok extends FixedToken(",")
   case object DotTok extends FixedToken(".")
@@ -142,7 +144,7 @@ object Tokens {
   case object ColonColonTok extends FixedToken("::")
 
   // Unknown right group
-  case object RightAnyTok extends FixedToken(")")
+  case object RightAnyTok extends FixedToken(")") with RightTok
 
   // Operators: 3.12
   case object EqTok extends FixedToken("=")
