@@ -685,6 +685,11 @@ object Semantics {
     case Some(t) => f(t)
   }
 
+  def probInParens(e: Exp, p: Prob): Prob = e match {
+    case _:ParenExp => pmul(p,Pr.parensInsideParens)
+    case _ => p
+  }
+
   // Statements
   def denoteStmt(s: AStmt)(env: Env): Scored[Stmt] = {
     implicit val imp = env
@@ -779,15 +784,15 @@ object Semantics {
         else fail(s"${show(s)}: type ${e.ty} is not throwable")
       }
       case SyncAStmt(sr,e,a,b) => product(denoteRef(e),denoteScoped(b)(env)) flatMap {
-        case (e,b) => single(SyncStmt(sr,e,a.a,needBlock(b)),Pr.syncStmt) }
+        case (e,b) => single(SyncStmt(sr,e,a.a,needBlock(b)),probInParens(e,Pr.syncStmt)) }
       case IfAStmt(ir,c,a,x) => product(denoteBool(c),denoteScoped(x)(env)) flatMap {
-        case (c,x) => single(IfStmt(ir,c,a.a,x),Pr.ifStmt) }
+        case (c,x) => single(IfStmt(ir,c,a.a,x),probInParens(c,Pr.ifStmt)) }
       case IfElseAStmt(ir,c,a,x,er,y) => product(denoteBool(c),denoteScoped(x)(env),denoteScoped(y)(env)) flatMap {
-        case (c,x,y) => single(IfElseStmt(ir,c,a.a,notIf(x),er,y),Pr.ifElseStmt) }
+        case (c,x,y) => single(IfElseStmt(ir,c,a.a,notIf(x),er,y),probInParens(c,Pr.ifElseStmt)) }
       case WhileAStmt(wr,flip,c,a,s) => product(denoteBool(c),denoteScoped(s)(env)) flatMap {case (c,s) =>
-        single(WhileStmt(wr,xor(flip,c),a.a,s),Pr.whileStmt) }
+        single(WhileStmt(wr,xor(flip,c),a.a,s),probInParens(c,Pr.whileStmt)) }
       case DoAStmt(dr,s,wr,flip,c,a) => product(denoteScoped(s)(env),denoteBool(c)) flatMap {case (s,c) =>
-        single(DoStmt(dr,s,wr,xor(flip,c),a.a),Pr.doStmt) }
+        single(DoStmt(dr,s,wr,xor(flip,c),a.a),probInParens(c,Pr.doStmt)) }
       case f@ForAStmt(fr,For(i,sr0,c,sr1,u),a,s) => {
         // Sanitize an initializer into valid Java
         def init(i: List[Stmt]): Scored[(Option[Exp],List[Exp],Stmt) => Stmt] = i match {
