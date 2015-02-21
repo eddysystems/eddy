@@ -329,10 +329,9 @@ object Semantics {
           ys match {
             case Nil => fixCall(m,expects,ax)
             case y::ys => names.get(y) match {
-              case null => fail("Not a field name")
+              case null => apply
               case NameAExp(y,yr) => special(ax,ar union xr,y,yr,ys,names) ++ apply
             }
-            case _ => apply
           }
         }
         def start(x: Name, xr: SRange): Scored[Den] = ci ++ biased(Pr.specialCall,{

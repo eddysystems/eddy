@@ -1263,4 +1263,12 @@ class TestDen {
     implicit val env = localEnvWithBase(A)
     test("A a = 0", "a", a => VarStmt(Nil,A.simple,r,List(VarDecl(a,r,0,Some((r,NullLit(r))),env)),env))
   }
+
+  @Test def boxInfix() = {
+    val A = NormalClassItem("A")
+    val x = NormalLocal("x",A)
+    val f = NormalMethodItem("f",A,Nil,BooleanType,List(IntType.box),isStatic=false)
+    implicit val env = localEnvWithBase().extend(Array(A,x,f),Map(x->1))
+    test("if (x f 0) return",IfStmt(r,ApplyExp(MethodDen(x,f,r),List(0),a,auto=false),a,ReturnStmt(r,None,env)))
+  }
 }
