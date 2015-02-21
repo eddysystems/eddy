@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.Denotations.{ApplyExp,Callable,Exp}
+import tarski.Denotations.{ApplyExp,Callable,Exp,makeApply}
 import tarski.Environment.Env
 import tarski.Scores._
 import tarski.JavaScores._
@@ -16,13 +16,13 @@ object ArgMatching {
   type Exps = List[Scored[Exp]]
   private implicit val showFlags = abbrevShowFlags
 
-  def useAll(e: ApplyExp, unused: Exps)(implicit env: Env): Scored[Exp] = unused match {
+  def useAll(e: Exp, unused: Exps)(implicit env: Env): Scored[Exp] = unused match {
     case Nil => known(e)
     case _ => fail(s"${show(e)}: ${unused.size} unused arguments")
   }
 
   // If specified, expects constraints the return type, but only if there are no unused arguments.
-  def fiddleCall[A](f: Callable, args: Exps, a: SGroup, expects: Option[Type], auto: Boolean, cont: (ApplyExp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
+  def fiddleCall[A](f: Callable, args: Exps, a: SGroup, expects: Option[Type], auto: Boolean, cont: (Exp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
     // Should we find missing arguments in the environment?
     val useEnv = false
     // Incrementally add parameters and check whether the function still resolves
@@ -30,7 +30,7 @@ object ArgMatching {
     val na = args.size
     def process(k: Int, targs: List[TypeArg], used: List[Exp], unused: Exps): Scored[A] = {
       if (k == np)
-        cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,targs,a,hide=true),used,a,auto),unused)
+        cont(makeApply(Denotations.uncheckedAddTypeArgs(f,targs,a,hide=true),used,a,auto),unused)
       else {
         def add(x: Exp, xs: List[Scored[Exp]]): Scored[A] = {
           val args = used :+ x
@@ -65,10 +65,10 @@ object ArgMatching {
       }
     }
     def processNullary: Scored[A] = // Special case nullary functions to make sure we do at least one inference round
-      if (f.tparams.size == 0) cont(ApplyExp(f,Nil,a,auto),args)
+      if (f.tparams.size == 0) cont(makeApply(f,Nil,a,auto),args)
       else resolveOption(f,Nil,if (args.isEmpty) expects else None) match {
         case None => fail(s"Can't apply $f to no arguments")
-        case Some(ts) => cont(ApplyExp(Denotations.uncheckedAddTypeArgs(f,ts,a,hide=true),Nil,a,auto),args)
+        case Some(ts) => cont(makeApply(Denotations.uncheckedAddTypeArgs(f,ts,a,hide=true),Nil,a,auto),args)
       }
     if (!useEnv && np > na) fail(s"Too few arguments for function $f: $na < $np")
     else orError(biased(Pr.dropArgs(math.max(0,na-np)),if (np>0) process(0,null,Nil,args) else processNullary),

@@ -12,6 +12,7 @@ import tarski.Types._
 import utility.Locations._
 import utility.Utility._
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.collection.JavaConverters._
@@ -466,32 +467,28 @@ object Pretty {
     case BinaryExp(op,opr,x,y) => { val (s,t) = prettyBinary(op,opr); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: spaceAround(token(op),opr) ::: right(s,y))
     case ParenExp(x,a) => (HighestFix,parens(x,a))
-    case ApplyExp(f@NewArrayDen(_,_,_,Nil,_),as,a,_) => (ApplyFix, tokens(f) ::: curlys(commas(as),a))
-    case ApplyExp(f:NewArrayDen,Nil,a,_) => pretty(f)
     case ApplyExp(f,as,a,_) => (ApplyFix, tokens(f) ::: parens(commas(as),a))
     case FieldExp(None,f,fr) => prettyItem(f)(env,fr)
     case e@FieldExp(Some(x),f,fr) => prettyField(x,e.dot,f,fr)
     case IndexExp(e,i,a) => fix(ApplyFix, left(_,e) ::: Loc(LBrackTok,a.l) :: tokens(i) ::: List(Loc(RBrackTok,a.r)))
-    case ArrayExp(t,xs,a) => implicit val tr = a.r
-                             (ApplyFix, Loc(NewTok,a.l) :: prettyType(ArrayType(t))._2 ::: prettyArrayExp(xs,a)._2)
-    case EmptyArrayExp(t,is) => {
-      val lr = is.head.a.l
+    case ArrayExp(nr,t,tr,xs,a) => implicit val tr_ = tr
+                                   (ApplyFix, Loc(NewTok,nr) :: prettyType(ArrayType(t))._2 ::: prettyArrayExp(xs,a)._2)
+    case EmptyArrayExp(nr,t,tr,is) => {
       val rr = is.last.a.r
-      def inner(t: Type, ts: Tokens): Tokens = t match {
+      @tailrec def inner(t: Type, ts: Tokens): Tokens = t match {
         case ArrayType(t) => inner(t, ts ::: List(Loc(LBrackTok,rr),Loc(RBrackTok,rr)))
-        case t => implicit val tr = lr
+        case t => implicit val tr_ = tr
                   tokens(t) ::: ts
       }
-      def outer(t: Type, is: List[Grouped[Exp]], ts: Tokens): Tokens = (t,is) match {
-        case (t,Nil) => inner(t,ts)
-        case (ArrayType(t),Grouped(i,a)::is) => outer(t, is, ts ::: Loc(LBrackTok,a.l) :: tokens(i) ::: List(Loc(RBrackTok,a.r)))
-        case _ => throw new RuntimeException("Type mismatch (not enough array dimensions)")
+      @tailrec def outer(is: List[Grouped[Exp]], ts: Tokens): Tokens = is match {
+        case Nil => inner(t,ts)
+        case Grouped(i,a)::is => outer(is, ts ::: Loc(LBrackTok,a.l) :: tokens(i) ::: List(Loc(RBrackTok,a.r)))
       }
-      (ApplyFix, Loc(NewTok,lr) :: outer(t,is,Nil))
+      (ApplyFix, Loc(NewTok,nr) :: outer(is,Nil))
     }
     case CondExp(c,qr,x,cr,y,_) => fix(CondFix, s => left(s,c) ::: Loc(QuestionTok,qr) :: tokens(x) ::: Loc(ColonTok,cr) :: right(s,y))
   }
-  implicit def prettyCallable(call: Callable)(implicit env: Scope): FixTokens = {
+  implicit def prettyCallable(call: NormalCallable)(implicit env: Scope): FixTokens = {
     def method[A <: HasRange](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
       fix(ApplyFix,left(_,x) ::: Loc(DotTok,dot) :: tokens(f.name,fr))
     def methodTs[A <: HasRange](x: A, dot: SRange, ts: List[TypeArg], a: SGroup, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
@@ -527,13 +524,14 @@ object Pretty {
       case TypeApply(NewDen(nr,qe,c,cr,ts0),ts1,a1,_) => gnu(nr,qe,c,cr,ts0,ts1,a1)
       case           ForwardDen(x,xr,c) => forward(x,xr,c,None)
       case TypeApply(ForwardDen(x,xr,c),ts,a,_) => forward(x,xr,c,Some(Grouped(ts,a)))
-      case TypeApply(_:NewArrayDen,_,_,_) => impossible
-      case NewArrayDen(nr,t,tr,ns,ds) =>
-        implicit val tr_ = tr
-        (NewFix,Loc(NewTok,nr) :: tokens(t)
-          ::: ns.map{case Grouped(n,a) => Loc(LBrackTok,a.l) :: tokens(n) ::: List(Loc(RBrackTok,a.r))}.flatten
-          ::: ds.map{               a  => Loc(LBrackTok,a.l) ::               List(Loc(RBrackTok,a.r))}.flatten)
     }
+  }
+  def prettyNewArrayDen(f: NewArrayDen)(implicit env: Scope): FixTokens = f match {
+    case NewArrayDen(nr,t,tr,ns,ds) =>
+      implicit val tr_ = tr
+      (NewFix,Loc(NewTok,nr) :: tokens(t)
+        ::: ns.map{case Grouped(n,a) => Loc(LBrackTok,a.l) :: tokens(n) ::: List(Loc(RBrackTok,a.r))}.flatten
+        ::: ds.map{               a  => Loc(LBrackTok,a.l) ::               List(Loc(RBrackTok,a.r))}.flatten)
   }
   def tokensTypeArgs(ts: List[TypeArg], a: => SGroup)(implicit env: Scope): Tokens = ts match {
     case Nil => Nil
@@ -545,7 +543,7 @@ object Pretty {
     case Some(Grouped(ts,a)) => tokensTypeArgs(ts,a)
   }
   def prettyInit(e: Exp)(implicit env: Scope): FixTokens = e match {
-    case ArrayExp(_,xs,a) => prettyArrayExp(xs,a)
+    case ArrayExp(_,_,_,xs,a) => prettyArrayExp(xs,a)
     case e => prettyExp(e)
   }
   def prettyArrayExp(xs: List[Exp], a: SGroup)(implicit env: Scope): FixTokens =
@@ -618,7 +616,8 @@ object Pretty {
   implicit def prettyDen(x: Den)(implicit env: Scope): FixTokens = x match {
     case x:Exp => prettyExp(x)
     case p:PackageDen => prettyItem(p.p)(env,SRange.unknown)
-    case x:Callable => prettyCallable(x)
+    case x:NormalCallable => prettyCallable(x)
+    case x:NewArrayDen => prettyNewArrayDen(x)
     case TypeDen(t) => implicit val tr = SRange.unknown; prettyType(t)
   }
   def prettyScored[A <: HasRange](xs: Scored[A], r: SRange)(implicit p: Pretty[A]): FixTokens =

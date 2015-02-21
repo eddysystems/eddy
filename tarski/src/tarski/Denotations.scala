@@ -45,8 +45,9 @@ object Denotations {
     def variadic: Boolean
     def callType(ts: List[TypeArg]): Type
   }
-  sealed abstract class NotTypeApply extends Callable
-  case class TypeApply(c: NotTypeApply, ts: List[TypeArg], a: SGroup, hide: Boolean) extends Callable {
+  sealed abstract class NormalCallable extends Callable
+  sealed abstract class NotTypeApply extends NormalCallable
+  case class TypeApply(c: NotTypeApply, ts: List[TypeArg], a: SGroup, hide: Boolean) extends NormalCallable {
     def r = c.r union a.r
     def tparams = Nil
     lazy val params = {
@@ -122,7 +123,7 @@ object Denotations {
       f.parent.generic(args,par)
     }
   }
-  case class NewArrayDen(nr: SRange, t: Type, tr: SRange, ns: List[Grouped[Exp]], ds: List[SGroup]) extends NotTypeApply {
+  case class NewArrayDen(nr: SRange, t: Type, tr: SRange, ns: List[Grouped[Exp]], ds: List[SGroup]) extends Callable {
     def r = nr unionR ns union ds
     lazy val result = arrays(t,ns.size+ds.size)
     def callType(ts: List[TypeArg]) = { assert(ts.isEmpty); result }
@@ -139,6 +140,14 @@ object Denotations {
     case NewDen(nr,p,f,fr,None) => val (ts0,ts1) = ts splitAt f.parent.arity
                                    uncheckedAddTypeArgs(NewDen(nr,p,f,fr,Some(Grouped(ts0,a))),ts1,a,hide)
     case f:NotTypeApply => TypeApply(f,ts,a,hide)
+  }
+
+  // Make either ApplyExp or an appropriate array creation
+  def makeApply(f: Callable, args: List[Exp], a: SGroup, auto: Boolean): Exp = f match {
+    case f:NormalCallable => ApplyExp(f,args,a,auto)
+    case NewArrayDen(nr,t,tr,Nil,Nil) => impossible
+    case NewArrayDen(nr,t,tr,Nil,ds) => ArrayExp(nr,arrays(t,ds.size-1),tr union ds.last.r,args,a)
+    case NewArrayDen(nr,t,tr,ns,ds) => assert(args.isEmpty); EmptyArrayExp(nr,arrays(t,ds.size),tr,ns)
   }
 
   // Variable declarations.  The env is the environment *before* the declaration.
@@ -381,7 +390,7 @@ object Denotations {
     def item = e.item
     def ty = e.ty
   }
-  case class ApplyExp(f: Callable, args: List[Exp], a: SGroup, auto: Boolean) extends StmtExp {
+  case class ApplyExp(f: NormalCallable, args: List[Exp], a: SGroup, auto: Boolean) extends StmtExp {
     def r = f.r union a.r
     lazy val item = ty.item
     lazy val ty = f.callType(Nil)
@@ -401,15 +410,15 @@ object Denotations {
     def r = c.r union y.r
     def item = ty.item
   }
-  case class ArrayExp(t: Type, i: List[Exp], a: SGroup) extends StmtExp { // t is the inner type
-    def r = a.lr
+  case class ArrayExp(nr: SRange, t: Type, tr: SRange, i: List[Exp], a: SGroup) extends Exp { // t is the inner type
+    def r = nr union a.lr
     def item = ArrayItem
     def ty = ArrayType(t)
   }
-  case class EmptyArrayExp(t: Type, i: List[Grouped[Exp]]) extends StmtExp { // new t[i]
-    def r = i.head.r union i.last.r
+  case class EmptyArrayExp(nr: SRange, t: Type, tr: SRange, i: List[Grouped[Exp]]) extends Exp { // new t[i]
+    def r = nr union i.head.r union i.last.r
     def item = ArrayItem
-    def ty = i.foldLeft(t)((t,i) => ArrayType(t))
+    def ty = i.foldLeft(t)((t,_) => ArrayType(t))
   }
 
   def typeOf(e: Option[Exp]): Type = e match {
@@ -420,7 +429,7 @@ object Denotations {
   // Is an expression definitely side effect free?
   def noEffects(e: Exp): Boolean = e match {
     case _:Lit|_:LocalExp|_:ThisOrSuperExp => true
-    case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ArrayExp|_:EmptyArrayExp|_:ImpExp => false
+    case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ImpExp => false
     case FieldExp(None,_,_) => true
     case FieldExp(Some(x),_,_) => noEffects(x)
     case NonImpExp(op,_,x) => pure(op) && noEffects(x)
@@ -428,6 +437,8 @@ object Denotations {
     case BinaryExp(op,_,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
     case ParenExp(x,_) => noEffects(x)
     case CondExp(c,_,x,_,y,_) => noEffects(c) && noEffects(x) && noEffects(y)
+    case ArrayExp(_,_,_,xs,_) => xs forall noEffects
+    case EmptyArrayExp(_,_,_,is) => is forall (i => noEffects(i.x))
   }
   def pure(op: UnaryOp) = !op.isInstanceOf[ImpOp]
   def pure(op: BinaryOp, x: Type, y: Type) = (x,y) match {
@@ -456,6 +467,8 @@ object Denotations {
       case (Nil,ey) => List(IfStmt(qr,not(c),SGroup.approx(c.r),blocked(ey)))
       case (ex,ey) => List(IfElseStmt(qr,c,SGroup.approx(c.r),notIf(blocked(ex)),er,blocked(ey)))
     }
+    case ArrayExp(_,_,_,xs,_) => xs flatMap effects
+    case EmptyArrayExp(_,_,_,is) => is flatMap (i => effects(i.x))
     case ParenExp(x,_) => effects(x)
   }
 

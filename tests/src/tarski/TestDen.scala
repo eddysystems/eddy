@@ -197,25 +197,25 @@ class TestDen {
 
   @Test
   def arrayVariableStmtCurly() =
-    test("x = {1,2,3,4}", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
+    test("x = {1,2,3,4}", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(r,IntType,r,List(1,2,3,4),a)),env))
 
   @Test
   def arrayVariableStmtParen() =
-    test("x = (1,2,3,4)", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
+    test("x = (1,2,3,4)", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(r,IntType,r,List(1,2,3,4),a)),env))
 
   @Test
   def arrayVariableStmtBare() =
-    test("x = 1,2,3,4", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
+    test("x = 1,2,3,4", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(r,IntType,r,List(1,2,3,4),a)),env))
 
   @Test
   def arrayVariableStmtBrack() =
-    test("x = [1,2,3,4]", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3,4),a)),env))
+    test("x = [1,2,3,4]", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(r,IntType,r,List(1,2,3,4),a)),env))
 
   @Test
   def arrayLiteralAssign(): Unit = {
     val x = NormalLocal("x",ArrayType(IntType),isFinal=false)
     implicit val env = localEnvWithBase(x)
-    test("x = {1,2,3}", AssignExp(None,r,x,ArrayExp(IntType,List(1,2,3),a)))
+    test("x = {1,2,3}", AssignExp(None,r,x,ArrayExp(r,IntType,r,List(1,2,3),a)))
   }
 
   @Test
@@ -223,12 +223,12 @@ class TestDen {
     val Main = NormalClassItem("Main",LocalPkg,Nil,ObjectType,Nil)
     val f = NormalMethodItem("f",Main,Nil,VoidType,List(ArrayType(IntType)),isStatic=true)
     implicit val env = localEnvWithBase().extend(Array(Main,f),Map(Main->2,f->2)).move(PlaceInfo(f))
-    test("f({1,2,3,4})", ApplyExp(f,List(ArrayExp(IntType,List(1,2,3,4),a)),a,auto=false))
+    test("f({1,2,3,4})", ApplyExp(f,List(ArrayExp(r,IntType,r,List(1,2,3,4),a)),a,auto=false))
   }
 
   @Test def arrayType() = {
     implicit val env = localEnvWithBase()
-    test("int[] x = {1,2,3}", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(IntType,List(1,2,3),a)),env))
+    test("int[] x = {1,2,3}", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(r,IntType,r,List(1,2,3),a)),env))
   }
 
   @Test def noIndex() = testFail("x = 1[]")
@@ -316,7 +316,7 @@ class TestDen {
 
   @Test
   def varArrayInit() =
-    test("int x[] = {1,2,3}", "x", x => VarStmt(Nil,IntType,r,VarDecl(x,r,1,Some(r,ArrayExp(IntType,List(1,2,3),a)),env),env))
+    test("int x[] = {1,2,3}", "x", x => VarStmt(Nil,IntType,r,VarDecl(x,r,1,Some(r,ArrayExp(r,IntType,r,List(1,2,3),a)),env),env))
 
   @Test
   def nullInit() =
@@ -484,7 +484,7 @@ class TestDen {
                    VarStmt(Nil,DoubleType,r,(y,8.1),env),
                    ForStmt(r,Nil,Some(t),r,Nil,a,h)),a,env))
   @Test def foreach()     = test("for (x : 1,2)", "x", x => {
-    assertFinal(x); ForeachStmt(r,Final,IntType,r,x,r,ArrayExp(IntType,List(1,2),a),a,h,env) })
+    assertFinal(x); ForeachStmt(r,Final,IntType,r,x,r,ArrayExp(r,IntType,r,List(1,2),a),a,h,env) })
 
   @Test def sideEffects() = {
     lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
@@ -1054,7 +1054,7 @@ class TestDen {
   }
 
   @Test def verboseArray() = test("int[] x = new int[]{1,2,3}","x",x =>
-    VarStmt(Nil,ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2,3),a,auto=false)),env),env))
+    VarStmt(Nil,ArrayType(IntType),r,VarDecl(x,r,0,Some(r,ArrayExp(r,IntType,r,List(1,2,3),a)),env),env))
 
   @Test def testTest(): Unit = {
     val X = NormalClassItem("X",LocalPkg)

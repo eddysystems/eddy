@@ -98,9 +98,10 @@ class TestPretty {
   @Test def prefix() = test("!x",NonImpExp(NotOp,r,NormalLocal("x",BooleanType)))
   @Test def postfix() = test("x++",ImpExp(PostIncOp,r,NormalLocal("x",IntType)))
 
-  @Test def newArray() = test("new int[]{1,2}",ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a)),List(1,2),a,auto=false))
-  @Test def newArrayN() = test("new int[2][]",ApplyExp(NewArrayDen(r,IntType,r,List(Grouped(2:Exp,a)),List(a)),Nil,a,auto=false))
-  @Test def newArrayNested() = test("new int[][]{{1,2},{3,4}}",ApplyExp(NewArrayDen(r,IntType,r,Nil,List(a,a)),List(ArrayExp(ArrayType(IntType),List(ArrayExp(IntType,List(1,2),a), ArrayExp(IntType,List(3,4),a)),a)),a,auto=false))
+  @Test def newArray() = test("new int[]{1,2}",ArrayExp(r,IntType,r,List(1,2),a))
+  @Test def newArrayN() = test("new int[2][]",EmptyArrayExp(r,ArrayType(IntType),r,List(Grouped(2:Exp,a))))
+  @Test def newArrayNested() = test("new int[][]{{1,2},{3,4}}",
+    ArrayExp(r,ArrayType(IntType),r,List(ArrayExp(r,IntType,r,List(1,2),a), ArrayExp(r,IntType,r,List(3,4),a)),a))
 
   @Test def fieldIndex() = {
     val A = NormalClassItem("A")

@@ -297,9 +297,9 @@ object Semantics {
       val call = biased(Pr.callExp(xsn,around), fs flatMap {
         case f:TypeDen => known(f.array) // t[]
         case f:Callable =>
-          def array(t: Type): Scored[ApplyExp] = {
+          def array(t: Type): Scored[Exp] = {
             def error = s"Expected array element type $t"
-            product(args map (_ filter (assignsTo(_,t),error))) map (ApplyExp(f,_,around.a,auto=false))
+            product(args map (_ filter (assignsTo(_,t),error))) map (makeApply(f,_,around.a,auto=false))
           }
           f match {
             case f:NewArrayDen => array(f.t)
@@ -413,7 +413,8 @@ object Semantics {
     }
 
     case ArrayAExp(xs,a) if m.exp =>
-      biased(Pr.arrayExp,product(xs.list map (denoteExp(_))) map (is => ArrayExp(condTypes(is map (_.ty)),is,a.a)))
+      val r = a.a.l.before
+      biased(Pr.arrayExp,product(xs.list map (denoteExp(_))) map (is => ArrayExp(r,condTypes(is map (_.ty)),r,is,a.a)))
 
     case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
   }
