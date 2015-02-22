@@ -1271,4 +1271,25 @@ class TestDen {
     implicit val env = localEnvWithBase().extend(Array(A,x,f),Map(x->1))
     test("if (x f 0) return",IfStmt(r,ApplyExp(MethodDen(x,f,r),List(0),a,auto=false),a,ReturnStmt(r,None,env)))
   }
+  
+  @Test def variadic() = {
+    val X = NormalClassItem("X")
+    val f = NormalMethodItem("function", X, Nil, VoidType, List(IntType, ArrayType(BooleanType), StringType, ArrayType(ExceptionType)),isStatic=true, variadic=true)
+    implicit val env = localEnvWithBase(X,f)
+    val i = NormalLocal("intVar", IntType)
+    val bs = NormalLocal("boolListVar", ArrayType(BooleanType))
+    val b1 = NormalLocal("boolVar", BooleanType)
+    val b2 = NormalLocal("otherBooleanVar", BooleanType)
+    val s = NormalLocal("stringVar", StringType)
+    val es = NormalLocal("exListVar", ArrayType(ExceptionType))
+    val e1 = NormalLocal("exVar", ExceptionType)
+    val e2 = NormalLocal("otherExVar", ExceptionType)
+    // straight call with array in the back
+    test("function(intVar,boolListVar,stringVar,exListVar)", ApplyExp(f, List(i,bs,s,es),a,false))
+    // straight call with singleton in the back
+    test("function(intVar,boolListVar,stringVar,exVar)", ApplyExp(f, List(i,bs,s,ArrayExp(r,ExceptionType,r,List(e1),a)),a,false))
+    // straight call with more than one thing in the back
+    test("function(intVar,boolListVar,stringVar,exVar,otherExVar)", ApplyExp(f, List(i,bs,s,ArrayExp(r,ExceptionType,r,List(e1,e2),a)),a,false))
+    // TODO: add fiddled versions to make sure that arguments are added only to the variadic array
+  }
 }
