@@ -379,6 +379,10 @@ public class Eddy {
     final @NotNull PsiElement psi = e.getPsi();
     final TextRange r = psi.getTextRange();
 
+    // TODO: At the moment, we never expand anonymous classes.  Actually, only their bodies should be left atomic.
+    if (psi instanceof PsiAnonymousClass)
+      return false;
+
     // Expand blocks if the cursor is strictly inside
     if (psi instanceof PsiCodeBlock) {
       // Check if we're strictly inside.  Note that r.contains(pos) is wrong here.
