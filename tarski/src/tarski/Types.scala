@@ -541,10 +541,8 @@ object Types {
       case t::ts => val i = subItemType(t,hi)
                     if (i.nonEmpty) i else loop(ts)
     }
-    lo match {
-      case lo:ClassType if lo.item eq hi => Some(lo)
-      case _ => loop(lo.supers)
-    }
+    if (lo.item eq hi) Some(lo.asInstanceOf[ClassType])
+    else loop(lo.supers)
   }
 
   // Least upper bounds: 4.10.4

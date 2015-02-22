@@ -198,8 +198,10 @@ object Tokens {
   // Uninterpreted statements and code blocks
   abstract class StmtTok extends Token {
     def isBlock: Boolean
-    def show(implicit f: ShowFlags): String
   }
+
+  // Uninterpreted anonymous classes
+  abstract class AnonTok extends Token
 
   // Convert to a string, adding whitespace between every token
   def showSep[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =

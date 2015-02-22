@@ -57,6 +57,17 @@ class Tokenizer {
     }
   }
 
+  // Uninterpreted anonymous classes
+  private static final class PsiAnonTok extends AnonTok {
+    final PsiAnonymousClass anon;
+
+    PsiAnonTok(final PsiAnonymousClass anon) { this.anon = anon; }
+
+    public String show(final ShowFlags f) {
+      return f.abbreviate() ? "Anonymous" : anon.getText();
+    }
+  }
+
   public static Token token(final TreeElement elem) {
     final IElementType type = elem.getElementType();
 
@@ -186,6 +197,7 @@ class Tokenizer {
     final PsiElement psi = elem.getPsi();
     if (psi instanceof PsiStatement) return new PsiStmtTok((PsiStatement)psi);
     if (psi instanceof PsiCodeBlock) return new PsiStmtTok((PsiCodeBlock)psi);
+    if (psi instanceof PsiAnonymousClass) return new PsiAnonTok((PsiAnonymousClass)psi);
 
     throw new RuntimeException("unknown token: type " + type + ", text " + elem.getText());
   }

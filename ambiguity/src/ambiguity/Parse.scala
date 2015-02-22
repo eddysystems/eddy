@@ -143,6 +143,7 @@ object Parse {
       "scala.Tuple4",
       "scala.Option",
       "tarski.Scores.*",
+      "utility.Interrupts",
       "static utility.Locations.*",
       "static tarski.ParseEddyActions.*"
     ) map (i => s"import $i;"))
@@ -266,6 +267,7 @@ object Parse {
       method("private void","nonnulls",Nil,
         "final int n = input.length;" ::
         block("for (int lo=n;lo>=0;lo--) for (int hi=lo+1;hi<=n;hi++)",
+          "if (Interrupts.pending != 0) Interrupts.checkInterrupts();" ::
           "final long range = unionHelper(ranges[lo],ranges[hi-1]);" ::
           nons.map(n => s"$n(lo,hi,range);")))
 
