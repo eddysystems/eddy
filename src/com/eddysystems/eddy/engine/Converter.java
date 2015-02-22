@@ -794,9 +794,10 @@ class Converter {
        }
        return _inside;
      }
+
      public ClassItem parent() {
-            return (ClassItem)env.addClass(f.getContainingClass());
-          }
+       return (ClassItem)env.addClass(f.getContainingClass());
+     }
 
      public PsiElement psi() {
             return f;
