@@ -103,6 +103,8 @@ class TestDen {
     testHelper(input, s => best, margin=margin)
   def test[A](input: String, x: Name, best: Local => A)(implicit env: Env, c: A => List[Stmt], fl: Flags): Unit =
     testHelper(input, s => best(locs(s)(x)))
+  def test[A](input: String, x: Name, best: Local => A, margin: Double)(implicit env: Env, c: A => List[Stmt], fl: Flags): Unit =
+    testHelper(input, s => best(locs(s)(x)), margin=margin)
   def test[A](input: String, x: Name, y: Name, best: (Local,Local) => A)(implicit env: Env, c: A => List[Stmt], fl: Flags): Unit =
     testHelper(input, s => { val l = locs(s); best(l(x),l(y)) })
 
@@ -1270,5 +1272,17 @@ class TestDen {
     val f = NormalMethodItem("f",A,Nil,BooleanType,List(IntType.box),isStatic=false)
     implicit val env = localEnvWithBase().extend(Array(A,x,f),Map(x->1))
     test("if (x f 0) return",IfStmt(r,ApplyExp(MethodDen(x,f,r),List(0),a,auto=false),a,ReturnStmt(r,None,env)))
+  }
+
+  @Test def escapingTypeVariable() = {
+    val Ea = SimpleTypeVar("Ea")
+    val Eb = SimpleTypeVar("Eb")
+    val A = NormalClassItem("A",tparams=List(Ea))
+    val B = NormalClassItem("B",tparams=List(Eb),base=A.generic(List(Eb)))
+    val C = NormalClassItem("C")
+    val f = NormalMethodItem("f",A,Nil,Ea,List(),isStatic=false)
+    val x = NormalLocal("x",B.generic(List(C)))
+    implicit val env = localEnvWithBase().extend(Array(Ea,Eb,A,B,C,f,x),Map(A->2,B->2,f->2,x->1))
+    test("y = x.f()","y",y => VarStmt(Nil,C,r,(y,ApplyExp(MethodDen(x,f,r),List(),a,auto=false)),env),margin=.1)
   }
 }

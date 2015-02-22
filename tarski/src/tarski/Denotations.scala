@@ -68,7 +68,7 @@ object Denotations {
     private lazy val parentEnv: Tenv = x match {
       case _ if f.isStatic => Map.empty
       case None => Map.empty
-      case Some(x) => x.ty.asInstanceOf[ClassType].env // x must be a class for MethodDen to make sense
+      case Some(x) => subItemType(x.ty,f.parent).get.env
     }
     def tparams = f.tparams
     def variadic = f.variadic
@@ -80,8 +80,8 @@ object Denotations {
     def r = xr
     def tparams = f.tparams
     def variadic = f.variadic
-    def params = {
-      implicit val env: Tenv = x.ty.env
+    lazy val params = {
+      implicit val env: Tenv = subItemType(x.ty,f.parent).get.env
       f.params map (_.substitute)
     }
     def result = VoidType
@@ -93,7 +93,7 @@ object Denotations {
   case class NewDen(nr: SRange, parentObj: Option[Exp], f: ConstructorItem, fr: SRange,
                     classArgs: Option[Grouped[List[TypeArg]]] = None) extends NotTypeApply {
     def r = nr union fr unionR classArgs
-    def parent = parentObj map (_.ty.asInstanceOf[ClassType])
+    private lazy val parent = parentObj map (x => subItemType(x.ty,f.parent.parent.asInstanceOf[ClassItem]).get)
     private lazy val env: Tenv = {
       val parentEnv: Tenv = parent match {
         case None => Map.empty

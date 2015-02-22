@@ -297,6 +297,10 @@ class Converter {
        return p.getName();
      }
 
+     public String toString() {
+       return "LazyTypeVar:" + name();
+     }
+
      public RefType lo() {
         return NullType$.MODULE$;
       }
