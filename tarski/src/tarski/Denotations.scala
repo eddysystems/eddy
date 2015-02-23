@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.AST.Name
+import tarski.AST.{ParenAExp, IntALit, AExp, Name}
 import utility.Utility._
 import utility.Locations._
 import tarski.Base._
@@ -488,6 +488,20 @@ object Denotations {
       }
       BinaryExp(flip,r,x,y)
     case _ => NonImpExp(NotOp,e.r.before,e)
+  }
+
+  def zero(r: SRange) = IntLit(0,"0",r)
+  @tailrec def isZero(e: AExp): Boolean = e match {
+    case IntALit("0",_) => true
+    case ParenAExp(x,_) => isZero(x)
+    case _ => false
+  }
+  def castZero(t: Type, r: SRange): Exp = t match {
+    case BooleanType => BooleanLit(false,r)
+    case SimpleType(BooleanItem,_) => BooleanLit(false,r)
+    case _:RefType => NullLit(r)
+    case _:NumType => zero(r)
+    case VoidType => impossible
   }
 
   def addSemi(s: Stmt, sr: SRange): Stmt = s match {

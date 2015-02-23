@@ -6,7 +6,7 @@ import utility.Locations._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Mods._
-import tarski.Base.VoidItem
+import tarski.Base.{BooleanItem, VoidItem}
 import tarski.Denotations._
 import tarski.Environment._
 import tarski.Items._
@@ -368,17 +368,6 @@ object Semantics {
     case BinaryAExp(op,opr,ax,ay) if m.exp => product(denoteExp(ax),denoteExp(ay)) flatMap {case (x,y) => {
       val tx = x.ty
       val ty = y.ty
-      @tailrec def isZero(e: AExp): Boolean = e match {
-        case IntALit("0",_) => true
-        case ParenAExp(x,_) => isZero(x)
-        case _ => false
-      }
-      def castZero(t: Type, r: SRange): Exp = t match {
-        case BooleanType => BooleanLit(false,r)
-        case _:RefType => NullLit(r)
-        case _:NumType => IntLit(0,"0",r)
-        case VoidType => impossible
-      }
       if (binaryLegal(op,tx,ty)) known(BinaryExp(op,opr,x,y))
       else if (isZero(ax) && ty!=VoidType) single(BinaryExp(op,opr,castZero(ty,ay.r),y),Pr.binaryExpCastZero)
       else if (isZero(ay) && tx!=VoidType) single(BinaryExp(op,opr,x,castZero(tx,ax.r)),Pr.binaryExpCastZero)
@@ -458,7 +447,8 @@ object Semantics {
   }
 
   def denoteAssignsTo(e: AExp, to: Type)(implicit env: Env): Scored[Exp] =
-    denoteExp(e,Some(to)) filter (assignsTo(_,to),s"Can't assign anything available to type ${show(to)}")
+    (denoteExp(e,Some(to)) filter (assignsTo(_,to),s"Can't assign anything available to type ${show(to)}")) ++ (
+      if (isZero(e)) single(castZero(to,e.r), Pr.assignCastZero) else Empty)
 
   /*
     // Optional check that e assigns to a type
@@ -641,7 +631,6 @@ object Semantics {
   }
 
   // Expressions with type restrictions
-  private def zero(r: SRange) = IntLit(0,"0",r)
   def denoteBool(n: AExp)(implicit env: Env): Scored[Exp] = { val nr = n.r; denoteExp(n) flatMap {e =>
     val t = e.ty
     if (t.unboxesToBoolean) known(e)
