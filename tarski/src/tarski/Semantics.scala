@@ -119,13 +119,10 @@ object Semantics {
   }
 
   def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] =
-    objectsOfItem(c) flatMap { x => denoteValue(x,cr,qualifiers) }
+    env.byItem(c) flatMap (denoteValue(_,cr,qualifiers))
 
-  // valuesOfItem biased by Pr.omitQualifier
-  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] = {
-    val xs = valuesOfItem(c,cr,qualifiers,error)
-    biased(Pr.omitQualifier(xs,c),xs)
-  }
+  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] =
+    biased(Pr.omitQualifier(c),valuesOfItem(c,cr,qualifiers,error))
 
   def denoteFieldItem(i: FieldItem, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[FieldExp] = {
     val c = i.parent

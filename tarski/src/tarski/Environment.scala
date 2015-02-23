@@ -289,10 +289,6 @@ object Environment {
   // - TODO: things that appear often in this file/class/function are more likely
   // - TODO: things that are declared close by are more likely
 
-  // Look up values by their type
-  def objectsOfItem(t: TypeItem)(implicit env: Env): Scored[Value] =
-    env.byItem(t)
-
   // Assuming a member belongs to a type, what is its fully applied type?
   def typeIn(f: TypeItem, t: Type): Type = f match {
     case f: Member => {
