@@ -143,9 +143,6 @@ object Pr {
     else if (inPackage(i, Base.JavaPkg)) Pr.outOfScopeJavaPkg
     else Pr.outOfScopeOtherPackage
 
-  // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
-  def superDot(values: Scored[Exp], c: TypeItem, f: ChildItem) = Prob("super dot",.8)
-
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
   // Type.constructor
