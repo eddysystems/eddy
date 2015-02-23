@@ -642,6 +642,7 @@ object Semantics {
     case ParenExp(x,_) => isVariable(x)
     case _:IndexExp => true // Java arrays are always mutable
     case _:CondExp => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
+    case _:WhateverExp => throw new RuntimeException("WhateverExp should never be assigned to")
 
     // Fields are subtle: final fields can be assigned to one time in a constructor of the class.
     // TODO: This code captures only the common case, and ignores issues of definite assignment.
