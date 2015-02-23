@@ -243,10 +243,32 @@ class TestDen {
 
   @Test
   def indexExp(): Unit = {
+    val i = NormalLocal("i",IntType)
     val x = NormalLocal("x",ArrayType(CharType),isFinal=true)
-    implicit val env = localEnv(x)
+    implicit val env = localEnv(x,i)
     test("""x[4] = '\n'""", AssignExp(None,r,IndexExp(x,4,a),'\n'))
+    test("""x[2*3] = '\n'""", AssignExp(None,r,IndexExp(x,BinaryExp(MulOp,r,2,3),a),'\n'))
+    test("""x[5*i] = '\n'""", AssignExp(None,r,IndexExp(x,BinaryExp(MulOp,r,5,i),a),'\n'))
+    test("""x[4] = x[3]""", AssignExp(None,r,IndexExp(x,4,a),IndexExp(x,3,a)))
   }
+
+  @Test
+  def castExp(): Unit = {
+    /* all this is legal:
+      int[] x = new int[100];
+      int i;
+      x[(int)(4.2 / 2)] = 0;
+      i = (int)2.1
+    */
+    val i = NormalLocal("i",IntType,isFinal=false)
+    val x = NormalLocal("x",ArrayType(CharType),isFinal=false)
+    val o = NormalLocal("o",ObjectType,isFinal=false)
+    implicit val env = localEnv(x,i,o)
+    test("x = (char[])o",AssignExp(None,r,x,CastExp(ArrayType(CharType),a,o)))
+    test("i = (int)3.1", AssignExp(None,r,i,CastExp(IntType,a,3.1)))
+    test("i = (int)(4.2/2)",AssignExp(None,r,i,CastExp(IntType,a,ParenExp(BinaryExp(DivOp,r,4.2,2),a))))
+  }
+
 
   @Test
   def nestedIndexExpBrack(): Unit = {
@@ -1311,5 +1333,15 @@ class TestDen {
     val x = NormalLocal("x",B.generic(List(C)))
     implicit val env = localEnvWithBase().extend(Array(Ea,Eb,A,B,C,f,x),Map(A->2,B->2,f->2,x->1))
     test("y = x.f()","y",y => VarStmt(Nil,C,r,(y,ApplyExp(MethodDen(x,f,r),List(),a,auto=false)),env),margin=.1)
+  }
+
+  @Test def pointlessAssignment() = {
+    val x = NormalLocal("x", IntType, isFinal=false)
+    val y = NormalLocal("y", ArrayType(IntType))
+    implicit val env = localEnvWithBase(x,y)
+    testFail("x = x") // can't assign simple things
+    testFail("y[0] = y[0]") // also not in arrays
+    testFail("y[3*2] = y[3*2]") // also not if the indices are expressions
+    testFail("y[(6*(x))] = y[6*x]") // also not if the expressions are structurally different but equivalent
   }
 }

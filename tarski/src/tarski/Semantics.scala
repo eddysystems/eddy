@@ -396,7 +396,51 @@ object Semantics {
         CondExp(c,qr,x,cr,y,commonType(x.ty,y.ty))})
 
     case AssignAExp(None,opr,x,y) if m.exp =>
-      denoteVariable(x) flatMap (x => denoteAssignsTo(y,x.ty) map (AssignExp(None,opr,x,_)))
+      denoteVariable(x) flatMap (x => denoteAssignsTo(y,x.ty) flatMap { y =>
+        def indexEquivalent(i: Exp, j: Exp): Boolean = (i,j) match {
+          case (ParenExp(i,_),_) => indexEquivalent(i,j)
+          case (_,ParenExp(j,_)) => indexEquivalent(i,j)
+          case (BinaryExp(opi,_,i0,i1),BinaryExp(opj,_,j0,j1)) => opi == opj && indexEquivalent(i0, j0) && indexEquivalent(i1,j1) // TODO: can flip j0,j1 if op commutes
+          case (i:UnaryExp,j:UnaryExp) => i.op == j.op && indexEquivalent(i.e, j.e)
+          case (CastExp(ti,_,i),CastExp(tj,_,j)) => ti==tj && indexEquivalent(i, j)
+          case (CondExp(ci,_,xi,_,yi,_), CondExp(cj,_,xj,_,yj,_)) => indexEquivalent(ci,cj) && indexEquivalent(xi,xj) && indexEquivalent(yi,yj) // TODO: Can be swapped if condition inverted
+          case (ApplyExp(fi,argsi,_,_),ApplyExp(fj,argsj,_,_)) => fi==fj && (argsi zip argsj).forall { case (i,j) => indexEquivalent(i,j) }
+          case (ArrayExp(_,ti,_,is,_),ArrayExp(_,tj,_,js,_)) => ti == tj && (is zip js).forall { case (i,j) => indexEquivalent(i,j) }
+          case (EmptyArrayExp(_,ti,_,is),EmptyArrayExp(_,tj,_,js)) => ti == tj && (is zip js).forall { case (Grouped(i,_),Grouped(j,_)) => indexEquivalent(i,j) }
+          case (InstanceofExp(i,_,ti,_),InstanceofExp(j,_,tj,_)) => ti == tj && indexEquivalent(i,j)
+          case (IndexExp(ei,ii,_),IndexExp(ej,ij,_)) => assignToEquivalent(ei,ej) && indexEquivalent(ii,ij)
+          case (i:Lit,j:Lit) => i==j // TODO: compare the actual value. This considers "1" and "1l" and "1." and "1e0" all different
+          case _ => assignToEquivalent(i,j) // handles objects
+        }
+
+        @tailrec def valueEquivalent(x: Value, y: Exp): Boolean = y match {
+          case AssignExp(_,_,y,_) => valueEquivalent(x,y) // x = x = y
+          case LocalExp(y,_) => x==y
+          case ThisOrSuperExp(t,_) => x==t
+          case CastExp(_,_,e) => valueEquivalent(x,e) // x = (T)x, casts don't matter
+          case ParenExp(e,_) => valueEquivalent(x,e) // x = (x)
+          case _ => false
+        }
+        def indexExpEquivalent(x: IndexExp, y: Exp): Boolean = y match {
+          case ParenExp(e,_) => indexEquivalent(x,e)
+          case IndexExp(e,i,_) => assignToEquivalent(x.e,e) && indexEquivalent(x.i,i)
+          case _ => false
+        }
+        @tailrec def assignToEquivalent(x: Exp, y: Exp): Boolean = x match {
+          // incomplete match, but scala can't check anyway: isVariable(x) is true
+          case LocalExp(i,_) => valueEquivalent(i,y)
+          case ParenExp(x,_) => assignToEquivalent(x,y)
+          case FieldExp(_,f,_) => valueEquivalent(f,y)
+          case ThisOrSuperExp(t,_) => valueEquivalent(t,y) // can only appear inside an index expression
+          case e:IndexExp => indexExpEquivalent(e,y)
+          case _ => false
+        }
+
+        if (assignToEquivalent(x,y))
+          fail(s"assigning $x = $y is unreasonable")
+        else
+          known(AssignExp(None,opr,x,y))
+      })
     case AssignAExp(Some(op),opr,x,y) if m.exp => {
       product(denoteVariable(x),denoteExp(y)) flatMap {case (x,y) => {
         assignOpType(op,x.ty,y.ty) match {
