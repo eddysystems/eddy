@@ -24,8 +24,8 @@ public class JavaScores {
   //   double /*Prob*/   ->   DebugProb
   // except without the space.  Also swap the definition of Prob in Scores, and fix the compile error in JavaTrie.
 
-  // Divide two probabilities, turning infinity into 2
-  static double pdiv(double x, double y) { return y == 0 ? 2 : x/y; }
+  // Divide two probabilities, turning infinity into 1
+  static double pdiv(double x, double y) { return y == 0 ? 1 : x/y; }
 
   // Indirection functions so that we can swap in DebugProb for debugging
   public static final boolean trackProbabilities = false;
@@ -68,10 +68,16 @@ public class JavaScores {
       if (y instanceof MulProb) ((MulProb)y).flatten(es); else if (!y.known()) es.add(y.pretty());
     }
   }
+  static final class DivProb extends DebugProb {
+    final DebugProb x,y;
+    DivProb(DebugProb x, DebugProb y) { super(pdiv(x.prob,y.prob)); this.x = x; this.y = y; }
+    final public Scores.Error pretty() { return nest("/ : "+prob,scalaList(x,y)); }
+  }
   public static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
   static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
+  static DebugProb pdiv(DebugProb x, DebugProb y) { return DivProb(x,y); }
   static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
   /**/
 
@@ -636,7 +642,7 @@ public class JavaScores {
       return pp(_p);
     }
 
-    public Scored<A> force(double q) {
+    public Scored<A> force(final double q) {
       if (s == null) {
         final double pq = pdiv(q,_p);
         Scored<A> x = f.apply(); f = null;
@@ -651,6 +657,87 @@ public class JavaScores {
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
             s = new Best<A>(pmul(_p,_x.dp()),_x.x(),_x.r()._bias(_p));
+          } else
+            s = (Scored)x;
+          break;
+        }
+      }
+      return s;
+    }
+  }
+
+  // Assuming x.p <= q, divide all probabilities in x by q
+  static public final class LazyUnbiased<A> extends LazyScored<A> {
+    private final double/*Prob*/ q;
+    private final double _p;
+    private LazyScored<A> x;
+    private Scored<A> s;
+
+    LazyUnbiased(final double/*Prob*/ q, final LazyScored<A> x) {
+      this.q = q;
+      this.x = x;
+      this._p = pdiv(x.p(),q);
+    }
+
+    public double p() {
+      return _p;
+    }
+
+    public Scored<A> force(final double g) {
+      if (s == null) {
+        final double gq = g*pp(q);
+        Scored<A> x = this.x.force(gq); this.x = null;
+        for (;;) {
+          if (x instanceof LazyScored) {
+            final LazyScored<A> _x = (LazyScored<A>)x;
+            if (_x.p() > gq) {
+              x = _x.force(gq);
+              continue;
+            } else
+              s = new LazyUnbiased<A>(q,_x);
+          } else if (x instanceof Best) {
+            final Best<A> _x = (Best<A>)x;
+            s = new Best<A>(pdiv(_x.dp(),q),_x.x(),Scores.unbiased(q,_x.r()));
+          } else
+            s = (Scored)x;
+          break;
+        }
+      }
+      return s;
+    }
+  }
+
+  // Evaluate s enough to make sure it's nonempty, then call f(best,rest)
+  static public final class LazyWhatever<A,B> extends LazyScored<B> {
+    private LazyScored<A> x;
+    private Function2<A,Scored<A>,B> f;
+    private Scored<B> s;
+
+    LazyWhatever(final LazyScored<A> x, final Function2<A,Scored<A>,B> f) {
+      this.x = x;
+      this.f = f;
+    }
+
+    public double p() {
+      return x.p();
+    }
+
+    public Scored<B> force(final double q) {
+      if (s == null) {
+        final Function2<A,Scored<A>,B> f = this.f; this.f = null;
+        Scored<A> x = this.x.force(q); this.x = null;
+        for (;;) {
+          if (x instanceof LazyScored) {
+            final LazyScored<A> _x = (LazyScored<A>)x;
+            if (_x.p() > q) {
+              x = _x.force(q);
+              continue;
+            } else
+              s = new LazyWhatever<A,B>(_x,f);
+          } else if (x instanceof Best) {
+            final Best<A> _x = (Best<A>)x;
+            final double/*Prob*/ xp = _x.dp();
+            s = new Best<B>(xp,f.apply(_x.x(),Scores.unbiased(xp,_x.r())),(Scored)Empty$.MODULE$);
           } else
             s = (Scored)x;
           break;

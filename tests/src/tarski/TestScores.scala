@@ -1,6 +1,7 @@
 package tarski
 
 import utility.Utility._
+import utility.JavaUtils.hash
 import tarski.JavaScores._
 import tarski.Scores._
 import scala.util.Random
@@ -114,6 +115,44 @@ class TestScores {
     val af = ax collect {case Alt(p,x) if good(x) => Alt(p,B(x))}
     assertEquals(15,af.size)
     test(af,x.collect(f,"fail"))
+  }
+
+  @Test def whatever() = {
+    sealed abstract class Exp                               { def expand: Scored[Exp] }
+    case object No extends Exp                              { def expand = known(this) }
+    case class Yes(n: Int, x: Exp) extends Exp              { def expand = x.expand map (Yes(n,_)) }
+    case class Whatever(b: Exp, r: Scored[Exp]) extends Exp { def expand = b.expand ++ r.flatMap(_.expand) }
+
+    def list(key: Int, n: Int): Exp =
+      if (n == 0) No
+      else Yes(key^n,list(key,n-1))
+
+    def p(n: Int): Prob = Prob(s"n$n",1.0/Int.MaxValue*(hash(n)&Int.MaxValue))
+
+    def tweak(wk: Int, e: Exp): Scored[Exp] = e match {
+      case No => known(No)
+      case Yes(n,x) => biased(Prob("blah",p(n)),{
+        val s = tweak(wk,x) flatMap (x =>
+          if (hash(n)%3 == 0) known(Yes(hash(n^12132),x)) ++ single(Yes(hash(n^981231),x),p(n^5311))
+          else known(Yes(hash(n^812321),x))
+        )
+        if (hash(n^wk)%3 == 0) Scores.whatever(s)(Whatever)
+        else s
+      })
+    }
+
+    def close[A](xs: List[Alt[A]], ys: List[Alt[A]], tol: Double = 1e-10): Boolean = (xs,ys) match {
+      case (Nil,Nil) => true
+      case (Alt(p,x)::xs,Alt(q,y)::ys) => Math.abs(p-q)<tol && x==y && close(xs,ys)
+      case _ => false
+    }
+
+    val base = list(1721,20)
+    def run(wk: Int) = tweak(wk,base).flatMap(_.expand).stream.toList
+    val correct = run(0)
+    assert(correct.size == 32)
+    for (wk <- 1281 to 1300)
+      assert(close(correct,run(wk)))
   }
 
   // Warn if debugging is left on

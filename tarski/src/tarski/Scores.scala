@@ -268,6 +268,21 @@ object Scores {
     if (trackErrors) new Bad(OneError(error)) ++ listGood(xs)
     else listGood(xs)
 
+  // Assuming s.p <= q, divide all probabilities in s by q
+  def unbiased[A](q: Prob, s: Scored[A]): Scored[A] = s match {
+    case s:LazyScored[A] => new LazyUnbiased[A](q,s)
+    case Best(p,x,r) => Best(pdiv(p,q),x,unbiased(q,r))
+    case s:EmptyOrBad => s
+  }
+
+  // Evaluate s enough to make sure it's nonempty, then call f(best,rest).
+  // For use when alternatives are indistinguishable, but we still need to know if one exists.
+  def whatever[A,B](s: Scored[A])(f: (A,Scored[A]) => B): Scored[B] = s match {
+    case s:LazyScored[A] => new LazyWhatever[A,B](s,f)
+    case Best(p,x,r) => single(f(x,unbiased(p,r)),p)
+    case s:EmptyOrBad => s
+  }
+
   // Structured errors
   sealed abstract class Error {
     def prefixed(p: String): String
