@@ -142,6 +142,9 @@ object Pr {
     else if (inPackage(i, Base.JavaLangPkg)) Pr.outOfScopeJavaLangPkg
     else if (inPackage(i, Base.JavaPkg)) Pr.outOfScopeJavaPkg
     else Pr.outOfScopeOtherPackage
+  def scope(i: ThisOrSuper)(implicit env: Env): Prob =
+    if (env.inScope(i)) Pr.inScope
+    else Pr.outOfScope
 
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)

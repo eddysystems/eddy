@@ -141,19 +141,16 @@ object Semantics {
     )
   }
 
-  def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = {
-    @inline def penalize(e: Exp) = single(e,if (env.inScope(i)) Pr.inScope else Pr.outOfScope)
-    i match {
-      case i:Local => if (env.inScope(i)) known(LocalExp(i,ir))
-                      else fail(s"Local $i is shadowed")
+  def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = i match {
+    case i:Local => if (env.inScope(i)) known(LocalExp(i,ir))
+                    else fail(s"Local $i is shadowed")
 
-      // We can always access this, static fields, or enums.
-      // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
-      case LitValue(f) => known(f(ir))
-      case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i))
-                          else denoteFieldItem(i,ir,qualifiers)
-      case i:ThisOrSuper => penalize(ThisOrSuperExp(i,ir))
-    }
+    // We can always access this, static fields, or enums.
+    // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
+    case LitValue(f) => known(f(ir))
+    case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i))
+                        else denoteFieldItem(i,ir,qualifiers)
+    case i:ThisOrSuper => single(ThisOrSuperExp(i,ir),Pr.scope(i))
   }
 
   def denoteMethod(i: MethodItem, ir: SRange)(implicit env: Env): Scored[MethodDen] =
