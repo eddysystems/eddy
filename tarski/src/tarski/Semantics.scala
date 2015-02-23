@@ -203,11 +203,11 @@ object Semantics {
   // Turn f into f(), etc.
   // TODO: Make Pr.missingArgList much higher for explicit new
   def bareCall(f: Callable, expects: Option[Type])(implicit env: Env): Scored[Exp] =
-    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,SGroup.approx(f.r),expects,auto=true,ArgMatching.useAll))
+    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,SGroup.approx(f.r),expects,auto=true,checkExpectedEarly=true,ArgMatching.useAll))
   def fixCall(m: Mode, expects: Option[Type], f: => Scored[Den])(implicit env: Env): Scored[Den] =
     if (m.call) f
     else f flatMap {
-      case f:Callable => biased(Pr.missingArgList, ArgMatching.fiddleCall(f,Nil,SGroup.approx(f.r.after),expects,auto=true,ArgMatching.useAll))
+      case f:Callable => biased(Pr.missingArgList, ArgMatching.fiddleCall(f,Nil,SGroup.approx(f.r.after),expects,auto=true,checkExpectedEarly=true,ArgMatching.useAll))
       case f => known(f)
     }
 
@@ -303,7 +303,7 @@ object Semantics {
           }
           f match {
             case f:NewArrayDen => array(f.t)
-            case _ => ArgMatching.fiddleCall(f,args,around.a,expects,auto=false,ArgMatching.useAll)
+            case _ => ArgMatching.fiddleCall(f,args,around.a,expects,auto=false,checkExpectedEarly=true,ArgMatching.useAll)
           }
         case f:Exp => fail(s"Expressions are not callable, f = $f")
         case f:PackageDen => fail(s"Packages are not callable, f = $f")
@@ -317,7 +317,7 @@ object Semantics {
         def special(a: Scored[Den], ar: SRange, x: Name, xr: SRange, ys: List[Scored[Exp]], names: IdentityHashMap[Scored[Exp],NameAExp]): Scored[Den] = {
           val ax = denoteField(a,ar,x,xr,m|CallMode,None,e)
           def apply: Scored[Den] = ax flatMap {
-            case ax:Callable => ArgMatching.fiddleCall(ax,ys,around.a,expects,auto=false,(axy,zs) => zs match {
+            case ax:Callable => ArgMatching.fiddleCall(ax,ys,around.a,expects,auto=false,checkExpectedEarly=false,(axy,zs) => zs match {
               case Nil => known(axy)
               case z::zs => names.get(z) match {
                 case null => fail("Not a field name")
@@ -399,7 +399,7 @@ object Semantics {
 
     case CondAExp(c,qr,x,cr,y) if m.exp =>
       biased(Pr.condExp,product(denoteBool(c),denoteExp(x,expects),denoteExp(y,expects)) map {case (c,x,y) =>
-        CondExp(c,qr,x,cr,y,condType(x.ty,y.ty))})
+        CondExp(c,qr,x,cr,y,commonType(x.ty,y.ty))})
 
     case AssignAExp(None,opr,x,y) if m.exp =>
       denoteVariable(x) flatMap (x => denoteAssignsTo(y,x.ty) map (AssignExp(None,opr,x,_)))

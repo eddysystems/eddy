@@ -442,7 +442,7 @@ object Types {
     case _ => false
   }
   def unboxesTo(from: Type, to: PrimType): Boolean = from==to.box
-
+  
   // Unchecked conversions: 5.1.9
   def uncheckedConvertsTo(from: Type, to: Type): Boolean = from==to.raw
   def widensRefUncheckedTo(from: RefType, to: RefType): Boolean = widensRefTo(from,to) || widensRefTo(from,to.raw)
@@ -581,9 +581,10 @@ object Types {
     }
   }
 
-  // Combine left and right sides of a conditional expression
+  // find a common type that can contains two types (lub for RefTypes, promote for PrimTypes)
+  // for example, to combine left and right sides of a conditional expression
   // TODO: Handle poly expressions (admittedly, this doesn't even make sense with this signature)
-  def condType(x: Type, y: Type): Type = {
+  def commonType(x: Type, y: Type): Type = {
     def pp(x: PrimType, y: PrimType): Type = (x,y) match {
       case (BooleanType,BooleanType) => BooleanType
       case (BooleanType,n:NumType) => lub(BooleanType.box,n.box)
@@ -611,7 +612,7 @@ object Types {
   def condTypes(ts: List[Type]): Type = ts match {
     case Nil => ObjectType // TODO: Doesn't handle zero size primitive type arrays
     case List(x) => x
-    case x :: xs => condType(x,condTypes(xs))
+    case x :: xs => commonType(x,condTypes(xs))
   }
 
   // Is t0 op= t1 valid?

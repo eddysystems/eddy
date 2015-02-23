@@ -1277,7 +1277,7 @@ class TestDen {
   @Test def variadic() = {
     val X = NormalClassItem("X")
     val f = NormalMethodItem("function", X, Nil, VoidType, List(IntType, ArrayType(BooleanType), StringType, ArrayType(ExceptionType)),isStatic=true, variadic=true)
-    implicit val env = localEnvWithBase(X,f)
+    val f2 = NormalMethodItem("proc", X, Nil, VoidType, List(ArrayType(BooleanType)),isStatic=true, variadic=true)
     val i = NormalLocal("intVar", IntType)
     val bs = NormalLocal("boolListVar", ArrayType(BooleanType))
     val b1 = NormalLocal("boolVar", BooleanType)
@@ -1286,13 +1286,19 @@ class TestDen {
     val es = NormalLocal("exListVar", ArrayType(ExceptionType))
     val e1 = NormalLocal("exVar", ExceptionType)
     val e2 = NormalLocal("otherExVar", ExceptionType)
+    implicit val env = localEnvWithBase(X,f,f2,i,bs,b1,b2,s,es,e1,e2)
+    // single variadic arg
+    test("proc(boolVar, otherBooleanVar)", ApplyExp(f2, List(ArrayExp(r,BooleanType,r,List(b1,b2),a)),a,false))
     // straight call with array in the back
     test("function(intVar,boolListVar,stringVar,exListVar)", ApplyExp(f, List(i,bs,s,es),a,false))
+    // straight call with manual array in the back
+    test("function(intVar,boolListVar,stringVar,new Exception[]{exVar,otherExVar})", ApplyExp(f, List(i,bs,s,ArrayExp(r,ExceptionType,r,List(e1,e2),a)),a,false))
     // straight call with singleton in the back
     test("function(intVar,boolListVar,stringVar,exVar)", ApplyExp(f, List(i,bs,s,ArrayExp(r,ExceptionType,r,List(e1),a)),a,false))
-    // straight call with more than one thing in the back
+    // straight call with more than one thing filling the variadic parameter
     test("function(intVar,boolListVar,stringVar,exVar,otherExVar)", ApplyExp(f, List(i,bs,s,ArrayExp(r,ExceptionType,r,List(e1,e2),a)),a,false))
-    // TODO: add fiddled versions to make sure that arguments are added only to the variadic array
+    // fiddled call
+    test("function(boolVar,otherBooleanVar,intVar,exVar,otherExVar,stringVar)", ApplyExp(f, List(i,ArrayExp(r,BooleanType,r,List(b1,b2),a),s,ArrayExp(r,ExceptionType,r,List(e1,e2),a)),a,false))
   }
 
   @Test def escapingTypeVariable() = {

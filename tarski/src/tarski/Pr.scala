@@ -232,6 +232,10 @@ object Pr {
   def shuffleArgs = Prob("shuffle args",.5)
   def addArg = Prob("add arg",.5)
   def missingArgList = Prob("missing argument list",.2)
+  val variadicCall = Prob("variadic call",1)
+  val arrayContract = Prob("contract into array",.3)
+  val contractToObjectArray = Prob("contract to Object[]",.1)
+  val convertToArray = Prob("convert to array",.5)
   val specialCall = Prob("special call",.1) // x[f] or (x f) instead of x.f, x f y instead of x.f(y), etc.
 
   // Named simple values

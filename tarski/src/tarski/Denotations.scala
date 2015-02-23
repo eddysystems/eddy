@@ -123,14 +123,15 @@ object Denotations {
       f.parent.generic(args,par)
     }
   }
+  // ns: given array dimensions, ds: omitted array dimensions
   case class NewArrayDen(nr: SRange, t: Type, tr: SRange, ns: List[Grouped[Exp]], ds: List[SGroup]) extends Callable {
     def r = nr unionR ns union ds
     lazy val result = arrays(t,ns.size+ds.size)
     def callType(ts: List[TypeArg]) = { assert(ts.isEmpty); result }
-    def variadic = false
+    def variadic = ns.isEmpty
     def tparams = Nil
     def params = if (ns.nonEmpty) Nil
-                 else throw new RuntimeException("Should be variadic, but we don't handle that yet")
+                 else List(arrays(t,ds.size)) // a single parameter which is an array initializer of the same dimension
   }
 
   // Add type arguments to a Callable without checking for correctness
