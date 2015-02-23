@@ -111,4 +111,14 @@ public class JavaUtils {
     }
     return all;
   }
+
+  // Thomas Wang's 32 bit to 32 bit hash
+  public static int hash(int k) {
+    k = (k ^ 61) ^ (k >>> 16);
+    k = k + (k << 3);
+    k = k ^ (k >>> 4);
+    k = k * 0x27d4eb2d; // TODO
+    k = k ^ (k >>> 15);
+    return k;
+  }
 }

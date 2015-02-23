@@ -487,6 +487,10 @@ object Pretty {
       (ApplyFix, Loc(NewTok,nr) :: outer(is,Nil))
     }
     case CondExp(c,qr,x,cr,y,_) => fix(CondFix, s => left(s,c) ::: Loc(QuestionTok,qr) :: tokens(x) ::: Loc(ColonTok,cr) :: right(s,y))
+    case WhateverExp(ty,x,_) =>
+      implicit val r = x.r
+      (HighestFix,Loc(IdentTok("Scored"),r) :: Loc(LParenTok,r) :: tokens(ty) ::: Loc(CommaTok,r)
+        :: tokens(x) ::: List(Loc(EllipsisTok,r),Loc(RParenTok,r)))
   }
   implicit def prettyCallable(call: NormalCallable)(implicit env: Scope): FixTokens = {
     def method[A <: HasRange](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
@@ -585,7 +589,6 @@ object Pretty {
           Loc(CatchTok,tr) :: parens(
             m.map(tokens).flatten ::: tokens(v.ty) ::: spaceBefore(vr) :: prettyName(v.name,vr)._2,a) ::: tokens(s)}
         ::: f.toList.flatMap{ case (fr,fs) => Loc(FinallyTok,fr) :: tokens(fs) })
-      case _:DiscardStmt => impossible
     }
   }
   implicit def prettyStmts(ss: List[Stmt]): FixTokens = (SemiFix, ss.map(tokens(_)).flatten)

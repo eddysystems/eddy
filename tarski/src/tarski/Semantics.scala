@@ -119,13 +119,10 @@ object Semantics {
   }
 
   def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] =
-    objectsOfItem(c) flatMap { x => denoteValue(x,cr,qualifiers) }
+    env.byItem(c) flatMap (denoteValue(_,cr,qualifiers))
 
-  // valuesOfItem biased by Pr.omitQualifier
-  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] = {
-    val xs = valuesOfItem(c,cr,qualifiers,error)
-    biased(Pr.omitQualifier(xs,c),xs)
-  }
+  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] =
+    biased(Pr.omitQualifier(c),valuesOfItem(c,cr,qualifiers,error))
 
   def denoteFieldItem(i: FieldItem, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[FieldExp] = {
     val c = i.parent
@@ -141,19 +138,16 @@ object Semantics {
     )
   }
 
-  def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = {
-    @inline def penalize(e: Exp) = single(e,if (env.inScope(i)) Pr.inScope else Pr.outOfScope)
-    i match {
-      case i:Local => if (env.inScope(i)) known(LocalExp(i,ir))
-                      else fail(s"Local $i is shadowed")
+  def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = i match {
+    case i:Local => if (env.inScope(i)) known(LocalExp(i,ir))
+                    else fail(s"Local $i is shadowed")
 
-      // We can always access this, static fields, or enums.
-      // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
-      case LitValue(f) => known(f(ir))
-      case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i))
-                          else denoteFieldItem(i,ir,qualifiers)
-      case i:ThisOrSuper => penalize(ThisOrSuperExp(i,ir))
-    }
+    // We can always access this, static fields, or enums.
+    // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
+    case LitValue(f) => known(f(ir))
+    case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i))
+                        else denoteFieldItem(i,ir,qualifiers)
+    case i:ThisOrSuper => single(ThisOrSuperExp(i,ir),Pr.scope(i))
   }
 
   def denoteMethod(i: MethodItem, ir: SRange)(implicit env: Env): Scored[MethodDen] =
@@ -642,6 +636,7 @@ object Semantics {
     case ParenExp(x,_) => isVariable(x)
     case _:IndexExp => true // Java arrays are always mutable
     case _:CondExp => false // TODO: java doesn't allow this, but (x==5?x:y)=10 should be turned into an if statement
+    case _:WhateverExp => throw new RuntimeException("WhateverExp should never be assigned to")
 
     // Fields are subtle: final fields can be assigned to one time in a constructor of the class.
     // TODO: This code captures only the common case, and ignores issues of definite assignment.

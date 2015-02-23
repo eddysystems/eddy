@@ -275,12 +275,6 @@ object Denotations {
     override def isBlock = t.isBlock
     def envAfter = env
   }
-  case class DiscardStmt(ds: List[Stmt], s: Stmt) extends Stmt {
-    def env = s.env
-    def envAfter = s.env
-    def r = s.r
-    override def flatten = impossible
-  }
 
   // It's all expressions from here
   sealed abstract class Exp extends ExpOrType with ExpOrCallable with HasRange {
@@ -421,40 +415,21 @@ object Denotations {
     def item = ArrayItem
     def ty = i.foldLeft(t)((t,_) => ArrayType(t))
   }
+  case class WhateverExp(ty: Type, best: Exp, rest: Scored[Exp]) extends Exp {
+    def r = best.r
+    def item = ty.item
+  }
 
   def typeOf(e: Option[Exp]): Type = e match {
     case None => VoidType
     case Some(e) => e.ty
   }
 
-  // Is an expression definitely side effect free?
-  def noEffects(e: Exp): Boolean = e match {
-    case _:Lit|_:LocalExp|_:ThisOrSuperExp => true
-    case _:CastExp|_:AssignExp|_:ApplyExp|_:IndexExp|_:ImpExp => false
-    case FieldExp(None,_,_) => true
-    case FieldExp(Some(x),_,_) => noEffects(x)
-    case NonImpExp(op,_,x) => pure(op) && noEffects(x)
-    case InstanceofExp(x,_,_,_) => noEffects(x)
-    case BinaryExp(op,_,x,y) => pure(op,x.ty,y.ty) && noEffects(x) && noEffects(y)
-    case ParenExp(x,_) => noEffects(x)
-    case CondExp(c,_,x,_,y,_) => noEffects(c) && noEffects(x) && noEffects(y)
-    case ArrayExp(_,_,_,xs,_) => xs forall noEffects
-    case EmptyArrayExp(_,_,_,is) => is forall (i => noEffects(i.x))
-  }
-  def pure(op: UnaryOp) = !op.isInstanceOf[ImpOp]
-  def pure(op: BinaryOp, x: Type, y: Type) = (x,y) match {
-    case (x:PrimType,y:PrimType) => op match {
-      case DivOp|ModOp => x.isInstanceOf[FloatingType] || y.isInstanceOf[FloatingType]
-      case MulOp|AddOp|SubOp|LShiftOp|RShiftOp|UnsignedRShiftOp
-          |AndAndOp|OrOrOp|AndOp|XorOp|OrOp|LtOp|GtOp|LeOp|GeOp|EqOp|NeOp => true
-    }
-    case _ => false // If we unbox, there can always be null
-  }
-
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
   def effects(e: Exp)(implicit env: Env): List[Stmt] = e match {
     case e:StmtExp => List(ExpStmt(e,env))
     case _:Lit|_:LocalExp|_:ThisOrSuperExp => Nil
+    case _:WhateverExp => Nil // TODO: This is technically a bug, but avoids making the whole function monadic
     case CastExp(_,_,x) => effects(x)
     case IndexExp(e,i,_) => effects(e)++effects(i)
     case FieldExp(None,_,_) => Nil
@@ -527,7 +502,6 @@ object Denotations {
     case WhileStmt(wr,c,a,s) => WhileStmt(wr,c,a,addSemi(s,sr))
     case ForStmt(fr,i,c,sr,u,a,s) => ForStmt(fr,i,c,sr,u,a,addSemi(s,sr))
     case ForeachStmt(fr,m,t,tr,v,vr,e,a,s,env) => ForeachStmt(fr,m,t,tr,v,vr,e,a,addSemi(s,sr),env)
-    case DiscardStmt(ds,s) => DiscardStmt(ds,addSemi(s,sr))
     case MultipleStmt(b) => MultipleStmt(b.init ::: List(addSemi(b.last,sr)))
     // Otherwise, add a semicolon
     case _:EmptyStmt|_:HoleStmt|_:VarStmt|_:ExpStmt|_:AssertStmt|_:BreakStmt|_:ContinueStmt

@@ -4,13 +4,11 @@ import gnu.trove.TObjectDoubleHashMap
 import utility.JavaUtils.poissonPDF
 import tarski.AST._
 import tarski.Arounds._
-import tarski.Denotations.Exp
 import tarski.Items._
-import tarski.Scores._
+import tarski.Scores.Prob
 import tarski.Types.Type
-import tarski.JavaScores._
+import tarski.JavaScores.pp
 import tarski.Environment._
-import scala.collection.JavaConverters._
 
 object Pr {
 
@@ -72,13 +70,10 @@ object Pr {
     typoProbability(d, typed.length) // could be meant.length, but that's inconsistent with when we don't have meant available
   }
 
-  // Generic likelihood that the user omitted the given qualifier (even though it was necessary), based on the possible values
-  // for the qualifying objects, and the object chosen as qualifier
-  def omitQualifier(probs: Scored[Exp], choice: ClassOrArrayItem): Prob = {
-    if (probs.isSingle) Prob("omit one choice",.8) // Only choice
-    else if (Items.inPackage(choice,Base.JavaPkg)) Prob("omit java.*",.8) // stuff in java.lang or java.io (like System.out)
+  // Generic likelihood that the user omitted the given qualifier (even though it was necessary)
+  def omitQualifier(choice: ClassOrArrayItem): Prob =
+    if (Items.inPackage(choice,Base.JavaPkg)) Prob("omit java.*",.8) // stuff in java.lang or java.io (like System.out)
     else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
-  }
 
   def omitNestedClass(t: TypeItem, c: ClassItem, first: Boolean): Prob =
     if (first) Prob("omit first qualifier for nested class",.8)
@@ -142,9 +137,9 @@ object Pr {
     else if (inPackage(i, Base.JavaLangPkg)) Pr.outOfScopeJavaLangPkg
     else if (inPackage(i, Base.JavaPkg)) Pr.outOfScopeJavaPkg
     else Pr.outOfScopeOtherPackage
-
-  // field f is declared in super but shadowed in this, how likely is it the user forgot to qualify?
-  def superDot(values: Scored[Exp], c: TypeItem, f: ChildItem) = Prob("super dot",.8)
+  def scope(i: ThisOrSuper)(implicit env: Env): Prob =
+    if (env.inScope(i)) Pr.inScope
+    else Pr.outOfScope
 
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
