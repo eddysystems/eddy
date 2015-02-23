@@ -254,19 +254,14 @@ class TestDen {
 
   @Test
   def castExp(): Unit = {
-    /* all this is legal:
-      int[] x = new int[100];
-      int i;
-      x[(int)(4.2 / 2)] = 0;
-      i = (int)2.1
-    */
     val i = NormalLocal("i",IntType,isFinal=false)
     val x = NormalLocal("x",ArrayType(CharType),isFinal=false)
     val o = NormalLocal("o",ObjectType,isFinal=false)
-    implicit val env = localEnv(x,i,o)
-    test("x = (char[])o",AssignExp(None,r,x,CastExp(ArrayType(CharType),a,o)))
+    implicit val env = localEnvWithBase(x,i,o)
+    test("i = (int)3", AssignExp(None,r,i,CastExp(IntType,a,3)))
     test("i = (int)3.1", AssignExp(None,r,i,CastExp(IntType,a,3.1)))
     test("i = (int)(4.2/2)",AssignExp(None,r,i,CastExp(IntType,a,ParenExp(BinaryExp(DivOp,r,4.2,2),a))))
+    test("x = (char[])o",AssignExp(None,r,x,CastExp(ArrayType(CharType),a,o)))
   }
 
 
