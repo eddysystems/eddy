@@ -372,9 +372,9 @@ class TestDen {
     val Z = NormalClassItem("Z")
     val m = NormalMethodItem("m", Z, Nil, VoidType, List(Q.simple), false)
     val y = NormalLocal("y",Y.simple,isFinal=true)
-    implicit val env = Env(Array(X,Y,Z,Xf,Yf,m,y), Map((y,1),(m,2)))
+    implicit val env = Env(Array(X,Y,Z,Xf,Yf,m,y), Map(y->1,m->2))
 
-    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(CastExp(X.simple,a,y),Xf,r)),a,auto=false))
+    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(CastExp(X.simple,a,y,gen=true),Xf,r)),a,auto=false))
   }
 
   @Test
@@ -405,10 +405,33 @@ class TestDen {
 
     val m = NormalMethodItem("m", Y, Nil, VoidType, List(Q.simple), false)
     val This = ThisItem(Y)
-    val Super = SuperItem(Y)
-    implicit val env = Env(Array(X,Y,Xf,Yf,m,This,Super), Map((This,2),(Super,2),(m,2),(Y,2),(Yf,2),(X,3),(Xf,3)))
+    implicit val env = Env(Array(X,Y,Xf,Yf,m,This,This.up), Map(This->2,This.up->2,m->2,Y->2,Yf->2,X->3,Xf->3))
 
-    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(Super,Xf,r)),a,auto=false))
+    test("m(f)", ApplyExp(MethodDen(None,m,r),List(FieldExp(This.up,Xf,r)),a,auto=false))
+  }
+
+  @Test def castNecessity() = {
+    val A = NormalClassItem("A",fields=Set("x","y"))
+    val B = NormalClassItem("B",base=A,fields=Set("x","z"))
+    val b = NormalLocal("b",B)
+    def field(name: Name, parent: ClassItem): (FieldItem,ClassItem,Local) = {
+      val t = NormalClassItem(parent.name+name.toUpperCase)
+      val f = NormalFieldItem(name,t,parent,isFinal=false)
+      val x = NormalLocal(parent.name+name,t,isFinal=true)
+      (f,t,x)
+    }
+    val (ax,axt,axv) = field("x",A)
+    val (ay,ayt,ayv) = field("y",A)
+    val (bx,bxt,bxv) = field("x",B)
+    val (bz,bzt,bzv) = field("z",B)
+    val X = NormalClassItem("X")
+    val List(x,y,z) = List("x","y","z") map (NormalLocal(_,X))
+    implicit val env = localEnvWithBase().extend(Array(A,B,b,ax,axt,axv,ay,ayt,ayv,bx,bxt,bxv,bz,bzt,bzv,x,y,z),
+                                                 Map(b->1,axv->1,ayv->1,bxv->1,bzv->1,x->1,y->1,z->1))
+    test("x = Ax",AssignExp(None,r,FieldExp(CastExp(A,a,b,gen=true),ax,r),axv))
+    test("y = Ay",AssignExp(None,r,FieldExp(b,ay,r),ayv))
+    test("x = Bx",AssignExp(None,r,FieldExp(b,bx,r),bxv))
+    test("z = Bz",AssignExp(None,r,FieldExp(b,bz,r),bzv))
   }
 
   @Test
@@ -638,7 +661,7 @@ class TestDen {
     lazy val Xc = NormalConstructorItem(X, Nil, Nil)
     lazy val Xc2 = NormalConstructorItem(X, Nil, List(IntType))
     val This = ThisItem(X)
-    val Super = SuperItem(X)
+    val Super = This.up
     implicit val env = Env(Array(Y,Yc,X,Xc,This,Super),
                            Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2)),
                            PlaceInfo(Xc2))
@@ -657,7 +680,7 @@ class TestDen {
     lazy val Xc2 = NormalConstructorItem(X, Nil, List(IntType))
     val x = NormalLocal("x",A)
     val This = ThisItem(X)
-    val Super = SuperItem(X)
+    val Super = This.up
     implicit val env = Env(Array(Y,Yc,X,Xc,This,Super,x),
                            Map((Xc,2),(Xc2,2),(X,2),(Y,3),(Yc,3),(This,2),(Super,2),(x,1)),
                            PlaceInfo(Xc2))
@@ -1245,8 +1268,8 @@ class TestDen {
     val B = NormalClassItem("B",parent=A,base=C)
     val At = ThisItem(A)
     val Bt = ThisItem(B)
-    val As = SuperItem(A)
-    val Bs = SuperItem(B)
+    val As = At.up
+    val Bs = Bt.up
     val f = NormalMethodItem("f",NormalClassItem("F"),Nil,VoidType,List(C),isStatic=true)
     implicit val env = localEnvWithBase().extend(Array(A,B,At,Bt,As,Bs,f),Map(A->2,B->1,f->3))
     def ff(x: Exp) = ApplyExp(f,List(x),a,auto=false)

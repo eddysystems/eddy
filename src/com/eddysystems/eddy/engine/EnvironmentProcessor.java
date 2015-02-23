@@ -13,7 +13,6 @@ import org.jetbrains.annotations.Nullable;
 import tarski.Environment;
 import tarski.Environment.PlaceInfo;
 import tarski.Items.*;
-import tarski.Types.ClassType;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -151,10 +150,8 @@ class EnvironmentProcessor {
           final ThisItem ti = new ThisItem(c);
           localItems.add(ti);
           scopeItems.put(ti,p);
-
-          final SuperItem si = new SuperItem(c);
-          localItems.add(si);
-          scopeItems.put(si,p);
+          localItems.add(ti.up());
+          scopeItems.put(ti.up(),p);
         }
 
         if (   (place instanceof PsiMethod || place instanceof PsiClass)

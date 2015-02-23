@@ -112,6 +112,6 @@ object Tarski {
       }
       uniform(Pr.parse,asts,"Parse failed")
     })
-    asts flatMap (denoteStmts(_)(env))
+    asts flatMap (denoteStmts(_)(env)) flatMap Expand.expandStmts map (_ map Simplify.simplify)
   }
 }

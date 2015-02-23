@@ -170,9 +170,8 @@ object Environment {
     }
 
     // Lookup by type.item
-    def byItem(t: TypeItem): Scored[Value] = {
+    def byItem(t: TypeItem): Scored[Value] =
       _byItem(t) flatMap { i => single(i,Pr.objectPrior(i.qualified)) }
-    }
 
     // get the innermost (current) ThisItem
     def getThis: ThisItem = scope.collect({ case (i:ThisItem,n) => (i,n) }).minBy(_._2)._1
@@ -295,12 +294,12 @@ object Environment {
       def p = f.parent
       collectOne(supers(t)){
         case t:ClassType if t.item==p => f.inside.substitute(t.env)
-      }.getOrElse(throw new RuntimeException("typeIn didn't find parent"))
+      }.getOrElse(throw new RuntimeException(s"typeIn didn't find parent: f $f, t $t"))
     }
     case _ => throw new RuntimeException("typeIn didn't find parent")
   }
 
-  def shadowedInSubType(i: FieldItem, t: ClassItem)(implicit env: Env): Boolean = {
+  def shadowedInSubtype(i: FieldItem, t: RefTypeItem): Boolean = {
     val c = i.parent
     assert(isSubitem(t,c))
     def loop(t: RefTypeItem): Boolean = t match {

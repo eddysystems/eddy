@@ -118,10 +118,10 @@ class TestScores {
   }
 
   @Test def whatever() = {
-    sealed abstract class Exp                               { def expand: Scored[Exp] }
-    case object No extends Exp                              { def expand = known(this) }
-    case class Yes(n: Int, x: Exp) extends Exp              { def expand = x.expand map (Yes(n,_)) }
-    case class Whatever(b: Exp, r: Scored[Exp]) extends Exp { def expand = b.expand ++ r.flatMap(_.expand) }
+    sealed abstract class Exp                       { def expand: Scored[Exp] }
+    case object No extends Exp                      { def expand = known(this) }
+    case class Yes(n: Int, x: Exp) extends Exp      { def expand = x.expand map (Yes(n,_)) }
+    case class Whatever(s: Scored[Exp]) extends Exp { def expand = s flatMap (_.expand) }
 
     def list(key: Int, n: Int): Exp =
       if (n == 0) No

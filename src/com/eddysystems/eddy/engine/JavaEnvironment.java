@@ -535,12 +535,11 @@ public class JavaEnvironment {
               Collections.addAll(result, extras);
 
             // look up in vByItem
-            Items.Value[] varr = vByItem.get(type);
+            final Items.Value[] varr = vByItem.get(type);
             if (varr != null)
               Collections.addAll(result, varr);
 
-            Items.Value[] rarr = new Items.Value[result.size()];
-            rarr = result.toArray(rarr);
+            final Items.Value[] rarr = result.toArray(new Items.Value[result.size()]);
 
             // TODO: remove duplicates?
 

@@ -239,6 +239,7 @@ class Converter {
      public ClassType base() { return ObjectType$.MODULE$; }
      public scala.collection.immutable.List<RefType> supers() { return _supers; }
      public scala.collection.immutable.List<RefTypeItem> superItems() { return _superItems; }
+     @Override public int arity() { return _targs.size(); }
 
      public scala.collection.immutable.List<TypeVar> tparams() {
        if (_tparams == null) {

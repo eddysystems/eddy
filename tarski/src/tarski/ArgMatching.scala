@@ -6,7 +6,7 @@ import tarski.Items.ArrayItem
 import tarski.JavaScores.multiple
 import tarski.Scores._
 import tarski.Types._
-import tarski.Semantics.denoteValue
+import tarski.Semantics.valuesOfItem
 import tarski.Tokens._
 import utility.Utility._
 import utility.Locations._
@@ -95,7 +95,7 @@ object ArgMatching {
         val options1: Opts = if (!useEnv) options0 else biased(Pr.addArg,
           // TODO: if f.params(k).item is ArrayItem, early discard everything returned by byItem which is not of the right sort of array
           // TODO: if f.params(k).item is ArrayItem, also look for its inner type to pass to add (which converts)
-          env.byItem(f.params(k).item) flatMap (denoteValue(_,a.r,qualifiers=Nil)) flatMap (add(_,Nil,unused))) :: options0
+          valuesOfItem(f.params(k).item,a.r,qualifiers=Nil) flatMap (add(_,Nil,unused))) :: options0
         multiple(options1)
       }
     }

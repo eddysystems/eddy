@@ -32,10 +32,12 @@ object Items {
     def inside: Parent
     def raw: Parent
     def simple: Parent
+    def simpleSafe: Boolean // Is it safe to call simple?
   }
   sealed trait SimpleParentItem extends ParentItem with SimpleParent {
     def item = this
     def inside = this
+    def simpleSafe = true
   }
 
   abstract class UnknownContainerItemBase extends SimpleParentItem {
@@ -104,6 +106,7 @@ object Items {
     def inside: Type
     def raw: Type
     def simple: Type
+    def simpleSafe: Boolean // Is it safe to call simple?
   }
   abstract class LangTypeItem extends TypeItem {
     def ty: LangType
@@ -113,6 +116,7 @@ object Items {
     def inside = ty
     def raw = ty
     def simple = ty
+    def simpleSafe = true
   }
 
   trait GenericItem {
@@ -152,6 +156,9 @@ object Items {
     def unboxesToNumeric: Boolean = false
     def unboxesToBoolean: Boolean = false
 
+    // Do we have a unique type?
+    final def simpleSafe = arity == 0 && (isStatic || parent.simpleSafe)
+
     // Convert to the type valid inside the definition
     def inside: ClassType = {
       val p = parent.inside
@@ -161,7 +168,7 @@ object Items {
 
     // Convert to a type valid anywhere, bailing if type parameters are required
     def simple: ClassType =
-      if (arity == 0) SimpleType(this,parent.simple)
+      if (arity == 0) SimpleType(this,if (isStatic) parent.raw else parent.simple)
       else throw new RuntimeException(s"class $name isn't simple (has args $tparams)")
 
     // Convert to a simple or raw type (valid anywhere)
@@ -181,7 +188,7 @@ object Items {
       else GenericType(this,args,par)
     }
 
-    def generic(args: List[TypeArg]): ClassType = generic(args,parent.simple)
+    def generic(args: List[TypeArg]): ClassType = generic(args,if (isStatic) parent.raw else parent.simple)
 
     // All constructors of this class
     def constructors: Array[ConstructorItem]
@@ -292,6 +299,7 @@ object Items {
     def simple = error
     def generic(args: List[TypeArg], parent: Parent) = error
     def isStatic = true
+    def simpleSafe = false
     def declaresField(kid: Name) = kid == "length"
   }
   case object lengthItem extends FieldItem {
@@ -310,6 +318,7 @@ object Items {
     def inside = error
     def raw = error
     def simple = error
+    def simpleSafe = false
   }
 
   trait Member extends Item with PackageOrMember {
@@ -343,9 +352,11 @@ object Items {
     def name = "this"
     def ty = item.inside
     def parent = item // For qualified A.this
+    val up = SuperItem(this)
   }
-  case class SuperItem(self: ClassItem) extends ThisOrSuper {
+  case class SuperItem(down: ThisItem) extends ThisOrSuper {
     def name = "super"
+    val self = down.item
     val ty = self.base
     val item = ty.item
     def parent = self // For qualified A.super

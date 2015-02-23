@@ -32,6 +32,7 @@ public class JavaScores {
   static double pp(double x) { return x; }
   static double pmul(double x, double y) { return x*y; }
   static public Scores.Error ppretty(double x) { return new OneError(""+x); }
+  static final double one = 1;
   /**/
 
   /*
@@ -79,6 +80,7 @@ public class JavaScores {
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
   static DebugProb pdiv(DebugProb x, DebugProb y) { return DivProb(x,y); }
   static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
+  static final DebugProb one = new NameProb("one",1);
   /**/
 
   // s bias q
@@ -710,10 +712,10 @@ public class JavaScores {
   // Evaluate s enough to make sure it's nonempty, then call f(best,rest)
   static public final class LazyWhatever<A,B> extends LazyScored<B> {
     private LazyScored<A> x;
-    private Function2<A,Scored<A>,B> f;
+    private Function1<Best<A>,B> f;
     private Scored<B> s;
 
-    LazyWhatever(final LazyScored<A> x, final Function2<A,Scored<A>,B> f) {
+    LazyWhatever(final LazyScored<A> x, final Function1<Best<A>,B> f) {
       this.x = x;
       this.f = f;
     }
@@ -724,7 +726,7 @@ public class JavaScores {
 
     public Scored<B> force(final double q) {
       if (s == null) {
-        final Function2<A,Scored<A>,B> f = this.f; this.f = null;
+        final Function1<Best<A>,B> f = this.f; this.f = null;
         Scored<A> x = this.x.force(q); this.x = null;
         for (;;) {
           if (x instanceof LazyScored) {
@@ -737,7 +739,7 @@ public class JavaScores {
           } else if (x instanceof Best) {
             final Best<A> _x = (Best<A>)x;
             final double/*Prob*/ xp = _x.dp();
-            s = new Best<B>(xp,f.apply(_x.x(),Scores.unbiased(xp,_x.r())),(Scored)Empty$.MODULE$);
+            s = new Best<B>(xp,f.apply(new Best<A>(one,_x.x(),Scores.unbiased(xp,_x.r()))),(Scored)Empty$.MODULE$);
           } else
             s = (Scored)x;
           break;

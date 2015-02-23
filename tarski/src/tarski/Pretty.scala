@@ -459,8 +459,8 @@ object Pretty {
     case l:Lit => pretty(l)
     case LocalExp(x,r) => prettyItem(x)(env,r)
     case ThisOrSuperExp(x,r) => prettyItem(x)(env,r)
-    case CastExp(t,a,x) => implicit val tr = a.r
-                           fix(PrefixFix, parens(t,a) ::: right(_,x))
+    case CastExp(t,a,x,_) => implicit val tr = a.r
+                             fix(PrefixFix, parens(t,a) ::: right(_,x))
     case e:UnaryExp if isPrefix(e.op) => fix(PrefixFix, Loc(token(e.op),e.opr) :: right(_,e.e))
     case e:UnaryExp                   => fix(PostfixFix, left(_,e.e) ::: List(Loc(token(e.op),e.opr)))
     case InstanceofExp(x,ir,t,tr) => { implicit val r = tr; fix(RelFix, f => left(f,x) ::: spaceAround(InstanceofTok,ir) ::: right(f,t,r,r)) }
@@ -487,10 +487,10 @@ object Pretty {
       (ApplyFix, Loc(NewTok,nr) :: outer(is,Nil))
     }
     case CondExp(c,qr,x,cr,y,_) => fix(CondFix, s => left(s,c) ::: Loc(QuestionTok,qr) :: tokens(x) ::: Loc(ColonTok,cr) :: right(s,y))
-    case WhateverExp(ty,x,_) =>
-      implicit val r = x.r
-      (HighestFix,Loc(IdentTok("Scored"),r) :: Loc(LParenTok,r) :: tokens(ty) ::: Loc(CommaTok,r)
-        :: tokens(x) ::: List(Loc(EllipsisTok,r),Loc(RParenTok,r)))
+    case WhateverExp(ty,r,_) =>
+      implicit val r_ = r
+      (HighestFix,Loc(IdentTok("Whatever"),r) :: Loc(LParenTok,r) :: tokens(ty)
+        ::: List(Loc(EllipsisTok,r),Loc(RParenTok,r)))
   }
   implicit def prettyCallable(call: NormalCallable)(implicit env: Scope): FixTokens = {
     def method[A <: HasRange](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =

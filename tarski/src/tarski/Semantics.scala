@@ -118,24 +118,38 @@ object Semantics {
     case _ => false
   }
 
-  def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] =
-    env.byItem(c) flatMap (denoteValue(_,cr,qualifiers))
+  def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = {
+    def v = env.byItem(c) flatMap (denoteValue(_,cr,qualifiers)) map (x => {
+      // Ensure that we return *exactly* item c.  We'll clean up the casts later if they turn out unnecessary.
+      if (c == x.item) x
+      else CastExp(subItemType(x.ty,c).get,SGroup.approx(cr),x,gen=true)
+    })
+    if (c.simpleSafe) {
+      val ty = c.simple // The type is independent of the expression created, so it doesn't matter which we choose
+      whatever(v)(WhateverExp(ty,cr,_))
+    } else v
+  }
 
-  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem], error: => String)(implicit env: Env): Scored[Exp] =
-    biased(Pr.omitQualifier(c),valuesOfItem(c,cr,qualifiers,error))
+  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] =
+    biased(Pr.omitQualifier(c),valuesOfItem(c,cr,qualifiers))
 
   def denoteFieldItem(i: FieldItem, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[FieldExp] = {
     val c = i.parent
     if (qualifiers.size >= 3) fail("Automatic field depth exceeded")
     else if (qualifiers contains i) fail(s"qualification loop $i -> $qualifiers")
-    else qualifiersOfItem(c,ir,i::qualifiers,s"Field ${show(i)}") flatMap (xd =>
+    else qualifiersOfItem(c,ir,i::qualifiers) map (x => FieldExp(Some(x),i,ir))
+    /*
+    else qualifiersOfItem(c,ir,i::qualifiers) flatMap (xd => {
+      def field(x: Exp) = FieldExp(Some(x),i,ir)
       if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem]))
         xd match {
           case ThisOrSuperExp(tt:ThisItem,_) if tt.item.base.item == c => fail("We'll use super instead of this")
-          case _ => known(FieldExp(Some(CastExp(c.raw,SGroup.approx(ir),xd)),i,ir))
+          case WhateverExp(ty,r,s) => impossible
+          case _ => known(field(CastExp(c.raw,SGroup.approx(ir),xd)))
         }
-      else known(FieldExp(Some(xd),i,ir))
-    )
+      else known(field(xd))
+    })
+    */
   }
 
   def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = i match {
@@ -151,7 +165,7 @@ object Semantics {
   }
 
   def denoteMethod(i: MethodItem, ir: SRange)(implicit env: Env): Scored[MethodDen] =
-    qualifiersOfItem(i.parent,ir,Nil,s"Method ${show(i)}") map (x => MethodDen(Some(x),i,ir))
+    qualifiersOfItem(i.parent,ir,Nil) map (x => MethodDen(Some(x),i,ir))
 
   case class Mode(m: Int) extends AnyVal {
     def exp:     Boolean = (m&1)!=0
@@ -270,7 +284,7 @@ object Semantics {
             if (t.item.isStatic) cons map (NewDen(nr,None,_,x.r)) // Drop q.  Probability penalized above in xs.
             else if (member) cons map (NewDen(nr,Some(q),_,x.r)) // All good, t is a member of q
             else // t isn't a member of q, so we need to find something else (highly unlikely)
-              qualifiersOfItem(t.parent.asInstanceOf[ClassItem], qe.r, Nil, "cannot find object to qualify new for inner class") flatMap (x =>
+              qualifiersOfItem(t.parent.asInstanceOf[ClassItem],qe.r,Nil) flatMap (x =>
                 fixCall(m,expects,cons map (NewDen(nr.before,Some(x),_,nr))))))
       }}
       fixCall(m,expects,dens)
@@ -394,7 +408,7 @@ object Semantics {
           case (AssignExp(_,_,_,i),_) => indexEquivalent(i,j)
           case (_,AssignExp(_,_,_,j)) => indexEquivalent(i,j)
             // unfortunately, cannot just drop all casts (consider x[(int)((int)3.2 + .9)] = x[(int)(3.2+.9)])
-          case (CastExp(ti,_,i),CastExp(tj,_,j)) => ti==tj && indexEquivalent(i,j)
+          case (CastExp(ti,_,i,_),CastExp(tj,_,j,_)) => ti==tj && indexEquivalent(i,j)
           case (BinaryExp(opi,_,i0,i1),BinaryExp(opj,_,j0,j1)) => opi == opj && indexEquivalent(i0, j0) && indexEquivalent(i1,j1) // TODO: can flip j0,j1 if op commutes
           case (i:UnaryExp,j:UnaryExp) => i.op == j.op && indexEquivalent(i.e, j.e)
           case (CondExp(ci,_,xi,_,yi,_), CondExp(cj,_,xj,_,yj,_)) => indexEquivalent(ci,cj) && indexEquivalent(xi,xj) && indexEquivalent(yi,yj) // TODO: Can be swapped if condition inverted
@@ -410,7 +424,7 @@ object Semantics {
           case AssignExp(_,_,y,z) => valueEquivalent(x,y) || valueEquivalent(x,z) // x = y = z not allowed if x == y or x == z
           case LocalExp(y,_) => x==y
           case ThisOrSuperExp(t,_) => x==t
-          case CastExp(_,_,e) => valueEquivalent(x,e) // x = (T)x, casts don't matter
+          case CastExp(_,_,e,_) => valueEquivalent(x,e) // x = (T)x, casts don't matter
           case ParenExp(e,_) => valueEquivalent(x,e) // x = (x)
           case _ => false
         }
@@ -421,9 +435,9 @@ object Semantics {
           case FieldExp(_,f,_) => valueEquivalent(f,y)
           case ThisOrSuperExp(t,_) => valueEquivalent(t,y) // can only appear inside an index expression
           case IndexExp(e,i,_) => y match {
-              // discard parens, casts, assign
+            // discard parens, casts, assign
             case ParenExp(ey,_) => assignToEquivalent(x,ey)
-            case CastExp(_,_,ey) => assignToEquivalent(x,ey)
+            case CastExp(_,_,ey,_) => assignToEquivalent(x,ey)
             case AssignExp(_,_,y,z) => assignToEquivalent(x,y) || assignToEquivalent(x,z)
             case IndexExp(ey,iy,_) => indexEquivalent(i,iy) && assignToEquivalent(e,ey)
             case _ => false
@@ -508,7 +522,7 @@ object Semantics {
 
   // find objects to qualify a new statement
   def qualifyNew(qualifierItem: ClassItem, qr: SRange, newItem: ClassItem, nr: SRange)(implicit env: Env) =
-    qualifiersOfItem(qualifierItem, qr, Nil, "cannot find object to qualify new for inner class") flatMap (x =>
+    qualifiersOfItem(qualifierItem,qr,Nil) flatMap (x =>
       uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr)))
 
   def denoteName(n: Name, nr: SRange, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
@@ -807,7 +821,7 @@ object Semantics {
 
       case ReturnAStmt(rr,None) => returnType flatMap (r =>
         if (r==VoidType) known(ReturnStmt(rr,None,env))
-        else valuesOfItem(r.item,rr,Nil,"return") flatMap (x =>
+        else valuesOfItem(r.item,rr,Nil) flatMap (x =>
           if (assignsTo(x,r)) known(ReturnStmt(rr,Some(x),env))
           else fail(s"${show(s)}: type ${show(x.ty)} incompatible with return type ${show(r)}")
         )

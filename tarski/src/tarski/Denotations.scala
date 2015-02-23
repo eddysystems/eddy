@@ -351,7 +351,7 @@ object Denotations {
     def item = i.item
     def ty = i.ty
   }
-  case class CastExp(ty: Type, a: SGroup, e: Exp) extends Exp {
+  case class CastExp(ty: Type, a: SGroup, e: Exp, gen: Boolean = false) extends Exp {
     def r = a.l union e.r
     def item = ty.item
   }
@@ -415,8 +415,7 @@ object Denotations {
     def item = ArrayItem
     def ty = i.foldLeft(t)((t,_) => ArrayType(t))
   }
-  case class WhateverExp(ty: Type, best: Exp, rest: Scored[Exp]) extends Exp {
-    def r = best.r
+  case class WhateverExp(ty: Type, r: SRange, s: Best[Exp]) extends Exp {
     def item = ty.item
   }
 
@@ -430,7 +429,7 @@ object Denotations {
     case e:StmtExp => List(ExpStmt(e,env))
     case _:Lit|_:LocalExp|_:ThisOrSuperExp => Nil
     case _:WhateverExp => Nil // TODO: This is technically a bug, but avoids making the whole function monadic
-    case CastExp(_,_,x) => effects(x)
+    case CastExp(_,_,x,_) => effects(x)
     case IndexExp(e,i,_) => effects(e)++effects(i)
     case FieldExp(None,_,_) => Nil
     case FieldExp(Some(x),_,_) => effects(x)

@@ -238,7 +238,7 @@ object Constants {
     // Possibly constant environment values
     case _:LocalExp|_:FieldExp => NotCon // TODO: Handle these
     // Expressions which might be constant
-    case CastExp(t,_,e) => t match {
+    case CastExp(t,_,e,_) => t match {
       case StringType => toCon(e) match {
         case e:StringCon => e
         case _ => NotCon

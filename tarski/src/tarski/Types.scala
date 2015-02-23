@@ -252,6 +252,7 @@ object Types {
     def item = this
     def isFinal = false
     def isSimple = false
+    def simpleSafe = true
     def known(implicit env: Tenv): Boolean = env.get(this) match {
       case Some(None) => false // We're raw, and therefore not known
       case _ => true
@@ -543,6 +544,13 @@ object Types {
     }
     if (lo.item eq hi) Some(lo.asInstanceOf[ClassType])
     else loop(lo.supers)
+  }
+  def subItemType(lo: Type, hi: TypeItem): Option[Type] = hi match {
+    case hi:ClassItem => subItemType(lo,hi)
+    case _ => lo match {
+      case _:ArrayType => Some(lo)
+      case _ => None
+    }
   }
 
   // Least upper bounds: 4.10.4

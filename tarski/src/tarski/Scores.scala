@@ -275,11 +275,11 @@ object Scores {
     case s:EmptyOrBad => s
   }
 
-  // Evaluate s enough to make sure it's nonempty, then call f(best,rest).
+  // Evaluate s enough to make sure it's nonempty, then call f(best) with best.p == 1.
   // For use when alternatives are indistinguishable, but we still need to know if one exists.
-  def whatever[A,B](s: Scored[A])(f: (A,Scored[A]) => B): Scored[B] = s match {
+  def whatever[A,B](s: Scored[A])(f: Best[A] => B): Scored[B] = s match {
     case s:LazyScored[A] => new LazyWhatever[A,B](s,f)
-    case Best(p,x,r) => single(f(x,unbiased(p,r)),p)
+    case Best(p,x,r) => single(f(Best(knownProb,x,unbiased(p,r))),p)
     case s:EmptyOrBad => s
   }
 

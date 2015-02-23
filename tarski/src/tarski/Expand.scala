@@ -127,12 +127,13 @@ object Expand {
   implicit def expandCatchBlock(c: CatchBlock): Scored[CatchBlock] = c match {
     case CatchBlock(m,tr,v,vr,a,s) => expand(s) map (CatchBlock(m,tr,v,vr,a,_))
   }
+  def expandStmts(ss: List[Stmt]): Scored[List[Stmt]] = expandList(ss)(expandStmt)
 
   implicit def expandExp(e: Exp): Scored[Exp] = e match {
-    case WhateverExp(_,x,xs) => expand(x) ++ xs.flatMap(expandExp)
+    case WhateverExp(_,_,s) => s flatMap expandExp
     case _:Lit|_:LocalExp|_:ThisOrSuperExp => known(e)
     case FieldExp(x,f,fr) => expand(x) map (FieldExp(_,f,fr))
-    case CastExp(ty,a,x) => expand(x) map (CastExp(ty,a,_))
+    case CastExp(ty,a,x,g) => expand(x) map (CastExp(ty,a,_,g))
     case ImpExp(op,opr,x) => expand(x) map (ImpExp(op,opr,_))
     case NonImpExp(op,opr,x) => expand(x) map (NonImpExp(op,opr,_))
     case BinaryExp(op,opr,x,y) => productWith(expand(x),expand(y))(BinaryExp(op,opr,_,_))

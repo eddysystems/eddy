@@ -32,7 +32,7 @@ public class JavaItems {
     // Count values corresponding to each item
     final TObjectIntHashMap<TypeItem> count = new TObjectIntHashMap<TypeItem>(vs.length);
     for (final Item i : vs) {
-      if (!(i instanceof Value))
+      if (!(i instanceof Value) || i instanceof SuperItem) // Always use this instead of super
         continue;
       final Value v = (Value)i;
       final TypeItem t = v.item();
@@ -63,7 +63,7 @@ public class JavaItems {
     // Add values corresponding to each item
     final Map<TypeItem,Value[]> results = new HashMap<TypeItem,Value[]>(count.size());
     for (final Item i : vs) {
-      if (!(i instanceof Value))
+      if (!(i instanceof Value) || i instanceof SuperItem) // Always use this instead of super
         continue;
       final Value v = (Value)i;
       final TypeItem t = v.item();
