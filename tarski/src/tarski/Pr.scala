@@ -222,6 +222,7 @@ object Pr {
   assert(pp(exact) > pp(typo))
   val objectOfType = base
   val objectOfItem = base
+  val globalByItem = Prob("global by item",.6)
 
   // ArgMatching
   def dropArgs(dropped: Int) = Prob(s"drop $dropped args",math.pow(.3, dropped))

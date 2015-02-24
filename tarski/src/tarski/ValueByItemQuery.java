@@ -1,6 +1,10 @@
 package tarski;
 
+import tarski.Items.Value;
+import tarski.Items.TypeItem;
+import tarski.Scores.Scored;
+
 public interface ValueByItemQuery {
-  // get all values (fields, parameters, local variables) of a type derived from the given item
-  public Items.Value[] query(Items.TypeItem type);
+  // All values (fields, parameters, local variables) of a type derived from the given item
+  public Scored<Value> query(final TypeItem type);
 }

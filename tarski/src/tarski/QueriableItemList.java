@@ -3,9 +3,10 @@ package tarski;
 import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
-import tarski.Items.Item;
+import scala.collection.immutable.Stream;
+import tarski.Items.*;
 import tarski.Scores.Alt;
-import tarski.Scores.Scored;
+import tarski.Scores.*;
 import static tarski.JavaScores.pp;
 
 import java.util.ArrayList;
@@ -63,12 +64,15 @@ public class QueriableItemList implements Tries.Queriable<Item>, ValueByItemQuer
     return JavaScores.listGood(results);
   }
 
-  @Override public Items.Value[] query(Items.TypeItem t) {
-    java.util.List<Items.Value> results = new ArrayList<Items.Value>();
-    for (Items.Item it : items) {
-      if (it instanceof Items.Value && Types.isSubitem(((Items.Value)it).item(), t))
-        results.add((Items.Value)it);
+  @Override public Scored<Value> query(final TypeItem t) {
+    Scored<Value> vs = (Scored)Empty$.MODULE$;
+    for (final Item i : items) {
+      if (i instanceof Value) {
+        final Value v = (Value) i;
+        if (Types.isSubitem(v.item(),t))
+          vs = new Best<Value>(JavaScores.one,v,vs);
+      }
     }
-    return results.toArray(new Items.Value[results.size()]);
+    return vs;
   }
 }

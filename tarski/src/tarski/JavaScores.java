@@ -32,7 +32,7 @@ public class JavaScores {
   static double pp(double x) { return x; }
   static double pmul(double x, double y) { return x*y; }
   static public Scores.Error ppretty(double x) { return new OneError(""+x); }
-  static final double one = 1;
+  static public final double one = 1;
   /**/
 
   /*
@@ -80,7 +80,7 @@ public class JavaScores {
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
   static DebugProb pdiv(DebugProb x, DebugProb y) { return DivProb(x,y); }
   static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
-  static final DebugProb one = new NameProb("one",1);
+  static public final DebugProb one = new NameProb("one",1);
   /**/
 
   // s bias q
@@ -218,6 +218,16 @@ public class JavaScores {
       then = new Best<A>(p,xs.head(),then);
       xs = (List)xs.tail();
     }
+    return then;
+  }
+  static public <A> Scored<A> uniformThen(double/*Prob*/ p, Collection<A> xs, Scored<A> then) {
+    assert pp(p) >= then.p();
+    if (xs.isEmpty())
+      return then;
+    if (trackErrors)
+      then = Scores.good(then);
+    for (final A x : xs)
+      then = new Best<A>(p,x,then);
     return then;
   }
 
@@ -635,7 +645,7 @@ public class JavaScores {
     private Function0<Scored<A>> f;
     private Scored<A> s;
 
-    LazyBiased(double/*Prob*/ p, Function0<Scored<A>> f) {
+    public LazyBiased(double/*Prob*/ p, Function0<Scored<A>> f) {
       this._p = p;
       this.f = f;
     }
