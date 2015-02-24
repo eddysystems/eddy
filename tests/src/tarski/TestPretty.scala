@@ -109,4 +109,12 @@ class TestPretty {
     val y = NormalFieldItem("y",ArrayType(IntType),A)
     test("x.y[0]",IndexExp(FieldExp(x,y,r),0,a))
   }
+
+  @Test def variadic(): Unit = {
+    val A = NormalClassItem("A")
+    val f = NormalMethodItem("f",A,Nil,VoidType,List(ArrayType(IntType)),isStatic=true,variadic=true)
+    val g = NormalMethodItem("g",A,Nil,VoidType,List(ArrayType(IntType),ArrayType(IntType)),isStatic=true,variadic=true)
+    test("A.f(1,2,3)",ApplyExp(f,List(ArrayExp(r,IntType,r,List(1,2,3),a)),a,auto=false))
+    test("A.g(new int[]{1,2,3},1,2,3)",ApplyExp(g,List(ArrayExp(r,IntType,r,List(1,2,3),a),ArrayExp(r,IntType,r,List(1,2,3),a)),a,auto=false))
+  }
 }

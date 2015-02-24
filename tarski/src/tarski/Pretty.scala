@@ -455,6 +455,11 @@ object Pretty {
     case _:ThisItem => ThisTok
     case _:SuperItem => SuperTok
   }
+  private def expandVariadicArg(as: List[Exp]): List[Exp] = as match {
+    case Nil => Nil
+    case ArrayExp(_,_,_,i,_)::Nil => i
+    case a::as => a::expandVariadicArg(as)
+  }
   implicit def prettyExp(e: Exp)(implicit env: Scope): FixTokens = e match {
     case l:Lit => pretty(l)
     case LocalExp(x,r) => prettyItem(x)(env,r)
@@ -467,7 +472,7 @@ object Pretty {
     case BinaryExp(op,opr,x,y) => { val (s,t) = prettyBinary(op,opr); (s, left(s,x) ::: t ::: right(s,y)) }
     case AssignExp(op,opr,x,y) => fix(AssignFix, s => left(s,x) ::: spaceAround(token(op),opr) ::: right(s,y))
     case ParenExp(x,a) => (HighestFix,parens(x,a))
-    case ApplyExp(f,as,a,_) => (ApplyFix, tokens(f) ::: parens(commas(as),a))
+    case ApplyExp(f,as,a,_) => (ApplyFix, tokens(f) ::: parens(commas(if (f.variadic) expandVariadicArg(as) else as),a))
     case FieldExp(None,f,fr) => prettyItem(f)(env,fr)
     case e@FieldExp(Some(x),f,fr) => prettyField(x,e.dot,f,fr)
     case IndexExp(e,i,a) => fix(ApplyFix, left(_,e) ::: Loc(LBrackTok,a.l) :: tokens(i) ::: List(Loc(RBrackTok,a.r)))
