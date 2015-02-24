@@ -2,6 +2,9 @@
 -outjars eddy.jar 
 -dontobfuscate
 
+# this causes problems for some people: LVTT entry ... does not match any LVT entry"
+-optimizations !code/allocation/variable
+
 ### Keep a few things
 
 -keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention,com.eddysystems.eddy.CorrectionIntention {
@@ -40,8 +43,8 @@
 ### Ignore various warnings and notes
 
 # Scala warnings
--dontwarn scala.**
--dontnote scala.**
+#-dontwarn scala.**
+#-dontnote scala.**
 -dontnote String
 
 # Miscellaneous warnings
