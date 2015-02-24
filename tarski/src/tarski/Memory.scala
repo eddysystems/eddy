@@ -1,8 +1,5 @@
 package tarski
 
-import java.net.UnknownHostException
-
-import com.amazonaws.{AmazonServiceException, AmazonClientException}
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmts
