@@ -54,9 +54,10 @@ object ArgMatching {
             val singleton = ArrayExp(x.r.before,x.ty,x.r.before,List(x),SGroup(x.r.before,x.r.after))
             val singletonArray = biased(if (variadicParam) Pr.reasonable else Pr.convertToArray, processNext(used :+ singleton,revAppend(prev,next)))
 
-            // try to use as many arguments as possible for the array we made
+            // try to use as many arguments as possible for the array we made (but don't use more than we can afford to lose)
+            val minLeft: Int = if (useEnv) 0 else np - prev.size - k - 1 // we have to have at least this many things left in next: np - k - prev - 1
             val multipleArray = biased(if (variadicParam) Pr.reasonable else Pr.arrayContract, {
-              def useMore(lastArray: ArrayExp, next: List[Scored[Exp]]): Scored[A] = next match {
+              def useMore(lastArray: ArrayExp, next: List[Scored[Exp]]): Scored[A] = if (next.size>minLeft) next match {
                 case Nil => Empty
                 case xden::next => xden flatMap { x =>
                   val ty = commonType(lastArray.t, x.ty)
@@ -65,7 +66,7 @@ object ArgMatching {
                   biased(if (ty==ObjectType && lastArray.t != ObjectType) Pr.contractToObjectArray else Pr.reasonable,
                          processNext(used :+ array, revAppend(prev,next)) ++ useMore(array,next))
                 }
-              }
+              } else Empty
               useMore(singleton,next)
             })
 
