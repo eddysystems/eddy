@@ -43,8 +43,8 @@
 ### Ignore various warnings and notes
 
 # Scala warnings
-#-dontwarn scala.**
-#-dontnote scala.**
+-dontwarn scala.**
+-dontnote scala.**
 -dontnote String
 
 # Miscellaneous warnings
