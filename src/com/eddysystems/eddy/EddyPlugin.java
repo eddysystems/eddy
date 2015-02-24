@@ -35,7 +35,6 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.isDebug;
@@ -175,13 +174,7 @@ public class EddyPlugin implements ProjectComponent {
       env = new JavaEnvironment(project, nameTracker,valueTracker);
       psiListener = new EddyPsiListener(nameTracker, valueTracker);
       PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
-      try {
-        env.updateSync(indicator);
-      } catch (ExecutionException e) {
-        throw new RuntimeException("updateSync: " + e.getMessage());
-      } catch (InterruptedException e) {
-        throw new RuntimeException("updateSync: " + e.getMessage());
-      }
+      env.updateSync(indicator);
     } else {
       final StatusBar sbar = WindowManager.getInstance().getStatusBar(project);
       String err = "";
@@ -193,19 +186,11 @@ public class EddyPlugin implements ProjectComponent {
           psiListener = new EddyPsiListener(nameTracker, valueTracker);
           PsiManager.getInstance(project).addPsiTreeChangeListener(psiListener);
         }});
-        env.updateSync(indicator);
-      } catch (JavaEnvironment.NoJDKError e) {
-        dropEnv();
-        err = e.getMessage();
-        log(e.getMessage());
-      } catch (InterruptedException e) {
-        dropEnv();
-        err = e.getMessage();
-        log(e.getMessage());
-      } catch (ExecutionException e) {
-        dropEnv();
-        err = e.getMessage();
-        log(e.getMessage());
+        err = env.updateSync(indicator);
+        if (!err.isEmpty()) {
+          dropEnv();
+          log("error during initialization: " + err);
+        }
       } finally {
         initializing = false;
         if (sbar != null) {

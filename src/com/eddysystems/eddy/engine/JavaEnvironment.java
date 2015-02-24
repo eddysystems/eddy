@@ -112,10 +112,17 @@ public class JavaEnvironment {
     requestUpdate(null);
   }
 
-  // for initialization
-  public synchronized void updateSync(@Nullable final ProgressIndicator indicator) throws ExecutionException, InterruptedException {
+  // for initialization -- return whether initialization was successful
+  public synchronized String updateSync(@Nullable final ProgressIndicator indicator) {
     requestUpdate(indicator);
-    updateFuture.get();
+    try {
+      updateFuture.get();
+    } catch (ExecutionException e) {
+      return e.getMessage();
+    } catch (InterruptedException e) {
+      return e.getMessage();
+    }
+    return _initialized ? "" : "No JDK found.";
   }
 
 
@@ -158,8 +165,10 @@ public class JavaEnvironment {
           }
         });
 
-        if (error != null)
-          throw error;
+        if (error != null) {
+          log("No JDK found, aborting initialization.");
+          return;
+        }
       }
 
       if (indicator != null)
