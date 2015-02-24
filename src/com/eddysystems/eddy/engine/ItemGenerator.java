@@ -27,7 +27,7 @@ class ItemGenerator implements Generator<Items.Item> {
   final Project project;
   final GlobalSearchScope scope;
   final IdFilter filter;
-  final PsiShortNamesCache psicache;
+  final PsiShortNamesCache psiCache;
   final PsiManager psiManager;
   final Converter converter;
   final PackageIndex packageIndex;
@@ -36,7 +36,7 @@ class ItemGenerator implements Generator<Items.Item> {
     this.project = project;
     this.scope = scope;
     filter = IdFilter.getProjectIdFilter(project, true);
-    this.psicache = PsiShortNamesCache.getInstance(project);
+    this.psiCache = PsiShortNamesCache.getInstance(project);
     psiManager = PsiManager.getInstance(project);
     converter = conv;
     this.packageIndex = packageIndex;
@@ -65,7 +65,7 @@ class ItemGenerator implements Generator<Items.Item> {
     final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
       @Override
       public boolean process(PsiMethod method) {
-        if (Interrupts.pending != 0) Interrupts.checkInterrupts();
+        // TODO: Ideally we'd check for interrupts here, but can't because processMethodsWithName grabs fancy locks
         if (thread != null && thread.canceled()) return false;
         if (!method.isConstructor())
           results.add(converter.addMethod(method));
@@ -86,9 +86,9 @@ class ItemGenerator implements Generator<Items.Item> {
     if (thread != null) thread.pushSoftInterrupts();
     try {
       final IdFilter filter = null;
-      psicache.processClassesWithName(s, classProc, scope, filter);
-      psicache.processMethodsWithName(s, methodProc, scope, filter);
-      psicache.processFieldsWithName(s, fieldProc, scope, filter);
+      psiCache.processClassesWithName(s, classProc, scope, filter);
+      psiCache.processMethodsWithName(s, methodProc, scope, filter);
+      psiCache.processFieldsWithName(s, fieldProc, scope, filter);
     } finally {
       if (thread != null) thread.popSoftInterrupts();
     }
