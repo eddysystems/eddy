@@ -17,7 +17,6 @@ public class EddyThread extends Thread {
   // Information about our computation
   private final Eddy eddy;
   private final @NotNull Project project;
-  private final @NotNull Editor editor;
   private final int lastEditLocation;
   private final Eddy.Take cont;
   private final Interrupts.Interrupter interrupter;
@@ -34,7 +33,6 @@ public class EddyThread extends Thread {
     this.setName("Eddy thread " + getId());
     this.eddy = new Eddy(project,editor);
     this.project = project;
-    this.editor = editor;
     this.lastEditLocation = lastEditLocation;
     this.cont = cont;
     this.interrupter = new Interrupts.Interrupter();
