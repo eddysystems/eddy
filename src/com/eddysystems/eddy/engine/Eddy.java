@@ -172,7 +172,10 @@ public class Eddy {
 
     public int autoApply() {
       // Automatically apply the best found result
-      return rawApply(eddy.document, format(0, fullShowFlags()));
+      String code = format(0, fullShowFlags());
+      int offset = rawApply(eddy.document, code);
+      Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.input, results, code));
+      return offset;
     }
 
     public boolean isConfident() {
@@ -210,9 +213,6 @@ public class Eddy {
       for (int i = sline; i <= fline; ++i) {
         csm.adjustLineIndent(document, document.getLineStartOffset(i));
       }
-
-      // check where original offset is now
-      Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.input, results, code));
 
       return rm.getEndOffset();
     }
