@@ -17,9 +17,11 @@ import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanResult;
+import com.sun.deploy.util.StringUtils;
 
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.Map;
 
 import static java.lang.Math.max;
@@ -92,9 +94,9 @@ public class Main {
     error("full retrieval not implemented.");
   }
 
-  private static void usage() {
+  private static void usage(String[] args) {
     System.out.println(
-      "usage: accessDB stats|full <file>\n" +
+      "usage: accessDB stats|full <file> (got " + StringUtils.join(Arrays.asList(args)," ") + ")\n" +
       "Gets eddy usage data from dynamoDB and stores it in <file>.\n" +
       "  stats : get install IDs and times from the stats index and store as CSV\n" +
       "  full  : get all data and store as JSON. There's an additional guarantee that\n" +
@@ -103,19 +105,19 @@ public class Main {
   }
 
   public static void main(String[] args) {
-    if (args.length < 3) {
-      usage();
+    if (args.length < 2) {
+      usage(args);
       return;
     }
-    String filename = args[2];
-    String command = args[1];
+    String filename = args[1];
+    String command = args[0];
 
     if (command.equals("stats"))
       statScan(filename);
     else if (command.equals("full")) {
       fullScan(filename);
     } else {
-      usage();
+      usage(args);
     }
   }
 }
