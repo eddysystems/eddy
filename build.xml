@@ -1,6 +1,6 @@
 <project name="eddy">
 
-  <property name="version" value="0.1"/>
+  <property name="version" value="0.2pre"/>
 
   <target name="properties">
     <tstamp>

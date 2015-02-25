@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/DB/DB.iml" filepath="$PROJECT_DIR$/DB/DB.iml" />
       <module fileurl="file://$PROJECT_DIR$/ambiguity/ambiguity.iml" filepath="$PROJECT_DIR$/ambiguity/ambiguity.iml" />
       <module fileurl="file://$PROJECT_DIR$/eddy.iml" filepath="$PROJECT_DIR$/eddy.iml" />
       <module fileurl="file://$PROJECT_DIR$/tarski/tarski.iml" filepath="$PROJECT_DIR$/tarski/tarski.iml" />
