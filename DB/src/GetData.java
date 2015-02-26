@@ -20,14 +20,18 @@ import com.amazonaws.services.dynamodbv2.model.ScanResult;
 import com.sun.deploy.util.StringUtils;
 
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
+import java.text.ParseException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 import static java.lang.Math.max;
 import static java.lang.Thread.sleep;
 
-public class Main {
+public class GetData {
 
   // retrieve only this many per request
   private static int maxItems = 500;
@@ -43,14 +47,53 @@ public class Main {
     AmazonDynamoDBClient client = new AmazonDynamoDBClient(new ProfileCredentialsProvider());
 
     try {
-      PrintWriter fo = new PrintWriter(filename);
+      // retrieve only new objects (database is write only from the plugin, updates are guaranteed to not happen ever)
+      Map<String, AttributeValue> lastKeyEvaluated = null;
+      try {
+        RandomAccessFile fi = new RandomAccessFile(filename,"r");
+
+        // this is terribly inefficient, should really buffer. But our lines are short, so who cares.
+        long fileLength = fi.length() - 1;
+        StringBuilder sb = new StringBuilder();
+        for (long filePointer = fileLength; filePointer != -1; filePointer--){
+          fi.seek(filePointer);
+          int readByte = fi.readByte();
+          if (readByte == 0xA) {
+            if (filePointer != fileLength)
+              break;
+          } else if(readByte == 0xD) {
+            if( filePointer != fileLength - 1 )
+            break;
+          }
+          sb.append((char) readByte);
+        }
+
+        // parse the line into install,time and make a key object
+        String s = sb.reverse().toString().trim();
+
+        System.out.println("Last key (raw): " + s);
+
+        int comma = s.indexOf(',');
+
+        if (comma == -1)
+          throw new ParseException("s", comma);
+
+        lastKeyEvaluated = new HashMap<>(2);
+        lastKeyEvaluated.put("install", new AttributeValue().withS(s.substring(0,comma)));
+        lastKeyEvaluated.put("time", new AttributeValue().withN(s.substring(comma+1)));
+      } catch (Throwable t) {
+        // can't get the last index? fine.
+        System.err.println("Can't get the last key. Starting from scratch.");
+      }
+
+      // append to existing file
+      PrintWriter fo = new PrintWriter(new FileOutputStream(filename,true));
 
       int nrequests = 0;
       int count = 0, totalCount = 0;
       double consumed = 0;
       long start = System.nanoTime(), last=start;
 
-      Map<String, AttributeValue> lastKeyEvaluated = null;
       do {
         ScanRequest scanRequest = new ScanRequest()
           .withTableName("stats-only")
@@ -68,9 +111,8 @@ public class Main {
         totalCount += result.getScannedCount();
         consumed += result.getConsumedCapacity().getCapacityUnits();
 
-        for (Map<String, AttributeValue> item : result.getItems()) {
-          fo.println(item.get("install") + "," + item.get("time"));
-        }
+        for (Map<String, AttributeValue> item : result.getItems())
+          fo.println(item.get("install").getS() + "," + item.get("time").getN());
         lastKeyEvaluated = result.getLastEvaluatedKey();
 
         long next = System.nanoTime();
