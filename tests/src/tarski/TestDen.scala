@@ -17,7 +17,6 @@ import tarski.Tokens._
 import tarski.Types._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
-import utility.Utility._
 import scala.annotation.tailrec
 
 class TestDen {
@@ -1368,5 +1367,16 @@ class TestDen {
     val y = NormalLocal("y", StringType)
     implicit val env = localEnvWithBase(x,y)
     test("if (x==y);", IfStmt(r,ApplyExp(MethodDen(x,StringEqualsItem,r),List(y),a,false),a,SemiStmt(EmptyStmt(r,env),r)))
+  }
+
+  @Test def returnSuper(): Unit = {
+    val X = NormalClassItem("X")
+    val Y = NormalClassItem("Y",LocalPkg,Nil,X)
+    val f = NormalMethodItem("f",Y,Nil,X,Nil,false,false)
+    val ty = ThisItem(Y)
+    val sy = ty.up
+    implicit val env = localEnvWithBase(ty,sy,f,X,Y).move(PlaceInfo(f))
+    test("return", ReturnStmt(r,Some(ty),env))
+    testAvoid("return", ReturnStmt(r,Some(sy),env))
   }
 }

@@ -826,8 +826,10 @@ object Semantics {
       case ReturnAStmt(rr,None) => returnType flatMap (r =>
         if (r==VoidType) known(ReturnStmt(rr,None,env))
         else valuesOfItem(r.item,rr,Nil) flatMap (x =>
-          if (assignsTo(x,r)) known(ReturnStmt(rr,Some(x),env))
-          else fail(s"${show(s)}: type ${show(x.ty)} incompatible with return type ${show(r)}")
+          if (assignsTo(x,r)) {
+            if (x.isInstanceOf[SuperItem]) fail("can't return super.")
+            else known(ReturnStmt(rr,Some(x),env))
+          } else fail(s"${show(s)}: type ${show(x.ty)} incompatible with return type ${show(r)}")
         )
       )
       case ReturnAStmt(rr,Some(e)) => returnType flatMap (r => denoteAssignsTo(e,r) map (e => ReturnStmt(rr,Some(e),env)))
