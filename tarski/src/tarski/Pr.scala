@@ -180,6 +180,8 @@ object Pr {
   val discardTypeArgsForInstanceOf = Prob("drop typeargs for instanceof",.9)
   val boxInstanceOf = Prob("box primitive type for instanceof",.1)
   val binaryExpCastZero = Prob("binary cast zero",.5) // Replace x == 0 with x == null or x == false
+  val stringCompare = Prob("String == String",.6) // hardly ever what you want to do
+  val stringEquals = Prob("String.equals(String)",.9)
   val assignCastZero = Prob("assign 0 to reftype or boolean",.3) // replace x = 0 or return 0 with x = null or x = false
   val castExp = base // should be a function of from/to types
   val condExp = base // should be a function of inside types

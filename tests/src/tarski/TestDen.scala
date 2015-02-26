@@ -1362,4 +1362,11 @@ class TestDen {
     testFail("y[3*2] = y[3*2]") // also not if the indices are expressions
     testFail("y[(6*(x))] = y[6*x]") // also not if the expressions are structurally different but equivalent
   }
+
+  @Test def stringCompare() = {
+    val x = NormalLocal("x", StringType)
+    val y = NormalLocal("y", StringType)
+    implicit val env = localEnvWithBase(x,y)
+    test("if (x==y);", IfStmt(r,ApplyExp(MethodDen(x,StringEqualsItem,r),List(y),a,false),a,SemiStmt(EmptyStmt(r,env),r)))
+  }
 }

@@ -406,6 +406,17 @@ object Items {
                                    params: List[Type], variadic: Boolean = false) extends ConstructorItem {
     override def toString = s"NormalConstructorItem(${parent.name},$tparams,$params)"
   }
+
+  case object StringEqualsItem extends MethodItem {
+    override def retVal = BooleanType
+    override def variadic = false
+    override def params = List(ObjectType)
+    override def parent = StringItem
+    override def tparams = Nil
+    override def isStatic = false
+    override def name = "equals"
+  }
+
   case class DefaultConstructorItem(parent: ClassItem) extends ConstructorItem {
     val tparams = Nil
     val variadic = false

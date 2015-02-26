@@ -189,7 +189,7 @@ object Base {
   if (ObjectItem.constructors.length==0)
     ObjectItem.constructors = Array(ObjectConsItem)
 
-  // Classes that have important statics inside should be added here so we find them in valueByItem
+  // Classes that have important statics inside should be added to baseItems so we find them in valueByItem
   case object SystemItem extends SimpleClassItem {
     val name = "System"
     val isFinal = true
@@ -210,6 +210,8 @@ object Base {
     EnumBaseItem,ThrowableItem,StringItem,BooleanItem,CharacterItem,
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
     SystemItem,
+    // Methods (methods must currently be uniquely identified by name within the class, and they must not be constructors)
+    StringEqualsItem,
     // Interfaces
     CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem,
     // Exception base classes

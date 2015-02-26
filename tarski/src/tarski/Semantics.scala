@@ -6,7 +6,7 @@ import utility.Locations._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Mods._
-import tarski.Base.{BooleanItem, VoidItem}
+import tarski.Base.{StringItem, BooleanItem, VoidItem}
 import tarski.Denotations._
 import tarski.Environment._
 import tarski.Items._
@@ -382,8 +382,12 @@ object Semantics {
     case BinaryAExp(op,opr,ax,ay) if m.exp => product(denoteExp(ax),denoteExp(ay)) flatMap {case (x,y) => {
       val tx = x.ty
       val ty = y.ty
-      if (binaryLegal(op,tx,ty)) known(BinaryExp(op,opr,x,y))
-      else if (isZero(ax) && ty!=VoidType) single(BinaryExp(op,opr,castZero(ty,ay.r),y),Pr.binaryExpCastZero)
+      if (binaryLegal(op,tx,ty)) {
+        if (tx == Base.StringType && ty == Base.StringType && op == EqOp)
+          listGood(List(Alt(Pr.stringEquals, ApplyExp(MethodDen(Some(x),StringEqualsItem,x.r),List(y),SGroup(y.r.before,y.r.after),false)),
+                        Alt(Pr.stringCompare, BinaryExp(op,opr,x,y))))
+        else known(BinaryExp(op,opr,x,y))
+      } else if (isZero(ax) && ty!=VoidType) single(BinaryExp(op,opr,castZero(ty,ay.r),y),Pr.binaryExpCastZero)
       else if (isZero(ay) && tx!=VoidType) single(BinaryExp(op,opr,x,castZero(tx,ax.r)),Pr.binaryExpCastZero)
       else fail(s"${show(e)}: invalid binary op ${show(tx)} ${show(Loc(op,opr))} ${show(ty)}")
     }}

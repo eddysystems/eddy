@@ -148,15 +148,18 @@ public class JavaEnvironment {
     try {
       // call this once so initialization fails if no JDK is present
       if (!_initialized) {
-        // add base items
+        // we'll spend some time especially at startup, so let people know it's not our fault
         if (indicator != null)
-          indicator.setText2("adding base environment");
+          indicator.setText2("waiting for index to be ready");
 
         // don't throw inside there -- Catch and rethrow to avoid logging
         RuntimeException error = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<RuntimeException>() {
           @Override
           public RuntimeException compute() {
             try {
+              if (indicator != null)
+                indicator.setText2("adding base environment");
+
               addBase(new Converter(project, new HashMap<PsiElement, Item>()));
               return null;
             } catch (NoJDKError e) {
@@ -253,6 +256,17 @@ public class JavaEnvironment {
         } else if (item instanceof Items.ClassItem) {
           if (thread != null) thread.pushSoftInterrupts();
           psi = facade.findClass(name, scope);
+          if (thread != null) thread.popSoftInterrupts();
+        } else if (item instanceof Items.MethodItem) {
+          if (thread != null) thread.pushSoftInterrupts();
+          String cname = ((Items.MethodItem) item).parent().qualified();
+          PsiClass cls = facade.findClass(cname, scope);
+          psi = null;
+          if (cls != null) {
+            PsiMethod[] methods = cls.findMethodsByName(item.name(), false);
+            if (methods.length == 1)
+              psi = methods[0];
+          }
           if (thread != null) thread.popSoftInterrupts();
         } else
           throw new NotImplementedError("Unknown base type " + item.getClass());
