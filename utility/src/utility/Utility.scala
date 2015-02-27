@@ -256,4 +256,6 @@ object Utility {
   def tuple[A,B]    (a: A, b: B):             (A,B)     = (a,b)
   def tuple[A,B,C]  (a: A, b: B, c: C):       (A,B,C)   = (a,b,c)
   def tuple[A,B,C,D](a: A, b: B, c: C, d: D): (A,B,C,D) = (a,b,c,d)
+
+  def capitalize(s: Array[Char]): Array[Char] = if (s.length == 0) s else s.updated(0,s(0).toUpper)
 }
