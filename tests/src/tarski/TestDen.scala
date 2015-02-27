@@ -1382,4 +1382,13 @@ class TestDen {
     test("return super", ReturnStmt(r,ty,env))
     testAvoid("return", ReturnStmt(r,sy,env))
   }
+
+  @Test def genericRaw(): Unit = {
+    val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
+    val x = NormalLocal("x",A.raw)
+    val S = SimpleTypeVar("S")
+    val f = NormalMethodItem("f",NormalClassItem("F"),List(S),VoidType,List(A.generic(List(S))),isStatic=true)
+    implicit val env = localEnvWithBase(x,f)
+    test("f(x)",ApplyExp(TypeApply(MethodDen(None,f,r),List(ObjectType),a,hide=true),List(x),a,auto=false))
+  }
 }
