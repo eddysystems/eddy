@@ -55,7 +55,7 @@ class ItemGenerator implements Generator<Items.Item> {
     final Processor<PsiClass> classProc = new Processor<PsiClass>() {
       @Override
       public boolean process(PsiClass cls) {
-        if (Interrupts.pending != 0) Interrupts.checkInterrupts();
+        // TODO: Ideally we'd check for interrupts here, but can't because our caller grabs fancy locks
         if (thread != null && thread.canceled()) return false;
         results.add(converter.addClass(cls));
         return true;
@@ -65,7 +65,7 @@ class ItemGenerator implements Generator<Items.Item> {
     final Processor<PsiMethod> methodProc = new Processor<PsiMethod>() {
       @Override
       public boolean process(PsiMethod method) {
-        // TODO: Ideally we'd check for interrupts here, but can't because processMethodsWithName grabs fancy locks
+        // TODO: Ideally we'd check for interrupts here, but can't because our caller grabs fancy locks
         if (thread != null && thread.canceled()) return false;
         if (!method.isConstructor())
           results.add(converter.addMethod(method));
@@ -76,7 +76,7 @@ class ItemGenerator implements Generator<Items.Item> {
     final Processor<PsiField> fieldProc = new Processor<PsiField>() {
       @Override
       public boolean process(PsiField fld) {
-        if (Interrupts.pending != 0) Interrupts.checkInterrupts();
+        // TODO: Ideally we'd check for interrupts here, but can't because our caller grabs fancy locks
         if (thread != null && thread.canceled()) return false;
         results.add(converter.addField(fld));
         return true;
