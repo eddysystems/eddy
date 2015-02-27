@@ -24,6 +24,7 @@ import com.intellij.psi.PsiFile;
 import com.intellij.ui.Hint;
 import com.intellij.ui.LightweightHint;
 import org.jetbrains.annotations.NotNull;
+import tarski.Memory;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 
@@ -92,63 +93,68 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected void process() {
-    if (!enabled()) {
-      // check if we're not initialized, and if so, try to reinitialize
-      if (!EddyPlugin.getInstance(project).isInitialized()) {
-        EddyPlugin.getInstance(project).requestInit();
+    try {
+      if (!enabled()) {
+        // check if we're not initialized, and if so, try to reinitialize
+        if (!EddyPlugin.getInstance(project).isInitialized()) {
+          EddyPlugin.getInstance(project).requestInit();
+        }
+        return;
       }
-      return;
-    }
 
-    synchronized (active_lock) {
-      // remember who last started a computation and where
-      active_instance = this;
-      active_line = editor.getCaretModel().getLogicalPosition().line;
+      synchronized (active_lock) {
+        // remember who last started a computation and where
+        active_instance = this;
+        active_line = editor.getCaretModel().getLogicalPosition().line;
 
-      // everything below gets set to something non-null if eddy returns with a result
-      active_action = null;
-      active_hint_instance = null;
+        // everything below gets set to something non-null if eddy returns with a result
+        active_action = null;
+        active_hint_instance = null;
 
-      // hide old hint
-      final Hint current_hint = active_hint;
-      active_hint = null;
-      if (current_hint != null) {
-        ApplicationManager.getApplication().invokeLater(new Runnable() {
-          @Override
-          public void run() {
-            if (current_hint.isVisible()) {
-              current_hint.hide();
-            }
-          }
-        });
-      }
-    }
-    // nix old intention action
-    updateIntentions();
-
-    PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
-      @Override
-      public void run() {
-        final double cutoff = Preferences.getData().getNumericMinProbability();
-        final double relCutoff = Preferences.getData().getNumericMinRelativeProbability();
-        synchronized (active_lock) {
-          EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
-            @Override public double take(final Eddy.Output output) {
-              double thisCutoff = cutoff;
-              showHint(output);
-              if (output.skipped())
-                return 1.; // return value doesn't matter, we're only being told that we're skipping this line
-              if (!output.results.isEmpty()) {
-                // get best probability
-                thisCutoff = Math.max(output.results.get(0).p() * relCutoff, cutoff);
+        // hide old hint
+        final Hint current_hint = active_hint;
+        active_hint = null;
+        if (current_hint != null) {
+          ApplicationManager.getApplication().invokeLater(new Runnable() {
+            @Override
+            public void run() {
+              if (current_hint.isVisible()) {
+                current_hint.hide();
               }
-              return output.results.size() < 4 ? thisCutoff : 1;
             }
-          }));
-          active_editor = editor;
+          });
         }
       }
-    });
+      // nix old intention action
+      updateIntentions();
+
+      PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
+        @Override
+        public void run() {
+          final double cutoff = Preferences.getData().getNumericMinProbability();
+          final double relCutoff = Preferences.getData().getNumericMinRelativeProbability();
+          synchronized (active_lock) {
+            EddyThread.run(new EddyThread(project,editor,lastEditLocation, new Eddy.Take() {
+              @Override public double take(final Eddy.Output output) {
+                double thisCutoff = cutoff;
+                showHint(output);
+                if (output.skipped())
+                  return 1.; // return value doesn't matter, we're only being told that we're skipping this line
+                if (!output.results.isEmpty()) {
+                  // get best probability
+                  thisCutoff = Math.max(output.results.get(0).p() * relCutoff, cutoff);
+                }
+                return output.results.size() < 4 ? thisCutoff : 1;
+              }
+            }));
+            active_editor = editor;
+          }
+        }
+      });
+    } catch (Exception e) {
+      // fail silently but log
+      Memory.log(Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName()).error(e));
+    }
   }
 
   private void updateIntentions() {
