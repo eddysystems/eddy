@@ -6,10 +6,11 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
+import scala.Tuple2;
 
-import java.util.Collection;
-import java.util.Stack;
+import java.util.*;
 
 public class Utility {
   static long last_queue_process_events = System.nanoTime();
@@ -106,7 +107,7 @@ public class Utility {
   }
 
   public static <A> String collectionString(Collection<A> c) {
-    String s = c.getClass().getName() + " (" + c.size() + " elements):\n";
+    String s = c.getClass().getName() + " (" + c.size() + (c.size() == 1 ? " element)\n" : " elements)\n");
     int i = 0;
     for (A it : c) {
       if (i++ > 10) {
@@ -118,18 +119,29 @@ public class Utility {
     return s;
   }
 
-  public static String logString(Object obj) {
-    // special handling for collections and arrays
-    if (obj instanceof Collection<?>) {
-      return collectionString((Collection<Object>)obj);
-    } else if (obj == null) {
-      return "null";
-    } else if (obj.getClass().isArray()) {
-      return arrayString((Object[])obj);
-    } else {
-      // ls is a regular object
-      return obj.toString();
+  public static <A,B> String mapString(final Map<A,B> m) {
+    int max = 0;
+    final SortedMap<String,String> tree = new TreeMap<String,String>();
+    for (final A x : m.keySet()) {
+      final String sx = logString(x);
+      final String sy = logString(m.get(x));
+      max = Math.max(max, sx.length());
+      tree.put(sx, sy);
     }
+    String s = m.getClass().getName() + " (" + m.size() + (m.size()==1 ? " element)" : " elements)");
+    for (final Map.Entry<String, String> e : tree.entrySet()) {
+      final String sx = e.getKey();
+      s += "\n" + applyIndent(sx + StringUtils.repeat(" ", max - sx.length()) + " = " + e.getValue(), "  ");
+    }
+    return s;
+  }
+
+  public static String logString(Object obj) {
+    return obj == null ? "null"
+         : obj instanceof Collection ? collectionString((Collection) obj)
+         : obj instanceof Map ? mapString((Map) obj)
+         : obj.getClass().isArray() ? arrayString((Object[])obj)
+         : obj.toString();
   }
 
   // can't use logger in test mode. Sucks.
