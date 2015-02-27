@@ -31,7 +31,9 @@ import tarski.Tarski.ShowStmts;
 import tarski.Tokens.ShowFlags;
 import tarski.Types;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static tarski.Tokens.abbrevShowFlags;
@@ -39,6 +41,8 @@ import static tarski.Tokens.fullShowFlags;
 import static utility.JavaUtils.*;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
+  // Keep track of how long each test takes
+  static final Map<String,Double> times = new HashMap<String,Double>();
 
   static class ProjectDesc implements LightProjectDescriptor {
     @Override
@@ -81,6 +85,20 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     isSetUp = true;
   }
 
+  protected void tearDown() throws Exception {
+    log("timing:");
+    log(times);
+    final int n = times.size();
+    double sum = 0, prod = 1;
+    for (final double t : times.values()) {
+      sum += t;
+      prod *= t;
+    }
+    log("arithmetic = "+sum/n+" s");
+    log("geometric = "+Math.pow(prod,1./n)+" s");
+    super.tearDown();
+  }
+
   private Eddy makeEddy() {
     if (!isSetUp) try {
       setUp();
@@ -91,8 +109,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     EddyPlugin.getInstance(myFixture.getProject()).initEnv(null);
     log("Document:");
     log(myFixture.getEditor().getDocument().getCharsSequence());
-    final Eddy eddy = new Eddy(myFixture.getProject(),myFixture.getEditor());
-    return eddy;
+    return new Eddy(myFixture.getProject(),myFixture.getEditor());
   }
 
   private Env setupEnv(int lastEdit, final String... filename) throws Exception {
@@ -127,7 +144,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       }
 
       final TestTake take = new TestTake();
-      makeEddy().process(lastEdit,take);
+      final Eddy eddy = makeEddy();
+      final String name = getName();
+      final long start = System.nanoTime();
+      eddy.process(lastEdit, take);
+      final double time = 1e-9*(System.nanoTime()-start);
+      log(name+" = "+time+" s");
+      times.put(name,time);
       return take.output;
     } finally { popScope(); }
   }
@@ -302,7 +325,6 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testVisibility() throws Exception {
     // package resolution only works if directory structure is consistent
     final Env env = setupEnv(-1, "scope1/scopes1.java", "scope2/scopes2.java");
-    JavaEnvironment jenv = EddyPlugin.getInstance(myFixture.getProject()).getEnv();
     // make sure the public items are in locals, not added
     log("P1 query: ");
     log(env.exactQuery("P1"));
