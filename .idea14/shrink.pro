@@ -2,7 +2,7 @@
 -outjars eddy.jar 
 -dontobfuscate
 
-# this causes problems for some people: LVTT entry ... does not match any LVT entry"
+# This causes problems for some people: "LVTT entry ... does not match any LVT entry"
 -optimizations !code/allocation/variable
 
 ### Keep a few things

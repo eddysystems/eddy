@@ -2,6 +2,9 @@
 -outjars eddy.jar 
 -dontobfuscate
 
+# This causes problems for some people: "LVTT entry ... does not match any LVT entry"
+-optimizations !code/allocation/variable
+
 ### Keep a few things
 
 -keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention,com.eddysystems.eddy.CorrectionIntention {
