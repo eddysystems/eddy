@@ -5,10 +5,11 @@ import utility.JavaUtils.poissonPDF
 import tarski.AST._
 import tarski.Arounds._
 import tarski.Items._
-import tarski.Scores.Prob
+import tarski.Scores.{Empty, Scored, Alt, Prob}
 import tarski.Types.Type
 import tarski.JavaScores.pp
 import tarski.Environment._
+import utility.Utility
 
 object Pr {
 
@@ -252,4 +253,15 @@ object Pr {
     m
   }
   def objectPrior(s: String) = { val p = priors.get(s); Prob("prior", if (p == 0.0) 1.0 else p) } // for now, no prior means 1
+
+  // StringModifiers should return Nil if they don't have anything to say about a name, and never return the name itself
+  val modifiedName = Prob("modify name",.6)
+  val addGetSet = Prob("add get/set",.9)
+
+  private type NameModifier = Array[Char] => List[Alt[Array[Char]]]
+  private val modifiers: List[NameModifier] = List(
+    // get or set, if the name doesn't already have get or set
+    s => if (s.startsWith("get") || s.startsWith("set")) Nil else { val c = Utility.capitalize(s); List(Alt(addGetSet,Array('g','e','t') ++ c), Alt(addGetSet,Array('s','e','t') ++ c)) }
+  )
+  def modifyName(s: Array[Char]): Scored[Array[Char]] = JavaScores.listGood(modifiers flatMap (_(s)))
 }

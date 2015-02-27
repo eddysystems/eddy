@@ -139,13 +139,19 @@ object Environment {
     // Get exact and typo probabilities for string queries
     protected def _exactQuery(typed: Array[Char]): List[Item]
     protected def _typoQuery(typed: Array[Char]): Scored[Item]
+    protected def _modifiedQuery(typed: Array[Char]): Scored[Item] = {
+      // TODO: get rid of the ugly re-conversion to String
+      Pr.modifyName(typed) flatMap { s => uniform(Pr.exact, _exactQuery(s), "no modified names found") }
+    }
+
     protected def _collect[A](typed: Array[Char], error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[A]): Scored[A] = is match {
         case Nil => s
         case i::is => exact(is,if (filter.isDefinedAt(i)) bestThen(Pr.exact,filter.apply(i),s) else s)
       }
-      exact(_exactQuery(typed),if (exactOnly) fail(error)
-                               else biased(Pr.typo,_typoQuery(typed).collect(filter,error))) // FIXME
+      exact(_exactQuery(typed), if (exactOnly) fail(error)
+                                else (  biased(Pr.modifiedName, _modifiedQuery(typed))
+                                     ++ biased(Pr.typo, _typoQuery(typed))).collect(filter,error))
     }
     protected def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
@@ -153,7 +159,8 @@ object Environment {
         case i::is => exact(is,bestThen(Pr.exact,i,s))
       }
       exact(_exactQuery(typed),if (exactOnly) fail(error)
-                               else biased(Pr.typo,orError(_typoQuery(typed),error))) flatMap f // FIXME
+                               else orError(  biased(Pr.modifiedName, _modifiedQuery(typed))
+                                           ++ biased(Pr.typo, _typoQuery(typed)), error)) flatMap f
     }
 
     protected def _byItem(t: TypeItem): Scored[Value]

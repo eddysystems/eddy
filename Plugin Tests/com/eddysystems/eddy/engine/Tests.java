@@ -178,7 +178,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   private void checkResult(final Eddy.Output output, final String expected) {
     dumpResults(output,expected);
     assertTrue("eddy did not find correct solution: " + expected,
-      output.formats(abbrevShowFlags(),false).contains(expected));
+      output.formats(abbrevShowFlags(), false).contains(expected));
+  }
+
+  private void checkAvoid(final Eddy.Output output, final String avoid) {
+    dumpResults(output,avoid);
+    assertFalse("eddy found incorrect solution: " + avoid,
+      output.formats(abbrevShowFlags(), false).contains(avoid));
   }
 
   private void checkBest(final Eddy.Output output, final String best, final double margin, final ShowFlags f) {
@@ -219,6 +225,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   private void test(String filename, String expected) {
     checkResult(setupEddy(null, -1, filename), expected);
+  }
+
+  private void testAvoid(String filename, String avoid) {
+    checkAvoid(setupEddy(null, -1, filename), avoid);
   }
 
   private void testMargin(final String filename, final String best, final double margin) {
@@ -528,4 +538,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testInfix() {
     testMargin("infixCall.java", "if (x.contains(0)) return;", .9);
   }
+
+  public void testGetSet() { testMargin("getSet.java", "Runtime.getRuntime().gc();",.9); }
+
+  public void testRuntime() { testMargin("runtime.java", "Runtime.getRuntime();",.9); }
 }
