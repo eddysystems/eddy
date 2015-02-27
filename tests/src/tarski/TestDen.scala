@@ -1263,19 +1263,21 @@ class TestDen {
 
   @Test def qualifiedThis() = {
     val C = NormalClassItem("C")
+    val X = NormalClassItem("X")
+    val x = NormalFieldItem("x",inside=X,parent=C,isFinal=true)
     val A = NormalClassItem("A",base=C)
     val B = NormalClassItem("B",parent=A,base=C)
     val At = ThisItem(A)
     val Bt = ThisItem(B)
     val As = At.up
     val Bs = Bt.up
-    val f = NormalMethodItem("f",NormalClassItem("F"),Nil,VoidType,List(C),isStatic=true)
-    implicit val env = localEnvWithBase().extend(Array(A,B,At,Bt,As,Bs,f),Map(A->2,B->1,f->3))
-    def ff(x: Exp) = ApplyExp(f,List(x),a,auto=false)
-    test("f(A.this)",ff(At))
-    test("f(B.this)",ff(Bt))
-    test("f(A.super)",ff(As))
-    test("f(B.super)",ff(Bs))
+    val f = NormalMethodItem("f",NormalClassItem("F"),Nil,VoidType,List(X),isStatic=true)
+    implicit val env = localEnvWithBase().extend(Array(A,B,At,Bt,As,Bs,f,x),Map(A->2,B->1,f->3))
+    def ff(e: Exp) = ApplyExp(f,List(FieldExp(e,x,r)),a,auto=false)
+    test("f(A.this.x)",ff(At))
+    test("f(B.this.x)",ff(Bt))
+    test("f(A.super.x)",ff(As))
+    test("f(B.super.x)",ff(Bs))
   }
 
   @Test def boxCompare() = {
@@ -1371,12 +1373,13 @@ class TestDen {
 
   @Test def returnSuper(): Unit = {
     val X = NormalClassItem("X")
-    val Y = NormalClassItem("Y",LocalPkg,Nil,X)
+    val Y = NormalClassItem("Y",base=X)
     val f = NormalMethodItem("f",Y,Nil,X,Nil,false,false)
     val ty = ThisItem(Y)
     val sy = ty.up
     implicit val env = localEnvWithBase(ty,sy,f,X,Y).move(PlaceInfo(f))
-    test("return", ReturnStmt(r,Some(ty),env))
-    testAvoid("return", ReturnStmt(r,Some(sy),env))
+    test("return", ReturnStmt(r,ty,env))
+    test("return super", ReturnStmt(r,ty,env))
+    testAvoid("return", ReturnStmt(r,sy,env))
   }
 }
