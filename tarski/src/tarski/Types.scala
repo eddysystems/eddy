@@ -324,6 +324,7 @@ object Types {
     case NotOp => if (t.unboxesToBoolean) Some(BooleanType) else None
   }
   def binaryType(op: BinaryOp, t0: Type, t1: Type): Option[Type] = op match {
+    case _ if t0==VoidType || t1==VoidType => None
     case AddOp if t0==StringType || t1==StringType => Some(StringType)
     case MulOp|DivOp|ModOp|AddOp|SubOp => for (n0 <- t0.unboxNumeric; n1 <- t1.unboxNumeric) yield promote(n0,n1)
     case LShiftOp|RShiftOp|UnsignedRShiftOp => for (n0 <- t0.unboxIntegral; _ <- t1.unboxIntegral) yield promote(n0)
