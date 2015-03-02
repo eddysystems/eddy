@@ -49,6 +49,14 @@ class TestScores {
   def test[A](x: List[Alt[A]], y: Scored[A]) =
     assertEquals(x sortBy (-_.p),y.stream.toList)
 
+  def test[A](x: Scored[A], y: Scored[A]) = {
+    val xs = x.stream.toList
+    val ys = y.stream.toList
+    assertEquals(xs,xs sortBy (-_.p))
+    assertEquals(ys,ys sortBy (-_.p))
+    assertEquals(xs,ys)
+  }
+
   @Test def bias() = {
     val ax = alts("x",20,seed=81241)
     val p = Prob("bias",.7)
@@ -153,6 +161,19 @@ class TestScores {
     assert(correct.size == 32)
     for (wk <- 1281 to 1300)
       assert(close(correct,run(wk)))
+  }
+
+  @Test def links(): Unit = {
+    case class C(x: Int)
+    val xs = listGood(alts("x",20,seed=12412))
+    val ys = listGood(alts("y",17,seed=1831))
+    val n = 4
+    def f(x: String): List[C] = {
+      val m = x.hashCode() & ((1<<n)-1)
+      (0 until n).filter(i => (m & (1<<i)) != 0).map(C).toList
+    }
+    def g(y: String) = C(y.hashCode() & (n-1))
+    test(product(xs,ys) filter ({case (x,y) => f(x) contains g(y)},"bad"),link(xs,ys)(f,g))
   }
 
   // Warn if debugging is left on

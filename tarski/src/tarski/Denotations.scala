@@ -535,4 +535,11 @@ object Denotations {
                                             ::: fs.toList.flatMap(x => locals(x._2)))
     case _ => Nil
   }
+
+  // Does x contain field f?
+  def containsField(x: ParentDen, f: Member): Boolean = (x,f.parent) match {
+    case (x:ExpOrType,p:ClassOrArrayItem) => isSubitem(x.item,p)
+    case (x:Package,p) => x.p eq p
+    case _ => false
+  }
 }

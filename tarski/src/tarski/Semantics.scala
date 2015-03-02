@@ -13,7 +13,7 @@ import tarski.Items._
 import tarski.Operators._
 import tarski.Pretty._
 import tarski.Scores._
-import tarski.JavaScores.{pp,pmul,listGood}
+import tarski.JavaScores.{LinkState, pp, pmul, listGood}
 import tarski.Tokens._
 import tarski.Types._
 import java.util.IdentityHashMap
@@ -266,7 +266,7 @@ object Semantics {
       // evaluate x as a member expression of qe (pretend the user wrote new x.Y() when evaluating x.new Y())
       // evaluate x as a standalone expression as in the (illegal) xobj.new X.Y() => x.new Y()
       val dens = product(denoteExp(qe),xs) flatMap { case (q,(t,cons)) => {
-        val member = memberIn(t.item,q)
+        val member = containsField(q,t.item)
         biased(if (member) Pr.constructor else Pr.qualifiedNewWithUnrelatedObject, // Penalize unrelated objects
           addTypeArgs(ts,
             if (t.item.isStatic) cons map (NewDen(nr,None,_,x.r)) // Drop q.  Probability penalized above in xs.
@@ -563,13 +563,6 @@ object Semantics {
     case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
   })
 
-  // Is f a field of x?
-  def memberIn(f: Member, x: ParentDen): Boolean = (x,f.parent) match {
-    case (x:ExpOrType,p:ClassOrArrayItem) => isSubitem(x.item,p)
-    case (x:Package,p) => x.p eq p
-    case _ => false
-  }
-
   def denoteField(xs: Scored[ParentDen], xr: SRange, f: Name, fr: SRange, mc: Mode, expects: Option[Type], error: AExp)(implicit env: Env): Scored[Den] = {
     def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassOrArrayItem]
     val fs = env.collect(f,s"$f doesn't look like a field (mode $mc)",{
@@ -583,61 +576,64 @@ object Semantics {
       case ParenExp(x,_) => automatic(x)
       case _ => false
     }
-    product(xs,fs) flatMap {case (p,f) =>
-      if (!memberIn(f,p)) fail(p match {
-        case p:ExpOrType => s"${show(p)}: Item ${show(p.item)} does not contain $f"
-        case p:PackageDen => s"${show(p)}: Package does not contain $f"
-      }) else f match {
-        case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (p,f) match {
-          case (x:PackageDen,_) => fail("Values aren't members of packages")
-
-          case (x:Exp,    f:FieldItem) => if (f.isStatic && automatic(x)) fail(s"${show(error)}: Implicit call . static field is silly")
-                                          else single(FieldExp(Some(x),f,fr),
-                                                      if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
-          case (t:TypeDen,f:FieldItem) => if (f.isStatic) known(FieldExp(None,f,fr))
-                                          else fail(s"Can't access non-static field $f without object")
-          case (t:TypeDen,f:ThisOrSuper) => known(ThisOrSuperExp(f,fr))
-          case _ => fail(s"${show(p)}: $f is not a field of p")
-        }
-        case f:TypeItem =>
-          val types = if (!mc.ty) fail(s"${show(error)}: Unexpected or invalid type field") else p match {
-            case _:PackageDen => known(TypeDen(f.raw))
-            case TypeDen(t) => known(TypeDen(typeIn(f,t)))
-            case x:Exp => if (automatic(x)) fail(s"${show(error)}: Implicit call . type is silly")
-                          else single(TypeDen(typeIn(f,x.ty)),Pr.typeFieldOfExp)
-          }
-          val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
-            case f:ClassItem if !f.isAbstract && f.constructors(env.place).length>0 =>
-              val cons = uniformGood(Pr.constructor,f.constructors(env.place))
-              fixCall(mc,expects, p match {
-                case _:PackageDen => cons map (NewDen(xr.before,None,_,fr))
-                // TODO: Also try applying the type arguments to the class (not the constructor)
-                case TypeDen(tp) if f.isStatic => // if it's a type, we really don't need it here. If we need it for qualification, we will add it in pretty-printing.
-                  biased(Pr.constructorFieldCallable, cons map (NewDen(xr.before,None,_,fr)))
-                case TypeDen(tp) if !f.isStatic && f.parent.isInstanceOf[ClassItem] => // try to find an object for this new
-                  biased(Pr.constructorFieldCallableWithoutObject, qualifyNew(f.parent.asInstanceOf[ClassItem], xr.before, f, xr))
-                case x:Exp =>
-                  assert(x.ty.isInstanceOf[ClassType]) // Only Classes have constructors, so t or x.ty below must be a ClassType
-                  if (!f.isStatic) // we need x to make this inner class
-                    biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(xr.before,Some(x),_,fr)))
-                  else // qualification will be added back to the class as needed
-                    biased(Pr.constructorFieldCallableWithSpuriousObject,cons map (NewDen(xr.before,None,_,fr)))
-                case _ => fail(s"Can't make new ${show(f)}")
-              })
-            case _ => fail(s"$f has no constructors or is abstract")
-          }
-          types++cons
-        case f:MethodItem => fixCall(mc,expects, p match {
-          case x:Exp     if f.isStatic => if (automatic(x)) fail(s"${show(error)}: Implicit call . static method is silly")
-                                          else single(MethodDen(Some(x),f,fr),dropNew(mc,Pr.staticFieldCallableWithObject))
-          case x:TypeDen if f.isStatic => knownNotNew(mc,MethodDen(None,f,fr))
-          case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f,fr))
-          case x:TypeDen => fail(s"${show(error)}: Can't call non-static $f without object")
-        })
-        case f:Package => known(f)
-        case _ => fail(s"Invalid field $p . $f")
+    def items(x: ParentDen): Traversable[ParentItem] = x match {
+      case x:Package => List(x.p)
+      case x:ExpOrType => x.item match {
+        case i:RefTypeItem => superItems(i) collect {case t:ParentItem => t}
+        case _ => Nil
       }
+      case _ => Nil
     }
+    link(xs,fs)(items,_.parent) flatMap {case (p,f) => f match {
+      case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (p,f) match {
+        case (x:PackageDen,_) => fail("Values aren't members of packages")
+
+        case (x:Exp,    f:FieldItem) => if (f.isStatic && automatic(x)) fail(s"${show(error)}: Implicit call . static field is silly")
+                                        else single(FieldExp(Some(x),f,fr),
+                                                    if (f.isStatic) Pr.staticFieldExpWithObject else Pr.fieldExp)
+        case (t:TypeDen,f:FieldItem) => if (f.isStatic) known(FieldExp(None,f,fr))
+                                        else fail(s"Can't access non-static field $f without object")
+        case (t:TypeDen,f:ThisOrSuper) => known(ThisOrSuperExp(f,fr))
+        case _ => fail(s"${show(p)}: $f is not a field of p")
+      }
+      case f:TypeItem =>
+        val types = if (!mc.ty) fail(s"${show(error)}: Unexpected or invalid type field") else p match {
+          case _:PackageDen => known(TypeDen(f.raw))
+          case TypeDen(t) => known(TypeDen(typeIn(f,t)))
+          case x:Exp => if (automatic(x)) fail(s"${show(error)}: Implicit call . type is silly")
+                        else single(TypeDen(typeIn(f,x.ty)),Pr.typeFieldOfExp)
+        }
+        val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
+          case f:ClassItem if !f.isAbstract && f.constructors(env.place).length>0 =>
+            val cons = uniformGood(Pr.constructor,f.constructors(env.place))
+            fixCall(mc,expects, p match {
+              case _:PackageDen => cons map (NewDen(xr.before,None,_,fr))
+              // TODO: Also try applying the type arguments to the class (not the constructor)
+              case TypeDen(tp) if f.isStatic => // if it's a type, we really don't need it here. If we need it for qualification, we will add it in pretty-printing.
+                biased(Pr.constructorFieldCallable, cons map (NewDen(xr.before,None,_,fr)))
+              case TypeDen(tp) if !f.isStatic && f.parent.isInstanceOf[ClassItem] => // try to find an object for this new
+                biased(Pr.constructorFieldCallableWithoutObject, qualifyNew(f.parent.asInstanceOf[ClassItem], xr.before, f, xr))
+              case x:Exp =>
+                assert(x.ty.isInstanceOf[ClassType]) // Only Classes have constructors, so t or x.ty below must be a ClassType
+                if (!f.isStatic) // we need x to make this inner class
+                  biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(xr.before,Some(x),_,fr)))
+                else // qualification will be added back to the class as needed
+                  biased(Pr.constructorFieldCallableWithSpuriousObject,cons map (NewDen(xr.before,None,_,fr)))
+              case _ => fail(s"Can't make new ${show(f)}")
+            })
+          case _ => fail(s"$f has no constructors or is abstract")
+        }
+        types++cons
+      case f:MethodItem => fixCall(mc,expects, p match {
+        case x:Exp     if f.isStatic => if (automatic(x)) fail(s"${show(error)}: Implicit call . static method is silly")
+                                        else single(MethodDen(Some(x),f,fr),dropNew(mc,Pr.staticFieldCallableWithObject))
+        case x:TypeDen if f.isStatic => knownNotNew(mc,MethodDen(None,f,fr))
+        case x:Exp     => knownNotNew(mc,MethodDen(Some(x),f,fr))
+        case x:TypeDen => fail(s"${show(error)}: Can't call non-static $f without object")
+      })
+      case f:Package => known(f)
+      case _ => fail(s"Invalid field $p . $f")
+    }}
   }
 
   // Expressions with type restrictions

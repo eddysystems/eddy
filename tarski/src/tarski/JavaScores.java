@@ -1,17 +1,23 @@
 package tarski;
 
+import com.intellij.util.SmartList;
 import scala.Function0;
 import scala.Function1;
 import scala.Function2;
+import scala.Tuple2;
 import scala.collection.JavaConversions;
 import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
+import scala.collection.Traversable;
+import scala.runtime.AbstractFunction1;
 import tarski.JavaTrie.Generator;
 import tarski.Scores.*;
 import utility.Interrupts;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.PriorityQueue;
 
 import static java.lang.Math.max;
@@ -756,6 +762,119 @@ public class JavaScores {
         }
       }
       return s;
+    }
+  }
+
+  // All pairs (x,y) from xs,ys s.t. f(x) contains g(y)
+  final static public class LinkState<A,B,C> extends State<Tuple2<A,B>> {
+    // All xs and ys linked through a given z.  Both arrays are sorted.
+    private static final class Link<A,B> {
+      final SmartList<Alt<A>> xs = new SmartList<Alt<A>>();
+      final SmartList<Alt<B>> ys = new SmartList<Alt<B>>();
+    }
+
+    // Link functions: (x,y) is valid if f(x) contains g(y)
+    private final Function1<A,Traversable<C>> f;
+    private final Function1<B,C> g;
+
+    // State
+    private final PriorityQueue<Alt<Tuple2<A,B>>> found = new PriorityQueue<Alt<Tuple2<A,B>>>();
+    private final Map<C,Link<A,B>> links = new HashMap<C,Link<A,B>>();
+    private double xp, yp; // Maximum probabilities in link (these start out 0)
+    private Scored<A> xs;
+    private Scored<B> ys;
+
+    public LinkState(Scored<A> xs, Scored<B> ys, Function1<A,Traversable<C>> f, Function1<B,C> g) {
+      this.xs = xs;
+      this.ys = ys;
+      this.f = f;
+      this.g = g;
+    }
+
+    public double p() {
+      final double xsp = xs.p();
+      final double ysp = ys.p();
+      final Alt<Tuple2<A,B>> a = found.peek();
+      return max(xsp*max(yp,ysp),
+             max(xp*ysp,
+                 a==null ? 0 : a.p()));
+    }
+
+    public Scored<Tuple2<A,B>> extract(final double goal) {
+      for (boolean first=true;;first=false) {
+        final double xsp = xs.p();
+        final double ysp = ys.p();
+        final Alt<Tuple2<A,B>> a = found.peek();
+
+        // There are three options: pop something off found, expand xs, or expand ys.  Bound each probability.
+        final double px = xsp * max(yp, ysp);
+        final double py = ysp * max(xp, xsp);
+        final double pa = a == null ? 0 : a.p();
+
+        // If we're already good enough, return more laziness
+        if (!first && max(px,max(py,pa)) <= goal)
+          return new Extractor<Tuple2<A,B>>(this);
+
+        // Easy case first: the best option is definitely a from found
+        else if (a != null && pa >= max(px,py)) {
+          found.poll();
+          if (trackErrors) {
+            xs = Scores.good(xs);
+            ys = Scores.good(ys);
+          }
+          return new Best<Tuple2<A,B>>(a.dp(),a.x(),new Extractor<Tuple2<A,B>>(this));
+        }
+
+        // Next case: expand xs
+        else if (px >= py) {
+          if (xs instanceof LazyScored)
+            xs = ((LazyScored<A>)xs).force(pdiv(max(py,pa),max(yp,ysp)));
+          else if (xs instanceof Best) {
+            final Best<A> b = (Best<A>)xs;
+            xs = b.r();
+            final double/*Prob*/ dp = b.dp();
+            final A x = b.x();
+            final Alt<A> ax = new Alt<A>(dp,x);
+            f.apply(x).foreach(new AbstractFunction1<C,Object>() { public Object apply(final C z) {
+              Link<A,B> L = links.get(z);
+              if (L == null) {
+                L = new Link<A,B>();
+                links.put(z,L);
+              }
+              L.xs.add(ax);
+              xp = max(xp,pp(dp));
+              for (final Alt<B> y : L.ys)
+                found.add(new Alt<Tuple2<A,B>>(pmul(dp,y.dp()),new Tuple2<A,B>(x,y.x())));
+              return null;
+            }});
+          } else // EmptyOrBad
+            return (Scored)Empty$.MODULE$; // TODO: Handle errors
+        }
+
+        // Final case: expand ys
+        else /* py >= px */ {
+          if (ys instanceof LazyScored)
+            ys = ((LazyScored<B>)ys).force(pdiv(max(px,pa),max(xp,xsp)));
+          else if (ys instanceof Best) {
+            final Best<B> b = (Best<B>)ys;
+            ys = b.r();
+            final double/*Prob*/ dp = b.dp();
+            final B y = b.x();
+            final Alt<B> ay = new Alt<B>(dp,y);
+            final C z = g.apply(y);
+            Link<A,B> L = links.get(z);
+            if (L == null) {
+              L = new Link<A,B>();
+              links.put(z,L);
+            }
+            L.ys.add(ay);
+            yp = max(yp,pp(dp));
+            for (final Alt<A> x : L.xs)
+              found.add(new Alt<Tuple2<A,B>>(pmul(x.dp(),dp),new Tuple2<A,B>(x.x(),y)));
+          } else // EmptyOrBad
+            return (Scored)Empty$.MODULE$; // TODO: Handle errors
+        }
+      }
     }
   }
 }

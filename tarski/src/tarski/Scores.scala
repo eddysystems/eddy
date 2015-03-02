@@ -341,6 +341,10 @@ object Scores {
   def thread[A,B](xs: Option[A])(f: A => Scored[B]): Scored[Option[B]] = product(xs map f)
   def thread[A,B](xs: List[A])  (f: A => Scored[B]): Scored[List[B]]   = product(xs map f)
 
+  // All pairs (x,y) from xs,ys s.t. f(x) contains g(y)
+  def link[A,B,C](xs: Scored[A], ys: Scored[B])(f: A => Traversable[C], g: B => C): Scored[(A,B)] =
+    new Extractor(new LinkState[A,B,C](xs,ys,f,g))
+
   // Scala helpers for JavaUtils
   def nestError[A](s: String, bads: List[Bad]): Scored[A] =
     if (trackErrors) bads match {
