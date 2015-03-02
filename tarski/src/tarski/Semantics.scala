@@ -138,18 +138,6 @@ object Semantics {
     if (qualifiers.size >= 3) fail("Automatic field depth exceeded")
     else if (qualifiers contains i) fail(s"qualification loop $i -> $qualifiers")
     else qualifiersOfItem(c,ir,i::qualifiers) map (x => FieldExp(Some(x),i,ir))
-    /*
-    else qualifiersOfItem(c,ir,i::qualifiers) flatMap (xd => {
-      def field(x: Exp) = FieldExp(Some(x),i,ir)
-      if (shadowedInSubType(i,xd.item.asInstanceOf[ClassItem]))
-        xd match {
-          case ThisOrSuperExp(tt:ThisItem,_) if tt.item.base.item == c => fail("We'll use super instead of this")
-          case WhateverExp(ty,r,s) => impossible
-          case _ => known(field(CastExp(c.raw,SGroup.approx(ir),xd)))
-        }
-      else known(field(xd))
-    })
-    */
   }
 
   def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = i match {
