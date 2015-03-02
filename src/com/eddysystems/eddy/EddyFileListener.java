@@ -153,7 +153,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       });
     } catch (Exception e) {
       // fail silently but log
-      Memory.log(Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName()).error(e));
+      Memory.log(EddyPlugin.basics(project).error(e));
     }
   }
 

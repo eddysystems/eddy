@@ -27,6 +27,7 @@ import com.intellij.util.ResourceUtil;
 import com.intellij.util.messages.MessageBusConnection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import tarski.Memory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -46,7 +47,7 @@ public class EddyPlugin implements ProjectComponent {
 
   // Find our "install" key, or create it if necessary
   static private String _install = null;
-  public static String installKey() {
+  private static String installKey() {
     if (_install == null) {
       final PropertiesComponent props = PropertiesComponent.getInstance();
       final String name = "com.eddysystems.Props.install";
@@ -57,6 +58,11 @@ public class EddyPlugin implements ProjectComponent {
       }
     }
     return _install;
+  }
+
+  // Basic information for logging
+  public static Memory.Info basics(final @Nullable Project project) {
+    return Memory.basics(installKey(), getVersion() + " - " + getBuild(), project != null ? project.getName() : null);
   }
 
   private static Boolean _acceptedTOS = null;

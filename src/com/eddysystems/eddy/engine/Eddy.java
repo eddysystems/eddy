@@ -264,7 +264,7 @@ public class Eddy {
     this.project = project;
     this.editor = editor;
     this.document = editor.getDocument();
-    this.base = Memory.basics(EddyPlugin.installKey(), EddyPlugin.getVersion() + " - " + EddyPlugin.getBuild(), project.getName());
+    this.base = EddyPlugin.basics(project);
   }
 
   private static class Skip extends Exception {

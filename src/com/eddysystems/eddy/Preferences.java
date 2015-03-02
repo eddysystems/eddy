@@ -5,6 +5,7 @@ import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.Nullable;
+import tarski.Memory;
 
 import javax.swing.*;
 
@@ -110,6 +111,11 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.autoApplyFactor", data.getAutoApplyFactor(), PreferenceData.defaultAutoApplyFactor);
     props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
     props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
+
+    // Log
+    Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
+      data.isAutoApply(),data.getNumericAutoApplyThreshold(),data.getNumericAutoApplyFactor(),
+      data.getNumericMinProbability(),data.getNumericMinRelativeProbability()));
   }
 
   @Override

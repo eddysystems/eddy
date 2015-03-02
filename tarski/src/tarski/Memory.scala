@@ -36,6 +36,7 @@ object Memory {
 
   implicit def safeString(x: String) = S(x)
   implicit def safeInt(x: Int) = S(x:java.lang.Integer)
+  implicit def safeBoolean(x: Boolean) = S(x:java.lang.Boolean)
   implicit def safeDouble(x: Double) = S(x:java.lang.Double)
   implicit def safeDouble(x: java.lang.Double) = S(x)
   implicit def safeSeq[A](x: Seq[A])(implicit s: Safe[A]) = S(x.map(safe(_)).asJava : java.util.List[Object])
@@ -95,6 +96,15 @@ object Memory {
   def eddySuggestion(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], suggestion: String) =
     eddyBase(base, start, "Eddy.suggestion", input, results)
       .add("suggestion",suggestion)
+
+  def eddyProps(base: Info, autoApply: Boolean, autoApplyThreshold: Double, autoApplyFactor: Double,
+                minProbability: Double, minRelativeProbability: Double): Info =
+    base.add("kind","Eddy.preferences")
+        .add("autoApply",autoApply)
+        .add("autoApplyThreshold",autoApplyThreshold)
+        .add("autoApplyFactor",autoApplyFactor)
+        .add("minProbability",minProbability)
+        .add("minRelativeProbability",minRelativeProbability)
 
   // If we can't find a host, don't retry for a while
   private val waitAfterFail = 300.0 // 5 min
