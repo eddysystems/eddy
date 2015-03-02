@@ -311,7 +311,7 @@ object Semantics {
             product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp(_,_,around.a))))
         // Handle Javascript-style field access, Scala-style infix method calls, etc.
         def special(a: Scored[Den], ar: SRange, x: Name, xr: SRange, ys: List[Scored[Exp]], names: IdentityHashMap[Scored[Exp],NameAExp]): Scored[Den] = {
-          val ax = denoteField(a,ar,x,xr,m|CallMode,None,e)
+          val ax = denoteField(a.collect({case a:ParentDen => a},"No parents found"),ar,x,xr,m|CallMode,None,e)
           def apply: Scored[Den] = ax flatMap {
             case ax:Callable => ArgMatching.fiddleCall(ax,ys,around.a,expects,auto=false,checkExpectedEarly=false,(axy,zs) => zs match {
               case Nil => known(axy)
@@ -570,7 +570,7 @@ object Semantics {
     case _ => false
   }
 
-  def denoteField(xs: Scored[Den], xr: SRange, f: Name, fr: SRange, mc: Mode, expects: Option[Type], error: AExp)(implicit env: Env): Scored[Den] = {
+  def denoteField(xs: Scored[ParentDen], xr: SRange, f: Name, fr: SRange, mc: Mode, expects: Option[Type], error: AExp)(implicit env: Env): Scored[Den] = {
     def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassOrArrayItem]
     val fs = env.collect(f,s"$f doesn't look like a field (mode $mc)",{
       case f:Value with Member if mc.exp && maybeMemberIn(f) => f
@@ -583,13 +583,11 @@ object Semantics {
       case ParenExp(x,_) => automatic(x)
       case _ => false
     }
-    product(xs,fs) flatMap {case (p,f) => p match {
-      case _:Callable => fail(s"${show(p)}: Callables do not have fields (such as $f)")
-      case p:ParentDen if !memberIn(f,p) => fail(p match {
+    product(xs,fs) flatMap {case (p,f) =>
+      if (!memberIn(f,p)) fail(p match {
         case p:ExpOrType => s"${show(p)}: Item ${show(p.item)} does not contain $f"
         case p:PackageDen => s"${show(p)}: Package does not contain $f"
-      })
-      case p:ParentDen => f match {
+      }) else f match {
         case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (p,f) match {
           case (x:PackageDen,_) => fail("Values aren't members of packages")
 
@@ -639,7 +637,7 @@ object Semantics {
         case f:Package => known(f)
         case _ => fail(s"Invalid field $p . $f")
       }
-    }}
+    }
   }
 
   // Expressions with type restrictions
