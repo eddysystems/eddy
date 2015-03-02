@@ -180,8 +180,17 @@ object Inference {
       case (VoidType,_)|(_,VoidType) => fail("compatForm: void invalid")
       case (s:PrimType,t) => compatForm(bs,s.box,t)
       case (s:RefType,t:PrimType) => equalForm(bs,s,t.box)
-      // TODO: Handle raw type cases (bullets 4 and 5 in 18.2.2)
-      case (s:RefType,t:RefType) => subForm(bs,s,t)
+      case (s:RefType,t:RefType) =>
+        // Complicated loop required to handle raw type cases (bullets 4 and 5 in 18.2.2)
+        @tailrec def loop(s: RefType, t: RefType): Bounds = (s,t) match {
+          case (ArrayType(s:RefType),ArrayType(t:RefType)) => loop(s,t)
+          case (s,t:GenericType) => subItemType(s,t.item) match {
+            case Some(s:RawType) if s.parent == t.parent => bs
+            case _ => subForm(bs,s,t)
+          }
+          case _ => subForm(bs,s,t)
+        }
+        loop(s,t)
     }
   }
 
