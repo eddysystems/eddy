@@ -622,7 +622,7 @@ object Semantics {
                     biased(Pr.constructorFieldCallableWithObject,cons map (NewDen(xr.before,Some(x),_,fr)))
                   else // qualification will be added back to the class as needed
                     biased(Pr.constructorFieldCallableWithSpuriousObject,cons map (NewDen(xr.before,None,_,fr)))
-                case _ => fail("Can't make new ${show(x)}")
+                case _ => fail(s"Can't make new ${show(f)}")
               })
             case _ => fail(s"$f has no constructors or is abstract")
           }
