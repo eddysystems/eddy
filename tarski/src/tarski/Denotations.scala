@@ -425,27 +425,28 @@ object Denotations {
   }
 
   // Extract effects.  TODO: This discards certain exceptions, such as for casts, null errors, etc.
-  def effects(e: Exp)(implicit env: Env): List[Stmt] = e match {
-    case e:StmtExp => List(ExpStmt(e,env))
-    case _:Lit|_:LocalExp|_:ThisOrSuperExp => Nil
-    case _:WhateverExp => Nil // TODO: This is technically a bug, but avoids making the whole function monadic
-    case CastExp(_,_,x,_) => effects(x)
-    case IndexExp(e,i,_) => effects(e)++effects(i)
-    case FieldExp(None,_,_) => Nil
-    case FieldExp(Some(x),_,_) => effects(x)
-    case NonImpExp(_,_,x) => effects(x)
-    case InstanceofExp(x,_,_,_) => effects(x)
-    case BinaryExp(_,_,x,y) => effects(x)++effects(y)
-    case CondExp(c,qr,x,er,y,_) => (effects(x),effects(y)) match {
+  def effects(e: Exp)(implicit env: Env): Scored[List[Stmt]] = e match {
+    case e:StmtExp => known(List(ExpStmt(e,env)))
+    case _:Lit|_:LocalExp|_:ThisOrSuperExp => single(Nil,Pr.dropPure)
+    case _:WhateverExp => single(Nil,Pr.dropPure) // TODO: This is technically a bug, but avoids making the whole function monadic
+    case CastExp(_,_,x,_) => dropPure(effects(x))
+    case IndexExp(e,i,_) => dropPure(effects(e)++effects(i))
+    case FieldExp(None,_,_) => single(Nil,Pr.dropPure)
+    case FieldExp(Some(x),_,_) => dropPure(effects(x))
+    case NonImpExp(_,_,x) => dropPure(effects(x))
+    case InstanceofExp(x,_,_,_) => dropPure(effects(x))
+    case BinaryExp(_,_,x,y) => dropPure(effects(x)++effects(y))
+    case CondExp(c,qr,x,er,y,_) => productWith(effects(x),effects(y)){
       case (Nil,Nil) => Nil
       case (ex,Nil) => List(IfStmt(qr,c,SGroup.approx(c.r),blocked(ex)))
       case (Nil,ey) => List(IfStmt(qr,not(c),SGroup.approx(c.r),blocked(ey)))
       case (ex,ey) => List(IfElseStmt(qr,c,SGroup.approx(c.r),notIf(blocked(ex)),er,blocked(ey)))
     }
-    case ArrayExp(_,_,_,xs,_) => xs flatMap effects
-    case EmptyArrayExp(_,_,_,is) => is flatMap (i => effects(i.x))
+    case ArrayExp(_,_,_,xs,_) => dropPure(thread(xs)(effects) map (_.flatten))
+    case EmptyArrayExp(_,_,_,is) => dropPure(thread(is)(i => effects(i.x)) map (_.flatten))
     case ParenExp(x,_) => effects(x)
   }
+  private def dropPure[A](x: => Scored[A]): Scored[A] = biased(Pr.dropPure,x)
 
   def multiple(ss: List[Stmt]): Stmt = ss match {
     case Nil => impossible

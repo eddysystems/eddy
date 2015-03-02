@@ -790,7 +790,7 @@ object Semantics {
         val er = e.r
         val exps = denoteExp(e) flatMap {
           case e:StmtExp => known(ExpStmt(e,env))
-          case e => effects(e) match {
+          case e => effects(e) flatMap {
             case Nil => fail(s"${show(e)}: has no side effects")
             case ss => single(multiple(ss),Pr.expStmtsSplit)
           }
