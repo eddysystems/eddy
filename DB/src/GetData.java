@@ -13,6 +13,7 @@
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
@@ -24,8 +25,10 @@ import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static java.lang.Math.max;
@@ -34,7 +37,8 @@ import static java.lang.Thread.sleep;
 public class GetData {
 
   // retrieve only this many per request
-  private static int maxItems = 500;
+  private static int maxFullItems = 25;
+  private static int maxStatItems = 500;
   // this many requests per second
   private static double maxRequestRate = 1;
 
@@ -43,14 +47,52 @@ public class GetData {
     System.exit(2);
   }
 
-  private static void statScan(String filename) {
+  private static Object toObject(AttributeValue x) {
+    Object obj = null;
+    if (x.getS() != null) obj = x.getS(); // String
+    if (x.getN() != null) obj = x.getN(); // String (number inside)
+    if (x.getSS() != null) obj = x.getSS(); // List<String>
+    if (x.getB() != null) obj = x.getB(); // ByteBuffer
+    if (x.getNS() != null) obj = x.getNS(); // number set
+    if (x.getBS() != null) obj = x.getBS(); // binary set
+    if (x.getM() != null) { // map
+      Map<String, AttributeValue> vs = x.getM();
+      Map<String, Object> objs = new HashMap<>();
+      for (final Map.Entry<String, AttributeValue> v : vs.entrySet())
+        objs.put(v.getKey(), toObject(v.getValue()));
+      obj = objs;
+    }
+    if (x.getL() != null) { // list
+      List<AttributeValue> vs = x.getL();
+      List<Object> objs = new ArrayList<>();
+      for (final AttributeValue v : vs)
+        objs.add(toObject(v));
+      obj = objs;
+    }
+    if (x.getNULL() != null) obj = x.getNULL(); // boolean
+    if (x.getBOOL() != null) obj = x.getBOOL(); // boolean
+    return obj;
+  }
+
+  private static String toJSON(Map<String,AttributeValue> vs) {
+    // make AttributeValue into an Item, then use toJSONPretty()
+    Item item = new Item();
+    for (final Map.Entry<String, AttributeValue> v : vs.entrySet()) {
+      final String name = v.getKey();
+      final Object obj = toObject(v.getValue());
+      item.with(name, obj);
+    }
+    return item.toJSON();
+  }
+
+  private static void scan(String filename, boolean full) {
     AmazonDynamoDBClient client = new AmazonDynamoDBClient(new ProfileCredentialsProvider());
 
     try {
       // retrieve only new objects (database is write only from the plugin, updates are guaranteed to not happen ever)
       Map<String, AttributeValue> lastKeyEvaluated = null;
       try {
-        RandomAccessFile fi = new RandomAccessFile(filename,"r");
+        RandomAccessFile fi = new RandomAccessFile(filename + ".csv", "r");
 
         // this is terribly inefficient, should really buffer. But our lines are short, so who cares.
         long fileLength = fi.length() - 1;
@@ -76,7 +118,7 @@ public class GetData {
         int comma = s.indexOf(',');
 
         if (comma == -1)
-          throw new ParseException("s", comma);
+          throw new ParseException("s", -1);
 
         lastKeyEvaluated = new HashMap<>(2);
         lastKeyEvaluated.put("install", new AttributeValue().withS(s.substring(0,comma)));
@@ -87,7 +129,10 @@ public class GetData {
       }
 
       // append to existing file
-      PrintWriter fo = new PrintWriter(new FileOutputStream(filename,true));
+      PrintWriter fo = new PrintWriter(new FileOutputStream(filename + ".csv", true));
+      PrintWriter full_fo = null;
+      if (full)
+        full_fo = new PrintWriter(new FileOutputStream(filename + ".json", true));
 
       int nrequests = 0;
       int count = 0, totalCount = 0;
@@ -95,29 +140,36 @@ public class GetData {
       long start = System.nanoTime(), last=start;
 
       do {
-        ScanRequest scanRequest = new ScanRequest()
-          .withTableName("stats-only")
-          .withLimit(maxItems)
-          .withExclusiveStartKey(lastKeyEvaluated);
+        ScanRequest scanRequest = new ScanRequest();
 
+        if (full) {
+          scanRequest.withTableName("eddy-log").withLimit(maxFullItems);
+        } else {
+          scanRequest.withTableName("stats-only").withLimit(maxStatItems);
+        }
+
+        scanRequest.withExclusiveStartKey(lastKeyEvaluated);
         scanRequest.setReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
 
         ScanResult result = client.scan(scanRequest);
-
-        System.out.println("got " + result.getCount() + "/" + result.getScannedCount() + " items using " + result.getConsumedCapacity().getCapacityUnits() + " capacity");
+        System.out.println("got " + result.getCount() + '/' + result.getScannedCount() + " items using " + result.getConsumedCapacity().getCapacityUnits() + " capacity");
 
         nrequests++;
         count += result.getCount();
         totalCount += result.getScannedCount();
         consumed += result.getConsumedCapacity().getCapacityUnits();
 
-        for (Map<String, AttributeValue> item : result.getItems())
-          fo.println(item.get("install").getS() + "," + item.get("time").getN());
+        for (Map<String, AttributeValue> item : result.getItems()) {
+          if (full)
+            full_fo.println(toJSON(item));
+          fo.println(item.get("install").getS() + ',' + item.get("time").getN());
+        }
         lastKeyEvaluated = result.getLastEvaluatedKey();
 
         long next = System.nanoTime();
         try {
-          sleep((int) (max(0., 1000./maxRequestRate - 1e-6 * (next - last))));
+          fo.flush();
+          sleep((int) (max(0., 1000. / maxRequestRate - 1e-6 * (next - last))));
         } catch (InterruptedException e) {
           error("interrupted.");
         }
@@ -132,14 +184,10 @@ public class GetData {
     }
   }
 
-  private static void fullScan(String filename) {
-    error("full retrieval not implemented.");
-  }
-
   private static void usage(String[] args) {
     System.out.println(
-      "usage: accessDB stats|full <file> (got " + StringUtils.join(Arrays.asList(args)," ") + ")\n" +
-      "Gets eddy usage data from dynamoDB and stores it in <file>.\n" +
+      "usage: accessDB stats|full <basename> (got " + StringUtils.join(Arrays.asList(args)," ") + ")\n" +
+      "Gets eddy usage data from dynamoDB and stores it in <basename>.csv (for stats) and <basename>.json (for full data).\n" +
       "  stats : get install IDs and times from the stats index and store as CSV\n" +
       "  full  : get all data and store as JSON. There's an additional guarantee that\n" +
       "          each row from the DB starts at a newline, and all rows except the first\n" +
@@ -154,10 +202,10 @@ public class GetData {
     String filename = args[1];
     String command = args[0];
 
-    if (command.equals("stats"))
-      statScan(filename);
-    else if (command.equals("full")) {
-      fullScan(filename);
+    if (command.equals("stats")) {
+      scan(filename, false);
+    } else if (command.equals("full")) {
+      scan(filename, true);
     } else {
       usage(args);
     }
