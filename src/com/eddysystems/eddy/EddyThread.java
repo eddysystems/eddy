@@ -162,6 +162,13 @@ public class EddyThread extends Thread {
 
   @Override
   public void run() {
+    // Sleep for a little way to avoid churn
+    try {
+      sleep((int) (1000 * Preferences.getData().getNumericStartDelay()));
+    } catch (InterruptedException e) {
+      return;
+    }
+
     interrupter.register();
     try {
       pauseWait();

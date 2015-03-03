@@ -60,6 +60,7 @@ public class Preferences implements Configurable {
     data.setMinProbability(props.getValue("com.eddysystems.Props.minProbability", PreferenceData.defaultMinProbability));
     data.setMinRelativeProbability(props.getValue("com.eddysystems.Props.minRelativeProbability", PreferenceData.defaultMinRelativeProbability));
     data.setRemoveQualifiers(props.getBoolean("com.eddysystems.Props.removeQualifiers", PreferenceData.defaultRemoveQualifiers));
+    data.setStartDelay(props.getValue("com.eddysystems.Props.startDelay", PreferenceData.defaultStartDelay));
     initialized = true;
   }
 
@@ -70,6 +71,7 @@ public class Preferences implements Configurable {
     data.setMinProbability(PreferenceData.defaultMinProbability);
     data.setMinRelativeProbability(PreferenceData.defaultMinRelativeProbability);
     data.setRemoveQualifiers(PreferenceData.defaultRemoveQualifiers);
+    data.setStartDelay(PreferenceData.defaultStartDelay);
     form.setData(data);
   }
 
@@ -105,6 +107,15 @@ public class Preferences implements Configurable {
       throw new ConfigurationException("minimum relative probability must be a number or percentage");
     }
 
+    try {
+      final Double d = new Double(data.getStartDelay());
+      if (d < 0 || d > 10)
+        throw new NumberFormatException();
+      data.setStartDelay(String.format("%.2f",d));
+    } catch (NumberFormatException e) {
+      throw new ConfigurationException("start delay must be a number between 0 and 10 (seconds)");
+    }
+
     form.setData(data);
 
     // Save to file
@@ -114,11 +125,13 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
     props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
     props.setValue("com.eddysystems.Props.removeQualifier", Boolean.toString(data.isRemoveQualifiers()), Boolean.toString(PreferenceData.defaultRemoveQualifiers));
+    props.setValue("com.eddysystems.Props.startDelay", data.getStartDelay(), PreferenceData.defaultStartDelay);
 
     // Log
     Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
       data.isAutoApply(),data.getNumericAutoApplyThreshold(),data.getNumericAutoApplyFactor(),
-      data.getNumericMinProbability(),data.getNumericMinRelativeProbability(),data.isRemoveQualifiers()));
+      data.getNumericMinProbability(),data.getNumericMinRelativeProbability(),data.isRemoveQualifiers(),
+      data.getNumericStartDelay()));
   }
 
   @Override

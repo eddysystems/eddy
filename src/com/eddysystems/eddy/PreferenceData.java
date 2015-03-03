@@ -13,6 +13,8 @@ public class PreferenceData {
   private String minRelativeProbability;
   private double numericMinRelativeProbability;
   private boolean removeQualifiers;
+  private String startDelay;
+  private double numericStartDelay;
 
   public static final boolean defaultAutoApply = true;
   public static final String defaultAutoApplyThreshold = "90%";
@@ -20,6 +22,7 @@ public class PreferenceData {
   public static final String defaultMinProbability = "1e-6";
   public static final String defaultMinRelativeProbability = "0.1%";
   public static final boolean defaultRemoveQualifiers = true;
+  public static final String defaultStartDelay = "0.2";
 
   public PreferenceData() {
   }
@@ -130,5 +133,22 @@ public class PreferenceData {
 
   public void setRemoveQualifiers(final boolean removeQualifiers) {
     this.removeQualifiers = removeQualifiers;
+  }
+
+  public double getNumericStartDelay() {
+    return numericStartDelay;
+  }
+
+  public String getStartDelay() {
+    return startDelay;
+  }
+
+  public void setStartDelay(final String startDelay) {
+    this.startDelay = startDelay;
+    try {
+      numericStartDelay = Double.parseDouble(startDelay.trim());
+    } catch (NumberFormatException e) {
+      numericStartDelay = Double.parseDouble(defaultStartDelay);
+    }
   }
 }

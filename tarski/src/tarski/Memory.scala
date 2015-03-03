@@ -98,7 +98,8 @@ object Memory {
       .add("suggestion",suggestion)
 
   def eddyProps(base: Info, autoApply: Boolean, autoApplyThreshold: Double, autoApplyFactor: Double,
-                minProbability: Double, minRelativeProbability: Double, removeQualifiers: Boolean): Info =
+                minProbability: Double, minRelativeProbability: Double, removeQualifiers: Boolean,
+                startDelay: Double): Info =
     base.add("kind","Eddy.preferences")
         .add("autoApply",autoApply)
         .add("autoApplyThreshold",autoApplyThreshold)
@@ -106,6 +107,7 @@ object Memory {
         .add("minProbability",minProbability)
         .add("minRelativeProbability",minRelativeProbability)
         .add("removeQualifiers",removeQualifiers)
+        .add("startDelay",startDelay)
 
   // If we can't find a host, don't retry for a while
   private val waitAfterFail = 300.0 // 5 min
