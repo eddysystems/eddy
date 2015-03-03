@@ -4,6 +4,7 @@ import utility.Utility._
 import utility.JavaUtils.hash
 import tarski.JavaScores._
 import tarski.Scores._
+import tarski.Scores.fail
 import scala.util.Random
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
@@ -173,7 +174,12 @@ class TestScores {
       (0 until n).filter(i => (m & (1<<i)) != 0).map(C).toList
     }
     def g(y: String) = C(y.hashCode() & (n-1))
-    test(product(xs,ys) filter ({case (x,y) => f(x) contains g(y)},"bad"),link(xs,ys)(f,g))
+    def fe(x: String) = fail("unlikely")
+    test(product(xs,ys) filter ({case (x,y) => f(x) contains g(y)},"bad"),link(xs,ys)(f,g,fe))
+    if (trackErrors) link(uniform(Prob("x",1),Array("a","b"),impossible),Empty)(List(_),y=>y,x => fail(s"bad $x")).strict match {
+      case b:Bad => assertEquals(NestError("link failed",List(OneError("bad a"),OneError("bad b"))),b.error)
+      case s => throw new AssertionError(s"unexpected $s")
+    }
   }
 
   // Warn if debugging is left on
