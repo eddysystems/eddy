@@ -22,6 +22,8 @@ import com.intellij.psi.impl.source.tree.LeafElement;
 import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
 import com.intellij.psi.impl.source.tree.TreeElement;
 import com.intellij.util.SmartList;
+import com.siyeh.ipp.base.PsiElementPredicate;
+import com.siyeh.ipp.fqnames.ReplaceFullyQualifiedNameWithImportIntention;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.Function2;
@@ -199,12 +201,45 @@ public class Eddy {
       return isConfident() && input.isAtEOL();
     }
 
+    private void removeQualifiers(final @NotNull Document document, final RangeMarker rm) {
+      // commit
+      PsiDocumentManager.getInstance(eddy.project).commitDocument(eddy.document);
+      // find common parent of everything that was inserted
+      PsiFile file = PsiDocumentManager.getInstance(eddy.project).getPsiFile(eddy.document);
+      if (file != null) {
+        PsiElement elem = file.findElementAt(rm.getStartOffset());
+        final TextRange tr = new TextRange(rm.getStartOffset(), rm.getEndOffset());
+        while (elem != null && !elem.getTextRange().contains(tr))
+          elem = elem.getParent();
+        if (elem != null) {
+          final ReplaceFullyQualifiedNameWithImportIntention intention = new ReplaceFullyQualifiedNameWithImportIntention();
+          final PsiElementPredicate pr = intention.getElementPredicate();
+          // traverse all elements in common parent that overlap the range marker
+          elem.accept(new JavaRecursiveElementWalkingVisitor() {
+            @Override
+            public void visitReferenceElement(PsiJavaCodeReferenceElement reference) {
+              if (!reference.getTextRange().intersects(tr))
+                return;
+              super.visitReferenceElement(reference);
+              if (pr.satisfiedBy(reference))
+                // TODO: inline without highlighting
+                intention.processIntention(reference);
+            }
+          });
+        }
+      }
+    }
+
     public int rawApply(final @NotNull Document document, final @NotNull String code) {
       document.replaceString(input.range.getStartOffset(), input.range.getEndOffset(), code);
       final int afterOffset = input.range.getStartOffset() + code.length();
 
       // remember offset
       RangeMarker rm = document.createRangeMarker(input.range.getStartOffset(), afterOffset);
+
+      // get rid of qualifiers if imports would do instead
+      // TODO: make this optional with preference
+      removeQualifiers(document, rm);
 
       // reindent
       CodeStyleManager csm = CodeStyleManager.getInstance(eddy.project);
@@ -213,6 +248,8 @@ public class Eddy {
       for (int i = sline; i <= fline; ++i) {
         csm.adjustLineIndent(document, document.getLineStartOffset(i));
       }
+
+      PsiDocumentManager.getInstance(eddy.project).commitDocument(eddy.document);
 
       return rm.getEndOffset();
     }
@@ -228,7 +265,6 @@ public class Eddy {
             public void run(@NotNull Result result) {
               int offset = rawApply(eddy.document, full);
               editor.getCaretModel().moveToOffset(offset);
-              PsiDocumentManager.getInstance(eddy.project).commitDocument(eddy.document);
             }
           }.execute();
         }

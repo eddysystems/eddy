@@ -7,7 +7,6 @@ import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.actionSystem.EditorActionHandler;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Ref;
-import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -35,8 +34,8 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
       return Result.Continue;
 
     int co = editor.getCaretModel().getCurrentCaret().getOffset();
+    // autoExecute will commit the document
     caretOffset.set(caretOffset.get() - co + action.autoExecute());
-    PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument());
     return Result.DefaultSkipIndent;
   }
 
