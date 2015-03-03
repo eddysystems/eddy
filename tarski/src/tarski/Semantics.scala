@@ -584,7 +584,8 @@ object Semantics {
       }
       case _ => Nil
     }
-    link(xs,fs)(items,_.parent) flatMap {case (p,f) => f match {
+    def left(x: ParentDen) = fail(s"${show(error)}: ${show(x)} has no field similar to $f found")
+    link(xs,fs)(items,_.parent,left) flatMap {case (p,f) => f match {
       case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (p,f) match {
         case (x:PackageDen,_) => fail("Values aren't members of packages")
 

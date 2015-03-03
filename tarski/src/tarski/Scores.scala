@@ -237,7 +237,7 @@ object Scores {
   }
 
   // Score constructors
-  @inline def fail[A](error: => String): Scored[A] =
+  @inline def fail(error: => String): EmptyOrBad =
     if (trackErrors) new Bad(OneError(error))
     else Empty
   private val knownProb = Prob("known",1)
@@ -342,8 +342,8 @@ object Scores {
   def thread[A,B](xs: List[A])  (f: A => Scored[B]): Scored[List[B]]   = product(xs map f)
 
   // All pairs (x,y) from xs,ys s.t. f(x) contains g(y)
-  def link[A,B,C](xs: Scored[A], ys: Scored[B])(f: A => Traversable[C], g: B => C): Scored[(A,B)] =
-    new Extractor(new LinkState[A,B,C](xs,ys,f,g))
+  def link[A,B,C](xs: Scored[A], ys: Scored[B])(f: A => Traversable[C], g: B => C, fe: A => EmptyOrBad): Scored[(A,B)] =
+    new Extractor(new LinkState[A,B,C](xs,ys,f,g,if (trackErrors) fe else null))
 
   // Scala helpers for JavaUtils
   def nestError[A](s: String, bads: List[Bad]): Scored[A] =

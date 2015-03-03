@@ -15,10 +15,7 @@ import tarski.JavaTrie.Generator;
 import tarski.Scores.*;
 import utility.Interrupts;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.PriorityQueue;
+import java.util.*;
 
 import static java.lang.Math.max;
 
@@ -777,6 +774,9 @@ public class JavaScores {
     private final Function1<A,Traversable<C>> f;
     private final Function1<B,C> g;
 
+    // One sided (left) error messages
+    private final Function1<A,EmptyOrBad> fe;
+
     // State
     private final PriorityQueue<Alt<Tuple2<A,B>>> found = new PriorityQueue<Alt<Tuple2<A,B>>>();
     private final Map<C,Link<A,B>> links = new HashMap<C,Link<A,B>>();
@@ -784,11 +784,12 @@ public class JavaScores {
     private Scored<A> xs;
     private Scored<B> ys;
 
-    public LinkState(Scored<A> xs, Scored<B> ys, Function1<A,Traversable<C>> f, Function1<B,C> g) {
+    public LinkState(Scored<A> xs, Scored<B> ys, Function1<A,Traversable<C>> f, Function1<B,C> g, Function1<A,EmptyOrBad> fe) {
       this.xs = xs;
       this.ys = ys;
       this.f = f;
       this.g = g;
+      this.fe = trackErrors ? fe : null;
     }
 
     public double p() {
@@ -818,10 +819,6 @@ public class JavaScores {
         // Easy case first: the best option is definitely a from found
         else if (a != null && pa >= max(px,py)) {
           found.poll();
-          if (trackErrors) {
-            xs = Scores.good(xs);
-            ys = Scores.good(ys);
-          }
           return new Best<Tuple2<A,B>>(a.dp(),a.x(),new Extractor<Tuple2<A,B>>(this));
         }
 
@@ -848,7 +845,7 @@ public class JavaScores {
               return null;
             }});
           } else // EmptyOrBad
-            return (Scored)Empty$.MODULE$; // TODO: Handle errors
+            return trackErrors ? fail() : (Scored)Empty$.MODULE$;
         }
 
         // Final case: expand ys
@@ -872,9 +869,25 @@ public class JavaScores {
             for (final Alt<A> x : L.xs)
               found.add(new Alt<Tuple2<A,B>>(pmul(x.dp(),dp),new Tuple2<A,B>(x.x(),y)));
           } else // EmptyOrBad
-            return (Scored)Empty$.MODULE$; // TODO: Handle errors
+            return trackErrors ? fail() : (Scored)Empty$.MODULE$;
         }
       }
+    }
+
+    private Scored<Tuple2<A,B>> fail() {
+      if (xs instanceof Bad)
+        return (Scored)xs;
+      if (ys instanceof Bad)
+        return (Scored)ys;
+      List<Bad> bads = (List)Nil$.MODULE$;
+      final Set<A> seen = new HashSet<A>();
+      for (final Link<A,B> L : links.values())
+        for (final Alt<A> a : L.xs) {
+          final A x = a.x();
+          if (seen.add(x))
+            bads = $colon$colon$.MODULE$.apply((Bad)fe.apply(x),bads);
+        }
+      return Scores.nestError("link failed",bads);
     }
   }
 }
