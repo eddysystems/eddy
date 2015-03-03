@@ -12,12 +12,14 @@ public class PreferenceData {
   private double numericMinProbability;
   private String minRelativeProbability;
   private double numericMinRelativeProbability;
+  private boolean removeQualifiers;
 
   public static final boolean defaultAutoApply = true;
   public static final String defaultAutoApplyThreshold = "90%";
   public static final String defaultAutoApplyFactor = "3";
   public static final String defaultMinProbability = "1e-6";
   public static final String defaultMinRelativeProbability = "0.1%";
+  public static final boolean defaultRemoveQualifiers = true;
 
   public PreferenceData() {
   }
@@ -120,5 +122,13 @@ public class PreferenceData {
     } catch (NumberFormatException e) {
       this.numericMinRelativeProbability = toNumber(defaultMinRelativeProbability);
     }
+  }
+
+  public boolean isRemoveQualifiers() {
+    return removeQualifiers;
+  }
+
+  public void setRemoveQualifiers(final boolean removeQualifiers) {
+    this.removeQualifiers = removeQualifiers;
   }
 }

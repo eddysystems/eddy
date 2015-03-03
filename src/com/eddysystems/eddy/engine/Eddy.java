@@ -238,8 +238,8 @@ public class Eddy {
       RangeMarker rm = document.createRangeMarker(input.range.getStartOffset(), afterOffset);
 
       // get rid of qualifiers if imports would do instead
-      // TODO: make this optional with preference
-      removeQualifiers(document, rm);
+      if (Preferences.getData().isRemoveQualifiers())
+        removeQualifiers(document, rm);
 
       // reindent
       CodeStyleManager csm = CodeStyleManager.getInstance(eddy.project);

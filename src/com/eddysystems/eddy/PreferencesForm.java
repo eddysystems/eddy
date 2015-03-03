@@ -13,6 +13,7 @@ public class PreferencesForm {
   private JTextField minProbabilityTextField;
   private JTextField minRelativeProbability;
   private JButton resetButton;
+  private JCheckBox removeQualifiersCheckBox;
 
   public PreferencesForm() {
     resetButton.addActionListener(new ActionListener() {
@@ -33,6 +34,7 @@ public class PreferencesForm {
     autoApplyFactorTextField.setText(data.getAutoApplyFactor());
     minProbabilityTextField.setText(data.getMinProbability());
     minRelativeProbability.setText(data.getMinRelativeProbability());
+    removeQualifiersCheckBox.setSelected(data.isRemoveQualifiers());
   }
 
   public void getData(PreferenceData data) {
@@ -41,6 +43,7 @@ public class PreferencesForm {
     data.setAutoApplyFactor(autoApplyFactorTextField.getText());
     data.setMinProbability(minProbabilityTextField.getText());
     data.setMinRelativeProbability(minRelativeProbability.getText());
+    data.setRemoveQualifiers(removeQualifiersCheckBox.isSelected());
   }
 
   public boolean isModified(PreferenceData data) {
@@ -53,6 +56,7 @@ public class PreferencesForm {
       return true;
     if (minRelativeProbability.getText() != null ? !minRelativeProbability.getText().equals(data.getMinRelativeProbability()) : data.getMinRelativeProbability() != null)
       return true;
+    if (removeQualifiersCheckBox.isSelected() != data.isRemoveQualifiers()) return true;
     return false;
   }
 }

@@ -59,6 +59,7 @@ public class Preferences implements Configurable {
     data.setAutoApplyFactor(props.getValue("com.eddysystems.Props.autoApplyFactor", PreferenceData.defaultAutoApplyFactor));
     data.setMinProbability(props.getValue("com.eddysystems.Props.minProbability", PreferenceData.defaultMinProbability));
     data.setMinRelativeProbability(props.getValue("com.eddysystems.Props.minRelativeProbability", PreferenceData.defaultMinRelativeProbability));
+    data.setRemoveQualifiers(props.getBoolean("com.eddysystems.Props.removeQualifiers", PreferenceData.defaultRemoveQualifiers));
     initialized = true;
   }
 
@@ -68,6 +69,7 @@ public class Preferences implements Configurable {
     data.setAutoApplyFactor(PreferenceData.defaultAutoApplyFactor);
     data.setMinProbability(PreferenceData.defaultMinProbability);
     data.setMinRelativeProbability(PreferenceData.defaultMinRelativeProbability);
+    data.setRemoveQualifiers(PreferenceData.defaultRemoveQualifiers);
     form.setData(data);
   }
 
@@ -111,11 +113,12 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.autoApplyFactor", data.getAutoApplyFactor(), PreferenceData.defaultAutoApplyFactor);
     props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
     props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
+    props.setValue("com.eddysystems.Props.removeQualifier", Boolean.toString(data.isRemoveQualifiers()), Boolean.toString(PreferenceData.defaultRemoveQualifiers));
 
     // Log
     Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
       data.isAutoApply(),data.getNumericAutoApplyThreshold(),data.getNumericAutoApplyFactor(),
-      data.getNumericMinProbability(),data.getNumericMinRelativeProbability()));
+      data.getNumericMinProbability(),data.getNumericMinRelativeProbability(),data.isRemoveQualifiers()));
   }
 
   @Override
