@@ -1,14 +1,11 @@
 /*
-# Make sure not to over-use our read capacity: free read capacity is 25k/s
-# for index lookups (stats-only), each item is
-#   install key: 39ed747039a83c9280 -- 18 bytes
-#   time stamp: 1422408151.549 -- Number: 8 bytes?
-# so probably 24 bytes, meaning we should be able to read 1000 items per second
-# so we will
-# - connect to dynamoDB
-# - use paginated queries to download 500 items at a time
-# - if a request took less than a second, wait until the second is over
-# - write the data into a csv file for later
+ Make sure not to over-use our read capacity: free read capacity is 25k/s
+ for index lookups (stats-only), each item is
+   install key: 39ed747039a83c9280 -- 18 bytes
+   time stamp: 1422408151.549 -- Number: 8 bytes?
+ so probably 24 bytes, meaning we should be able to read 1000 items per second.
+ for full items, empirical data suggests we can read about 25 using a read capacity of 5, with spikes to 50,
+ which leads to total average capacity usage of around 10
 */
 
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
@@ -85,54 +82,56 @@ public class GetData {
     return item.toJSON();
   }
 
-  private static void scan(String filename, boolean full) {
+  private static void scan(String filename, boolean restart) {
     AmazonDynamoDBClient client = new AmazonDynamoDBClient(new ProfileCredentialsProvider());
 
     try {
       // retrieve only new objects (database is write only from the plugin, updates are guaranteed to not happen ever)
       Map<String, AttributeValue> lastKeyEvaluated = null;
-      try {
-        RandomAccessFile fi = new RandomAccessFile(filename + ".csv", "r");
+      if (!restart) {
+        try {
+          RandomAccessFile fi = new RandomAccessFile(filename + ".csv", "r");
 
-        // this is terribly inefficient, should really buffer. But our lines are short, so who cares.
-        long fileLength = fi.length() - 1;
-        StringBuilder sb = new StringBuilder();
-        for (long filePointer = fileLength; filePointer != -1; filePointer--){
-          fi.seek(filePointer);
-          int readByte = fi.readByte();
-          if (readByte == 0xA) {
-            if (filePointer != fileLength)
-              break;
-          } else if(readByte == 0xD) {
-            if( filePointer != fileLength - 1 )
-            break;
+          // this is terribly inefficient, should really buffer. But our lines are short, so who cares.
+          long fileLength = fi.length() - 1;
+          StringBuilder sb = new StringBuilder();
+          for (long filePointer = fileLength; filePointer != -1; filePointer--){
+            fi.seek(filePointer);
+            int readByte = fi.readByte();
+            if (readByte == 0xA) {
+              if (filePointer != fileLength)
+                break;
+            } else if(readByte == 0xD) {
+              if( filePointer != fileLength - 1 )
+                break;
+            }
+            sb.append((char) readByte);
           }
-          sb.append((char) readByte);
+
+          // parse the line into install,time and make a key object
+          String s = sb.reverse().toString().trim();
+
+          System.out.println("Last key (raw): " + s);
+
+          int comma = s.indexOf(',');
+
+          if (comma == -1)
+            throw new ParseException("s", -1);
+
+          lastKeyEvaluated = new HashMap<>(2);
+          lastKeyEvaluated.put("install", new AttributeValue().withS(s.substring(0,comma)));
+          lastKeyEvaluated.put("time", new AttributeValue().withN(s.substring(comma+1)));
+        } catch (Throwable t) {
+          // can't get the last index? fine.
+          System.err.println("Can't get the last key. Starting from scratch.");
         }
-
-        // parse the line into install,time and make a key object
-        String s = sb.reverse().toString().trim();
-
-        System.out.println("Last key (raw): " + s);
-
-        int comma = s.indexOf(',');
-
-        if (comma == -1)
-          throw new ParseException("s", -1);
-
-        lastKeyEvaluated = new HashMap<>(2);
-        lastKeyEvaluated.put("install", new AttributeValue().withS(s.substring(0,comma)));
-        lastKeyEvaluated.put("time", new AttributeValue().withN(s.substring(comma+1)));
-      } catch (Throwable t) {
-        // can't get the last index? fine.
-        System.err.println("Can't get the last key. Starting from scratch.");
+      } else {
+        System.out.println("restarting from scratch, existing data will be deleted.");
       }
 
       // append to existing file
-      PrintWriter fo = new PrintWriter(new FileOutputStream(filename + ".csv", true));
-      PrintWriter full_fo = null;
-      if (full)
-        full_fo = new PrintWriter(new FileOutputStream(filename + ".json", true));
+      PrintWriter fo = new PrintWriter(new FileOutputStream(filename + ".csv", !restart));
+      PrintWriter full_fo = new PrintWriter(new FileOutputStream(filename + ".json", !restart));
 
       int nrequests = 0;
       int count = 0, totalCount = 0;
@@ -141,13 +140,7 @@ public class GetData {
 
       do {
         ScanRequest scanRequest = new ScanRequest();
-
-        if (full) {
-          scanRequest.withTableName("eddy-log").withLimit(maxFullItems);
-        } else {
-          scanRequest.withTableName("stats-only").withLimit(maxStatItems);
-        }
-
+        scanRequest.withTableName("eddy-log").withLimit(maxFullItems);
         scanRequest.withExclusiveStartKey(lastKeyEvaluated);
         scanRequest.setReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
 
@@ -160,8 +153,7 @@ public class GetData {
         consumed += result.getConsumedCapacity().getCapacityUnits();
 
         for (Map<String, AttributeValue> item : result.getItems()) {
-          if (full)
-            full_fo.println(toJSON(item));
+          full_fo.println(toJSON(item));
           fo.println(item.get("install").getS() + ',' + item.get("time").getN());
         }
         lastKeyEvaluated = result.getLastEvaluatedKey();
@@ -180,7 +172,7 @@ public class GetData {
 
       System.out.println("retrieved " + count + "/" + totalCount + " records in " + time + "seconds, using " + nrequests + " requests and " + consumed + " capacity.");
     } catch (FileNotFoundException e) {
-      error("could not create file " + filename);
+      error(e.toString());
     }
   }
 
@@ -188,10 +180,8 @@ public class GetData {
     System.out.println(
       "usage: accessDB stats|full <basename> (got " + StringUtils.join(Arrays.asList(args)," ") + ")\n" +
       "Gets eddy usage data from dynamoDB and stores it in <basename>.csv (for stats) and <basename>.json (for full data).\n" +
-      "  stats : get install IDs and times from the stats index and store as CSV\n" +
-      "  full  : get all data and store as JSON. There's an additional guarantee that\n" +
-      "          each row from the DB starts at a newline, and all rows except the first\n" +
-      "          and last line are DB rows.");
+      "  restart : get all data. This overwrites any existing csv/json file of the same name.\n" +
+      "  full    : get new data. The last index is read from <basename>.csv. If reading the last index fails, bail.\n");
   }
 
   public static void main(String[] args) {
@@ -202,7 +192,7 @@ public class GetData {
     String filename = args[1];
     String command = args[0];
 
-    if (command.equals("stats")) {
+    if (command.equals("restart")) {
       scan(filename, false);
     } else if (command.equals("full")) {
       scan(filename, true);
