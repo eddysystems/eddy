@@ -161,6 +161,9 @@ public class GetData {
         long next = System.nanoTime();
         try {
           fo.flush();
+          fo.close();
+          full_fo.flush();
+          full_fo.close();
           sleep((int) (max(0., 1000. / maxRequestRate - 1e-6 * (next - last))));
         } catch (InterruptedException e) {
           error("interrupted.");
@@ -178,7 +181,7 @@ public class GetData {
 
   private static void usage(String[] args) {
     System.out.println(
-      "usage: accessDB stats|full <basename> (got " + StringUtils.join(Arrays.asList(args)," ") + ")\n" +
+      "usage: accessDB restart|continue <basename> (got " + StringUtils.join(Arrays.asList(args)," ") + ")\n" +
       "Gets eddy usage data from dynamoDB and stores it in <basename>.csv (for stats) and <basename>.json (for full data).\n" +
       "  restart : get all data. This overwrites any existing csv/json file of the same name.\n" +
       "  full    : get new data. The last index is read from <basename>.csv. If reading the last index fails, bail.\n");
@@ -193,9 +196,9 @@ public class GetData {
     String command = args[0];
 
     if (command.equals("restart")) {
-      scan(filename, false);
-    } else if (command.equals("full")) {
       scan(filename, true);
+    } else if (command.equals("continue")) {
+      scan(filename, false);
     } else {
       usage(args);
     }
