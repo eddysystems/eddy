@@ -6,3 +6,5 @@ resources/eddy.properties
 javadoc/
 .idea
 .*.swp
+eddy.csv
+eddy.json
