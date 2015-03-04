@@ -1,7 +1,6 @@
 package com.eddysystems.eddy.actions;
 
 import com.eddysystems.eddy.engine.Eddy;
-import com.intellij.codeInsight.hint.QuestionAction;
 import com.intellij.ide.DataManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
@@ -16,23 +15,10 @@ import java.util.List;
 import static com.eddysystems.eddy.engine.Utility.log;
 import static tarski.Tokens.abbrevShowFlags;
 
-public class EddyAction implements QuestionAction {
+public class EddyAction {
 
-  private static class ListEntry {
-    String text;
-    int index;
-  }
-
-  private final @NotNull Eddy.Output output;
-  private final @NotNull Editor editor;
-
-  public EddyAction(final @NotNull Eddy.Output output, final Editor editor) {
-    this.output = output;
-    this.editor = editor;
-  }
-
-  public String getText() {
-    if (!output.foundSomething())
+  public static String getText(final Eddy.Output output) {
+    if (output==null || !output.foundSomething())
       return "eddy knows nothing";
     if (output.results.size() == 1)
       return "eddy says: " + output.format(0,abbrevShowFlags());
@@ -40,38 +26,24 @@ public class EddyAction implements QuestionAction {
       return "eddy thinks...";
   }
 
-  public @NotNull Eddy.Output getOutput() {
-    return output;
-  }
-
-  // return how many net characters were inserted (by how much the line has grown/shrunk)
-  public int autoExecute() {
-    return output.autoApply();
-  }
-
-  public boolean isAvailable() {
-    return output.foundSomething();
-  }
-
-  @Override
-  public boolean execute() {
+  public static void execute(final Editor editor, final Eddy.Output output) {
     log("executing EddyAction");
 
-    if (output.results.size() == 1)
+    if (output == null)
+      return;
+    else if (output.results.size() == 1)
       output.apply(0);
     else if (output.single())
       output.applySelected();
     else {
-
-      List<ListEntry> entries = new ArrayList<ListEntry>(output.results.size());
-
-      int i = 0;
-      for (final String s : output.formats(abbrevShowFlags(),true)) {
-        ListEntry le = new ListEntry();
-        le.index = i++;
-        le.text = s;
-        entries.add(le);
+      class ListEntry {
+        final String text;
+        final int index;
+        ListEntry(String text, int index) { this.text = text; this.index = index; }
       }
+      final List<ListEntry> entries = new ArrayList<ListEntry>(output.results.size());
+      for (final String s : output.formats(abbrevShowFlags(),true))
+        entries.add(new ListEntry(s,entries.size()));
 
       // show selection dialog
       final BaseListPopupStep<ListEntry> step = new BaseListPopupStep<ListEntry>("eddy thinks:", entries) {
@@ -119,6 +91,5 @@ public class EddyAction implements QuestionAction {
         JBPopupFactory.getInstance().createListPopup(step).showInBestPositionFor(editor);
       }});
     }
-    return true;
   }
 }

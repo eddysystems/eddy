@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;
+import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.ValidationInfo;
@@ -18,13 +19,13 @@ public class CorrectionDialog extends DialogWrapper {
   private JTextArea eddyOutput;
   private JTextArea suggestion;
 
-  public CorrectionDialog(Project project, final EddyAction action) {
+  public CorrectionDialog(Project project, final Eddy.Output output) {
     super(project, false, IdeModalityType.PROJECT);
     init();
     setTitle("Help Eddy Out!");
-    if (action != null && action.getOutput().results != null) {
-      eddyInput.setText(action.getOutput().input.getText());
-      eddyOutputList.setListData(action.getOutput().getResultSummary());
+    if (output != null && output.results != null) {
+      eddyInput.setText(output.input.getText());
+      eddyOutputList.setListData(output.getResultSummary());
     } else {
       // TODO: get current line to put into input field
     }
@@ -34,8 +35,8 @@ public class CorrectionDialog extends DialogWrapper {
       public void valueChanged(ListSelectionEvent e) {
         if (e.getValueIsAdjusting())
           return;
-        if (action != null && action.getOutput().results != null && action.getOutput().results.size() > e.getFirstIndex()) {
-          eddyOutput.setText(action.getOutput().format(eddyOutputList.getSelectedIndex(),new Tokens.ShowFlags(false, false, true)));
+        if (output != null && output.results != null && output.results.size() > e.getFirstIndex()) {
+          eddyOutput.setText(output.format(eddyOutputList.getSelectedIndex(),new Tokens.ShowFlags(false, false, true)));
         }
       }
     });

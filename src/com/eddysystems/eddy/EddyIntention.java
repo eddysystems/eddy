@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;
+import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.intention.HighPriorityAction;
 import com.intellij.codeInsight.intention.IntentionAction;
 import com.intellij.openapi.editor.Editor;
@@ -16,7 +17,7 @@ import static com.eddysystems.eddy.engine.Utility.log;
 
 public class EddyIntention implements IntentionAction, HighPriorityAction, Iconable {
 
-  private EddyAction action = null;
+  private Eddy.Output output = null;
 
   @Override public boolean startInWriteAction() {
     return false; // we'll take care of it inside apply
@@ -25,28 +26,22 @@ public class EddyIntention implements IntentionAction, HighPriorityAction, Icona
     return "eddy";
   }
   @Override @NotNull public String getText() {
-    if (action == null)
-      return "eddy knows nothing (intention)"; // this should never be shown, since we're not available in that case
-    else
-      return action.getText();
+    return EddyAction.getText(output);
   }
 
   @Override
   public boolean isAvailable(@NotNull Project project, Editor editor, @NotNull PsiFile file) {
-    action = EddyFileListener.getActionFor(editor);
-    if (action == null)
-      return false;
-    else
-      return action.isAvailable();
+    output = EddyFileListener.getOutputFor(editor);
+    return output != null && output.foundSomething();
   }
 
   @Override
   public void invoke(@NotNull Project project, Editor editor, @NotNull PsiFile file) throws IncorrectOperationException {
-    if (action != EddyFileListener.getActionFor(editor)) {
+    if (output != EddyFileListener.getOutputFor(editor)) {
       log("eddy action changed between available and invoke!");
       return;
     }
-    action.execute();
+    EddyAction.execute(editor,output);
   }
 
   @Override

@@ -6,6 +6,9 @@ import scala.collection.immutable.$colon$colon$;
 import java.util.*;
 
 public class JavaUtils {
+  public static boolean safeEquals(final Object x, final Object y) {
+    return x==y || (x!=null && x.equals(y));
+  }
 
   public static double poissonPDF(double lambda, int k) {
     // lambda^k/k! * e^-lambda

@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;
+import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.editorActions.enter.EnterHandlerDelegate;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.editor.Editor;
@@ -16,8 +17,8 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
   @Override
   public Result preprocessEnter(@NotNull PsiFile file, @NotNull Editor editor, @NotNull Ref<Integer> caretOffset, @NotNull Ref<Integer> caretAdvance, @NotNull DataContext dataContext, @Nullable EditorActionHandler originalHandler) {
     // if we have something right now, use it, but don't wait for anything
-    EddyAction action = EddyFileListener.getActionFor(editor);
-    if (action == null)
+    final Eddy.Output output = EddyFileListener.getOutputFor(editor);
+    if (output == null)
       return Result.Continue;
 
     // only do this if a hint is showing
@@ -26,7 +27,7 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
     }
 
     // check if we should be auto-applying
-    if (!action.getOutput().shouldAutoApply())
+    if (!output.shouldAutoApply())
       return Result.Continue;
 
     Project project = editor.getProject();
@@ -35,7 +36,7 @@ public class EddyEnterHandlerDelegate implements EnterHandlerDelegate {
 
     int co = editor.getCaretModel().getCurrentCaret().getOffset();
     // autoExecute will commit the document
-    caretOffset.set(caretOffset.get() - co + action.autoExecute());
+    caretOffset.set(caretOffset.get() - co + output.autoApply());
     return Result.DefaultSkipIndent;
   }
 

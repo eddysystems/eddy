@@ -16,6 +16,8 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 import java.awt.*;
 
+import static utility.JavaUtils.scalaList;
+
 class EddyHintLabel extends JPanel {
   private JEditorPane myPane;
   private SimpleColoredComponent myColored;
@@ -93,7 +95,16 @@ class EddyHintLabel extends JPanel {
     return "Hint: text='" + (myPane != null ? myPane.getText() : "") + '\'';
   }
 
+  // These can be compared to see if two outputs will produce the same hint
+  protected static Object signature(final Eddy.Output output) {
+    return output==null ? null : !output.shouldShowHint() ? "no-show" : scalaList(
+      output.shouldAutoApply(),
+      output.shouldAutoApply() || output.single(),
+      output.bestTextAbbrev());
+  }
+
   protected static LightweightHint makeHint(final Eddy.Output output) {
+    // If the hint specification changes, signature() must be changed as well
     final boolean auto = output.shouldAutoApply();
     final String text = output.bestTextAbbrev() + ((auto || output.single()) ? "" : " (multiple options...)");
     final String hintText = ' ' + text + ' '

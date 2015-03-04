@@ -50,6 +50,7 @@ import static com.eddysystems.eddy.engine.Utility.logError;
 import static tarski.JavaScores.ppretty;
 import static tarski.Tokens.*;
 import static utility.JavaUtils.isDebug;
+import static utility.JavaUtils.safeEquals;
 import static utility.Utility.unchecked;
 
 public class Eddy {
@@ -100,6 +101,13 @@ public class Eddy {
       this.eddy = eddy;
       this.input = input;
       this.results = results;
+    }
+
+    @Override public boolean equals(final Object o_) {
+      if (!(o_ instanceof Output))
+        return false;
+      final Output o = (Output) o_;
+      return eddy==o.eddy && input==o.input && safeEquals(results,o.results);
     }
 
     public boolean skipped() {

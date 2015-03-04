@@ -2,9 +2,11 @@ package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
+import com.eddysystems.eddy.engine.Utility;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
+import com.intellij.codeInsight.hint.QuestionAction;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.impl.LaterInvocator;
@@ -27,6 +29,7 @@ import org.jetbrains.annotations.NotNull;
 import tarski.Memory;
 
 import static com.eddysystems.eddy.engine.Utility.log;
+import static utility.JavaUtils.safeEquals;
 
 public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Project project;
@@ -43,7 +46,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   // an action that shows up as an intention action (lives longer than the hint)
   private static EddyFileListener active_instance = null;
-  private static EddyAction active_action = null;
+  private static Eddy.Output active_output = null;
   private static LightweightHint active_hint = null;
   private static int active_line = -1;
 
@@ -52,12 +55,12 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     return active_hint_instance;
   }
 
-  public static EddyAction getActionFor(Editor editor) {
+  public static Eddy.Output getOutputFor(Editor editor) {
     synchronized (active_lock) {
       if (active_instance == null || editor != active_instance.editor ||
           editor.getCaretModel().getCurrentCaret().getLogicalPosition().line != active_line)
         return null;
-      return active_action;
+      return active_output;
     }
   }
 
@@ -108,7 +111,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
         active_line = editor.getCaretModel().getLogicalPosition().line;
 
         // everything below gets set to something non-null if eddy returns with a result
-        active_action = null;
+        active_output = null;
         active_hint_instance = null;
 
         // hide old hint
@@ -180,10 +183,28 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     }
   }
 
+  // Look up the current output so that we can change the label text without changing the action.
+  // Once an action is passed to showQuestionHint, changing it seems impossible
+  private final static QuestionAction action = new QuestionAction() {
+    public boolean execute() {
+      final Editor editor;
+      final Eddy.Output output;
+      synchronized (active_lock) {
+        editor = active_editor;
+        output = active_output;
+      }
+      if (editor != null && output != null)
+        EddyAction.execute(editor,output);
+      return true;
+    }
+  };
+
   private void showHint(@NotNull final Eddy.Output output) {
-    final EddyAction action = new EddyAction(output,editor);
     synchronized (active_lock) {
-      active_action = action;
+      final Eddy.Output oldOutput = active_output;
+      active_output = output;
+      if (safeEquals(EddyHintLabel.signature(oldOutput),EddyHintLabel.signature(output)))
+        return; // Hint wouldn't change, so do nothing
       // show hint only if we found something good
       if (output.shouldShowHint()) {
         final int offset = editor.getCaretModel().getOffset();
@@ -209,7 +230,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
           public boolean value(Object o) {
             // don't show if the action has since switched
             // do not synchronize this -- we're still in the sync block!
-            return action != active_action;
+            return output != active_output;
           }
         });
       }
@@ -220,16 +241,16 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   public void nextResult() {
     synchronized (active_lock) {
       if (   active_hint_instance == this
-          && active_action.getOutput().nextBestResult())
-        showHint(active_action.getOutput());
+          && active_output.nextBestResult())
+        showHint(active_output);
     }
   }
 
   public void prevResult() {
     synchronized (active_lock) {
       if (   active_hint_instance == this
-          && active_action.getOutput().prevBestResult())
-        showHint(active_action.getOutput());
+          && active_output.prevBestResult())
+        showHint(active_output);
     }
   }
 
