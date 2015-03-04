@@ -2,7 +2,6 @@ package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
-import com.eddysystems.eddy.engine.Utility;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
@@ -29,7 +28,6 @@ import org.jetbrains.annotations.NotNull;
 import tarski.Memory;
 
 import static com.eddysystems.eddy.engine.Utility.log;
-import static utility.JavaUtils.safeEquals;
 
 public class EddyFileListener implements CaretListener, DocumentListener {
   private final @NotNull Project project;
@@ -201,12 +199,13 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   private void showHint(@NotNull final Eddy.Output output) {
     synchronized (active_lock) {
+      // if we're showing a new hint, oldOutput will be null
       final Eddy.Output oldOutput = active_output;
       active_output = output;
-      if (safeEquals(EddyHintLabel.signature(oldOutput),EddyHintLabel.signature(output)))
-        return; // Hint wouldn't change, so do nothing
-      // show hint only if we found something good
-      if (output.shouldShowHint()) {
+      if (isHintShowing() && EddyHintLabel.sameHint(oldOutput, output)) {
+        // do nothing
+      } else if (output.shouldShowHint()) { // show hint only if we found something good
+
         final int offset = editor.getCaretModel().getOffset();
         active_hint = EddyHintLabel.makeHint(output);
 

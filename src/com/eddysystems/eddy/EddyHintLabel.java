@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.swing.*;
 import java.awt.*;
 
+import static utility.JavaUtils.safeEquals;
 import static utility.JavaUtils.scalaList;
 
 class EddyHintLabel extends JPanel {
@@ -103,24 +104,37 @@ class EddyHintLabel extends JPanel {
       output.bestTextAbbrev());
   }
 
-  protected static LightweightHint makeHint(final Eddy.Output output) {
-    // If the hint specification changes, signature() must be changed as well
-    final boolean auto = output.shouldAutoApply();
-    final String text = output.bestTextAbbrev() + ((auto || output.single()) ? "" : " (multiple options...)");
-    final String hintText = ' ' + text + ' '
-      + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(
-          auto ? IdeActions.ACTION_EDITOR_ENTER : IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
+  public static boolean sameHint(final Eddy.Output output1, final Eddy.Output output2) {
+    return safeEquals(signature(output1), signature(output2));
+  }
 
-    final HintHint hintHint = new HintHint()
+  private static HintHint getHintHint(boolean auto) {
+    return new HintHint()
             .setTextBg(auto ? AUTOAPPLY_COLOR : QUESTION_COLOR)
             .setTextFg(JBColor.foreground())
             .setFont(UIUtil.getLabelFont()
             .deriveFont(Font.BOLD))
             .setAwtTooltip(true);
+  }
 
+  private static String getHintText(final Eddy.Output output) {
+    // If the hint specification changes, signature() must be changed as well
+    final boolean auto = output.shouldAutoApply();
+    final String text = output.bestTextAbbrev() + ((auto || output.single()) ? "" : " (multiple options...)");
+    return ' ' + text + ' '
+      + KeymapUtil.getFirstKeyboardShortcutText(ActionManager.getInstance().getAction(
+          auto ? IdeActions.ACTION_EDITOR_ENTER : IdeActions.ACTION_SHOW_INTENTION_ACTIONS));
+  }
+
+  public void setOutput(final Eddy.Output output) {
+    clearText();
+    setText(getHintText(output), getHintHint(output.shouldAutoApply()));
+  }
+
+  protected static LightweightHint makeHint(final Eddy.Output output) {
     final EddyHintLabel label = new EddyHintLabel();
     label.setIcon(EddyWidget.getIcon());
-    label.setText(hintText, hintHint);
+    label.setOutput(output);
 
     return new LightweightHint(label);
   }
