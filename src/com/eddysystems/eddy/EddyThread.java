@@ -1,6 +1,7 @@
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Eddy;
+import com.eddysystems.eddy.engine.Pause;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.editor.Editor;
@@ -58,52 +59,26 @@ public class EddyThread extends Thread {
     }});
   }
 
-  // Number of active pauses, and a lock to wait on
-  private static int pauses = 0;
-  private static final Object pauseLock = new Object();
+  // to pause and resume this thread
+  private static final Pause pause = new Pause();
 
-  // Pause the current eddy thread to wait for a write action
-  public static void pause() {
-    // Increment the pauses counter and register a pause action if we're the first
-    final boolean register;
-    synchronized (pauseLock) {
-      register = pauses == 0;
-      pauses++;
-    }
+  // pauses and registers an Interrupter that waits for the pause to end
+  public static void doPause() {
+    final boolean register = pause.pause();
     if (register) {
       final EddyThread thread = currentThread;
       if (thread != null)
         thread.interrupter.add(new Runnable() { public void run() {
           final boolean locked = thread.readLock.unlock();
-          pauseWait();
+          pause.waitForEnd();
           if (locked)
             thread.readLock.lock();
         }});
     }
   }
 
-  // Cede control until all pauses complete
-  private static void pauseWait() {
-    assert !ApplicationManager.getApplication().isReadAccessAllowed();
-    try {
-      synchronized (pauseLock) {
-        while (pauses > 0)
-          pauseLock.wait();
-      }
-    } catch (InterruptedException e) {
-      throw new ThreadDeath();
-    }
-  }
-
-  // Must be called *at least* once for each call to pause()
   public static void unpause() {
-    synchronized (pauseLock) {
-      // Decrement the pauses counter and notify if we hit zero.
-      assert pauses > 0;
-      pauses--;
-      if (pauses == 0)
-        pauseLock.notify();
-    }
+    pause.unpause();
   }
 
   // kills the currently active thread, if any
@@ -171,7 +146,7 @@ public class EddyThread extends Thread {
 
     interrupter.register();
     try {
-      pauseWait();
+      pause.waitForEnd();
       readLock.lock();
       try {
         EddyPlugin.getInstance(project).getWidget().moreBusy();

@@ -22,10 +22,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import tarski.*;
-import tarski.Items.Item;
 import tarski.Items.BaseItem;
 import tarski.Items.ClassItem;
 import tarski.Items.ConstructorItem;
+import tarski.Items.Item;
 
 import java.util.*;
 import java.util.concurrent.CancellationException;
@@ -34,8 +34,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.locks.Lock;
 
 import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
-import static com.eddysystems.eddy.engine.Utility.*;
-import static java.lang.Thread.sleep;
+import static com.eddysystems.eddy.engine.Utility.log;
+import static com.eddysystems.eddy.engine.Utility.logError;
 import static utility.JavaUtils.*;
 
 // a class storing information about the environment.
@@ -326,17 +326,7 @@ public class JavaEnvironment {
   }
 
   // TODO: this should use the same pause mechanism as EddyThread (counted)
-  private static boolean _writeActionWaiting = false;
-  public static synchronized void writeActionWaiting() {
-    _writeActionWaiting = true;
-  }
-  private static synchronized boolean checkClearWriteActionWaiting() {
-    if (_writeActionWaiting) {
-      _writeActionWaiting = false;
-      return true;
-    } else
-      return false;
-  }
+  public static Pause pause = new Pause();
 
   private Map<String, Set<String>> makeProjectValuesByItem(String[] fieldNames, @Nullable ProgressIndicator indicator) {
     pushScope("make project values by item");
@@ -436,16 +426,16 @@ public class JavaEnvironment {
               }
               else throw e;
             } catch (IndexNotReadyException e) {
-              // we entered a dumb mode while processing this name, simply try again
+              // we entered a dumb mode while processing this name, try again
               done = false;
             } finally {
               // only release the lock if a write action is trying to start
-              if (checkClearWriteActionWaiting()) {
+              if (pause.paused()) {
                 lock.release();
                 // yield to other threads to start the write action
                 try {
-                  sleep(0);
-                } catch (InterruptedException e) {
+                  pause.waitForEnd();
+                } catch (ThreadDeath e) {
                   throw new ProcessCanceledException();
                 }
               }
