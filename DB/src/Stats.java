@@ -129,6 +129,8 @@ public class Stats {
         }
       }
 
+      System.out.println("read " + lineNumber + " lines.");
+
       // print installation statistics
       System.out.println("all numbers exclude installation active before launch: " + launchCal.getTime().toString());
       System.out.println("total installations: " + installData.size());

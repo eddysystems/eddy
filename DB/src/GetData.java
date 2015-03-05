@@ -161,15 +161,16 @@ public class GetData {
         long next = System.nanoTime();
         try {
           fo.flush();
-          fo.close();
           full_fo.flush();
-          full_fo.close();
           sleep((int) (max(0., 1000. / maxRequestRate - 1e-6 * (next - last))));
         } catch (InterruptedException e) {
           error("interrupted.");
         }
         last=next;
       } while (lastKeyEvaluated != null);
+
+      fo.close();
+      full_fo.close();
 
       double time = 1e-9*(System.nanoTime() - start);
 
