@@ -25,7 +25,7 @@ object ArgMatching {
   // If specified, expects constraints the return type, but only if there are no unused arguments.
   def fiddleCall[A](f: Callable, args: Exps, a: SGroup, expects: Option[Type], auto: Boolean, checkExpectedEarly: Boolean, cont: (Exp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
     // Should we find missing arguments in the environment?
-    val useEnv = false
+    val useEnv = true
     // Incrementally add parameters and check whether the function still resolves
     val np = f.params.size
     val na = args.size
