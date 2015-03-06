@@ -159,7 +159,6 @@ StmtHelperBS AStmt
   ForTok ForInfo DoTok Stmt                                  { ForAStmt($1r,$2,NoAround($2.r),$4) }
   SynchronizedTok ParenExp MaybeDo Stmt                      { SyncAStmt($1r,$2._1,$2._2,$4) }
   SynchronizedTok ExpAssignNP DoTok Stmt                     { SyncAStmt($1r,$2,NoAround($2.r),$4) }
-  SynchronizedTok ExpAssignNP Block                          { SyncAStmt($1r,$2,NoAround($2.r),$3) }
   SynchronizedTok ExpAssignNP Stmt                           { SyncAStmt($1r,$2,NoAround($2.r),$3) }
   TryTok Stmt CatchBlocks Option[FinallyBlock]               { TryAStmt($1r,$2,$3,$4) }
   // Switch
