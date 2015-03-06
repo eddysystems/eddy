@@ -260,7 +260,7 @@ object Pr {
   def objectPrior(s: String) = { val p = priors.get(s); Prob("prior", if (p == 0.0) 1.0 else p) } // for now, no prior means 1
   def qualifierPrior(i: Item) = {
     // find the biases of all parents and accumulate
-    def nest(i: Item): (String,Prob) = if (i.name.isEmpty) ("",anonymousObject) else i match {
+    def nest(i: Item): (String,Prob) = if (i.name == null || i.name.isEmpty) ("",anonymousObject) else i match {
       case m:Member => { // for members, go up and re-trace the path through the qualified name
         val n = nest(m.parent)
         val name = n._1 + '.' + m.name
