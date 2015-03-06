@@ -147,20 +147,20 @@ object Environment {
     protected def _collect[A](typed: Array[Char], error: => String, filter: PartialFunction[Item,A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[A]): Scored[A] = is match {
         case Nil => s
-        case i::is => exact(is,if (filter.isDefinedAt(i)) bestThen(Pr.exact,filter.apply(i),s) else s)
+        case i::is => exact(is, if (filter.isDefinedAt(i)) bestThen(Pr.qualifierPrior(i),filter.apply(i),s) else s)
       }
       exact(_exactQuery(typed), if (exactOnly) fail(error)
                                 else (  biased(Pr.modifiedName, _modifiedQuery(typed))
-                                     ++ biased(Pr.typo, _typoQuery(typed))).collect(filter,error))
+                                     ++ biased(Pr.typo, _typoQuery(typed))) flatMap {x => single(x,Pr.qualifierPrior(x))} collect(filter,error))
     }
     protected def _flatMap[A](typed: Array[Char], error: => String, f: Item => Scored[A]): Scored[A] = {
       @tailrec def exact(is: List[Item], s: Scored[Item]): Scored[Item] = is match {
         case Nil => s
-        case i::is => exact(is,bestThen(Pr.exact,i,s))
+        case i::is => exact(is,bestThen(Pr.qualifierPrior(i),i,s))
       }
-      exact(_exactQuery(typed),if (exactOnly) fail(error)
-                               else orError(  biased(Pr.modifiedName, _modifiedQuery(typed))
-                                           ++ biased(Pr.typo, _typoQuery(typed)), error)) flatMap f
+      exact(_exactQuery(typed), if (exactOnly) fail(error)
+                                else orError(  biased(Pr.modifiedName, _modifiedQuery(typed))
+                                            ++ biased(Pr.typo, _typoQuery(typed)), error) flatMap {x => single(x,Pr.qualifierPrior(x))}) flatMap f
     }
 
     protected def _byItem(t: TypeItem): Scored[Value]

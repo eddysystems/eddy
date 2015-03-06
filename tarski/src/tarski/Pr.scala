@@ -248,21 +248,41 @@ object Pr {
   val reasonable = Prob("reasonable",1)
   val ignoreMissingType = Prob("ignore missing type",1)
 
+  // priors are both for objects (found via byItem) and qualifiers (in Env.collect or Env.flatMap).
+  // All should be considered to have .* in the end
   val priors: TObjectDoubleHashMap[String] = {
     val m = new TObjectDoubleHashMap[String]()
     m.put("java.lang.System.err",.99)
+    m.put("java.lang.StrictMath",.9)
     m
   }
+  val anonymousObject = Prob("anonymous prior",1.0)
   def objectPrior(s: String) = { val p = priors.get(s); Prob("prior", if (p == 0.0) 1.0 else p) } // for now, no prior means 1
+  def qualifierPrior(i: Item) = {
+    // find the biases of all parents and accumulate
+    def nest(i: Item): (String,Prob) = if (i.name.isEmpty) ("",anonymousObject) else i match {
+      case m:Member => { // for members, go up and re-trace the path through the qualified name
+        val n = nest(m.parent)
+        val name = n._1 + '.' + m.name
+        println(s"  name $name bias ${n._2}")
+        if (n._1.isEmpty) ("",anonymousObject) else (name, JavaScores.pmul(n._2, objectPrior(name)))
+      }
+      case rp:RootPackage => (rp.name,objectPrior(rp.name)) // any qualified name ends with a RootPackage
+      case _ => ("",anonymousObject) // anonymous things and their descendants, can't have priors for those
+    }
+    nest(i)._2
+  }
 
   // StringModifiers should return Nil if they don't have anything to say about a name, and never return the name itself
   val modifiedName = Prob("modify name",.6)
   val addGetSet = Prob("add get/set",.9)
+  val addIs = Prob("add is",.9)
 
   private type NameModifier = Array[Char] => List[Alt[Array[Char]]]
   private val modifiers: List[NameModifier] = List(
     // get or set, if the name doesn't already have get or set
-    s => if (s.startsWith("get") || s.startsWith("set")) Nil else { val c = Utility.capitalize(s); List(Alt(addGetSet,Array('g','e','t') ++ c), Alt(addGetSet,Array('s','e','t') ++ c)) }
+    s => { val c = Utility.capitalize(s); List(Alt(addGetSet,Array('g','e','t') ++ c), Alt(addGetSet,Array('s','e','t') ++ c)) },
+    s => List(Alt(addIs,Array('i','s') ++ Utility.capitalize(s)))
   )
   def modifyName(s: Array[Char]): Scored[Array[Char]] = JavaScores.listGood(modifiers flatMap (_(s)))
 }
