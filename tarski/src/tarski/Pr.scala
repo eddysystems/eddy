@@ -264,7 +264,6 @@ object Pr {
       case m:Member => { // for members, go up and re-trace the path through the qualified name
         val n = nest(m.parent)
         val name = n._1 + '.' + m.name
-        println(s"  name $name bias ${n._2}")
         if (n._1.isEmpty) ("",anonymousObject) else (name, JavaScores.pmul(n._2, objectPrior(name)))
       }
       case rp:RootPackage => (rp.name,objectPrior(rp.name)) // any qualified name ends with a RootPackage
