@@ -1,5 +1,6 @@
 package com.eddysystems.eddy;
 
+import com.eddysystems.eddy.engine.Utility;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
@@ -131,7 +132,7 @@ public class Preferences implements Configurable {
     Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
       data.isAutoApply(),data.getNumericAutoApplyThreshold(),data.getNumericAutoApplyFactor(),
       data.getNumericMinProbability(),data.getNumericMinRelativeProbability(),data.isRemoveQualifiers(),
-      data.getNumericStartDelay()));
+      data.getNumericStartDelay()), Utility.onError);
   }
 
   @Override

@@ -184,7 +184,7 @@ public class Eddy {
       // Automatically apply the best found result
       String code = format(0, fullShowFlags());
       int offset = rawApply(eddy.document, code);
-      Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.input, results, code));
+      Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.input, results, code), Utility.onError);
       return offset;
     }
 
@@ -277,11 +277,11 @@ public class Eddy {
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,index));
+      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,index), Utility.onError);
     }
 
     public void logSuggestion(final @NotNull String suggestion) {
-      Memory.log(Memory.eddySuggestion(eddy.base, Memory.now(), input.input, results, suggestion)).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
+      Memory.log(Memory.eddySuggestion(eddy.base, Memory.now(), input.input, results, suggestion), Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
         @Override
         public Void apply(Try<BoxedUnit> v) {
           final String title, msg;
@@ -584,7 +584,7 @@ public class Eddy {
           Memory.log(Memory.eddyProcess(base,start,
                                         input==null ? null : input.input,
                                         results,
-                                        delays).error(error));
+                                        delays).error(error), Utility.onError);
         }
       }
     }

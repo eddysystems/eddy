@@ -8,9 +8,13 @@ import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
-import scala.Tuple2;
+import tarski.Memory;
+import tarski.Memory.OnError;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 public class Utility {
   static long last_queue_process_events = System.nanoTime();
@@ -180,4 +184,11 @@ public class Utility {
     log("trace: ");
     log(e.getStackTrace());
   }
+
+  public static OnError onError = new OnError() {
+    @Override
+    public void error(Memory.Info i, Throwable e) {
+      log("failed to log " + i + ": " + e);
+    }
+  };
 }

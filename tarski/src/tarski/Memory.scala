@@ -1,5 +1,6 @@
 package tarski
 
+import org.apache.log4j.{Level, Logger}
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmts
@@ -113,13 +114,21 @@ object Memory {
   private val waitAfterFail = 300.0 // 5 min
   private var lastFailedTime = Double.MinValue
 
+  abstract class OnError {
+    def error(i: Info, e: Throwable): Unit
+  }
+
   // Log to DynamoDB
   //   PutItem: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/JavaDocumentAPIItemCRUD.html#PutDocumentAPIJava
-  def log(i: Info): Future[Unit] = table map { table =>
+  def log(i: Info, onError: OnError = null): Future[Unit] = table map { table =>
     if (lastFailedTime < now()-waitAfterFail) {
       // Suppress exceptions to be quiet if the internet is down
       try table putItem i.itemNow()
-      catch { case _: Throwable => lastFailedTime = now() }
+      catch { case e: Throwable => {
+        lastFailedTime = now()
+        if (onError != null)
+          onError.error(i,e)
+      }}
     }
   }
 }

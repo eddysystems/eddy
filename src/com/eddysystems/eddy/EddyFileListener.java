@@ -2,6 +2,7 @@ package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
+import com.eddysystems.eddy.engine.Utility;
 import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.hint.HintManagerImpl;
@@ -154,7 +155,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
       });
     } catch (Exception e) {
       // fail silently but log
-      Memory.log(EddyPlugin.basics(project).error(e));
+      Memory.log(EddyPlugin.basics(project).error(e), Utility.onError);
     }
   }
 
