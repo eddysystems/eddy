@@ -1,6 +1,5 @@
 package com.eddysystems.eddy;
 
-import com.eddysystems.eddy.actions.EddyAction;
 import com.eddysystems.eddy.engine.Eddy;
 import com.intellij.codeInsight.intention.IntentionAction;
 import com.intellij.openapi.editor.Editor;
@@ -36,7 +35,7 @@ public class CorrectionIntention implements IntentionAction, Iconable {
     final Eddy.Output output = EddyFileListener.getOutputFor(editor);
     final CorrectionDialog d = new CorrectionDialog(project,output);
     if (d.showAndGet())
-      output.logSuggestion(d.getSuggestion());
+      Eddy.Output.logSuggestion(project, output, d.getSuggestion());
   }
 
   @Override

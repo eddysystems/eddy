@@ -280,8 +280,11 @@ public class Eddy {
       Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,index), Utility.onError);
     }
 
-    public void logSuggestion(final @NotNull String suggestion) {
-      Memory.log(Memory.eddySuggestion(eddy.base, Memory.now(), input.input, results, suggestion), Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
+    public static void logSuggestion(final @NotNull Project project, final @Nullable Output output, final @NotNull String suggestion) {
+      Memory.Info base = output != null ? output.eddy.base : EddyPlugin.basics(project);
+      List<Loc<Token>> input = output != null ? output.input.input : null;
+      List<Alt<ShowStmts>> results = output != null ? output.results : null;
+      Memory.log(Memory.eddySuggestion(base, Memory.now(), input, results, suggestion), Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
         @Override
         public Void apply(Try<BoxedUnit> v) {
           final String title, msg;
@@ -292,7 +295,7 @@ public class Eddy {
             title = "Suggestion failed to send";
             msg = "I'm sorry, your suggestion could not be recorded. Our servers could not be reached.";
           }
-          Notifications.Bus.notify(new Notification("Eddy", title, msg, NotificationType.INFORMATION), eddy.project);
+          Notifications.Bus.notify(new Notification("Eddy", title, msg, NotificationType.INFORMATION), project);
           return null;
         }
       }, scala.concurrent.ExecutionContext.Implicits$.MODULE$.global());
