@@ -9,8 +9,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-import static com.eddysystems.eddy.engine.Utility.log;
-
 public class EddyPsiListener implements PsiTreeChangeListener {
 
   final ChangeTracker<String> nameTracker;
@@ -114,7 +112,7 @@ public class EddyPsiListener implements PsiTreeChangeListener {
     // put this field into the string map for its type and all its supertypes
     String name = f.getName();
     for (String type : superTypes(f.getType())) {
-      log("add value " + f);
+      //log("add value " + f);
       valueTracker.add(new TypeNameItemNamePair(type, name));
     }
   }
@@ -154,10 +152,10 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   private void addElement(PsiElement elem) {
     if (elem instanceof PsiField || elem instanceof PsiMethod && !((PsiMethod)elem).isConstructor() || elem instanceof PsiClass) {
       String name = ((PsiNamedElement)elem).getName();
-      log("add name " + name);
+      //log("add name " + name);
       nameTracker.add(name);
     } else if (isName(elem)) {
-      log("add name " + elem.getText());
+      //log("add name " + elem.getText());
       nameTracker.add(elem.getText());
       if (elem.getParent() instanceof PsiField)
         addValue((PsiField)elem.getParent());
