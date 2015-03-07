@@ -45,6 +45,9 @@ public class Stats {
     // by hour activity stats
     int[] hourlyActivity = new int[nhours];
 
+    // project names
+    Set<String> projectNames = new HashSet<String>();
+
     final GregorianCalendar weekAgoC = new GregorianCalendar();
     weekAgoC.add(GregorianCalendar.WEEK_OF_YEAR, -1);
     final double weekAgo = weekAgoC.getTimeInMillis() * 1e-3;
@@ -68,6 +71,9 @@ public class Stats {
 
           double ts = toTime(time);
 
+          String project = obj.getString("project");
+          projectNames.add(project);
+
           // ignore actions before launch
           if (ts < launchDate) {
             preLaunchInstalls.add(install);
@@ -85,7 +91,7 @@ public class Stats {
           }
 
           // ignore all IntelliJ tests (everything in which the project is light_temp_*)
-          String project = obj.getString("project");
+          //String project = obj.getString("project");
           if (project.startsWith("light_temp_")) {
             continue;
           }
@@ -144,6 +150,16 @@ public class Stats {
       }
       System.out.println("active installations last 7 days: " + wai);
       System.out.println("new installations last 7 days: " + wni);
+
+      // project statistics
+      int nprojects = 0;
+      for (final String p : projectNames)
+        if (!p.startsWith("light_temp_"))
+          nprojects++;
+      System.out.println("projects: " + projectNames.size() + ", without tests: " + nprojects);
+      for (final String p : projectNames)
+        if (!p.startsWith("light_temp_"))
+          System.out.println("  " + p);
 
       // print action statistics (this is pretty coarse, we may want this on a weekly basis too)
       int ta = 0;
