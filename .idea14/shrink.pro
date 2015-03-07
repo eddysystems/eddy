@@ -1,9 +1,11 @@
 -injars eddy.zip(!META-INF/MANIFEST.MF,!META-INF/LICENSE.txt,!META-INF/NOTICE.txt)
 -outjars eddy.jar 
 -dontobfuscate
+#-verbose
 
 # This causes problems for some people: "LVTT entry ... does not match any LVT entry"
 -optimizations !code/allocation/variable
+#-dontoptimize
 
 ### Keep a few things
 
@@ -19,6 +21,16 @@
   <init>(...);
 }
 
+# Amazon AWS is fragile, careful about these, test logging thoroughly, the failures here are silent
+-keep class com.amazonaws.**                            { *; }
+-keep class org.apache.commons.logging.**               { public *; }
+-keep class org.codehaus.**                             { public *; }
+-keep class org.joda.time.tz.Provider                   { public *; }
+-keep class org.joda.time.tz.NameProvider               { public *; }
+-keep class com.fasterxml.jackson.databind.**           { public *; }
+-keep class com.fasterxml.jackson.core.**               { public *; }
+-keep class org.apache.http.**                          { public *; }
+
 ### Libraries
 
 # Base
@@ -32,10 +44,8 @@
 -libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/idea.jar"
 -libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/openapi.jar"
 -libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/util.jar"
-#-libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/forms_rt.jar"
 
 # IntelliJ dependencies
--libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/commons-logging-1.1.3.jar"
 -libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/log4j.jar"
 -libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/trove4j.jar"
 -libraryjars "/Applications/IntelliJ IDEA 14 CE.app/Contents/lib/velocity.jar"
@@ -47,24 +57,26 @@
 -dontnote scala.**
 -dontnote String
 
+# Weird scala issue
+-dontwarn tarski.Semantics$$anonfun$denoteStmt$27$$anonfun$tarski$Semantics$$anonfun$$rest$1$1
+
 # Miscellaneous warnings
 -dontwarn javax.servlet.ServletContextListener
 -dontwarn javax.servlet.ServletContextEvent
+-dontwarn org.apache.avalon.framework.logger.Logger
 -dontwarn org.apache.log.Logger
 -dontwarn org.apache.log.Hierarchy
--dontwarn org.apache.avalon.framework.logger.Logger
--dontwarn org.joda.convert.FromString
--dontwarn org.joda.convert.ToString
 -dontwarn com.intellij.util.net.ssl.ConfirmingHostnameVerifier
 -dontwarn com.intellij.uiDesigner.core.**
 
 # Miscellaneous notes
--dontnote org.apache.commons.logging.**
 -dontnote org.apache.http.client.utils.JdkIdn
 -dontnote com.amazonaws.metrics.internal.cloudwatch.DefaultMetricCollectorFactory
 -dontnote org.bouncycastle.jce.provider.BouncyCastleProvider
--dontnote org.joda.time.DateTimeZone
 -dontnote com.eddysystems.eddy.engine.Formatter$VersionIncompatibilityCircumventer
 
-# Weird scala issue
--dontwarn tarski.Semantics$$anonfun$denoteStmt$27$$anonfun$tarski$Semantics$$anonfun$$rest$1$1
+# Amazon AWS stuff
+-dontwarn javax.xml.stream.events.**
+-dontwarn org.ietf.jgss.**
+-dontwarn org.joda.convert.** # annotations
+-dontwarn org.w3c.dom.bootstrap.**
