@@ -5,6 +5,10 @@ AMBIGUITY = out/artifacts/ambiguity_jar/ambiguity.jar
 
 MODIFIED = `git status --short | grep -c ""` 
 COMMIT = `git log --no-color --oneline --no-abbrev | head -n1 | awk '{ print $$1; }'`
+GITMOD = $(strip $(shell git status --porcelain | wc -l | sed 's/\w*\(0\)[^0-9]*//'))
+GITLOC = $(strip $(shell git status -b --porcelain | head -n 1 | awk '{ print $$3 }'))
+DIRTY = $(if $(GITMOD),-dirty,)
+LOCAL = $(if $(GITLOC),-local,)
 
 all: $(PARSE) $(ACTIONS)
 jar: eddy.jar
@@ -17,7 +21,7 @@ $(ACTIONS): $(AMBIGUITY) $(GRAM)
 
 .PHONY: commit
 commit: 
-	@echo $(COMMIT) 
+	@echo $(COMMIT)$(DIRTY)$(LOCAL)
 
 eddy.jar: eddy.zip .idea/shrink.pro
 	proguard @shrink.pro
