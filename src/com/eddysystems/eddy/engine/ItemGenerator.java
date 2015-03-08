@@ -14,10 +14,8 @@ import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
 import tarski.Items;
 import tarski.JavaTrie.Generator;
-import utility.Interrupts;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 
 class ItemGenerator implements Generator<Items.Item> {
 
@@ -44,7 +42,7 @@ class ItemGenerator implements Generator<Items.Item> {
 
   private Items.Item[] generate(String s) {
     final EddyThread thread = EddyThread.getEddyThread();
-    final List<Items.Item> results = new ArrayList<Items.Item>();
+    final HashSet<Items.Item> results = new HashSet<Items.Item>();
 
     // find and add packages
     for (String pkgQualifiedName: packageIndex.get(s)) {
