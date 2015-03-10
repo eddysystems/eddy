@@ -1,12 +1,17 @@
 package tarski
 
 import tarski.Pretty._
+import utility.Locations
 import utility.Locations._
 import utility.Utility._
 
 import scala.annotation.tailrec
 
 object Tokens {
+
+  // for Java tests use
+  def testLoc(tok: Token): Loc[Token] = Loc(tok,Locations.SRange.unknown)
+
   sealed abstract class Token {
     def show(implicit f: ShowFlags): String
   }

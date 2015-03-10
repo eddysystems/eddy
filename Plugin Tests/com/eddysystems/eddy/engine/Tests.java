@@ -16,7 +16,9 @@ import com.intellij.openapi.roots.ContentEntry;
 import com.intellij.openapi.roots.LanguageLevelModuleExtension;
 import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.pom.java.LanguageLevel;
+import com.intellij.psi.PsiAnonymousClass;
 import com.intellij.psi.PsiDocumentManager;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
 import org.jetbrains.annotations.NotNull;
@@ -28,12 +30,13 @@ import tarski.Items.Item;
 import tarski.JavaScores;
 import tarski.Scores.Alt;
 import tarski.Tarski.ShowStmts;
+import tarski.Tokens;
 import tarski.Tokens.ShowFlags;
+import tarski.Tokens.Token;
 import tarski.Types;
+import utility.Locations.Loc;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static tarski.Tokens.abbrevShowFlags;
@@ -564,4 +567,37 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testGetSet() { testMargin("getSet.java", "Runtime.getRuntime().gc();",.9); }
 
   public void testRuntime() { testMargin("runtime.java", "Runtime.getRuntime();",.9); }
+
+  public void testAnonClassTokenize() {
+    myFixture.configureByFiles("anonClass.java");
+    Eddy eddy = makeEddy();
+    Token[] toks = {
+      // List<X> x = new <caret>List<X>() {
+      new Tokens.IdentTok("List"),
+      Tokens.LtTok$.MODULE$,
+      new Tokens.IdentTok("X"),
+      Tokens.GtTok$.MODULE$,
+      new Tokens.IdentTok("x"),
+      Tokens.EqTok$.MODULE$,
+      Tokens.NewTok$.MODULE$,
+      new Tokens.IdentTok("List"),
+      Tokens.LtTok$.MODULE$,
+      new Tokens.IdentTok("X"),
+      Tokens.GtTok$.MODULE$,
+      Tokens.LParenTok$.MODULE$,
+      Tokens.RParenTok$.MODULE$,
+      new Tokenizer.AnonBodyTok(PsiTreeUtil.findChildrenOfType(myFixture.getFile(), PsiAnonymousClass.class).iterator().next())
+    };
+    List<Token> wanted = new ArrayList<Token>();
+    Collections.addAll(wanted, toks);
+
+    List<Token> tokens = new ArrayList<Token>();
+    try {
+      for (final Loc<Token> tok : JavaConversions.asJavaCollection(Tokens.prepare(JavaConversions.asScalaBuffer(eddy.input().input).toList())))
+        tokens.add(tok.x());
+    } catch (Eddy.Skip s) {
+      throw new AssertionError();
+    }
+    assertEquals(wanted, tokens);
+  }
 }

@@ -242,39 +242,43 @@ public class JavaEnvironment {
       Collections.addAll(extra, Base.extraItems());
 
       // Add classes and packages
+      List<PsiElement> psi = new ArrayList<PsiElement>();
       final EddyThread thread = EddyThread.getEddyThread();
       final JavaPsiFacade facade = JavaPsiFacade.getInstance(converter.project);
       for (final Item item : tarski.Base.baseItems()) {
         if (extra.contains(item))
           continue;
         final String name = item.qualified();
-        PsiElement psi;
-        if (item instanceof Items.Package) {
-          if (thread != null) thread.pushSoftInterrupts();
-          psi = facade.findPackage(name);
+        psi.clear();
+        if (thread != null) thread.pushSoftInterrupts();
+        try {
+          if (item instanceof Items.Package) {
+            psi.add(facade.findPackage(name));
+          } else if (item instanceof Items.ClassItem) {
+            Collections.addAll(psi, facade.findClasses(name, scope));
+          } else if (item instanceof Items.MethodItem) {
+            String cname = ((Items.MethodItem) item).parent().qualified();
+            for (PsiClass cls : facade.findClasses(cname, scope)) {
+              if (cls != null) {
+                PsiMethod[] methods = cls.findMethodsByName(item.name(), false);
+                if (methods.length == 1)
+                  psi.add(methods[0]);
+                else
+                  throw new NotImplementedError("overloaded method in base: " + item.qualified());
+              }
+            }
+          } else
+            throw new NotImplementedError("Unknown base type " + item.getClass());
+          if (psi.isEmpty())
+            throw new NoJDKError("Couldn't find " + name);
+        } finally {
           if (thread != null) thread.popSoftInterrupts();
-        } else if (item instanceof Items.ClassItem) {
-          if (thread != null) thread.pushSoftInterrupts();
-          psi = facade.findClass(name, scope);
-          if (thread != null) thread.popSoftInterrupts();
-        } else if (item instanceof Items.MethodItem) {
-          if (thread != null) thread.pushSoftInterrupts();
-          String cname = ((Items.MethodItem) item).parent().qualified();
-          PsiClass cls = facade.findClass(cname, scope);
-          psi = null;
-          if (cls != null) {
-            PsiMethod[] methods = cls.findMethodsByName(item.name(), false);
-            if (methods.length == 1)
-              psi = methods[0];
-          }
-          if (thread != null) thread.popSoftInterrupts();
-        } else
-          throw new NotImplementedError("Unknown base type " + item.getClass());
-        if (psi == null)
-          throw new NoJDKError("Couldn't find " + name);
+        }
 
-        if (!converter.knows(psi))
-          converter.put(psi, item);
+        // add all PsiElements we found (these are equivalent PsiElements from different JDKs or library versions)
+        for (PsiElement p : psi)
+          if (!converter.knows(p))
+            converter.put(p, item);
       }
 
       // Add class members

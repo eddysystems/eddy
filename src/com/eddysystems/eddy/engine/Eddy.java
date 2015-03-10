@@ -18,9 +18,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.impl.source.tree.LeafElement;
-import com.intellij.psi.impl.source.tree.RecursiveTreeElementVisitor;
-import com.intellij.psi.impl.source.tree.TreeElement;
+import com.intellij.psi.impl.source.tree.*;
 import com.intellij.util.SmartList;
 import com.siyeh.ipp.base.PsiElementPredicate;
 import com.siyeh.ipp.fqnames.ReplaceFullyQualifiedNameWithImportIntention;
@@ -314,7 +312,8 @@ public class Eddy {
     this.base = EddyPlugin.basics(project);
   }
 
-  private static class Skip extends Exception {
+  // only used here and in tests
+  protected static class Skip extends Exception {
     public Skip(final String s) {
       super(s);
     }
@@ -426,10 +425,6 @@ public class Eddy {
     final @NotNull PsiElement psi = e.getPsi();
     final TextRange r = psi.getTextRange();
 
-    // TODO: At the moment, we never expand anonymous classes.  Actually, only their bodies should be left atomic.
-    if (psi instanceof PsiAnonymousClass)
-      return false;
-
     // Expand blocks if the cursor is strictly inside
     if (psi instanceof PsiCodeBlock) {
       // Check if we're strictly inside.  Note that r.contains(pos) is wrong here.
@@ -466,12 +461,36 @@ public class Eddy {
     // Walk all relevant elements, collecting leaves and atomic code blocks.
     // We walk on AST instead of Psi to get down to the token level.
     final List<Loc<Token>> tokens = new ArrayList<Loc<Token>>();
-    final RecursiveTreeElementVisitor V = new RecursiveTreeElementVisitor() {
-      @Override protected boolean visitNode(final TreeElement e) {
-        if (expand(e,range,cursor))
-          return true;
-        tokens.add(Tokenizer.psiToTok(e));
-        return false;
+    final TreeElementVisitor V = new TreeElementVisitor() {
+      public void visitLeaf(LeafElement leaf) {
+        tokens.add(Tokenizer.psiToTok(leaf));
+      }
+
+      public void visitComposite(CompositeElement e) {
+        // do we need to expand this further?
+        if (expand(e,range,cursor)) {
+          final @NotNull PsiElement psi = e.getPsi();
+          boolean anon = psi instanceof PsiAnonymousClass;
+
+          TreeElement child = e.getFirstChildNode();
+          while (child != null) {
+            if (anon && e.getChildRole(child) == ChildRole.LBRACE) {
+              final ASTNode rb = e.findChildByRole(ChildRole.RBRACE);
+              assert rb != null;
+              final int lo = child.getStartOffset();
+              final int hi = rb.getStartOffset() + rb.getTextLength();
+              tokens.add(Tokenizer.locTok(lo, hi, new Tokenizer.AnonBodyTok((PsiAnonymousClass)psi, child)));
+              break;
+            }
+
+            final TreeElement treeNext = child.getTreeNext();
+            child.acceptTree(this);
+            child = treeNext;
+          }
+        } else {
+          // atomic node
+          tokens.add(Tokenizer.psiToTok(e));
+        }
       }
     };
     for (final PsiElement elem : elems) {

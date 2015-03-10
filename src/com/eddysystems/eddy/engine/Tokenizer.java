@@ -2,6 +2,8 @@ package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.*;
+import com.intellij.psi.impl.source.tree.ChildRole;
+import com.intellij.psi.impl.source.tree.CompositeElement;
 import utility.Locations;
 import utility.Locations.Loc;
 import com.intellij.psi.impl.source.tree.TreeElement;
@@ -10,10 +12,14 @@ import tarski.Tokens.*;
 
 class Tokenizer {
 
+  public static Loc<Token> locTok(int lo, int hi, Token tok) {
+    return Locations.locatedHelper(tok,Locations.buildHelper(lo,hi));
+  }
+
   public static Loc<Token> psiToTok(final TreeElement elem) {
     final int lo = elem.getTextOffset(),
               hi = lo+elem.getTextLength();
-    return Locations.locatedHelper(token(elem),Locations.buildHelper(lo,hi));
+    return locTok(lo, hi, token(elem));
   }
 
   public static <A> TextRange range(final Loc<A> x) {
@@ -57,14 +63,26 @@ class Tokenizer {
     }
   }
 
-  // Uninterpreted anonymous classes
-  private static final class PsiAnonTok extends AnonTok {
+  // Uninterpreted anonymous class body (stores whole anon class PsiElement, but only represents the body
+  public static final class AnonBodyTok extends AnonTok {
     final PsiAnonymousClass anon;
+    final String text;
 
-    PsiAnonTok(final PsiAnonymousClass anon) { this.anon = anon; }
+    AnonBodyTok(final PsiAnonymousClass anon) {
+      this(anon, (TreeElement)((CompositeElement)anon.getNode()).findChildByRole(ChildRole.LBRACE));
+    }
+
+    AnonBodyTok(final PsiAnonymousClass anon, final TreeElement lbrace) {
+      this.anon = anon;
+      this.text = anon.getText().substring(lbrace.getStartOffsetInParent());
+    }
+
+    public boolean equals(Object o) {
+      return o instanceof AnonBodyTok && ((AnonBodyTok)o).anon == anon;
+    }
 
     public String show(final ShowFlags f) {
-      return f.abbreviate() ? "Anonymous" : anon.getText();
+      return f.abbreviate() ? "{ ... }" : text;
     }
   }
 
@@ -197,7 +215,6 @@ class Tokenizer {
     final PsiElement psi = elem.getPsi();
     if (psi instanceof PsiStatement) return new PsiStmtTok((PsiStatement)psi);
     if (psi instanceof PsiCodeBlock) return new PsiStmtTok((PsiCodeBlock)psi);
-    if (psi instanceof PsiAnonymousClass) return new PsiAnonTok((PsiAnonymousClass)psi);
 
     throw new RuntimeException("unknown token: type " + type + ", text " + elem.getText());
   }
