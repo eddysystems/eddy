@@ -145,5 +145,6 @@ object Expand {
     case CondExp(c,qr,x,cr,y,ty) => productWith(expand(c),expand(x),expand(y))(CondExp(_,qr,_,cr,_,ty))
     case ArrayExp(nr,t,tr,xs,a) => expand(xs) map (ArrayExp(nr,t,tr,_,a))
     case EmptyArrayExp(nr,t,tr,is) => expand(is) map (EmptyArrayExp(nr,t,tr,_))
+    case AnonClassExp(c,as,ar,b) => productWith(expandCallable(c),expand(as))( (c,args) => AnonClassExp(c,args,ar,b))
   }
 }

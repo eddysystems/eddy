@@ -427,7 +427,7 @@ class ParseEddy {
           : t instanceof LongLitTok ? iLongLitTok
           : t instanceof AtTok$ ? iAtTok
           : t instanceof MulEqTok$ ? iMulEqTok
-          : t instanceof AnonBodyTok$ ? iAnonBodyTok
+          : t instanceof AnonBodyTok ? iAnonBodyTok
           : t instanceof PublicTok$ ? iPublicTok
           : t instanceof MinusTok$ ? iMinusTok
           : t instanceof RShiftSepTok$ ? iRShiftSepTok
@@ -1109,7 +1109,7 @@ class ParseEddy {
     private void ClassBody(final int lo, final int hi, final long range) {
       final int prev = values.size();
       if (hi-lo==1 && type[lo]==iAnonBodyTok)
-        values.add(ClassBody0(ranges[lo]));
+        values.add(ClassBody0((AnonBodyTok)input[lo],ranges[lo]));
       final int count = values.size()-prev;
       if (count != 0) { slices.put(iClassBody<<24|lo<<12|hi,(long)prev<<32|count); }
     }
@@ -2174,11 +2174,23 @@ class ParseEddy {
 
     private void ExpPrimary(final int lo, final int hi, final long range) {
       final int prev = values.size();
+      if (hi-lo>=2) {
+        for (int j=lo+1;j<=hi-1;j++) {
+          {
+            final long s1 = slices.get(iExpNew<<24|lo<<12|j); if (s1 == 0) continue;
+            final long s3 = slices.get(iClassBody<<24|j<<12|hi); if (s3 == 0) continue;
+            for (int k1=0;k1<(s1&vMask);k1++) {
+              for (int k3=0;k3<(s3&vMask);k3++)
+                values.add(ExpPrimary0((AExp)values.get((int)(s1>>32)+k1),(AClassBody)values.get((int)(s3>>32)+k3)));
+            }
+          }
+        }
+      }
       if (hi-lo==1) {
         final long s1 = slices.get(iIdent<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpPrimary0((Loc)values.get((int)(s1>>32)+k)));
+            values.add(ExpPrimary1((Loc)values.get((int)(s1>>32)+k)));
         }
       }
       if (hi-lo>=3) {
@@ -2188,7 +2200,7 @@ class ParseEddy {
             final long s3 = slices.get(iDotTok__Option_TypeArgs__Ident<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary1((AExp)values.get((int)(s1>>32)+k1),(Tuple3)values.get((int)(s3>>32)+k3)));
+                values.add(ExpPrimary2((AExp)values.get((int)(s1>>32)+k1),(Tuple3)values.get((int)(s3>>32)+k3)));
             }
           }
         }
@@ -2200,7 +2212,7 @@ class ParseEddy {
             final long s3 = slices.get(iExpPrimary__DimExps<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary2((Tuple3)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
+                values.add(ExpPrimary3((Tuple3)values.get((int)(s1>>32)+k1),(Tuple2)values.get((int)(s3>>32)+k3)));
             }
           }
         }
@@ -2209,7 +2221,7 @@ class ParseEddy {
         final long s1 = slices.get(iLit<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(ExpPrimary3((ALit)values.get((int)(s1>>32)+k)));
+            values.add(ExpPrimary4((ALit)values.get((int)(s1>>32)+k)));
         }
       }
       if (hi-lo>=3) {
@@ -2219,19 +2231,7 @@ class ParseEddy {
             final long s3 = slices.get(iTypeArgs<<24|j<<12|hi); if (s3 == 0) continue;
             for (int k1=0;k1<(s1&vMask);k1++) {
               for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary4((AExp)values.get((int)(s1>>32)+k1),(Grouped)values.get((int)(s3>>32)+k3)));
-            }
-          }
-        }
-      }
-      if (hi-lo>=2) {
-        for (int j=lo+1;j<=hi-1;j++) {
-          {
-            final long s1 = slices.get(iExpNew<<24|lo<<12|j); if (s1 == 0) continue;
-            final long s3 = slices.get(iClassBody<<24|j<<12|hi); if (s3 == 0) continue;
-            for (int k1=0;k1<(s1&vMask);k1++) {
-              for (int k3=0;k3<(s3&vMask);k3++)
-                values.add(ExpPrimary5((AExp)values.get((int)(s1>>32)+k1),(AClassBody)values.get((int)(s3>>32)+k3)));
+                values.add(ExpPrimary5((AExp)values.get((int)(s1>>32)+k1),(Grouped)values.get((int)(s3>>32)+k3)));
             }
           }
         }

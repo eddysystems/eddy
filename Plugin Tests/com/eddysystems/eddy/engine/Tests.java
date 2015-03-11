@@ -586,7 +586,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       Tokens.GtTok$.MODULE$,
       Tokens.LParenTok$.MODULE$,
       Tokens.RParenTok$.MODULE$,
-      new Tokenizer.AnonBodyTok(PsiTreeUtil.findChildrenOfType(myFixture.getFile(), PsiAnonymousClass.class).iterator().next())
+      new Tokenizer.AtomicAnonBodyTok(PsiTreeUtil.findChildrenOfType(myFixture.getFile(), PsiAnonymousClass.class).iterator().next())
     };
     List<Token> wanted = new ArrayList<Token>();
     Collections.addAll(wanted, toks);
@@ -601,7 +601,11 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     assertEquals(wanted, tokens);
   }
 
-  public void testAnonCass() {
-    testMargin("anonClass.java", "X r = new X() { public static void x() {} };", .9);
+  public void testAnonClass() {
+    testMargin("anonClass.java", "X r = new X() { ... };", .9);
+  }
+
+  public void testAnonClass2() {
+    testMargin("anonClass2.java", "X r = new X() { ... };", .9);
   }
 }

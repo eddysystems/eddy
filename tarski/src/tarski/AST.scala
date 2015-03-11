@@ -5,7 +5,7 @@ import tarski.Mods._
 import tarski.Operators._
 import tarski.Scores._
 import tarski.JavaScores.pp
-import tarski.Tokens.{AnonBodyTok, AnonTok, StmtTok}
+import tarski.Tokens.{AnonBodyTok, StmtTok}
 import utility.Locations._
 
 import scala.annotation.tailrec
@@ -178,7 +178,7 @@ object AST {
     case AssignAExp(op,opr,x,y) => noStartsWithParen(x) map (AssignAExp(op,opr,_,y))
     case ArrayAExp(_,_@YesAround(Paren,_,_))|ArrayAExp(_,_:NoAround) => Empty
     case InstanceofAExp(e,ir,t) => noStartsWithParen(e) map (InstanceofAExp(_,ir,t))
-    case _:NewAExp|_:UnaryAExp|_:CastAExp|_:ArrayAExp|_:NameAExp|_:WildAExp|_:ALit => known(e)
+    case _:NewAExp|_:UnaryAExp|_:CastAExp|_:ArrayAExp|_:NameAExp|_:WildAExp|_:ALit|_:AAnonClassExp => known(e)
   }
 
   private def hackExp(s: Scored[AExp], r: SRange): AExp = s.strict match {

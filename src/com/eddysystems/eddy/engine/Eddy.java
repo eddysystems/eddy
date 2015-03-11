@@ -479,7 +479,7 @@ public class Eddy {
               assert rb != null;
               final int lo = child.getStartOffset();
               final int hi = rb.getStartOffset() + rb.getTextLength();
-              tokens.add(Tokenizer.locTok(lo, hi, new Tokenizer.AnonBodyTok((PsiAnonymousClass)psi, child)));
+              tokens.add(Tokenizer.locTok(lo, hi, new Tokenizer.AtomicAnonBodyTok((PsiAnonymousClass)psi, child)));
               break;
             }
 

@@ -57,14 +57,17 @@ class TestDen {
                                    s"\nactual   p = ${fp(p)}" +
                                    s"\nexpected (full): $b\nactual   (full): $s")
         } else if (!rest.below(margin*pp(p))) {
+          // find the next actually different solution and evaluate its probability
+          rest.stream.dropWhile(x => x.x == s)
           val n = rest.stream.head
-          throw new AssertionError(s"Denotation test failed:\ninput: $input" +
-                                   s"\nwanted margin $margin, got ${pp(n.dp)} / ${pp(p)} = ${pp(n.dp) / pp(p)}" +
-                                   s"\nbest: $sb\nnext: ${sh(n.x)}" +
-                                   s"\nbest p = ${fp(p)}" +
-                                   s"\nnext p = ${fp(n.dp)}" +
-                                   s"\nbest (full): $b" +
-                                   s"\nnext (full): ${n.x}")
+          if (n.p > margin*pp(p))
+            throw new AssertionError(s"Denotation test failed:\ninput: $input" +
+                                     s"\nwanted margin $margin, got ${pp(n.dp)} / ${pp(p)} = ${pp(n.dp) / pp(p)}" +
+                                     s"\nbest: $sb\nnext: ${sh(n.x)}" +
+                                     s"\nbest p = ${fp(p)}" +
+                                     s"\nnext p = ${fp(n.dp)}" +
+                                     s"\nbest (full): $b" +
+                                     s"\nnext (full): ${n.x}")
         }
         if (fl.fixpoint) {
           // Verify that locations are correctly threaded, by rerunning fix with full locations

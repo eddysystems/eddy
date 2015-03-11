@@ -64,6 +64,7 @@ object Simplify {
     case CondExp(c,qr,x,cr,y,ty) => CondExp(simplify(c),qr,simplify(x),cr,simplify(y),ty)
     case ArrayExp(nr,t,tr,xs,a) => ArrayExp(nr,t,tr,xs map (simplify(_)),a)
     case EmptyArrayExp(nr,t,tr,is) => EmptyArrayExp(nr,t,tr,is map simplify)
+    case AnonClassExp(c,as,ar,b) => AnonClassExp(simplify(c),as map (simplify(_)),ar,b)
   }
   def simplify(re: (SRange,Exp)): (SRange,Exp) = (re._1,simplify(re._2))
   def simplify(e: Grouped[Exp]): Grouped[Exp] = Grouped(simplify(e.x),e.a)

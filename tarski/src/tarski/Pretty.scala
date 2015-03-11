@@ -503,7 +503,7 @@ object Pretty {
       implicit val r_ = r
       (HighestFix,Loc(IdentTok("Whatever"),r) :: Loc(LParenTok,r) :: tokens(ty)
         ::: List(Loc(EllipsisTok,r),Loc(RParenTok,r)))
-    case AnonClassExp(c,a,b) => (NewFix, tokens(c) ::: parens(commas(if (c.variadic) expandVariadicArg(a.x) else a.x),a.a) ::: tokens(b))
+    case AnonClassExp(c,as,ar,b) => (NewFix, tokens(c) ::: parens(commas(if (c.variadic) expandVariadicArg(as) else as),ar) ::: tokens(b))
   }
   implicit def prettyCallable(call: NormalCallable)(implicit env: Scope): FixTokens = {
     def method[A <: HasRange](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =

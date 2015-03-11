@@ -40,7 +40,7 @@ object Denotations {
 
   // classes
   sealed abstract class ClassBody extends HasRange
-  case class TokClassBody(t: AnonTok, r: SRange) extends ClassBody
+  case class TokClassBody(t: AnonBodyTok, r: SRange) extends ClassBody
 
   // Callables
   sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasRange {
@@ -422,7 +422,7 @@ object Denotations {
   case class WhateverExp(ty: Type, r: SRange, s: Best[Exp]) extends Exp {
     def item = ty.item
   }
-  case class AnonClassExp(c: Callable, args: Grouped[List[Exp]], body: ClassBody) extends Exp {
+  case class AnonClassExp(c: Callable, as: List[Exp], ar: SGroup, body: ClassBody) extends Exp {
     def r = c.r union body.r
     def item = c.result.item
     def ty = c.result

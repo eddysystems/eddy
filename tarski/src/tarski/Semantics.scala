@@ -172,7 +172,7 @@ object Semantics {
 
     override def toString = {
       def f(s: String, b: Boolean) = if (b) List(s) else Nil
-      s"Mode(${f("exp",exp)++f("ty",ty)++f("call",call)++f("new",inNew) mkString "|"})"
+      s"Mode(${f("exp",exp)++f("ty",ty)++f("call",call)++f("new",inNew)++f("pack",pack)++f("anon",anon) mkString "|"})"
     }
   }
   val NoMode   = Mode(0)
@@ -194,8 +194,8 @@ object Semantics {
   @inline def denoteParent (e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
 
   // these should always return NewDen(...) or TypeApply(NewDen(...),...)
-  @inline def denoteNew    (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
-  @inline def denoteAnonNew(e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,AnonMode).asInstanceOf[Scored[Callable]]
+  @inline def denoteNew    (e: AExp, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Callable]  = denote(e,NewMode|m,expects).asInstanceOf[Scored[Callable]]
+  @inline def denoteAnonNew(e: AExp, expects: Option[Type])(implicit env: Env): Scored[Callable]  = denote(e,AnonMode,expects).asInstanceOf[Scored[Callable]]
 
   @inline def knownNotNew[A](m: Mode, x: A): Scored[A] = single(x,if (m.inNew) Pr.dropNew else Pr.notDropNew)
   @inline def biasedNotNew[A](m: Mode, x: => Scored[A]): Scored[A] = if (m.inNew) biased(Pr.dropNew,x) else x
@@ -255,7 +255,7 @@ object Semantics {
     // Explicit new
     case NewAExp(_,_,Some(_),_,_::_) => fail(s"${show(e)}: Array creation doesn't take type arguments") // TODO: in call mode, drop the type args instead and penalize
     case NewAExp(None,nr,ts,x,Nil) if m.callExp => // unqualified new (although we may have qualified in a non-java way, for instance "new xobj.Y()")
-      fixCall(m,expects,biasedNotNew(m,addTypeArgs(ts,denoteNew(x)).asInstanceOf[Scored[Callable]]))
+      fixCall(m,expects,biasedNotNew(m,addTypeArgs(ts,denoteNew(x,m,expects)).asInstanceOf[Scored[Callable]]))
     case NewAExp(Some(qe),nr,ts,x,Nil) if m.callExp => { // qualified new
       // TODO: the probabilities here may be a little screwy, penalizing things that shouldn't be penalized
       // (for instance, TypeFieldOfObject for the legal new inside denoteType)
@@ -461,15 +461,16 @@ object Semantics {
       biased(Pr.arrayExp,product(xs.list map (denoteExp(_))) map (is => ArrayExp(r,condTypes(is map (_.ty)),r,is,a.a)))
 
     // first denote a new-callable, make an ApplyExp using the provided args, and replace the ApplyExp with an AnonClassExp
-    case AAnonClassExp(e,as,aa,AAnonClassBody(b,br)) if m.exp => denoteAnonNew(e) flatMap { x =>
+    case AAnonClassExp(x,as,aa,AAnonClassBody(b,br)) if m.exp => denoteAnonNew(x,expects) flatMap { x =>
       // fill stuff into the constructor (inside should be a NewDen)
-      ArgMatching.fiddleCall(x,as.list map (denoteExp(_)),aa.a,None,auto=false,checkExpectedEarly=true,ArgMatching.useAll)
+      ArgMatching.fiddleCall(x,as.list map (denoteExp(_)),aa.a,expects,auto=false,checkExpectedEarly=true,ArgMatching.useAll)
     } flatMap { case ApplyExp(exp,args,arga,_) =>
-      known(AnonClassExp(exp,Grouped(args,arga),TokClassBody(b,br)))
+      known(AnonClassExp(exp,args,arga,TokClassBody(b,br)))
     }
 
     case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
   }
+
 
   def denoteAssignsTo(e: AExp, to: Type)(implicit env: Env): Scored[Exp] =
     (denoteExp(e,Some(to)) filter (assignsTo(_,to),s"Can't assign anything available to type ${show(to)}")) ++ (
