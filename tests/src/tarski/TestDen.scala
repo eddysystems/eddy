@@ -58,8 +58,12 @@ class TestDen {
                                    s"\nexpected (full): $b\nactual   (full): $s")
         } else if (!rest.below(margin*pp(p))) {
           // find the next actually different solution and evaluate its probability
-          rest.stream.dropWhile(x => x.x == s)
-          val n = rest.stream.head
+          @tailrec def loop(b: Scored[List[Stmt]]): Alt[List[Stmt]] = b.strict match {
+            case s if s.below(margin*pp(p)) => Alt(Prob("empty",0.0),Nil) // this includes all EmptyOrBad
+            case Best(p,sn,rest) if s == sn => loop(rest)
+            case Best(p,sn,rest) => Alt(p,sn)
+          }
+          val n = loop(rest)
           if (n.p > margin*pp(p))
             throw new AssertionError(s"Denotation test failed:\ninput: $input" +
                                      s"\nwanted margin $margin, got ${pp(n.dp)} / ${pp(p)} = ${pp(n.dp) / pp(p)}" +
@@ -67,7 +71,7 @@ class TestDen {
                                      s"\nbest p = ${fp(p)}" +
                                      s"\nnext p = ${fp(n.dp)}" +
                                      s"\nbest (full): $b" +
-                                     s"\nnext (full): ${n.x}")
+                                     s"\nnext (full): ${n.x}, equal ${n.x==s}")
         }
         if (fl.fixpoint) {
           // Verify that locations are correctly threaded, by rerunning fix with full locations
