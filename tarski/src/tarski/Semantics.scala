@@ -161,6 +161,7 @@ object Semantics {
     def call:    Boolean = (m&4)!=0
     def inNew:   Boolean = (m&8)!=0
     def pack:    Boolean = (m&16)!=0
+    def anon:    Boolean = (m&32)!=0
 
     def callExp: Boolean = (m&(1|4))!=0
     def onlyCall:    Mode = Mode(m&(4|8))
@@ -180,6 +181,7 @@ object Semantics {
   val CallMode = Mode(4)
   val NewMode  = Mode(4|8)
   val PackMode = Mode(16)
+  val AnonMode = Mode(4|8|32)
 
   @inline def denoteExp   (e: AExp, expects: Option[Type] = None)(implicit env: Env): Scored[Exp] = denote(e,ExpMode,expects).asInstanceOf[Scored[Exp]]
   @inline def denoteType  (e: AExp)(implicit env: Env): Scored[TypeDen]   = denote(e,TypeMode).asInstanceOf[Scored[TypeDen]]
@@ -189,8 +191,11 @@ object Semantics {
     case TypeDen(t:PrimType) => single(TypeDen(t.box), Pr.boxInstanceOf)
     case TypeDen(t) => fail(s"instanceof $t not legal")
   }
-  @inline def denoteParent(e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
-  @inline def denoteNew   (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
+  @inline def denoteParent (e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
+
+  // these should always return NewDen(...) or TypeApply(NewDen(...),...)
+  @inline def denoteNew    (e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,NewMode).asInstanceOf[Scored[Callable]]
+  @inline def denoteAnonNew(e: AExp)(implicit env: Env): Scored[Callable]  = denote(e,AnonMode).asInstanceOf[Scored[Callable]]
 
   @inline def knownNotNew[A](m: Mode, x: A): Scored[A] = single(x,if (m.inNew) Pr.dropNew else Pr.notDropNew)
   @inline def biasedNotNew[A](m: Mode, x: => Scored[A]): Scored[A] = if (m.inNew) biased(Pr.dropNew,x) else x
@@ -257,7 +262,7 @@ object Semantics {
 
       val xs = denoteType(x) flatMap {
         case TypeDen(t:ClassType) =>
-          if (t.item.isAbstract) fail(s"Can't construct abstract class $t")
+          if (!m.anon && t.item.isAbstract) fail(s"Can't construct abstract class $t")
           else single((t,uniform(Pr.constructor,t.item.constructors(env.place),"no accessible constructors")),
                       if (t.item.isStatic) Pr.qualifiedStaticNew else Pr.qualifiedNew) // Penalize static classes since we'll drop q
         case TypeDen(t) => fail(s"Can't construct non-class $t")
@@ -455,6 +460,14 @@ object Semantics {
       val r = a.a.l.before
       biased(Pr.arrayExp,product(xs.list map (denoteExp(_))) map (is => ArrayExp(r,condTypes(is map (_.ty)),r,is,a.a)))
 
+    // first denote a new-callable, make an ApplyExp using the provided args, and replace the ApplyExp with an AnonClassExp
+    case AAnonClassExp(e,as,aa,AAnonClassBody(b,br)) if m.exp => denoteAnonNew(e) flatMap { x =>
+      // fill stuff into the constructor (inside should be a NewDen)
+      ArgMatching.fiddleCall(x,as.list map (denoteExp(_)),aa.a,None,auto=false,checkExpectedEarly=true,ArgMatching.useAll)
+    } flatMap { case ApplyExp(exp,args,arga,_) =>
+      known(AnonClassExp(exp,Grouped(args,arga),TokClassBody(b,br)))
+    }
+
     case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
   }
 
@@ -540,7 +553,7 @@ object Semantics {
     case t:TypeItem =>
       denoteTypeItem(t) flatMap { t =>
         val s = if (!m.callExp) fail("Not in call mode") else t.item match {
-          case t:ClassItem if t.isAbstract => fail(s"Can't construct abstract class $t")
+          case t:ClassItem if !m.anon && t.isAbstract => fail(s"Can't construct abstract class $t")
           case t:ClassItem =>
             val cons = t.constructors(env.place)
             def unqualified = fixCall(m,expects,uniformGood(Pr.constructor,cons) map (NewDen(nr.before,None,_,nr)))
@@ -605,7 +618,7 @@ object Semantics {
                         else single(TypeDen(typeIn(f,x.ty)),Pr.typeFieldOfExp)
         }
         val cons = if (!mc.callExp) fail(s"${show(error)}: Not in call or exp mode") else f match {
-          case f:ClassItem if !f.isAbstract && f.constructors(env.place).length>0 =>
+          case f:ClassItem if (mc.anon || !f.isAbstract) && f.constructors(env.place).length>0 =>
             val cons = uniformGood(Pr.constructor,f.constructors(env.place))
             fixCall(mc,expects, p match {
               case _:PackageDen => cons map (NewDen(xr.before,None,_,fr))

@@ -516,6 +516,7 @@ class Converter {
            }
 
          // add implicit constructor if no others declared
+         // even interfaces have the default constructor, which simplifies the logic when making anonymous classes
          if (cons.isEmpty()) {
            cons.add(new DefaultConstructorItem(this));
          }

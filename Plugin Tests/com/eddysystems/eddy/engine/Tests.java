@@ -569,7 +569,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testRuntime() { testMargin("runtime.java", "Runtime.getRuntime();",.9); }
 
   public void testAnonClassTokenize() {
-    myFixture.configureByFiles("anonClass.java");
+    myFixture.configureByFiles("anonClassTokens.java");
     Eddy eddy = makeEddy();
     Token[] toks = {
       // List<X> x = new <caret>List<X>() {
@@ -599,5 +599,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
       throw new AssertionError();
     }
     assertEquals(wanted, tokens);
+  }
+
+  public void testAnonCass() {
+    testMargin("anonClass.java", "X r = new X() { public static void x() {} };", .9);
   }
 }

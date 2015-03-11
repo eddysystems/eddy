@@ -279,6 +279,7 @@ object Pretty {
       case Nil => right(NewFix,e)
       case ns => tokens(e) ::: (ns map { case Grouped(n,a) => Loc(LBrackTok,a.l) :: tokens(n) ::: List(Loc(RBrackTok,a.r)) }).flatten
     }))
+    case AAnonClassExp(e,as,aa,b) => (NewFix, tokens(e) ::: around(as,aa)._2 ::: tokens(b))
     case WildAExp(qr,None) => (HighestFix, List(Loc(QuestionTok,qr)))
     case WildAExp(qr,Some(WildBound(b,br,t))) => fix(WildFix, Loc(QuestionTok,qr) :: Loc(token(b),br) :: right(_,t))
     case UnaryAExp(op,opr,e) if isPrefix(op) => fix(PrefixFix, Loc(token(op),opr) :: right(_,e))
@@ -298,6 +299,9 @@ object Pretty {
   implicit def prettyATypeArgs(t: Option[Grouped[KList[AExp]]]): FixTokens = (HighestFix, t match {
     case None => Nil
     case Some(Grouped(t,a)) => typeBracket(t,a)
+  })
+  implicit def prettyAClassBody(b: AClassBody): FixTokens = (HighestFix, b match {
+    case AAnonClassBody(b,r) => List(Loc(b,r))
   })
   implicit def prettyCatchInfo(c: CatchInfo): FixTokens = (SemiFix, List(Loc(CatchTok,c.cr), Loc(LParenTok,c.a.a.l)) ::: c.ms.flatMap(tokens) ::: tokens(c.t) ::: c.i.toList.flatMap(x => tokens(x.x,x.r)) ::: List(Loc(RParenTok,c.a.a.r)))
 
@@ -437,7 +441,7 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyLit(x: Lit) = (HighestFix, List(Loc(x match {
+  implicit def prettyLit(x: Lit): FixTokens = (HighestFix, List(Loc(x match {
     case ByteLit(v,s,_) => IntLitTok(s)
     case ShortLit(v,s,_) => IntLitTok(s)
     case IntLit(v,s,_) => IntLitTok(s)
@@ -449,6 +453,9 @@ object Pretty {
     case StringLit(v,s,_) => StringLitTok(s)
     case NullLit(_) => NullTok
   },x.r)))
+  implicit def prettyClassBody(b:ClassBody): FixTokens = (HighestFix, b match {
+    case TokClassBody(t,r) => List(Loc(t,r))
+  })
   def prettyField(x: Exp, dot: SRange, f: Item, fr: SRange)(implicit env: Scope): FixTokens =
     fix(FieldFix, left(_,x) ::: Loc(DotTok,dot) :: tokens(f.name,fr))
   private def thisOrSuper(i: ThisOrSuper): Token = i match {
@@ -496,6 +503,7 @@ object Pretty {
       implicit val r_ = r
       (HighestFix,Loc(IdentTok("Whatever"),r) :: Loc(LParenTok,r) :: tokens(ty)
         ::: List(Loc(EllipsisTok,r),Loc(RParenTok,r)))
+    case AnonClassExp(c,a,b) => (NewFix, tokens(c) ::: parens(commas(if (c.variadic) expandVariadicArg(a.x) else a.x),a.a) ::: tokens(b))
   }
   implicit def prettyCallable(call: NormalCallable)(implicit env: Scope): FixTokens = {
     def method[A <: HasRange](x: A, dot: SRange, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =

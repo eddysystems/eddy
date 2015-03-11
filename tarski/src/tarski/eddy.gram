@@ -110,6 +110,8 @@ WildcardBounds Option[WildBound]
 //  Ands[Type]
 
 // Classes
+ClassBody AClassBody
+  AnonBodyTok                    { AAnonClassBody($1,$1r) }
 // TODO: ClassDecl
 
 // Blocks
@@ -161,7 +163,7 @@ StmtHelperBS AStmt
   SynchronizedTok ExpAssignNP DoTok Stmt                     { SyncAStmt($1r,$2,NoAround($2.r),$4) }
   SynchronizedTok ExpAssignNP Stmt                           { SyncAStmt($1r,$2,NoAround($2.r),$3) }
   TryTok Stmt CatchBlocks Option[FinallyBlock]               { TryAStmt($1r,$2,$3,$4) }
-  // Switch
+  // TODO: Switch
   LParenTok Stmt Right                                       { ParenAStmt($2,Around(Paren,$1r,$3)) }
 AfterIf PreIf
   AfterIfA                                                   { $1 }
@@ -209,7 +211,7 @@ CatchBlocks List[(CatchInfo,AStmt)]
   ""                                                         { Nil }
   CatchBlock CatchBlocks                                     { $1 :: $2 }
 CatchBlock (CatchInfo,AStmt)
-// technically, the catch parameter looks like it can be an array, but that's useless because arrays are not Throwable, so it cannot.
+// technically, the catch parameter looks like it can be an array in the spec, but that's useless because arrays are not Throwable, so it cannot.
   CatchTok EllipsisTok MaybeStmt                             { (CatchInfo($1r,Nil,None,None,NoAround($2r),false),$3) }
   CatchTok Left EllipsisTok Right MaybeStmt                  { (CatchInfo($1r,Nil,None,None,Around($2,$4),false),$5) }
   CatchTok Juxts0[Mod] Type Ident MaybeStmt                  { (CatchInfo($1r,$2,Some($3),Some($4),NoAround($2.headOption.map(_.r).getOrElse($3r) union $4r),false),$5) }
@@ -221,8 +223,6 @@ FinallyBlock (SRange,AStmt)
 
 // Expressions, lowest to highest precedence
 // Suffixes: NJ is no juxtaposition, NC is no commas, NA is no args, NP is no parens (or commas)
-// TODO LambdaExp
-// TODO new Exp ClassBody
 ExpAssign AExp
   ExpCommas                                                 { $1 }
   ExpJuxt AssignOp ExpAssign                                { AssignAExp($2.x,$2.r,$1,$3) }
@@ -336,6 +336,10 @@ ExpPrimary AExp
   ExpHigh DotTok Option[TypeArgs] Ident                     { FieldAExp($1,$2r,$3,$4.x,$4.r) }
   ExpHigh DotTok NewTok Option[TypeArgs] ExpPrimary DimExps { NewAExp(Some($1),$3r,$4,$5,$6) }
   ExpHigh TypeArgs                                          { TypeApplyAExp($1,$2.x,$2.a,after=true) }
+  ExpNew ClassBody                                          { AAnonClassExp($1,Nil,NoAround($1.after),$2) }
+  ExpNew Left List[ExpAssignNC] Right ClassBody             { filterApplyArgs($3)(AAnonClassExp($1,_,Around($2,$4),$5)) }
+
+// TODO LambdaExp
 
 // TODO: ExpHigh ColonColonTok Option[TypeArgs] Ident       { MethodRefAExp($1,$3,$4,$r) }
 // TODO: ExpHigh ColonColonTok Option[TypeArgs] NewTok      { NewRefAExp($1,$3,$r) }

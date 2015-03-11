@@ -5,7 +5,7 @@ import tarski.Mods._
 import tarski.Operators._
 import tarski.Scores._
 import tarski.JavaScores.pp
-import tarski.Tokens.StmtTok
+import tarski.Tokens.{AnonBodyTok, AnonTok, StmtTok}
 import utility.Locations._
 
 import scala.annotation.tailrec
@@ -96,6 +96,9 @@ object AST {
     def r = vr unionR m unionR t union e.r
   }
 
+  sealed abstract class AClassBody extends HasRange
+  case class AAnonClassBody(b: AnonBodyTok, r: SRange) extends AClassBody
+
   sealed abstract class AExp extends HasRange
   case class ScoredAExp(s: Scored[AExp], r: SRange) extends AExp
   case class NameAExp(name: Name, r: SRange) extends AExp
@@ -119,6 +122,9 @@ object AST {
   }
   case class NewAExp(qe: Option[AExp], newr: SRange, t: Option[Grouped[KList[AExp]]], e: AExp, ns: ADimExps = Nil) extends AExp {
     def r = newr union e.r unionR ns
+  }
+  case class AAnonClassExp(e: AExp, as: KList[AExp], aa: Around, b: AClassBody) extends AExp {
+    def r = e.r union aa.r union b.r
   }
   case class WildAExp(qr: SRange, b: Option[WildBound]) extends AExp {
     def r = b match { case None => qr; case Some(WildBound(_,_,t)) => qr union t.r }
@@ -198,7 +204,7 @@ object AST {
       } else filterJuxtHelper(yr,zs,y::rs)(f)
   }
 
-  // Juxtaposed argument lists should contain apparent function calls or missed binary expressions
+  // Juxtaposed argument lists should not contain apparent function calls or missed binary expressions
   def filterApplyArgs(xs: KList[AExp])(f: KList[AExp] => AExp): AExp = xs match {
     case JuxtList2(x::ys) => filterJuxtHelper(x.r,ys,Nil)(ys => f(JuxtList2(x::ys)))
     case _ => f(xs)

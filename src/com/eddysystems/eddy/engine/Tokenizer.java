@@ -64,21 +64,21 @@ class Tokenizer {
   }
 
   // Uninterpreted anonymous class body (stores whole anon class PsiElement, but only represents the body
-  public static final class AnonBodyTok extends AnonTok {
+  public static final class AtomicAnonBodyTok extends AnonBodyTok {
     final PsiAnonymousClass anon;
     final String text;
 
-    AnonBodyTok(final PsiAnonymousClass anon) {
+    AtomicAnonBodyTok(final PsiAnonymousClass anon) {
       this(anon, (TreeElement)((CompositeElement)anon.getNode()).findChildByRole(ChildRole.LBRACE));
     }
 
-    AnonBodyTok(final PsiAnonymousClass anon, final TreeElement lbrace) {
+    AtomicAnonBodyTok(final PsiAnonymousClass anon, final TreeElement lbrace) {
       this.anon = anon;
       this.text = anon.getText().substring(lbrace.getStartOffsetInParent());
     }
 
     public boolean equals(Object o) {
-      return o instanceof AnonBodyTok && ((AnonBodyTok)o).anon == anon;
+      return o instanceof AtomicAnonBodyTok && ((AtomicAnonBodyTok)o).anon == anon;
     }
 
     public String show(final ShowFlags f) {

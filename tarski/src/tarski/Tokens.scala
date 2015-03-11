@@ -205,8 +205,8 @@ object Tokens {
     def isBlock: Boolean
   }
 
-  // Uninterpreted anonymous classes
-  abstract class AnonTok extends Token
+  // Uninterpreted anonymous class body
+  abstract class AnonBodyTok extends Token
 
   // Convert to a string, adding whitespace between every token
   def showSep[A](x: A)(implicit p: Pretty[A], f: ShowFlags): String =

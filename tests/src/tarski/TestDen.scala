@@ -1299,6 +1299,7 @@ class TestDen {
     lazy val cons = DefaultConstructorItem(A)
     implicit val env = localEnvWithBase(A)
     testFail("new A()")
+    testFail("a = A")
   }
 
   @Test def cStyleNull() = {
