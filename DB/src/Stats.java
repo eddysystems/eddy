@@ -31,7 +31,8 @@ public class Stats {
 
   static class InstallData {
     double activeSince = now;
-    double lastActive = 0;
+    double lastActive = 0; // last user action
+    double lastSeen = 0; // last user or automatic action
 
     Map<String,ActionData> actions = new HashMap<>();
   }
@@ -117,8 +118,9 @@ public class Stats {
             installData.put(install, idata);
           }
           idata.activeSince = Double.min(ts, idata.activeSince);
-          idata.lastActive = Double.max(ts, idata.lastActive);
-
+          idata.lastSeen = Double.max(ts, idata.lastSeen);
+          if (action.equals("Eddy.AutoApply") || action.equals("Eddy.Apply") || action.equals("Eddy.preferences") || action.equals("Eddy.suggestion"))
+            idata.lastActive = Double.max(ts, idata.lastActive);
           // install action count
           ActionData iadata = idata.actions.get(action);
           if (iadata == null) {
@@ -141,14 +143,17 @@ public class Stats {
       System.out.println("all numbers exclude installation active before launch: " + launchCal.getTime().toString());
       System.out.println("total installations: " + installData.size());
 
-      int wai = 0, wni = 0;
+      int wai = 0, wni = 0, wau = 0;
       for (final InstallData i : installData.values()) {
-        if (i.lastActive > weekAgo)
+        if (i.lastSeen > weekAgo)
           wai++;
+        if (i.lastActive > weekAgo)
+          wau++;
         if (i.activeSince > weekAgo)
           wni++;
       }
       System.out.println("active installations last 7 days: " + wai);
+      System.out.println("active users last 7 days: " + wau);
       System.out.println("new installations last 7 days: " + wni);
 
       // project statistics
