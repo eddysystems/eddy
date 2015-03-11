@@ -158,6 +158,13 @@ public class GetData {
         }
         lastKeyEvaluated = result.getLastEvaluatedKey();
 
+        if (lastKeyEvaluated != null) {
+          System.out.println("last key: ");
+          for (final Map.Entry<String, AttributeValue> e : lastKeyEvaluated.entrySet()) {
+            System.out.println("  " + e.getKey() + ": " + e.getValue());
+          }
+        }
+
         long next = System.nanoTime();
         try {
           fo.flush();
@@ -174,7 +181,7 @@ public class GetData {
 
       double time = 1e-9*(System.nanoTime() - start);
 
-      System.out.println("retrieved " + count + "/" + totalCount + " records in " + time + "seconds, using " + nrequests + " requests and " + consumed + " capacity.");
+      System.out.println("retrieved " + count + "/" + totalCount + " records in " + time + "seconds, using " + nrequests + " requests and " + consumed + " capacity");
     } catch (FileNotFoundException e) {
       error(e.toString());
     }
