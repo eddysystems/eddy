@@ -608,4 +608,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testAnonClass2() {
     testMargin("anonClass2.java", "X r = new X() { ... };", .9);
   }
+
+  public void testGetClass() {
+    testMargin("getClass.java", "Class<? extends Test> cls = getClass();", .9);
+  }
 }

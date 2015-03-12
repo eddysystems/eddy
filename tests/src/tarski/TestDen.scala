@@ -1399,4 +1399,20 @@ class TestDen {
     implicit val env = localEnvWithBase(x,f)
     test("f(x)",ApplyExp(TypeApply(MethodDen(None,f,r),List(ObjectType),a,hide=true),List(x),a,auto=false))
   }
+
+  @Test def objectMethod(): Unit = {
+    val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
+    val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
+    val tA = ThisItem(A)
+    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f))
+    test("getClass()", ApplyExp(MethodDen(None,GetClassItem,r),Nil,a,auto=false));
+  }
+
+  @Test def getClassType(): Unit = {
+    val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
+    val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
+    val tA = ThisItem(A)
+    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f))
+    test("Class<? extends A> cls = this.getClass()", "cls", cls => VarStmt(Nil,ClassItem.generic(List(WildSub(A.inside))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(tA,GetClassItem,r),Nil,a,false))),env)),env))
+  }
 }
