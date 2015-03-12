@@ -3,14 +3,17 @@ package tarski;
 import scala.collection.immutable.$colon$colon$;
 import scala.collection.immutable.List;
 import scala.collection.immutable.Nil$;
-import scala.collection.immutable.Stream;
-import tarski.Items.*;
+import tarski.Items.Item;
+import tarski.Items.TypeItem;
+import tarski.Items.Value;
 import tarski.Scores.Alt;
-import tarski.Scores.*;
-import static tarski.JavaScores.pp;
+import tarski.Scores.Best;
+import tarski.Scores.Empty$;
+import tarski.Scores.Scored;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+
+import static tarski.JavaScores.pp;
 
 public class QueriableItemList implements Tries.Queriable<Item>, ValueByItemQuery {
   private final Item[] items;

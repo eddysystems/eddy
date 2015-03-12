@@ -1,6 +1,6 @@
 package tarski
 
-import tarski.AST.{ParenAExp, IntALit, AExp, Name}
+import tarski.AST.{ParenAExp, IntALit, AExp}
 import utility.Utility._
 import utility.Locations._
 import tarski.Base._

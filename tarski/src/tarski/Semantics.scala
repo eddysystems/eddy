@@ -6,14 +6,14 @@ import utility.Locations._
 import org.apache.commons.lang.StringEscapeUtils._
 import tarski.AST._
 import tarski.Mods._
-import tarski.Base.{StringItem, BooleanItem, VoidItem}
+import tarski.Base.VoidItem
 import tarski.Denotations._
 import tarski.Environment._
 import tarski.Items._
 import tarski.Operators._
 import tarski.Pretty._
 import tarski.Scores._
-import tarski.JavaScores.{LinkState, pp, pmul, listGood}
+import tarski.JavaScores.{pp, pmul, listGood}
 import tarski.Tokens._
 import tarski.Types._
 import java.util.IdentityHashMap

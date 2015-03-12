@@ -2,12 +2,10 @@ package tarski
 
 import tarski.AST._
 import tarski.Denotations.{BooleanLit, NullLit}
-import tarski.Environment.{TwoEnv, Env}
+import tarski.Environment.Env
 import tarski.Items._
 import tarski.JavaItems._
-import tarski.Tries.Trie
 import tarski.Types._
-import utility.Locations.SRange
 import utility.Utility._
 
 object Base {
