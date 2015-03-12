@@ -417,6 +417,29 @@ object Items {
     override def name = "equals"
   }
 
+  case object ClassItem extends BaseItem {
+    def name = "Class"
+    def isClass = true
+    def isEnum = false
+    val base = ObjectType
+    private val T = SimpleTypeVar("T")
+    def parent = JavaLangPkg
+    val tparams = List(T)
+    val supers = List(base)
+    val superItems = List(ObjectItem)
+    def isFinal = true
+  }
+
+  case object GetClassItem extends MethodItem {
+    override def retVal = ClassItem.generic(List(WildSub()))
+    override def variadic = false
+    override def params = Nil
+    override def parent = ObjectItem
+    override def tparams = Nil
+    override def isStatic = false
+    override def name = "getClass"
+  }
+
   case class DefaultConstructorItem(parent: ClassItem) extends ConstructorItem {
     val tparams = Nil
     val variadic = false

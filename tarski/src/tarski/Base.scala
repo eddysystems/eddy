@@ -211,7 +211,7 @@ object Base {
     NumberItem,ByteItem,ShortItem,IntegerItem,LongItem,FloatItem,DoubleItem,
     SystemItem,
     // Methods (methods must currently be uniquely identified by name within the class, and they must not be constructors)
-    StringEqualsItem,
+    StringEqualsItem, GetClassItem,
     // Interfaces
     CloneableItem,SerializableItem,CharSequenceItem,ComparableItem,IterableItem,
     // Exception base classes
