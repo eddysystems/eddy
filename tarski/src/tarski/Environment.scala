@@ -279,7 +279,10 @@ object Environment {
       val v = if      ((v0 eq null) || v0.isEmpty) v1
               else if ((v1 eq null) || v1.isEmpty) v0
               else v1++v0
-      uniform(Pr.objectOfItem,v filter (_.accessible(place)),s"Value of item ${show(t)} not found")
+      if (v != null)
+        uniform(Pr.objectOfItem,v filter (_.accessible(place)),s"Value of item ${show(t)} not found")
+      else
+        fail(s"Value of item ${show(t)} not found")
     }
 
     // Used only for tests
