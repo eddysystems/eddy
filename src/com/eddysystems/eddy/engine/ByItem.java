@@ -8,12 +8,17 @@ import com.intellij.psi.search.PsiShortNamesCache;
 import com.intellij.util.Processor;
 import com.intellij.util.SmartList;
 import com.intellij.util.indexing.IdFilter;
-import tarski.*;
-import tarski.Items.*;
-import tarski.JavaScores.*;
-import tarski.Scores.*;
-import java.util.*;
 import scala.runtime.AbstractFunction0;
+import tarski.*;
+import tarski.Items.Item;
+import tarski.Items.TypeItem;
+import tarski.Items.Value;
+import tarski.JavaScores.LazyBiased;
+import tarski.Scores.Best;
+import tarski.Scores.Empty$;
+import tarski.Scores.Scored;
+
+import java.util.*;
 
 public class ByItem implements ValueByItemQuery {
   private final Map<TypeItem,Scored<Value>> cache = new HashMap<TypeItem,Scored<Value>>();
@@ -30,7 +35,7 @@ public class ByItem implements ValueByItemQuery {
     this.globals = globals;
     this.pairs = pairs;
     this.converter = converter;
-    this.locals = JavaItems.valuesByItem(locals);
+    this.locals = JavaItems.valuesByItem(locals, true); // locals byItem map contains an entry for ObjectItem
     this.psiCache = PsiShortNamesCache.getInstance(converter.project);
     this.scope = ProjectScope.getProjectScope(converter.project);
     this.filter = IdFilter.getProjectIdFilter(converter.project, true);

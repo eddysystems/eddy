@@ -76,6 +76,8 @@ object Environment {
     // Add local objects (they all appear in inScope with priority scope)
     def extendLocal(things: Array[Item], scope: Int = 1): Env =
       extend(things,(things map ((_,scope))).toMap)
+    // add an existing item to scope
+    def addScope(things: (Item,Int)*): Env
 
     // Is an item in scope and not shadowed by another item?
     private lazy val _inScope: java.util.Set[Item] = {
@@ -188,7 +190,7 @@ object Environment {
   object Env {
     def apply(items: Array[Item], scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace): TwoEnv =
         TwoEnv(Trie(items),Trie.empty,
-               valuesByItem(items),new java.util.HashMap[TypeItem,Array[Value]](),
+               valuesByItem(items,false),new java.util.HashMap[TypeItem,Array[Value]](),
                scope,place)
   }
 
@@ -221,6 +223,10 @@ object Environment {
       LazyEnv(trie0,trie1,added.add(things),byItem,this.scope++scope,place)
     }
 
+    override def addScope(things: (Item,Int)*): Env = {
+      LazyEnv(trie0,trie1,added.add(things.map(_._1).toArray),byItem,this.scope++things,place)
+    }
+
     protected override def _exactQuery(typed: Array[Char]): List[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
       (trie1.exact(typed) ++ trie0.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
@@ -251,8 +257,14 @@ object Environment {
     def add(item: Item, scope: Int) = extend(Array(item), Map(item->scope))
     def extend(things: Array[Item], scope: Map[Item,Int]) =
       TwoEnv(trie0,trie1++things,
-             byItem0,valuesByItem(trie1.values++things),
+             byItem0,valuesByItem(trie1.values++things,true),
              this.scope++scope,place)
+    def addScope(things: (Item,Int)*): Env = {
+      val ta = things.map(_._1).toArray
+      TwoEnv(trie0,trie1++ta,
+             byItem0,valuesByItem(trie1.values++ta,true),
+             this.scope++things,place)
+    }
 
     def move(to: PlaceInfo) =
       TwoEnv(trie0,trie1,byItem0,byItem1,scope,to)

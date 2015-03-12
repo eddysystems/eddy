@@ -154,7 +154,7 @@ class TestEnvironment {
       }
       val items = Array.tabulate(n)(randomItem)
       val values = items collect {case v:Local => v}
-      val by = valuesByItem(items).asScala
+      val by = valuesByItem(items,false).asScala
 
       // All values should be included
       assertSetsEqual(values,by.values.flatten)
@@ -163,7 +163,7 @@ class TestEnvironment {
         assert(vs.size == vs.toSet.size)
         vs foreach (v => assert(isSubitem(v.item,i)))
       }
-      // Every super of a value should be included, except for Object
+      // Every super of a value should be included, except for Object (because we passed addObject=false above)
       values foreach (v => superItems(v.item) foreach (i => if (i != ObjectItem) assert(by(i) contains v)))
     }
   }

@@ -7,21 +7,21 @@ import java.util.*;
 
 public class JavaItems {
 
-  public static Map<TypeItem, Value[]> valuesByItem(Map<Item,Integer> vs) {
+  public static Map<TypeItem, Value[]> valuesByItem(Map<Item,Integer> vs, boolean addObject) {
     int n = vs.size();
     Item[] a = new Item[n];
     n = 0;
     for (Map.Entry<Item,Integer> e : vs.entrySet()) {
       a[n++] = e.getKey();
     }
-    return valuesByItem(a);
+    return valuesByItem(a, addObject);
   }
 
-  public static Map<TypeItem, Value[]> valuesByItem(java.util.List<Item> vs) {
-    return valuesByItem(vs.toArray(new Item[vs.size()]));
+  public static Map<TypeItem, Value[]> valuesByItem(java.util.List<Item> vs, boolean addObject) {
+    return valuesByItem(vs.toArray(new Item[vs.size()]), addObject);
   }
 
-  public static <V extends Item> Map<TypeItem,Value[]> valuesByItem(V[] vs) {
+  public static <V extends Item> Map<TypeItem,Value[]> valuesByItem(V[] vs, boolean addObject) {
     // Turn debugging on or off
     final boolean debug = false;
 
@@ -44,7 +44,7 @@ public class JavaItems {
         work.push((RefTypeItem)t);
         while (!work.isEmpty()) {
           final RefTypeItem s = work.pop();
-          if (s == ObjectItem$.MODULE$)
+          if (!addObject && s == ObjectItem$.MODULE$)
             continue;
           count.put(s,count.get(s)+1);
           List<RefTypeItem> ss = s.superItems();
@@ -82,7 +82,7 @@ public class JavaItems {
         work.push((RefTypeItem)t);
         while (!work.isEmpty()) {
           final RefTypeItem s = work.pop();
-          if (s == ObjectItem$.MODULE$)
+          if (!addObject && s == ObjectItem$.MODULE$)
             continue;
           final int n = count.get(s);
           Value[] va = results.get(s);

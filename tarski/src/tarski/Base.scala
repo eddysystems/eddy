@@ -237,5 +237,5 @@ object Base {
   )
 
   val extraEnv = silenced(Env(extraItems))
-  val extraByItem = valuesByItem(extraItems)
+  val extraByItem = valuesByItem(extraItems, false)
 }

@@ -1404,8 +1404,8 @@ class TestDen {
     val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
     val tA = ThisItem(A)
-    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f))
-    test("getClass()", ApplyExp(MethodDen(None,GetClassItem,r),Nil,a,auto=false));
+    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f)).addScope((GetClassItem,3))
+    test("getClass()", ApplyExp(MethodDen(None,GetClassItem,r),Nil,a,auto=false))
   }
 
   @Test def getClassType(): Unit = {
