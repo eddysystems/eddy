@@ -168,6 +168,7 @@ object Pr {
   // denoteExp(AExp)
   val staticFieldExpWithObject = Prob("static field with object",.7)
   val fieldExp = base
+  val dropCall = Prob("drop call", .1)
   def callExp(list: KList[AExp], around: Around) =
     if (around.isParens && (list.list.size < 2 || list.isInstanceOf[CommaList[_]])) base
     else Prob(s"call (list $list, around $around)",.6)

@@ -239,7 +239,7 @@ class TestDen {
     test("int[] x = {1,2,3}", "x", x => VarStmt(Nil,ArrayType(IntType),r,(x,ArrayExp(r,IntType,r,List(1,2,3),a)),env))
   }
 
-  @Test def noIndex() = testFail("x = 1[]")
+  @Test def dropIndex() = test("x = 1[]", "x", x => VarStmt(Nil,IntType,r,List(VarDecl(x,r,Nil,Some((r,IntLit(1,"1",r))),env)), env))
 
   @Test
   def makeAndSet() =

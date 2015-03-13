@@ -309,8 +309,9 @@ object Semantics {
         case f:Exp => fail(s"Expressions are not callable, f = $f")
         case f:PackageDen => fail(s"Packages are not callable, f = $f")
       })
-      if (n == 0) call // No arguments is never array access
-      else {
+      if (n == 0) { // No arguments is never array access, but maybe the call is spurious
+        call ++ biased(Pr.dropCall, denoteExp(f))
+      } else {
         val ci = call ++ biased(Pr.indexCallExp(xsn,around),
           productWith(fs.collect({case f:Exp if hasDims(f.ty,n) => f},show(e)+s": expected >= $n dimensions"),
             product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp(_,_,around.a))))
