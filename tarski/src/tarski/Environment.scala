@@ -97,13 +97,13 @@ object Environment {
     def pushScope: Env
 
     // Add variables and fields.  Each variable is consumed by one of the fs.
-    def newVariables[A](names: List[String], isFinal: Boolean, fs: List[(Env,Local) => A]): Scored[List[Type] => (Env,List[A])] = {
+    def newVariables[A](names: List[String], isFinal: Boolean, fs: List[(Env,NormalLocal) => A]): Scored[List[Type] => (Env,List[A])] = {
       val set = names.toSet
       if (set.size < names.size) fail(s"Duplicate name among ${names mkString ", "}")
       else place.place match {
         case c:CallableItem => scope collect { case (v:Local,_) if set.contains(v.name) => v.name } match {
           case Nil => known((ts: List[Type]) => {
-            @tailrec def loop(as: List[A], env: Env, ns: List[String], ts: List[Type], fs: List[(Env,Local) => A]): (Env,List[A]) = (ns,ts,fs) match {
+            @tailrec def loop(as: List[A], env: Env, ns: List[String], ts: List[Type], fs: List[(Env,NormalLocal) => A]): (Env,List[A]) = (ns,ts,fs) match {
               case (Nil,Nil,Nil) => (env,as.reverse)
               case (n::ns,t::ts,f::fs) =>
                 val x = NormalLocal(n,t,isFinal)
@@ -119,8 +119,8 @@ object Environment {
       }
     }
 
-    def newVariable(name: String, isFinal: Boolean): Scored[Type => (Env,Local)] =
-      newVariables(List(name),isFinal,List((e:Env,x:Local) => x)) map (f => (t: Type) => f(List(t)) match {
+    def newVariable(name: String, isFinal: Boolean): Scored[Type => (Env,NormalLocal)] =
+      newVariables(List(name),isFinal,List((e:Env,x:NormalLocal) => x)) map (f => (t: Type) => f(List(t)) match {
         case (e,List(x)) => (e,x)
         case _ => impossible
       })

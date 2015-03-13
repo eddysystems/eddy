@@ -750,7 +750,7 @@ object Semantics {
       case TokAStmt(t,r) => known(TokStmt(t,r,env))
       case ParenAStmt(x,_) => biased(Pr.weirdParensStmt,denoteStmt(x)(env) map needBlock)
       case VarAStmt(m,t,ds) => modifiers(m,Final) flatMap (isFinal => {
-        def process(d: AVarDecl)(env: Env, x: Local): Scored[VarDecl] = d match {
+        def process(d: AVarDecl)(env: Env, x: NormalLocal): Scored[VarDecl] = d match {
           case AVarDecl(_,xr,k,None) => known(VarDecl(x,xr,k,None,env))
           case AVarDecl(_,xr,k,Some((eq,i))) => denoteAssignsTo(i,x.ty)(env) map (i => VarDecl(x,xr,k,Some(eq,i),env))
         }
