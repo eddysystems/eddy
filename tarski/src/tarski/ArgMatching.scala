@@ -48,7 +48,7 @@ object ArgMatching {
           val straightAdd = processNext(used :+ x, revAppend(prev,next))
 
           // TODO: use looseCompatible(f,tys,effectiveExpects) earlier to check whether it's legal to avoid generating tons of useless options
-          val arrayAdd = if (f.params(k).item != ArrayItem) Empty else {
+          val arrayAdd = if (dimensions(f.params(k)) <= dimensions(x.ty)) Empty else {
             val variadicParam = f.variadic && k == np-1
             val effectiveExpects = if (checkExpectedEarly || prev.isEmpty && next.isEmpty) expects else None
 
