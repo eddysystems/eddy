@@ -110,6 +110,9 @@ object Memory {
         .add("removeQualifiers",removeQualifiers)
         .add("startDelay",startDelay)
 
+  def eddyError(base:Info, e: Throwable) =
+    base.add("kind", "Eddy.error").error(e)
+
   // If we can't find a host, don't retry for a while
   private val waitAfterFail = 300.0 // 5 min
   private var lastFailedTime = Double.MinValue
