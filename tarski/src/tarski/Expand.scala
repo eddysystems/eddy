@@ -92,7 +92,7 @@ object Expand {
 
   implicit def expandCallable(c: Callable): Scored[Callable] = c match {
     case TypeApply(f,ts,a,hide) => expandCallable(f) map (f => TypeApply(f.asInstanceOf[NotTypeApply],ts,a,hide))
-    case MethodDen(x,f,fr) => expand(x) map (MethodDen(_,f,fr))
+    case MethodDen(x,t,f,fr) => expand(x) map (MethodDen(_,t,f,fr))
     case _:ForwardDen => known(c)
     case NewDen(nr,x,f,fr,ts) => expand(x) map (NewDen(nr,_,f,fr,ts))
     case NewArrayDen(nr,t,tr,ns,ds) => expand(ns) map (NewArrayDen(nr,t,tr,_,ds))

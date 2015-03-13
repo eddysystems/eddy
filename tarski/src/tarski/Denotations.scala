@@ -66,7 +66,7 @@ object Denotations {
       case _ => throw new RuntimeException("TypeApply already has type arguments")
     }
   }
-  case class MethodDen(x: Option[Exp], f: MethodItem, fr: SRange) extends NotTypeApply {
+  case class MethodDen(x: Option[Exp], obj: Option[RefType], f: MethodItem, fr: SRange) extends NotTypeApply {
     def r = fr unionR x
     def dot = fr.before
     private lazy val parentEnv: Tenv = x match {
@@ -77,8 +77,19 @@ object Denotations {
     def tparams = f.tparams
     def variadic = f.variadic
     lazy val params = f.params.map(_.substitute(parentEnv))
-    lazy val result = f.retVal.substitute(parentEnv)
-    def callType(ts: List[TypeArg]) = f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
+    lazy val result = if (f == GetClassItem) ClassObjectItem.generic(List(WildSub(obj.get.raw)))
+                      else f.retVal.substitute(parentEnv) // = callType(Nil)
+    def callType(ts: List[TypeArg]) = if (f == GetClassItem) if (ts.nonEmpty) impossible else result
+                                      else f.retVal.substitute(capture(tparams,ts,parentEnv)._1)
+  }
+  object MethodDen {
+    def apply(x: Option[Exp], f: MethodItem, fr: SRange)(implicit env: Env): MethodDen = {
+      if (f != GetClassItem) MethodDen(x,None,f,fr)
+      else x match {
+        case x@Some(xx) => MethodDen(x,Some(xx.ty.asInstanceOf[RefType]),GetClassItem,fr)
+        case None => MethodDen(None,Some(env.getThis.ty),GetClassItem,fr)
+      }
+    }
   }
   case class ForwardDen(x: ThisOrSuper, xr: SRange, f: ConstructorItem) extends NotTypeApply {
     def r = xr
@@ -159,6 +170,12 @@ object Denotations {
   type Dims = List[SGroup]
   case class VarDecl(x: Local, xr: SRange, d: Dims, i: Option[(SRange,Exp)], env: Env) extends HasRange {
     def r = i match { case None => xr; case Some((_,i)) => xr union i.r }
+
+    // because when we're created, the variable we're declaring is made, we can't compare the local by reference.
+    override def equals(o: Any) = o match {
+      case o: VarDecl => (o.x isSame x) && xr == o.xr && d == o.d && i == o.i && env == o.env
+      case _ => false
+    }
   }
 
   // Statements

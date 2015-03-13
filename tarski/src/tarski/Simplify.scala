@@ -10,7 +10,7 @@ import utility.Utility.impossible
 object Simplify {
   def simplify(c: Callable): Callable = c match {
     case TypeApply(f,ts,a,hide) => TypeApply(simplify(f).asInstanceOf[NotTypeApply],ts,a,hide)
-    case MethodDen(x,f,fr) => MethodDen(x map (simplify(_,superValid=true)),f,fr)
+    case MethodDen(x,t,f,fr) => MethodDen(x map (simplify(_,superValid=true)),t,f,fr)
     case _:ForwardDen => c
     case NewDen(nr,x,f,fr,ts) => NewDen(nr,x map (simplify(_)),f,fr,ts)
     case NewArrayDen(nr,t,tr,ns,ds) => NewArrayDen(nr,t,tr,ns map simplify,ds)

@@ -1410,9 +1410,12 @@ class TestDen {
 
   @Test def getClassType(): Unit = {
     val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
+    val x = NormalLocal("x",StringType,isFinal=true)
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
     val tA = ThisItem(A)
-    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f))
-    test("Class<? extends A> cls = this.getClass()", "cls", cls => VarStmt(Nil,ClassItem.generic(List(WildSub(A.inside))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(tA,GetClassItem,r),Nil,a,false))),env)),env))
+    implicit val env = localEnvWithBase(A,f,x,tA).addScope((GetClassItem,3)).move(PlaceInfo(f))
+    test("Class<? extends A> cls = getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(A.raw))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(None,Some(A.inside),GetClassItem,r),Nil,a,false))),env)),env))
+    test("Class<? extends A> cls = this.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(A.raw))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(tA,GetClassItem,r),Nil,a,false))),env)),env))
+    test("Class<? extends String> cls = x.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(StringType))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(x,GetClassItem,r),Nil,a,false))),env)),env))
   }
 }

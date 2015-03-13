@@ -58,7 +58,7 @@ object TestUtils {
   implicit def toOExp(e: Exp): Option[Exp] = Some(e)
 
   // Callable implicit conversions
-  implicit def toCall(x: MethodItem): NotTypeApply = if (x.isStatic) MethodDen(None,x,r) else impossible
+  implicit def toCall(x: MethodItem)(implicit env: Env): NotTypeApply = if (x.isStatic) MethodDen(None,x,r) else impossible
 
   // Type implicit conversions
   implicit def toType(c: ClassItem): ClassType = c.simple

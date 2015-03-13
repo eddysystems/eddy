@@ -341,6 +341,8 @@ object Items {
     override def toString = "local:" + name
     def ty: Type
     def item = ty.item
+
+    def isSame(x: Local): Boolean = getClass == x.getClass && name == x.name && ty == x.ty && isFinal == x.isFinal
   }
   case class NormalLocal(name: Name, ty: Type, isFinal: Boolean = true) extends Local {}
   sealed abstract class ThisOrSuper extends Value with ClassMember {
@@ -417,7 +419,7 @@ object Items {
     override def name = "equals"
   }
 
-  case object ClassItem extends BaseItem {
+  case object ClassObjectItem extends BaseItem {
     def name = "Class"
     def isClass = true
     def isEnum = false
@@ -431,7 +433,7 @@ object Items {
   }
 
   case object GetClassItem extends MethodItem {
-    override def retVal = ClassItem.generic(List(WildSub()))
+    override def retVal = ClassObjectItem.generic(List(WildSub()))
     override def variadic = false
     override def params = Nil
     override def parent = ObjectItem
