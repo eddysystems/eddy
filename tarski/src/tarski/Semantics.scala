@@ -465,8 +465,9 @@ object Semantics {
     case AAnonClassExp(x,as,aa,AAnonClassBody(b,br)) if m.exp => denoteAnonNew(x,expects) flatMap { x =>
       // fill stuff into the constructor (inside should be a NewDen)
       ArgMatching.fiddleCall(x,as.list map (denoteExp(_)),aa.a,expects,auto=false,checkExpectedEarly=true,ArgMatching.useAll)
-    } flatMap { case ApplyExp(exp,args,arga,_) =>
-      known(AnonClassExp(exp,args,arga,TokClassBody(b,br)))
+    } map {
+      case ApplyExp(exp,args,a,_) => AnonClassExp(exp,args,a,TokClassBody(b,br))
+      case _ => impossible
     }
 
     case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
@@ -684,7 +685,8 @@ object Semantics {
 
   @tailrec def isVariable(e: Exp)(implicit env: Env): Boolean = e match {
     // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
-    case _:Lit|_:ThisOrSuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
+    case _:Lit|_:ThisOrSuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp
+        |_:AnonClassExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
     case LocalExp(i,_) => !i.isFinal
     case _:CastExp => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5

@@ -80,6 +80,7 @@ object Expand {
     case TypeApplyAExp(e,t,tr,after) => productWith(expand(e),expand(t))(TypeApplyAExp(_,_,tr,after))
     case ApplyAExp(e,xs,l) => productWith(expand(e),expand(xs))(ApplyAExp(_,_,l))
     case NewAExp(qe,newr,t,e,ns) => productWith(expand(qe),expand(t),expand(e))(NewAExp(_,newr,_,_,ns))
+    case AAnonClassExp(e,as,aa,b) => productWith(expand(e),expand(as))(AAnonClassExp(_,_,aa,b))
     case UnaryAExp(op,opr,e) => expand(e) map (UnaryAExp(op,opr,_))
     case BinaryAExp(op,opr,e0,e1) => productWith(expand(e0),expand(e1))(BinaryAExp(op,opr,_,_))
     case CastAExp(t,a,e) => productWith(expand(t),expand(e))(CastAExp(_,a,_))
