@@ -45,3 +45,25 @@ write-only.  Since the "install" key is random, a malicious user can only stomp
 on their own data, which is harmless.
 
 IAM login link: https://909287615191.signin.aws.amazon.com/console
+
+### Release Checklist
+
+When releasing, do at least these things: 
+
+- Change the version number in both `.idea13/plugin.xml` and `.idea14/plugin.xml`.
+- Commit and push. The build will include -dirty and/or -local for the build id if you don't do that.
+- Create a tag called release-<version> and push that
+- Write release notes 
+- For both Idea13 and Idea14 do
+  - Rebuild project
+  - Make sure `resources/eddy.properties` was properly generated (the version and build number is correct)
+  - Run all tests
+  - Run as plugin and make sure something works
+  - Run "Prepare plugin module eddy for deployment" from the Build menu
+  - Run `make eddy.jar` from the command line
+  - Install the resulting jar as plugin, restart, and check that it works
+  - Copy the resulting .jar file to website/download/eddy-<version>-(13|14).jar
+  - Upload the resulting .jar file to [plugin repository](http://plugins.jetbrains.com/plugin/7688?pr=idea)
+  - Add a short version of the release notes to the plugin's feed
+- Push website and pull from mt to make the version available for download immediately
+- Make a forum post with the release notes

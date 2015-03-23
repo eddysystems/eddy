@@ -1418,4 +1418,12 @@ class TestDen {
     test("Class<? extends A> cls = this.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(A.raw))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(tA,GetClassItem,r),Nil,a,false))),env)),env))
     test("Class<? extends String> cls = x.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(StringType))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(x,GetClassItem,r),Nil,a,false))),env)),env))
   }
+
+  @Test def instanceofGeneric() = {
+    val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
+    val B = NormalClassItem("B")
+    val x = NormalLocal("x",A.generic(List(B)))
+    implicit val env = localEnvWithBase(A,B,x)
+    test("if x instanceof A<B>",IfStmt(r,InstanceofExp(x,r,A.raw,r),a,h))
+  }
 }

@@ -185,13 +185,14 @@ object Semantics {
 
   @inline def denoteExp   (e: AExp, expects: Option[Type] = None)(implicit env: Env): Scored[Exp] = denote(e,ExpMode,expects).asInstanceOf[Scored[Exp]]
   @inline def denoteType  (e: AExp)(implicit env: Env): Scored[TypeDen]   = denote(e,TypeMode).asInstanceOf[Scored[TypeDen]]
-  @inline def denoteRawRefType (e: AExp)(implicit env: Env): Scored[TypeDen] = denoteType(e) flatMap {
+  @inline def denoteParent (e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
+
+  @inline def denoteRawRefType(e: AExp)(implicit env: Env): Scored[TypeDen] = denoteType(e) flatMap {
     case x@TypeDen(t@(ObjectType|RawType(_,_)|SimpleType(_,_))) => known(x)
-    case TypeDen(t@GenericType(item,_,p)) => single(TypeDen(t), Pr.discardTypeArgsForInstanceOf)
+    case TypeDen(GenericType(i,_,p)) => single(TypeDen(RawType(i,p)),Pr.discardTypeArgsForInstanceOf)
     case TypeDen(t:PrimType) => single(TypeDen(t.box), Pr.boxInstanceOf)
     case TypeDen(t) => fail(s"instanceof $t not legal")
   }
-  @inline def denoteParent (e: AExp)(implicit env: Env): Scored[ParentDen] = denote(e,ExpMode|TypeMode|PackMode).asInstanceOf[Scored[ParentDen]]
 
   // these should always return NewDen(...) or TypeApply(NewDen(...),...)
   @inline def denoteNew    (e: AExp, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Callable]  = denote(e,NewMode|m,expects).asInstanceOf[Scored[Callable]]
@@ -465,8 +466,9 @@ object Semantics {
     case AAnonClassExp(x,as,aa,AAnonClassBody(b,br)) if m.exp => denoteAnonNew(x,expects) flatMap { x =>
       // fill stuff into the constructor (inside should be a NewDen)
       ArgMatching.fiddleCall(x,as.list map (denoteExp(_)),aa.a,expects,auto=false,checkExpectedEarly=true,ArgMatching.useAll)
-    } flatMap { case ApplyExp(exp,args,arga,_) =>
-      known(AnonClassExp(exp,args,arga,TokClassBody(b,br)))
+    } map {
+      case ApplyExp(exp,args,a,_) => AnonClassExp(exp,args,a,TokClassBody(b,br))
+      case _ => impossible
     }
 
     case _ => fail(s"${show(e)}: doesn't match mode $m ($e)")
@@ -684,7 +686,8 @@ object Semantics {
 
   @tailrec def isVariable(e: Exp)(implicit env: Env): Boolean = e match {
     // In Java, we can only assign to actual variables, never to values returned by functions or expressions.
-    case _:Lit|_:ThisOrSuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
+    case _:Lit|_:ThisOrSuperExp|_:BinaryExp|_:AssignExp|_:ApplyExp
+        |_:AnonClassExp|_:ArrayExp|_:EmptyArrayExp|_:InstanceofExp => false
     case LocalExp(i,_) => !i.isFinal
     case _:CastExp => false // TODO: java doesn't allow this, but I don't see why we shouldn't
     case _:UnaryExp => false // TODO: java doesn't allow this, but we should. Easy for ++,--, and -x = 5 should translate to x = -5
