@@ -133,8 +133,8 @@ public class Stats {
             continue;
           }
 
-          // ignore all tarski tests
-          String action = obj.getString("kind");
+          // ignore all tarski tests (some old error entries (up to 0.3) have no kind)
+          String action = obj.optString("kind", "Eddy.error");
           if (action.startsWith("TestMemory.")) {
             continue;
           }
