@@ -94,7 +94,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   }
 
   protected boolean enabled() {
-    return editor.getCaretModel().getCaretCount() == 1 && EddyPlugin.getInstance(project).isReady();
+    EddyPlugin pi = EddyPlugin.getInstance(project);
+    return editor.getCaretModel().getCaretCount() == 1 && pi != null && pi.isReady();
   }
 
   protected void process() {
