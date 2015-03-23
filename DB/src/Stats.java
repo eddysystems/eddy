@@ -37,6 +37,38 @@ public class Stats {
     Map<String,ActionData> actions = new HashMap<>();
   }
 
+  static String show(JSONArray tokens) throws JSONException {
+    StringBuilder sb = new StringBuilder();
+
+    for (int i = 0; i < tokens.length(); ++i)
+      sb.append(tokens.getJSONObject(i).getJSONObject("x").getString("s"));
+
+    return sb.toString();
+  }
+
+  static boolean sameIgnoringWhiteSpace(String input, String output) {
+    return input.replaceAll("\\s*","").equals(output.replaceAll("\\s*", ""));
+  }
+
+  static boolean wasShown(JSONObject obj) throws JSONException {
+    assert obj.getString("kind").equals("Eddy.process");
+    // check whether input is equal to output ignoring whitespace (the original works on tokens, which we don't have here,
+    // but this should be close enough for statistics)
+    JSONArray input = obj.optJSONArray("input");
+    if (input == null)
+      return false;
+    JSONArray formatted = obj.optJSONArray("formatted");
+    if (formatted == null)
+      return false;
+    for (int i = 0; i < formatted.length(); ++i) {
+      String output = formatted.getString(i);
+      if (sameIgnoringWhiteSpace(show(input),output)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static void process(String filename) {
     Map<String,ActionData> actionData = new HashMap<String,ActionData>();
 
@@ -110,6 +142,16 @@ public class Stats {
             actionData.put(action, adata);
           }
           adata.count += 1;
+
+          if (action.equals("Eddy.process") && wasShown(obj)) {
+            action = "Eddy.process (shown)";
+            adata = actionData.get(action);
+            if (adata == null) {
+              adata = new ActionData();
+              actionData.put(action, adata);
+            }
+            adata.count += 1;
+          }
 
           // install data
           InstallData idata = installData.get(install);
