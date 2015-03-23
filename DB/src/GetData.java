@@ -34,8 +34,7 @@ import static java.lang.Thread.sleep;
 public class GetData {
 
   // retrieve only this many per request
-  private static int maxFullItems = 25;
-  private static int maxStatItems = 500;
+  private static int maxFullItems = 100;
   // this many requests per second
   private static double maxRequestRate = 1;
 

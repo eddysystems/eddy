@@ -34,6 +34,9 @@ public class Stats {
     double lastActive = 0; // last user action
     double lastSeen = 0; // last user or automatic action
 
+    // mapped value is last seen timestamp
+    Map<String,Double> versions = new HashMap<>();
+
     Map<String,ActionData> actions = new HashMap<>();
   }
 
@@ -90,6 +93,7 @@ public class Stats {
       BufferedReader fi = new BufferedReader(new FileReader(filename));
       String line;
       int lineNumber = 0;
+      int actionCount = 0;
       while ((line = fi.readLine()) != null) {
         lineNumber++;
         try {
@@ -142,6 +146,7 @@ public class Stats {
             actionData.put(action, adata);
           }
           adata.count += 1;
+          actionCount += 1;
 
           if (action.equals("Eddy.process") && wasShown(obj)) {
             action = "Eddy.process (shown)";
@@ -161,6 +166,13 @@ public class Stats {
           }
           idata.activeSince = Double.min(ts, idata.activeSince);
           idata.lastSeen = Double.max(ts, idata.lastSeen);
+          String version = obj.getString("version");
+          double versionSeen = ts;
+          if (idata.versions.containsKey(version)) {
+            versionSeen = Double.max(ts,idata.versions.get(version));
+          }
+          idata.versions.put(version,versionSeen);
+
           if (action.equals("Eddy.AutoApply") || action.equals("Eddy.Apply") || action.equals("Eddy.preferences") || action.equals("Eddy.suggestion"))
             idata.lastActive = Double.max(ts, idata.lastActive);
           // install action count
@@ -209,12 +221,10 @@ public class Stats {
           System.out.println("  " + p);
 
       // print action statistics (this is pretty coarse, we may want this on a weekly basis too)
-      int ta = 0;
       for (final Map.Entry<String, ActionData> e : actionData.entrySet()) {
-        ta += e.getValue().count;
         System.out.println("number of " + e.getKey() + " actions: " + e.getValue().count);
       }
-      System.out.println("total actions: " + ta);
+      System.out.println("total actions: " + actionCount);
 
       // print time based usage for visualization
       int[] dailyActivity = new int[nhours/24+1];
