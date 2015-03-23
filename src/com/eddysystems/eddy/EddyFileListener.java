@@ -49,6 +49,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
   private static LightweightHint active_hint = null;
   private static int active_line = -1;
 
+  private final Memory.Info basics;
+
   // to keymapped actions that should affect the file listener that showed the last hint
   public static EddyFileListener activeHintInstance() {
     return active_hint_instance;
@@ -68,6 +70,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   public EddyFileListener(@NotNull Project project, TextEditor editor) {
     this.project = project;
+    this.basics = EddyPlugin.basics(project);
     this.editor = editor.getEditor();
     this.document = this.editor.getDocument();
 
@@ -221,6 +224,8 @@ public class EddyFileListener implements CaretListener, DocumentListener {
               active_hint_instance = EddyFileListener.this;
               int use_offset = Math.min(offset, editor.getDocument().getTextLength());
               HintManagerImpl.getInstanceImpl().showQuestionHint(editor, use_offset, use_offset, active_hint, action, HintManager.ABOVE);
+              // remember that we actually showed a hint
+              Memory.log(Memory.eddyHint(basics,Memory.now(),output.input.getInputTokens(),output.results),Utility.onError);
             } catch (NullPointerException e) {
               // silence null pointer exceptions in HintUtil
             }

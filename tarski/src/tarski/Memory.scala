@@ -1,6 +1,5 @@
 package tarski
 
-import org.apache.log4j.{Level, Logger}
 import tarski.Scores.Alt
 import tarski.Tokens.{Token,abbrevShowFlags}
 import tarski.Tarski.ShowStmts
@@ -55,7 +54,10 @@ object Memory {
   implicit def safeStack(x: StackTraceElement) = S(x.toString)
 
   case class Info(install: String, fs: List[Item => Item]) {
-    def itemNow(): Item = fs.foldRight((new Item).withPrimaryKey("install",install,"time",now()))(_(_))
+    def itemNow(): Item = {
+      val n = now()
+      fs.foldRight((new Item).withPrimaryKey("install",install,"time",n).withString("date",(n/86400).toInt.toString))(_(_))
+    }
     def add[A](k: String, v: A)(implicit to: Safe[A]): Info = {
       val s = safe(v)
       Info(install,((i:Item) => i.`with`(k,s)) :: fs)
@@ -93,6 +95,9 @@ object Memory {
   def eddyProcess(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], delays: JList[java.lang.Double]) =
     eddyBase(base, start, "Eddy.process", input, results)
       .add("delay",delays)
+
+  def eddyHint(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) =
+    eddyBase(base, start, "Eddy.hint", input, results)
 
   def eddySuggestion(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], suggestion: String) =
     eddyBase(base, start, "Eddy.suggestion", input, results)

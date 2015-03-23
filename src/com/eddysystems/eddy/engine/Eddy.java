@@ -84,6 +84,8 @@ public class Eddy {
     public String getText() {
       return before_text;
     }
+
+    public List<Loc<Token>> getInputTokens() { return input; }
   }
 
   // The results of the interpretation
