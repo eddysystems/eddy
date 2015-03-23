@@ -5,7 +5,9 @@
 
 # This causes problems for some people: "LVTT entry ... does not match any LVT entry"
 -optimizations !code/allocation/variable
-#-dontoptimize
+
+# Optimization messes with the stack and may cause problems, so never do it
+-dontoptimize
 
 ### Keep a few things
 
@@ -24,11 +26,14 @@
 # Amazon AWS is fragile, careful about these, test logging thoroughly, the failures here are silent
 -keep class com.amazonaws.**                            { *; }
 -keep class org.apache.commons.logging.**               { public *; }
+-keep class org.apache.log4j.Level.**                   { public *; }
+-keep class org.apache.log4j.LogXF.**                   { public *; }
 -keep class org.codehaus.**                             { public *; }
 -keep class org.joda.time.tz.Provider                   { public *; }
 -keep class org.joda.time.tz.NameProvider               { public *; }
 -keep class com.fasterxml.jackson.databind.**           { public *; }
 -keep class com.fasterxml.jackson.core.**               { public *; }
+-keep class com.fasterxml.jackson.annotation.**         { public *; }
 -keep class org.apache.http.**                          { public *; }
 
 ### Libraries
@@ -74,6 +79,7 @@
 -dontnote com.amazonaws.metrics.internal.cloudwatch.DefaultMetricCollectorFactory
 -dontnote org.bouncycastle.jce.provider.BouncyCastleProvider
 -dontnote com.eddysystems.eddy.engine.Formatter$VersionIncompatibilityCircumventer
+-dontnote org.apache.commons.logging.impl.Log4JLogger
 
 # Amazon AWS stuff
 -dontwarn javax.xml.stream.events.**
