@@ -31,7 +31,7 @@ public class TOSDialog extends DialogWrapper {
     init();
     setTitle("eddy - Terms Of Service");
     setCrossClosesWindow(false);
-    // get TOS page our of our jar or directory
+    // get TOS page out of our jar or directory
     final String pathname = PathUtil.getJarPathForClass(TOSDialog.class);
     final File path = new File(pathname);
     try {

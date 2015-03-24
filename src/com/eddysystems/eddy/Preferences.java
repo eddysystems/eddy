@@ -62,7 +62,26 @@ public class Preferences implements Configurable {
     data.setMinRelativeProbability(props.getValue("com.eddysystems.Props.minRelativeProbability", PreferenceData.defaultMinRelativeProbability));
     data.setRemoveQualifiers(props.getBoolean("com.eddysystems.Props.removeQualifiers", PreferenceData.defaultRemoveQualifiers));
     data.setStartDelay(props.getValue("com.eddysystems.Props.startDelay", PreferenceData.defaultStartDelay));
+    data.setEmail(props.getValue("com.eddysystems.Props.email", ""));
     initialized = true;
+  }
+
+  static public void save() {
+    // Save to file
+    props.setValue("com.eddysystems.Props.autoApply", Boolean.toString(data.isAutoApply()), Boolean.toString(PreferenceData.defaultAutoApply));
+    props.setValue("com.eddysystems.Props.autoApplyThreshold", data.getAutoApplyThreshold(), PreferenceData.defaultAutoApplyThreshold);
+    props.setValue("com.eddysystems.Props.autoApplyFactor", data.getAutoApplyFactor(), PreferenceData.defaultAutoApplyFactor);
+    props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
+    props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
+    props.setValue("com.eddysystems.Props.removeQualifier", Boolean.toString(data.isRemoveQualifiers()), Boolean.toString(PreferenceData.defaultRemoveQualifiers));
+    props.setValue("com.eddysystems.Props.startDelay", data.getStartDelay(), PreferenceData.defaultStartDelay);
+    props.setValue("com.eddysystems.Props.email", data.getEmail(), "");
+
+    // Log
+    Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
+      data.isAutoApply(), data.getNumericAutoApplyThreshold(), data.getNumericAutoApplyFactor(),
+      data.getNumericMinProbability(), data.getNumericMinRelativeProbability(), data.isRemoveQualifiers(),
+      data.getNumericStartDelay(), data.getEmail()), Utility.onError);
   }
 
   static public void resetToDefaults() {
@@ -117,28 +136,23 @@ public class Preferences implements Configurable {
       throw new ConfigurationException("start delay must be a number between 0 and 10 (seconds)");
     }
 
-    form.setData(data);
+    final String email = data.getEmail();
+    if (!"".equals(email) && !email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2}[a-zA-Z]*$"))
+      throw new ConfigurationException("Please enter a valid email address (or none at all)");
 
-    // Save to file
-    props.setValue("com.eddysystems.Props.autoApply", Boolean.toString(data.isAutoApply()), Boolean.toString(PreferenceData.defaultAutoApply));
-    props.setValue("com.eddysystems.Props.autoApplyThreshold", data.getAutoApplyThreshold(), PreferenceData.defaultAutoApplyThreshold);
-    props.setValue("com.eddysystems.Props.autoApplyFactor", data.getAutoApplyFactor(), PreferenceData.defaultAutoApplyFactor);
-    props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
-    props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
-    props.setValue("com.eddysystems.Props.removeQualifier", Boolean.toString(data.isRemoveQualifiers()), Boolean.toString(PreferenceData.defaultRemoveQualifiers));
-    props.setValue("com.eddysystems.Props.startDelay", data.getStartDelay(), PreferenceData.defaultStartDelay);
+    // update the data on the form
+    reset();
 
-    // Log
-    Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
-      data.isAutoApply(),data.getNumericAutoApplyThreshold(),data.getNumericAutoApplyFactor(),
-      data.getNumericMinProbability(),data.getNumericMinRelativeProbability(),data.isRemoveQualifiers(),
-      data.getNumericStartDelay()), Utility.onError);
+    // save to file
+    save();
   }
 
   @Override
   public void reset() {
     form.setData(data);
   }
+
+  public static void resetForm() { form.setData(data); }
 
   @Override
   public void disposeUIResources() {

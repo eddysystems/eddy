@@ -15,6 +15,7 @@ public class PreferencesForm {
   private JButton resetButton;
   private JCheckBox removeQualifiersCheckBox;
   private JTextField startDelay;
+  private JTextField contactEmailTextField;
 
   public PreferencesForm() {
     resetButton.addActionListener(new ActionListener() {
@@ -37,6 +38,7 @@ public class PreferencesForm {
     minRelativeProbability.setText(data.getMinRelativeProbability());
     removeQualifiersCheckBox.setSelected(data.isRemoveQualifiers());
     startDelay.setText(data.getStartDelay());
+    contactEmailTextField.setText(data.getEmail());
   }
 
   public void getData(PreferenceData data) {
@@ -47,6 +49,7 @@ public class PreferencesForm {
     data.setMinRelativeProbability(minRelativeProbability.getText());
     data.setRemoveQualifiers(removeQualifiersCheckBox.isSelected());
     data.setStartDelay(startDelay.getText());
+    data.setEmail(contactEmailTextField.getText());
   }
 
   public boolean isModified(PreferenceData data) {
@@ -61,6 +64,8 @@ public class PreferencesForm {
       return true;
     if (removeQualifiersCheckBox.isSelected() != data.isRemoveQualifiers()) return true;
     if (startDelay.getText() != null ? !startDelay.getText().equals(data.getStartDelay()) : data.getStartDelay() != null)
+      return true;
+    if (contactEmailTextField.getText() != null ? !contactEmailTextField.getText().equals(data.getEmail()) : data.getEmail() != null)
       return true;
     return false;
   }

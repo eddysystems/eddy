@@ -105,7 +105,7 @@ object Memory {
 
   def eddyProps(base: Info, autoApply: Boolean, autoApplyThreshold: Double, autoApplyFactor: Double,
                 minProbability: Double, minRelativeProbability: Double, removeQualifiers: Boolean,
-                startDelay: Double): Info =
+                startDelay: Double, email: String): Info =
     base.add("kind","Eddy.preferences")
         .add("autoApply",autoApply)
         .add("autoApplyThreshold",autoApplyThreshold)
@@ -114,6 +114,7 @@ object Memory {
         .add("minRelativeProbability",minRelativeProbability)
         .add("removeQualifiers",removeQualifiers)
         .add("startDelay",startDelay)
+        .add("email", if ("".equals(email)) "none" else email) // none is the only non-email string to ever appear here
 
   def eddyError(base:Info, e: Throwable) =
     base.add("kind", "Eddy.error").error(e)

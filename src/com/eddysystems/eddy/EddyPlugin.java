@@ -65,6 +65,35 @@ public class EddyPlugin implements ProjectComponent {
     return Memory.basics(installKey(), getVersion() + " - " + getBuild(), project != null ? project.getName() : null);
   }
 
+  private static Boolean _emailRequested = null;
+  public static boolean requestEmail() {
+    if (_emailRequested == null) {
+      final PropertiesComponent props = PropertiesComponent.getInstance();
+      final String name = "com.eddysystems.Props.emailRequested";
+      _emailRequested = props.getBoolean(name, false);
+      if (!_emailRequested) {
+        _emailRequested = true;
+        props.setValue(name, "true");
+
+        final Runnable showRunner = new Runnable() {
+          @Override
+          public void run() {
+            final EmailDialog d = new EmailDialog();
+            d.show();
+          }
+        };
+
+        // go to dispatch to show dialog
+        if (!ApplicationManager.getApplication().isDispatchThread()) {
+          LaterInvocator.invokeLater(showRunner);
+        } else {
+          showRunner.run();
+        }
+      }
+    }
+    return _emailRequested;
+  }
+
   private static Boolean _acceptedTOS = null;
   public static boolean checkTOS(boolean force) {
     if (force || _acceptedTOS == null) {
@@ -280,6 +309,9 @@ public class EddyPlugin implements ProjectComponent {
       });
       return;
     }
+
+    if (!app.isHeadlessEnvironment())
+      requestEmail();
 
     final MessageBusConnection connection = project.getMessageBus().connect();
 

@@ -15,6 +15,7 @@ public class PreferenceData {
   private boolean removeQualifiers;
   private String startDelay;
   private double numericStartDelay;
+  private String email;
 
   public static final boolean defaultAutoApply = true;
   public static final String defaultAutoApplyThreshold = "90%";
@@ -150,5 +151,13 @@ public class PreferenceData {
     } catch (NumberFormatException e) {
       numericStartDelay = Double.parseDouble(defaultStartDelay);
     }
+  }
+
+  public String getEmail() {
+    return email;
+  }
+
+  public void setEmail(final String email) {
+    this.email = email;
   }
 }
