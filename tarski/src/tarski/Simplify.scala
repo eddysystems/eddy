@@ -24,7 +24,7 @@ object Simplify {
     case BlockStmt(b,a,env) => BlockStmt(b map simplify,a,env)
     case MultipleStmt(b) => MultipleStmt(b map simplify)
     case AssertStmt(ar,c,m,env) => AssertStmt(ar,simplify(c),m map simplify,env)
-    case ReturnStmt(rr,e,env) => ReturnStmt(rr,e map (e => simplifyReturn(simplify(e))),env)
+    case ReturnStmt(rr,e,env) => ReturnStmt(rr,e map (simplify(_)),env)
     case ThrowStmt(tr,e,env) => ThrowStmt(tr,simplify(e),env)
     case IfStmt(ir,c,a,x) => IfStmt(ir,simplify(c),a,simplify(x))
     case IfElseStmt(ir,c,a,x,er,y) => IfElseStmt(ir,simplify(c),a,simplify(x),er,simplify(y))
@@ -47,11 +47,15 @@ object Simplify {
   }
   def simplifyFinally(re: (SRange,Stmt)): (SRange,Stmt) = (re._1,simplify(re._2))
 
-  def simplify(e: Exp, superValid: Boolean=false): Exp = e match {
+  def simplify(e: Exp, superValid: Boolean=false, keepUpcasts: Boolean=false): Exp = e match {
     case WhateverExp(_,_,s) => impossible
-    case ThisOrSuperExp(i:SuperItem,r) if !superValid => CastExp(i.ty,SGroup.approx(r),ThisOrSuperExp(i.down,r),gen=true)
+    case ThisOrSuperExp(i:SuperItem,r) if !superValid =>
+      val s = ThisOrSuperExp(i.down,r)
+      if (!keepUpcasts) s
+      else CastExp(i.ty,SGroup.approx(r),s,gen=true)
     case _:Lit|_:LocalExp|_:ThisOrSuperExp => e
-    case FieldExp(x,f,fr) => FieldExp(x map (x => simplifyFieldExp(simplify(x,superValid=true),f)),f,fr)
+    case FieldExp(x,f,fr) => FieldExp(x map (x => simplifyFieldExp(simplify(x,superValid=true,keepUpcasts=true),f)),f,fr)
+    case CastExp(ty,a,x,true) if !keepUpcasts && isSubitem(x.item,ty.item) => simplify(x,superValid=superValid)
     case CastExp(ty,a,x,g) => CastExp(ty,a,simplify(x),g)
     case ImpExp(op,opr,x) => ImpExp(op,opr,simplify(x))
     case NonImpExp(op,opr,x) => NonImpExp(op,opr,simplify(x))
@@ -73,12 +77,6 @@ object Simplify {
   def simplifyFieldExp(e: Exp, f: FieldItem): Exp = e match {
     case CastExp(ty,_,x,true) if isSubitem(x.item,ty.item) && !shadowedInSubtype(f,x.item.asInstanceOf[RefTypeItem]) => simplifyFieldExp(x,f)
     case CastExp(ty,_,ThisOrSuperExp(i:ThisItem,r),true) if ty.item == i.parent.base.item => ThisOrSuperExp(i.up,r)
-    case _ => e
-  }
-
-  // Remove unnecessary casts inside return e
-  def simplifyReturn(e: Exp): Exp = e match {
-    case CastExp(ty,_,x,true) if isSubitem(x.item,ty.item) => simplifyReturn(x)
     case _ => e
   }
 }
