@@ -77,6 +77,10 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.startDelay", data.getStartDelay(), PreferenceData.defaultStartDelay);
     props.setValue("com.eddysystems.Props.email", data.getEmail(), "");
 
+    // if we ever set the email to something non-empty, don't ask for it later
+    if (!"".equals(data.getEmail()))
+      props.setValue("com.eddysystems.Props.emailRequested", "true");
+
     // Log
     Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
       data.isAutoApply(), data.getNumericAutoApplyThreshold(), data.getNumericAutoApplyFactor(),

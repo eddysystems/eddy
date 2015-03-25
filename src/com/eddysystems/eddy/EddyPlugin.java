@@ -33,9 +33,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.isDebug;
@@ -51,10 +49,15 @@ public class EddyPlugin implements ProjectComponent {
     if (_install == null) {
       final PropertiesComponent props = PropertiesComponent.getInstance();
       final String name = "com.eddysystems.Props.install";
+      final String atName = "com.eddysystems.Props.installedAt";
       _install = props.getValue(name);
       if (_install == null) {
         _install = tarski.Crypto.randomKey();
         props.setValue(name,_install);
+      }
+      if (props.getValue(atName) == null) {
+        // backfill installation date to now
+        props.setValue(atName, String.format("%f", GregorianCalendar.getInstance().getTimeInMillis() / 1000.));
       }
     }
     return _install;
@@ -72,22 +75,28 @@ public class EddyPlugin implements ProjectComponent {
       final String name = "com.eddysystems.Props.emailRequested";
       _emailRequested = props.getBoolean(name, false);
       if (!_emailRequested) {
-        _emailRequested = true;
-        props.setValue(name, "true");
+        final double installedAt = Double.parseDouble(props.getValue("com.eddysystems.Props.installedAt", "1427240895.377"));
+        final double now = GregorianCalendar.getInstance().getTimeInMillis()/1000.;
 
-        final Runnable showRunner = new Runnable() {
-          @Override
-          public void run() {
-            final EmailDialog d = new EmailDialog();
-            d.show();
+        // only request email once five days since the installation are over
+        if (now - installedAt > 86400 * 5) {
+          _emailRequested = true;
+          props.setValue(name, "true");
+
+          final Runnable showRunner = new Runnable() {
+            @Override
+            public void run() {
+              final EmailDialog d = new EmailDialog();
+              d.show();
+            }
+          };
+
+          // go to dispatch to show dialog
+          if (!ApplicationManager.getApplication().isDispatchThread()) {
+            LaterInvocator.invokeLater(showRunner);
+          } else {
+            showRunner.run();
           }
-        };
-
-        // go to dispatch to show dialog
-        if (!ApplicationManager.getApplication().isDispatchThread()) {
-          LaterInvocator.invokeLater(showRunner);
-        } else {
-          showRunner.run();
         }
       }
     }
@@ -298,6 +307,7 @@ public class EddyPlugin implements ProjectComponent {
   public void initComponent() {
 
     log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
+    log("now is " + String.format("%f",GregorianCalendar.getInstance().getTimeInMillis()/1000.));
 
     if (!app.isHeadlessEnvironment() && !checkTOS(false)) {
       log("TOS not accepted, starting in disabled mode.");
