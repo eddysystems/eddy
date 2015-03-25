@@ -254,6 +254,7 @@ public class Eddy {
       final int sline = document.getLineNumber(input.range.getStartOffset());
       final int fline = document.getLineNumber(afterOffset);
       for (int i = sline; i <= fline; ++i) {
+        PsiDocumentManager.getInstance(eddy.project).doPostponedOperationsAndUnblockDocument(document);
         csm.adjustLineIndent(document, document.getLineStartOffset(i));
       }
 
