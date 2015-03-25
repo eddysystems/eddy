@@ -28,7 +28,7 @@ $(ACTIONS): $(AMBIGUITY) $(GRAM)
 commit: 
 	@echo $(COMMIT)$(DIRTY)$(LOCAL)
 
-eddy.jar: eddy.zip .idea/shrink.pro
+eddy.jar: eddy.zip shrink.pro
 	proguard @shrink.pro
 
 .PHONY: install
