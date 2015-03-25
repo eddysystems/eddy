@@ -66,7 +66,7 @@ public class ByItem implements ValueByItemQuery {
         };
 
         // Check the current global map
-        final Set<String> names = globals.get(qual);
+        final Set<String> names = globals == null ? null : globals.get(qual);
         if (names != null) {
           if (thread != null) thread.pushSoftInterrupts();
           for (final String name : names)
