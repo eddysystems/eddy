@@ -9,7 +9,6 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
-import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.progress.PerformInBackgroundOption;
@@ -33,7 +32,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.util.*;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.isDebug;
@@ -93,7 +95,7 @@ public class EddyPlugin implements ProjectComponent {
 
           // go to dispatch to show dialog
           if (!ApplicationManager.getApplication().isDispatchThread()) {
-            LaterInvocator.invokeLater(showRunner);
+            ApplicationManager.getApplication().invokeLater(showRunner);
           } else {
             showRunner.run();
           }
@@ -127,7 +129,7 @@ public class EddyPlugin implements ProjectComponent {
         if (!ApplicationManager.getApplication().isDispatchThread()) {
           // we have to wait manually, because getting the current modality isn't a thing that 13 lets us do outside of
           // dispatch
-          LaterInvocator.invokeLater(showRunner);
+          ApplicationManager.getApplication().invokeLater(showRunner);
           try {
             synchronized (done) {
               done.wait();

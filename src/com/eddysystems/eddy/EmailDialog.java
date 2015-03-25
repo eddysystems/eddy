@@ -51,7 +51,6 @@ public class EmailDialog extends DialogWrapper {
   }
 
   @Nullable
-  @Override
   protected ActionListener createCancelAction() {
     return null;//Prevent closing by <Esc>
   }

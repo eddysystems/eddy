@@ -9,7 +9,6 @@ import com.intellij.codeInsight.hint.HintManagerImpl;
 import com.intellij.codeInsight.hint.QuestionAction;
 import com.intellij.codeInsight.intention.impl.IntentionHintComponent;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.impl.LaterInvocator;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.event.CaretEvent;
@@ -165,7 +164,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   private void updateIntentions() {
     if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
-      LaterInvocator.invokeLater(new Runnable() {
+      ApplicationManager.getApplication().invokeLater(new Runnable() {
         @Override
         public void run() {
           try {
