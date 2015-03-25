@@ -51,9 +51,9 @@ IAM login link: https://909287615191.signin.aws.amazon.com/console
 When releasing, do at least these things: 
 
 - Change the version number in both `.idea13/plugin.xml` and `.idea14/plugin.xml`.
+- Add release notes to both plugin.xml files.
 - Commit and push. The build will include -dirty and/or -local for the build id if you don't do that.
 - Create a tag called release-<version> and push that
-- Write release notes 
 - For both Idea13 and Idea14 do
   - Rebuild project
   - Make sure `resources/eddy.properties` was properly generated (the version and build number is correct)
@@ -64,6 +64,5 @@ When releasing, do at least these things:
   - Install the resulting jar as plugin, restart, and check that it works
   - Copy the resulting .jar file to website/download/eddy-<version>-(13|14).jar
   - Upload the resulting .jar file to [plugin repository](http://plugins.jetbrains.com/plugin/7688?pr=idea)
-  - Add a short version of the release notes to the plugin's feed
 - Push website and pull from mt to make the version available for download immediately
-- Make a forum post with the release notes
+- Make a forum post with the release notes (can/should be more verbose than the plugin.xml version)
