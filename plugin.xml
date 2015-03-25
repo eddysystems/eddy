@@ -1,7 +1,7 @@
 <idea-plugin version="2">
   <id>com.eddy.generator</id>
   <name>eddy</name>
-  <version>0.5-14</version>
+  <version>@version@</version>
   <vendor email="info@eddy.systems" url="https://eddy.systems">Eddy Systems</vendor>
 
   <description><![CDATA[
@@ -26,12 +26,13 @@
     <li>remove unnecessary generated upcasts</li>
     <li>fix some (caught but logged) NPEs</li>
     <li>drop type arguments inside instanceof expressions</li>
+    <li>adapt to 14.1</li>
     </ul>
     ]]>
   </change-notes>
 
   <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Build+Number+Ranges for description -->
-  <idea-version since-build="139.0" until-build="141.0"/>
+  <idea-version since-build="@since-build@" until-build="@until-build@"/>
 
   <!-- please see http://confluence.jetbrains.com/display/IDEADEV/Plugin+Compatibility+with+IntelliJ+Platform+Products
        on how to target different products -->

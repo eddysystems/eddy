@@ -9,9 +9,14 @@ GITMOD = $(strip $(shell git status --porcelain | wc -l | sed 's/\w*\(0\)[^0-9]*
 GITLOC = $(strip $(shell git status -b --porcelain | head -n 1 | awk '{ print $$3 }'))
 DIRTY = $(if $(GITMOD),-dirty,)
 LOCAL = $(if $(GITLOC),-local,)
+VERSION = $(strip $(subst release-,,$(shell git describe --tags)))
 
 all: $(PARSE) $(ACTIONS)
 jar: eddy.jar
+
+.PHONY: version
+version: 
+	@echo $(VERSION)
 
 $(PARSE): $(AMBIGUITY) $(GRAM)
 	java -jar $(AMBIGUITY) $(GRAM) > $@
