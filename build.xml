@@ -22,7 +22,7 @@
     <!-- set JDK dependent values -->
     <target name="set-135" depends="get-jdk" if="is135">
         <property name="idea-version" value="13"/>
-        <property name="since-build" value="135.0"/>
+        <property name="since-build" value="133.0"/>
         <property name="until-build" value="139.0"/>
         <echo message="setting jdk version 135"/>
     </target>
