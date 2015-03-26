@@ -251,10 +251,11 @@ public class Eddy {
 
       // reindent
       CodeStyleManager csm = CodeStyleManager.getInstance(eddy.project);
+      PsiDocumentManager mgr = PsiDocumentManager.getInstance(eddy.project);
       final int sline = document.getLineNumber(input.range.getStartOffset());
       final int fline = document.getLineNumber(afterOffset);
       for (int i = sline; i <= fline; ++i) {
-        PsiDocumentManager.getInstance(eddy.project).doPostponedOperationsAndUnblockDocument(document);
+        mgr.doPostponedOperationsAndUnblockDocument(document);
         csm.adjustLineIndent(document, document.getLineStartOffset(i));
       }
 
@@ -303,9 +304,9 @@ public class Eddy {
     }
   }
 
-  public static interface Take {
+  public interface Take {
     // Returns a new cutoff probability.  To stop entirely, return 1.
-    public double take(Output output);
+    double take(Output output);
   }
 
   public Eddy(@NotNull final Project project, final Editor editor) {
