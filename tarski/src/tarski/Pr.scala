@@ -255,6 +255,9 @@ object Pr {
     val m = new TObjectDoubleHashMap[String]()
     m.put("java.lang.System.err",.99)
     m.put("java.lang.StrictMath",.9)
+    m.put("jdk.nashorn.internal",.5)
+    m.put("com.sun",.5)
+    m.put("sun",.5)
     m
   }
   val anonymousObject = Prob("anonymous prior",1.0)
