@@ -13,6 +13,6 @@
     <orderEntry type="module" module-name="tarski" />
     <orderEntry type="library" name="com.amazonaws:aws-java-sdk-dynamodb:1.9.0" level="project" />
     <orderEntry type="module" module-name="utility" />
-    <orderEntry type="library" name="scala-sdk-2.11.2" level="application" />
+    <orderEntry type="library" name="scala-sdk-2.11.21" level="project" />
   </component>
 </module>

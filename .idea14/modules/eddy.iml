@@ -13,6 +13,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="tarski" />
     <orderEntry type="module" module-name="utility" />
-    <orderEntry type="library" name="scala-sdk-2.11.2" level="application" />
+    <orderEntry type="library" name="scala-sdk-2.11.21" level="project" />
   </component>
 </module>
