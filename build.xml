@@ -50,7 +50,7 @@
 
         <copy file="plugin.xml" todir="out/META-INF" overwrite="true">
             <filterset>
-                <filter token="version" value="${code-version}-${idea-version}"/>
+                <filter token="version" value="${code-version}"/>
                 <filter token="since-build" value="${since-build}"/>
                 <filter token="until-build" value="${until-build}"/>
             </filterset>
