@@ -76,9 +76,9 @@ public class ByItem implements ValueByItemQuery {
 
         // Check changes since last global map was constructed
         for (final TypeNameItemNamePair tn : pairs)
-          if (tn.typename.equals(qual)) {
+          if (tn.type.equals(qual)) {
             if (thread != null) thread.pushSoftInterrupts();
-            psiCache.processFieldsWithName(tn.itemname, proc, scope, filter);
+            psiCache.processFieldsWithName(tn.item, proc, scope, filter);
             if (thread != null) thread.popSoftInterrupts();
           }
 
