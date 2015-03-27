@@ -29,14 +29,14 @@
 
     <target name="set-139" depends="get-jdk" if="is139">
         <property name="idea-version" value="14"/>
-        <property name="since-build" value="139.0"/>
+        <property name="since-build" value="133.0"/>
         <property name="until-build" value="143.0"/>
         <echo message="setting jdk version 139"/>
     </target>
 
     <target name="set-141" depends="get-jdk" if="is141">
         <property name="idea-version" value="14.1"/>
-        <property name="since-build" value="139.0"/>
+        <property name="since-build" value="133.0"/>
         <property name="until-build" value="143.0"/>
         <echo message="setting jdk version 141"/>
     </target>
