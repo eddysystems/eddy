@@ -21,6 +21,14 @@
     ]]></description>
 
   <change-notes><![CDATA[
+    <p>
+    <h3>0.5.1:</h3>
+    <ul>
+    <li>fix an issue with some non-US system locales</li>
+    </ul>
+    </p>
+    <p>
+    <h3>0.5:</h3>
     <ul>
     <li>add feedback email preference</li>
     <li>remove unnecessary generated upcasts</li>
@@ -28,6 +36,7 @@
     <li>drop type arguments inside instanceof expressions</li>
     <li>adapt to 14.1</li>
     </ul>
+    </p>
     ]]>
   </change-notes>
 
