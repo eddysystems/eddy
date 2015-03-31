@@ -32,10 +32,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.text.NumberFormat;
+import java.util.*;
 
 import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.isDebug;
@@ -59,7 +57,7 @@ public class EddyPlugin implements ProjectComponent {
       }
       if (props.getValue(atName) == null) {
         // backfill installation date to now
-        props.setValue(atName, String.format("%f", GregorianCalendar.getInstance().getTimeInMillis() / 1000.));
+        props.setValue(atName, String.format(Locale.US, "%f", GregorianCalendar.getInstance().getTimeInMillis() / 1000.));
       }
     }
     return _install;
@@ -77,7 +75,18 @@ public class EddyPlugin implements ProjectComponent {
       final String name = "com.eddysystems.Props.emailRequested";
       _emailRequested = props.getBoolean(name, false);
       if (!_emailRequested) {
-        final double installedAt = Double.parseDouble(props.getValue("com.eddysystems.Props.installedAt", "1427240895.377"));
+        double installedAt = 0;
+        try {
+          try {
+            installedAt = Double.parseDouble(props.getValue("com.eddysystems.Props.installedAt", "1427240895.377"));
+          } catch (NumberFormatException e) {
+            // can't parse regular number
+            NumberFormat nf = NumberFormat.getInstance();
+            installedAt = nf.parse(props.getValue("com.eddysystems.Props.installedAt", String.format("%f", 1427240895.377))).doubleValue();
+          }
+        } catch (Exception e) {
+          // can't read installedAt value, never mind then (probably different locale when printing it)
+        }
         final double now = GregorianCalendar.getInstance().getTimeInMillis()/1000.;
 
         // only request email once five days since the installation are over
