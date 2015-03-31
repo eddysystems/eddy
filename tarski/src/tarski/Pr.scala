@@ -259,8 +259,6 @@ object Pr {
     //   f(n,k) < f(n,k+1)
     //   f(n,k) < f(n+1,k+1)
     // For now, we pick f(n,k) = ((k+1)/(k+2))^(n-k)
-    if (List("java.lang.System.out.println","java.lang.System.err.println","java.sql.DriverManager.println") contains i.qualified)
-      println(s"${i.qualified}: n $n, k $k, p ${Math.pow((k+1).toDouble/(k+2),n-k)}")
     Prob(s"qualified: n $n, k $k, ${i.qualified}",Math.pow((k+1).toDouble/(k+2),n-k))
   }
 
