@@ -123,7 +123,7 @@ class TestScores {
     def f: PartialFunction[String,B] = { case x if good(x) => B(x) }
     val af = ax collect {case Alt(p,x) if good(x) => Alt(p,B(x))}
     assertEquals(15,af.size)
-    test(af,x.collect(f,"fail"))
+    test(af,x.collect("fail",f))
   }
 
   @Test def whatever() = {
@@ -140,7 +140,7 @@ class TestScores {
 
     def tweak(wk: Int, e: Exp): Scored[Exp] = e match {
       case No => known(No)
-      case Yes(n,x) => biased(Prob("blah",p(n)),{
+      case Yes(n,x) => biased(p(n),{
         val s = tweak(wk,x) flatMap (x =>
           if (hash(n)%3 == 0) known(Yes(hash(n^12132),x)) ++ single(Yes(hash(n^981231),x),p(n^5311))
           else known(Yes(hash(n^812321),x))
@@ -152,7 +152,7 @@ class TestScores {
 
     def close[A](xs: List[Alt[A]], ys: List[Alt[A]], tol: Double = 1e-10): Boolean = (xs,ys) match {
       case (Nil,Nil) => true
-      case (Alt(p,x)::xs,Alt(q,y)::ys) => Math.abs(p-q)<tol && x==y && close(xs,ys)
+      case (Alt(p,x)::xs,Alt(q,y)::ys) => Math.abs(pp(p)-pp(q))<tol && x==y && close(xs,ys)
       case _ => false
     }
 

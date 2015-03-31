@@ -25,7 +25,7 @@ object Inference {
   // TODO: throws
 
   // Pretty printing support
-  private implicit val emptyEnv = Env(Array(),Map.empty)
+  private implicit val emptyEnv = Env(Array())
   private implicit val r = SRange.unknown
   implicit def prettyBounds(bs: Bounds): (Fixity,Tokens) = (HighestFix, Loc(IdentTok("Bounds"),r)
     :: Loc(LParenTok,r) :: commasApprox(bs.toList,r) ::: List(Loc(RParenTok,r)))

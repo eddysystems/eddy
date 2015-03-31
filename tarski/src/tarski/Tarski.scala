@@ -23,8 +23,8 @@ object Tarski {
     Trie(jvalues)
 
   def environment(trie0: Queriable[Item], trie1: Queriable[Item], byItem: ValueByItemQuery,
-                  scope: java.util.Map[Item,Integer], place: PlaceInfo): Env =
-    new LazyEnv(trie0, trie1, QueriableItemList.empty, byItem, scope.asScala.toMap.mapValues(_.intValue), place)
+                  imports: ImportTrie, scope: java.util.Map[Item,Integer], place: PlaceInfo): Env =
+    new LazyEnv(trie0, trie1, QueriableItemList.empty, byItem, imports, scope.asScala.toMap.mapValues(_.intValue), place)
 
   def print(is: Iterable[Alt[Item]]): Unit = {
     is foreach { case Alt(p,i) =>

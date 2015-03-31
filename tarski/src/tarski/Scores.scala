@@ -102,7 +102,7 @@ object Scores {
     def _filter(f: A => Boolean, error: () => String): Scored[A] = new LazyFilter(this,f,error)
 
     // Collect, turning Empty into given error
-    final def collect[B](f: PartialFunction[A,B], error: => String): Scored[B] =
+    final def collect[B](error: => String, f: PartialFunction[A,B]): Scored[B] =
       _collect(f,if (trackErrors) () => error else null)
     def _collect[B](f: PartialFunction[A,B], error: () => String): Scored[B] = new LazyCollect(this,f,error)
   }
@@ -243,7 +243,6 @@ object Scores {
   private val knownProb = Prob("known",1)
   @inline def known[A](x: A): Scored[A] = Best(knownProb,x,Empty)
   @inline def knownThen[A](x: A, s: Scored[A]) = Best(knownProb,x,good(s))
-  @inline def bestThen[A](p: Prob, x: A, s: Scored[A]) = Best(p,x,good(s))
   @inline def single[A](x: A, p: Prob): Scored[A] = Best(p,x,Empty)
   @inline def orError[A](x: Scored[A], error: => String): Scored[A] =
     if (trackErrors) new Bad(OneError(error)) ++ x

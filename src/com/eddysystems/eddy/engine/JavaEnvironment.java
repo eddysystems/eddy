@@ -2,12 +2,16 @@ package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.fileTypes.StdFileTypes;
 import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.IndexNotReadyException;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.roots.ContentIterator;
+import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.util.Computable;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.java.stubs.index.JavaFullClassNameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -76,6 +80,9 @@ public class JavaEnvironment {
 
   // map package short names (e.g. math) to a list of all qualified names (java.math, com.google.common.math)
   private PackageIndex packageIndex = null;
+
+  // Information about imports in our project
+  private ImportTrie imports = null;
 
   // the background update thread
   private Future<?> updateFuture = null;
@@ -207,6 +214,10 @@ public class JavaEnvironment {
 
       // we're initialized starting here, we can live without the makeProjectValuesByItem for a while
       _initialized = true;
+
+      if (indicator != null)
+        indicator.setText2("scanning imports");
+      imports = scanImports();
 
       if (indicator != null) {
         indicator.setText2("computing type map");
@@ -557,10 +568,47 @@ public class JavaEnvironment {
         smallTrie = new Tries.LazyTrie<Item>(smallStructure,smallGenerator);
       } finally { popScope(); }
 
+      final ImportTrie imports = this.imports != null ? this.imports : tarski.Pr.defaultImports();
+
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
-      return Tarski.environment(bigTrie, smallTrie, vbi, ep.scopeItems, ep.placeInfo);
+      return Tarski.environment(bigTrie, smallTrie, vbi, imports, ep.scopeItems, ep.placeInfo);
     } finally { popScope(); }
   }
 
+  ImportTrie scanImports() {
+    // Grab list of Java files outside of a read action
+    final List<VirtualFile> files = new SmartList<VirtualFile>();
+    ProjectRootManager.getInstance(project).getFileIndex().iterateContent(new ContentIterator() {
+      public boolean processFile(final VirtualFile file) {
+        if (file.getFileType() == StdFileTypes.JAVA)
+          files.add(file);
+        return true;
+      }
+    });
 
+    // Process each file inside a separate read action
+    final DumbService dumb = DumbService.getInstance(project);
+    final PsiManager manager = PsiManager.getInstance(project);
+    final ImportTrie imports = new ImportTrie();
+    for (final VirtualFile file : files)
+      dumb.runReadActionInSmartMode(new Runnable() { @Override public void run() {
+        if (!file.isValid()) return;
+        final PsiFile java = manager.findFile(file);
+        if (!(java instanceof PsiJavaFile)) return;
+        final PsiImportList imps = ((PsiJavaFile) java).getImportList();
+        if (imps == null) return;
+        for (final PsiImportStatementBase imp : imps.getAllImportStatements()) {
+          final PsiJavaCodeReferenceElement ref = imp.getImportReference();
+          if (ref != null) {
+            final String qual = ref.getQualifiedName();
+            if (qual != null)
+              imports.add(qual);
+          }
+        }
+      }});
+
+    // Nearly done
+    imports.addDefaults();
+    return imports;
+  }
 }

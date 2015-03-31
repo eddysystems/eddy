@@ -75,13 +75,13 @@ public class JavaScores {
   static final class DivProb extends DebugProb {
     final DebugProb x,y;
     DivProb(DebugProb x, DebugProb y) { super(pdiv(x.prob,y.prob)); this.x = x; this.y = y; }
-    final public Scores.Error pretty() { return nest("/ : "+prob,scalaList(x,y)); }
+    final public Scores.Error pretty() { return nest("/ : " + prob, x.pretty(), y.pretty()); }
   }
   public static final boolean trackProbabilities = true;
   static double pp(DebugProb x) { return x.prob; }
   static DebugProb pmul(DebugProb x, DebugProb y) { return new MulProb(x,y); }
   static double pdiv(double x, DebugProb y) { return pdiv(x,y.prob); }
-  static DebugProb pdiv(DebugProb x, DebugProb y) { return DivProb(x,y); }
+  static DebugProb pdiv(DebugProb x, DebugProb y) { return new DivProb(x,y); }
   static public Scores.Error ppretty(DebugProb x) { return x.pretty(); }
   static public final DebugProb one = new NameProb("one",1);
   /**/

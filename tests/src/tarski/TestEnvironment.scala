@@ -167,4 +167,25 @@ class TestEnvironment {
       values foreach (v => superItems(v.item) foreach (i => if (i != ObjectItem) assert(by(i) contains v)))
     }
   }
+
+  @Test def importTrie(): Unit = {
+    val it = new ImportTrie
+    splitWhitespace("com.eddy com.eddy.foo org.blah org.blah.*") foreach it.add
+    def item(names: Array[String]): Item = names.tail.foldLeft(RootPackage(names(0)):Package)(ChildPackage)
+    def check(n: Int, k: Int, qual: String): Unit = {
+      val names = qual.split("""\.""")
+      val nk = it.info(item(names),0)
+      println(s"$qual: expected $n $k, got ${ImportTrie.unpackSize(nk)} ${ImportTrie.unpackPrefix(nk)}")
+      assertEquals(n,ImportTrie.unpackSize(nk))
+      assertEquals(k,ImportTrie.unpackPrefix(nk))
+      assertEquals(nk,ImportTrie.pack(n,k))
+      assertEquals(nk,it.info(item(names++Array("zzz")),1))
+    }
+    check(2,2,"com.eddy")
+    check(3,2,"com.eddy.new")
+    check(1,1,"com")
+    check(1,0,"new")
+    check(3,3,"org.blah.new")
+    check(4,3,"org.blah.new.knew")
+  }
 }

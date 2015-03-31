@@ -119,7 +119,7 @@ object Semantics {
   }
 
   def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = {
-    def v = env.byItem(c) flatMap (denoteValue(_,cr,qualifiers)) map (x => {
+    def v = env.byItem(c) flatMap (denoteValue(_,cr,qualifiers,knowName=false)) map (x => {
       // Ensure that we return *exactly* item c.  We'll clean up the casts later if they turn out unnecessary.
       if (c == x.item) x
       else CastExp(subItemType(x.ty,c).get,SGroup.approx(cr),x,gen=true)
@@ -140,14 +140,16 @@ object Semantics {
     else qualifiersOfItem(c,ir,i::qualifiers) map (x => FieldExp(Some(x),i,ir))
   }
 
-  def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = i match {
+  // If knowName is false, the last component of the name is penalized based on how out-of-scope it is.
+  // If the last name component has already been penalized (e.g. if the user typed it), leave knowName true.
+  def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem], knowName: Boolean=true)(implicit env: Env): Scored[Exp] = i match {
     case i:Local => if (env.inScope(i)) known(LocalExp(i,ir))
                     else fail(s"Local $i is shadowed")
 
     // We can always access this, static fields, or enums.
     // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
     case LitValue(f) => known(f(ir))
-    case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i))
+    case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i,knowName=knowName))
                         else denoteFieldItem(i,ir,qualifiers)
     case i:ThisOrSuper => single(ThisOrSuperExp(i,ir),Pr.scope(i))
   }
@@ -314,11 +316,11 @@ object Semantics {
         call ++ biased(Pr.dropCall, denoteExp(f))
       } else {
         val ci = call ++ biased(Pr.indexCallExp(xsn,around),
-          productWith(fs.collect({case f:Exp if hasDims(f.ty,n) => f},show(e)+s": expected >= $n dimensions"),
+          productWith(fs.collect(show(e)+s": expected >= $n dimensions",{case f:Exp if hasDims(f.ty,n) => f}),
             product(args map (_ flatMap denoteIndex)))((a,is) => is.foldLeft(a)(IndexExp(_,_,around.a))))
         // Handle Javascript-style field access, Scala-style infix method calls, etc.
         def special(a: Scored[Den], ar: SRange, x: Name, xr: SRange, ys: List[Scored[Exp]], names: IdentityHashMap[Scored[Exp],NameAExp]): Scored[Den] = {
-          val ax = denoteField(a.collect({case a:ParentDen => a},"No parents found"),ar,x,xr,m|CallMode,None,e)
+          val ax = denoteField(a.collect("No parents found",{case a:ParentDen => a}),ar,x,xr,m|CallMode,None,e)
           def apply: Scored[Den] = ax flatMap {
             case ax:Callable => ArgMatching.fiddleCall(ax,ys,around.a,expects,auto=false,checkExpectedEarly=false,(axy,zs) => zs match {
               case Nil => known(axy)
@@ -534,55 +536,56 @@ object Semantics {
     qualifiersOfItem(qualifierItem,qr,Nil) flatMap (x =>
       uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr)))
 
-  def denoteName(n: Name, nr: SRange, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] = env.flatMap(n,s"Name $n not found",{
-    case i:ThisOrSuper if m.callExp => // ThisOrSuper <: Value, so this case must go first
-      def es: Scored[Exp] = denoteValue(i,nr,qualifiers=Nil)
-      def cs: Scored[Callable] = i match {
-        case i:ThisItem =>
-          if (env.place.forwardThisPossible(i.item))
-            biasedNotNew(m,uniformGood(Pr.forwardThis,i.item.constructors(env.place)) flatMap {
-              case cons if cons == env.place.place => fail("Can't forward to current constructor")
-              case cons => known(ForwardDen(i,nr,cons))
-            })
-          else fail(s"Can't forward to this: ${i.item}")
-        case i:SuperItem  =>
-          if (env.place.forwardSuperPossible(i.item))
-            biasedNotNew(m, uniformGood(Pr.forwardSuper,i.item.constructors(env.place)) map (ForwardDen(i,nr,_)))
-          else fail(s"Can't forward to super: ${i.item}")
-      }
-      if (!m.call) es
-      else if (!m.exp) cs
-      else es ++ cs
-    case v:Value if m.exp => denoteValue(v,nr,qualifiers=Nil)
-    case t:TypeItem =>
-      denoteTypeItem(t) flatMap { t =>
-        val s = if (!m.callExp) fail("Not in call mode") else t.item match {
-          case t:ClassItem if !m.anon && t.isAbstract => fail(s"Can't construct abstract class $t")
-          case t:ClassItem =>
-            val cons = t.constructors(env.place)
-            def unqualified = fixCall(m,expects,uniformGood(Pr.constructor,cons) map (NewDen(nr.before,None,_,nr)))
-            if (cons.length == 0) fail(s"$t has no accessible constructors")
-            else if (t.isStatic) unqualified
-            else t.parent match {
-              case tp:ClassItem =>
-                if (env.place.inClassNonstatic(tp)) unqualified
-                else fixCall(m,expects,qualifyNew(tp,nr.before,t,nr))
-              case tp => fail(s"$t's parent $tp is not a class")
-            }
-          case _ => fail(s"$t is not a class")
+  def denoteName(n: Name, nr: SRange, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] =
+    env.lookup(n) flatMap {
+      case i:ThisOrSuper if m.callExp => // ThisOrSuper <: Value, so this case must go first
+        def es: Scored[Exp] = denoteValue(i,nr,qualifiers=Nil)
+        def cs: Scored[Callable] = i match {
+          case i:ThisItem =>
+            if (env.place.forwardThisPossible(i.item))
+              biasedNotNew(m,uniformGood(Pr.forwardThis,i.item.constructors(env.place)) flatMap {
+                case cons if cons == env.place.place => fail("Can't forward to current constructor")
+                case cons => known(ForwardDen(i,nr,cons))
+              })
+            else fail(s"Can't forward to this: ${i.item}")
+          case i:SuperItem  =>
+            if (env.place.forwardSuperPossible(i.item))
+              biasedNotNew(m, uniformGood(Pr.forwardSuper,i.item.constructors(env.place)) map (ForwardDen(i,nr,_)))
+            else fail(s"Can't forward to super: ${i.item}")
         }
-        if (m.ty) knownThen(t,s) else s
-      }
-    case i:MethodItem if m.callExp => fixCall(m,expects,
-      if (i.isStatic || env.inScope(i)) single(MethodDen(None,i,nr),dropNew(m,Pr.scope(i)))
-      else biasedNotNew(m,denoteMethod(i,nr)))
-    case p:Package if m.pack => known(p)
-    case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
-  })
+        if (!m.call) es
+        else if (!m.exp) cs
+        else es ++ cs
+      case v:Value if m.exp => denoteValue(v,nr,qualifiers=Nil)
+      case t:TypeItem =>
+        denoteTypeItem(t) flatMap { t =>
+          val s = if (!m.callExp) fail("Not in call mode") else t.item match {
+            case t:ClassItem if !m.anon && t.isAbstract => fail(s"Can't construct abstract class $t")
+            case t:ClassItem =>
+              val cons = t.constructors(env.place)
+              def unqualified = fixCall(m,expects,uniformGood(Pr.constructor,cons) map (NewDen(nr.before,None,_,nr)))
+              if (cons.length == 0) fail(s"$t has no accessible constructors")
+              else if (t.isStatic) unqualified
+              else t.parent match {
+                case tp:ClassItem =>
+                  if (env.place.inClassNonstatic(tp)) unqualified
+                  else fixCall(m,expects,qualifyNew(tp,nr.before,t,nr))
+                case tp => fail(s"$t's parent $tp is not a class")
+              }
+            case _ => fail(s"$t is not a class")
+          }
+          if (m.ty) knownThen(t,s) else s
+        }
+      case i:MethodItem if m.callExp => fixCall(m,expects,
+        if (i.isStatic || env.inScope(i)) single(MethodDen(None,i,nr),dropNew(m,Pr.scope(i)))
+        else biasedNotNew(m,denoteMethod(i,nr)))
+      case p:Package if m.pack => single(p,Pr.qualifiedPrior(p,skip=1))
+      case i => fail(s"Name $n, item $i (${i.getClass}) doesn't match mode $m")
+    }
 
   def denoteField(xs: Scored[ParentDen], xr: SRange, f: Name, fr: SRange, mc: Mode, expects: Option[Type], error: AExp)(implicit env: Env): Scored[Den] = {
     def maybeMemberIn(f: Member): Boolean = f.parent.isInstanceOf[ClassOrArrayItem]
-    val fs = env.collect(f,s"$f doesn't look like a field (mode $mc)",{
+    val fs = env.lookup(f) collect (s"$f doesn't look like a field (mode $mc)",{
       case f:Value with Member if mc.exp && maybeMemberIn(f) => f
       case f:TypeItem with Member => f
       case f:MethodItem if mc.callExp && maybeMemberIn(f) => f
@@ -817,11 +820,11 @@ object Semantics {
 
       case BreakAStmt(br,l) =>
         if (!env.place.breakable) fail("Cannot break outside of a loop or switch statement.")
-        else thread(l){case Loc(l,lr) => env.collect(l,s"Label $l not found",{
+        else thread(l){case Loc(l,lr) => env.lookup(l) collect(s"Label $l not found",{
           case l:Label => Loc(l,lr) })} map (BreakStmt(br,_,env))
       case ContinueAStmt(cr,l) =>
         if (!env.place.continuable) fail("Cannot continue outside of a loop")
-        else thread(l){case Loc(l,lr) => env.collect(l,s"Continuable label $l not found",{
+        else thread(l){case Loc(l,lr) => env.lookup(l) collect(s"Continuable label $l not found",{
           case l:Label if l.continuable => Loc(l,lr) })} map (ContinueStmt(cr,_,env))
 
       case ReturnAStmt(rr,None) => returnType flatMap (r =>

@@ -1,13 +1,12 @@
 package tarski
 
-import gnu.trove.TObjectDoubleHashMap
 import utility.JavaUtils.poissonPDF
 import tarski.AST._
 import tarski.Arounds._
 import tarski.Items._
-import tarski.Scores.{Empty, Scored, Alt, Prob}
+import tarski.Scores.{Scored, Alt, Prob}
 import tarski.Types.Type
-import tarski.JavaScores.pp
+import tarski.JavaScores.{pp, pmul}
 import tarski.Environment._
 import utility.Utility
 
@@ -80,11 +79,9 @@ object Pr {
     if (first) Prob("omit first qualifier for nested class",.8)
     else Prob("omit deep qualifier for nested class",.9)
 
-  def omitPackage(t:TypeItem, p: Items.Package): Prob = {
+  def omitPackage(t: TypeItem, p: Items.Package)(implicit env: Env): Prob =
     if (Items.inPackage(t,Base.JavaLangPkg)) Prob("omit java.lang for type",.9) // if shadowed
-    else if (Items.inPackage(p,Base.JavaPkg)) Prob("omit java.* for type",.7)
-    else Prob("omit package import",.5)
-  }
+    else pmul(Prob("omit package import",.7),Pr.qualifiedPrior(p,skip=0))
 
   val argPosErrorRate = .2
 
@@ -127,17 +124,13 @@ object Pr {
   // Unqualified values that are in or out of scope
   val inScope = Prob("in scope",1)
   val outOfScope = Prob("out of scope",.8)
-  private val outOfScopeJavaLangPkg = Prob("out of scope, java.lang package", .8)
   private val outOfScopeSamePkg = Prob("out of scope, other class, same pkg", .7)
-  private val outOfScopeJavaPkg = Prob("out of scope, java.* package", .6)
-  private val outOfScopeOtherPackage = Prob("out of scope, other package",.1)
-  def scope(i: ChildItem)(implicit env: Env): Prob =
+  private val outOfScopeOtherPackage = Prob("out of scope, other package",.6)
+  def scope(i: ChildItem, knowName: Boolean=true)(implicit env: Env): Prob =
     if (env.inScope(i)) Pr.inScope
     else if (inClass(env.place.place,i.parent)) Pr.outOfScope
     else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeSamePkg
-    else if (inPackage(i, Base.JavaLangPkg)) Pr.outOfScopeJavaLangPkg
-    else if (inPackage(i, Base.JavaPkg)) Pr.outOfScopeJavaPkg
-    else Pr.outOfScopeOtherPackage
+    else pmul(Pr.outOfScopeOtherPackage,Pr.qualifiedPrior(i,skip=if (knowName) 1 else 0))
   def scope(i: ThisOrSuper)(implicit env: Env): Prob =
     if (env.inScope(i)) Pr.inScope
     else Pr.outOfScope
@@ -249,31 +242,26 @@ object Pr {
   val reasonable = Prob("reasonable",1)
   val ignoreMissingType = Prob("ignore missing type",1)
 
-  // priors are both for objects (found via byItem) and qualifiers (in Env.collect or Env.flatMap).
-  // All should be considered to have .* in the end
-  val priors: TObjectDoubleHashMap[String] = {
-    val m = new TObjectDoubleHashMap[String]()
-    m.put("java.lang.System.err",.99)
-    m.put("java.lang.StrictMath",.9)
-    m.put("jdk.nashorn.internal",.5)
-    m.put("com.sun",.5)
-    m.put("sun",.5)
-    m
+  // Default imports
+  val defaultImports = {
+    val imports = new ImportTrie
+    imports.addDefaults()
+    imports
   }
-  val anonymousObject = Prob("anonymous prior",1.0)
-  def objectPrior(s: String) = { val p = priors.get(s); Prob("prior", if (p == 0.0) 1.0 else p) } // for now, no prior means 1
-  def qualifierPrior(i: Item) = {
-    // find the biases of all parents and accumulate
-    def nest(i: Item): (String,Prob) = if (i.name == null || i.name.isEmpty) ("",anonymousObject) else i match {
-      case m:Member => { // for members, go up and re-trace the path through the qualified name
-        val n = nest(m.parent)
-        val name = n._1 + '.' + m.name
-        if (n._1.isEmpty) ("",anonymousObject) else (name, JavaScores.pmul(n._2, objectPrior(name)))
-      }
-      case rp:RootPackage => (rp.name,objectPrior(rp.name)) // any qualified name ends with a RootPackage
-      case _ => ("",anonymousObject) // anonymous things and their descendants, can't have priors for those
-    }
-    nest(i)._2
+
+  def qualifiedPrior(i: Item, skip: Int)(implicit env: Env): Prob = {
+    val info = env.imports.info(i,skip)
+    val n = ImportTrie.unpackSize(info) // Size of qualified name
+    val k = ImportTrie.unpackPrefix(info) // Part of qualified name which was imported somewhere in the project
+    // We have n >= k, and want a probability function f(n,k).  Here are some properties that f should satisfy:
+    //   f(n,n) = 1
+    //   f(n,k) > f(n+1,k)
+    //   f(n,k) < f(n,k+1)
+    //   f(n,k) < f(n+1,k+1)
+    // For now, we pick f(n,k) = ((k+1)/(k+2))^(n-k)
+    if (List("java.lang.System.out.println","java.lang.System.err.println","java.sql.DriverManager.println") contains i.qualified)
+      println(s"${i.qualified}: n $n, k $k, p ${Math.pow((k+1).toDouble/(k+2),n-k)}")
+    Prob(s"qualified: n $n, k $k, ${i.qualified}",Math.pow((k+1).toDouble/(k+2),n-k))
   }
 
   // StringModifiers should return Nil if they don't have anything to say about a name, and never return the name itself
