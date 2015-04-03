@@ -101,8 +101,9 @@ public class EddyFileListener implements CaretListener, DocumentListener {
     try {
       if (!enabled()) {
         // check if we're not initialized, and if so, try to reinitialize
-        if (!EddyPlugin.getInstance(project).isInitialized()) {
-          EddyPlugin.getInstance(project).requestInit();
+        EddyPlugin plugin = EddyPlugin.getInstance(project);
+        if (plugin != null && !plugin.isInitialized()) {
+          plugin.requestInit();
         }
         return;
       }
@@ -183,7 +184,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
             }
           } catch (IndexOutOfBoundsException e) {
             log("updateIntentions: index out of bounds.");
-            Memory.log(Memory.eddyError(EddyPlugin.basics(project), e), Utility.onError);
+            //Memory.log(Memory.eddyError(EddyPlugin.basics(project), e), Utility.onError);
           }
         }
       }, project.getDisposed());
