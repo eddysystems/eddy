@@ -31,10 +31,10 @@ object Semantics {
     def f[A,B](v: String, c: String => A)(t: (A,String,SRange) => B) = t(c(under(v)),v,r)
     x match {
       case IntALit(v,_) =>
-        val n = under(v).toLong
+        val n = JavaParse.parseLongLit(v)
         val i = n.toInt
         if (i == n) single(IntLit(i,v,r),Pr.intLit) else single(LongLit(n,v+'L',r),Pr.longIntLit)
-      case LongALit(v,_) =>   single(f(v,_.dropRight(1).toLong)(LongLit), Pr.longLit)
+      case LongALit(v,_) =>   single(LongLit(JavaParse.parseLongLit(v),v,r), Pr.longLit)
       case FloatALit(v,_) =>  single(f(v,_.toFloat)(FloatLit), Pr.floatLit)
       case DoubleALit(v,_) => single(f(v,_.toDouble)(DoubleLit), Pr.doubleLit)
       case CharALit(v,_) =>   single(CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v,r), Pr.charLit)

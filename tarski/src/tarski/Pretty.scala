@@ -2,6 +2,7 @@ package tarski
 
 import tarski.AST._
 import tarski.Arounds._
+import tarski.Levels._
 import tarski.Mods._
 import tarski.Denotations._
 import tarski.Items._
@@ -21,6 +22,7 @@ object Pretty {
   // Pretty only needs a small part of the environment
   abstract class Scope {
     def inScope(i: Item): Boolean
+    def level: LangLevel
   }
 
   // Fixity and precedence: to parenthesize or not to parenthesize
@@ -441,11 +443,11 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyLit(x: Lit): FixTokens = (HighestFix, List(Loc(x match {
-    case ByteLit(v,s,_) => IntLitTok(s)
-    case ShortLit(v,s,_) => IntLitTok(s)
-    case IntLit(v,s,_) => IntLitTok(s)
-    case LongLit(v,s,_) => LongLitTok(s)
+  implicit def prettyLit(x: Lit)(implicit env: Scope): FixTokens = (HighestFix, List(Loc(x match {
+    case ByteLit(v,s,_) => IntLitTok(safeIntLit(s))
+    case ShortLit(v,s,_) => IntLitTok(safeIntLit(s))
+    case IntLit(v,s,_) => IntLitTok(safeIntLit(s))
+    case LongLit(v,s,_) => LongLitTok(safeIntLit(s))
     case FloatLit(v,s,_) => FloatLitTok(s)
     case DoubleLit(v,s,_) => DoubleLitTok(s)
     case BooleanLit(b,_) => BoolLitTok(b)
@@ -453,6 +455,9 @@ object Pretty {
     case StringLit(v,s,_) => StringLitTok(s)
     case NullLit(_) => NullTok
   },x.r)))
+  private def safeIntLit(s: String)(implicit env: Scope): String =
+    if (env.level == Java6) JavaParse.longLitToJava6(s)
+    else s
   implicit def prettyClassBody(b:ClassBody): FixTokens = (HighestFix, b match {
     case TokClassBody(t,r) => List(Loc(t,r))
   })

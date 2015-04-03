@@ -1,6 +1,7 @@
 package tarski
 
 import com.intellij.psi.PsiElement
+import tarski.Levels._
 import utility.Interrupts
 import utility.Utility._
 import utility.Locations._
@@ -173,18 +174,18 @@ object Environment {
 
   // Constructors for Env 
   object Env {
-    def apply(items: Array[Item], scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace,
-              imports: ImportTrie = Pr.defaultImports): TwoEnv =
+    def apply(items: Array[Item] = Array(), scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace,
+              imports: ImportTrie = Pr.defaultImports, level: LangLevel = Java8): TwoEnv =
       TwoEnv(Trie(items),Trie.empty,
              valuesByItem(items,false),new java.util.HashMap[TypeItem,Array[Value]](),
-             imports,scope,place)
+             level,imports,scope,place)
   }
 
   case class LazyEnv(private val trie0: Queriable[Item], // creates items as they are queried
                      private val trie1: Queriable[Item], // contains only the base items
                      private val added: QueriableItemList, // changed by this environment's extend functions (better be tiny)
                      private val byItem: ValueByItemQuery, // the JavaEnvironment has functions to compute this lazily, we just have to filter the result
-                     imports: ImportTrie, scope: Map[Item,Int], place: PlaceInfo) extends Env {
+                     level: LangLevel, imports: ImportTrie, scope: Map[Item,Int], place: PlaceInfo) extends Env {
 
     override def toString: String = "Env()"
 
@@ -230,6 +231,7 @@ object Environment {
                     private val trie1: Trie[Item],
                     private val byItem0: java.util.Map[TypeItem,Array[Value]],
                     private val byItem1: java.util.Map[TypeItem,Array[Value]],
+                    level: LangLevel,
                     imports: ImportTrie,
                     scope: Map[Item,Int],
                     place: PlaceInfo) extends Env {

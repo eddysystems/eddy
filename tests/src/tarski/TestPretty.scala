@@ -5,6 +5,7 @@ import tarski.Base._
 import tarski.Denotations._
 import tarski.Environment.{Env, PlaceInfo}
 import tarski.Items._
+import tarski.Levels._
 import tarski.Lexer._
 import tarski.Operators._
 import tarski.Pretty._
@@ -116,5 +117,23 @@ class TestPretty {
     val g = NormalMethodItem("g",A,Nil,VoidType,List(ArrayType(IntType),ArrayType(IntType)),isStatic=true,variadic=true)
     test("A.f(1,2,3)",ApplyExp(f,List(ArrayExp(r,IntType,r,List(1,2,3),a)),a,auto=false))
     test("A.g(new int[]{1,2,3},1,2,3)",ApplyExp(g,List(ArrayExp(r,IntType,r,List(1,2,3),a),ArrayExp(r,IntType,r,List(1,2,3),a)),a,auto=false))
+  }
+
+  @Test def ints(): Unit = {
+    val examples = List(
+      ("17l","17l"),
+      ("0B1_0_11","0XB"),
+      ("0b101_1L","0xbL"),
+      ("0x7a_F","0x7aF"),
+      ("0x7a_Fl","0x7aFl")
+    )
+    for ((i7,i6) <- examples) {
+      def t(i: String, n: String, level: LangLevel): Unit =
+        assertEquals(i,show(IntLit(-17,n,r))(prettyLit(_)(Env(level=level)),abbrevShowFlags))
+      t(i6,i6,Java6)
+      t(i6,i6,Java7)
+      t(i6,i7,Java6)
+      t(i7,i7,Java7)
+    }
   }
 }

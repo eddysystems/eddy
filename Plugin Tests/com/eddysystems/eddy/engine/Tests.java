@@ -612,4 +612,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testGetClass() {
     testMargin("getClass.java", "Class<? extends Test> cls = getClass();", .9);
   }
+
+  public void testInts() {
+    testMargin("ints.java", "int x = 0XB, y = 0x7aF;", .9);
+  }
 }
