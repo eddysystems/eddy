@@ -225,6 +225,7 @@ object Tokens {
         case (GtTok,GtTok|LParenTok) => true
         case (_,DotTok)|(DotTok,_) => true
         case (_,SemiTok|CommaTok) => true
+        case (LtTok,GtTok) => true
         case _ => false
       }
       val rest = print(ys)

@@ -38,9 +38,14 @@ object Denotations {
     def flatMap[A](f: Type => Scored[A]): Scored[A] = f(beneath)
   }
 
-  // classes
+  // Classes
   sealed abstract class ClassBody extends HasRange
   case class TokClassBody(t: AnonBodyTok, r: SRange) extends ClassBody
+
+  // Special type arguments class to avoid excessive boxing
+  sealed abstract class ClassArgs
+  case object NoArgs extends ClassArgs
+  case class SomeArgs(args: List[TypeArg], a: SGroup, hide: Boolean) extends ClassArgs
 
   // Callables
   sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasRange {
@@ -106,8 +111,8 @@ object Denotations {
   // "parentObj." is needed only if Class is an inner class. The targs are not part of NewDen (which is why it's always
   // NotTypeApply, even if there are Some classArgs).
   case class NewDen(nr: SRange, parentObj: Option[Exp], f: ConstructorItem, fr: SRange,
-                    classArgs: Option[Grouped[List[TypeArg]]] = None) extends NotTypeApply {
-    def r = nr union fr unionR classArgs
+                    classArgs: ClassArgs = NoArgs) extends NotTypeApply {
+    def r = nr union (classArgs match { case NoArgs => fr; case SomeArgs(_,a,_) => fr union a.r })
     private lazy val parent = parentObj map (x => subItemType(x.ty,f.parent.parent.asInstanceOf[ClassItem]).get)
     private lazy val env: Tenv = {
       val parentEnv: Tenv = parent match {
@@ -115,21 +120,21 @@ object Denotations {
         case Some(c) => c.env
       }
       classArgs match {
-        case None => parentEnv
-        case Some(ts) => capture(f.parent.tparams,ts.x,parentEnv)._1
+        case NoArgs => parentEnv
+        case SomeArgs(ts,_,_) => capture(f.parent.tparams,ts,parentEnv)._1
       }
     }
     lazy val tparams = classArgs match {
-      case None => f.parent.tparams ++ f.tparams // Try to infer both class and constructor parameters
-      case Some(_) => f.tparams // We already have the class type arguments
+      case NoArgs => f.parent.tparams ++ f.tparams // Try to infer both class and constructor parameters
+      case _:SomeArgs => f.tparams // We already have the class type arguments
     }
     lazy val params = f.params map (_.substitute(env))
     def variadic = f.variadic
     lazy val result = f.parent.inside.substitute(env)
     def callType(ts: List[TypeArg]) = {
       val args = classArgs match {
-        case None => ts.take(f.parent.arity)
-        case Some(a) => a.x
+        case NoArgs => ts.take(f.parent.arity)
+        case SomeArgs(a,_,_) => a
       }
       val par = parent match {
         case Some(p) => p
@@ -153,8 +158,8 @@ object Denotations {
   def uncheckedAddTypeArgs(f: Callable, ts: List[TypeArg], a: SGroup, hide: Boolean): Callable = f match {
     case _ if ts.isEmpty => f
     case _:TypeApply => impossible
-    case NewDen(nr,p,f,fr,None) => val (ts0,ts1) = ts splitAt f.parent.arity
-                                   uncheckedAddTypeArgs(NewDen(nr,p,f,fr,Some(Grouped(ts0,a))),ts1,a,hide)
+    case NewDen(nr,p,f,fr,NoArgs) => val (ts0,ts1) = ts splitAt f.parent.arity
+                                     uncheckedAddTypeArgs(NewDen(nr,p,f,fr,SomeArgs(ts0,a,hide)),ts1,a,hide)
     case f:NotTypeApply => TypeApply(f,ts,a,hide)
   }
 

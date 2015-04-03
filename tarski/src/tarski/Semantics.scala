@@ -78,15 +78,15 @@ object Semantics {
       case _ if n==0 => known((ts: List[TypeArg]) => known(f))
       case _:Exp|_:PackageDen => fail(s"${show(f)}: expressions and packages take no type arguments")
       case f:TypeApply => fail(s"${show(f)} expects no more type arguments, got $n")
-      case NewDen(nr,p,f,fr,None) =>
+      case NewDen(nr,p,f,fr,NoArgs) =>
         val v0 = f.parent.tparams
         val v1 = f.tparams
         val n0 = v0.size
         val n1 = v1.size
-        if (n == n0) known(absorb(v0,ts => NewDen(nr,p,f,fr,Some(Grouped(ts,a)))))
+        if (n == n0) known(absorb(v0,ts => NewDen(nr,p,f,fr,SomeArgs(ts,a,hide=false))))
         else if (n == n0+n1) known(absorb(v0++v1,ts => {
           val (ts0,ts1) = ts splitAt n0
-          TypeApply(NewDen(nr,p,f,fr,Some(Grouped(ts0,a))),ts1,a,hide=false)
+          TypeApply(NewDen(nr,p,f,fr,SomeArgs(ts0,a,hide=false)),ts1,a,hide=false)
         })) else fail(s"${show(f)} expects $n0 or ${n0+n1} type arguments, got $n")
       case f:NotTypeApply =>
         val vs = f.tparams

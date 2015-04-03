@@ -53,9 +53,17 @@ class TestPretty {
     val T = SimpleTypeVar("T")
     val A = NormalClassItem("A",LocalPkg,List(S))
     val cons = NormalConstructorItem(A,List(T),List(T))
-    ApplyExp(TypeApply(NewDen(r,None,cons,r,Some(Grouped(List(IntegerItem.simple),a))),List(StringItem.simple),a,hide=false),
+    ApplyExp(TypeApply(NewDen(r,None,cons,r,SomeArgs(List(IntegerItem.simple),a,hide=false)),List(StringItem.simple),a,hide=false),
              List(StringLit("s",""""s"""",r)),a,auto=false)
   })
+
+  @Test def diamonds() = {
+    val A = NormalClassItem("A",tparams=List(SimpleTypeVar("S")))
+    val cons = DefaultConstructorItem(A)
+    val e = ApplyExp(NewDen(r,None,cons,r,SomeArgs(List(IntegerItem.simple),a,hide=true)),Nil,a,auto=false)
+    test("new A<Integer>()",e)(prettyExp(_)(Env(level=Java6)))
+    test("new A<>()",       e)(prettyExp(_)(Env(level=Java7)))
+  }
 
   @Test def qualifiedType() = {
     val A = NormalClassItem("A",LocalPkg)

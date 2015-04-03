@@ -331,7 +331,7 @@ class TestDen {
     implicit val env = localEnvWithBase().extend(Array(A,AC),Map((A,3),(AC,3)))
     // should result in A<Object> x = new A<Object>(new Object());
     test("x = A(Object())", "x", x => VarStmt(Nil,A.generic(List(ObjectType)),r,
-      (x,ApplyExp(NewDen(r,None,AC,r,Some(Grouped(List(ObjectType),a))),
+      (x,ApplyExp(NewDen(r,None,AC,r,SomeArgs(List(ObjectType),a,hide=true)),
                   List(ApplyExp(NewDen(r,None,ObjectConsItem,r),Nil,a,auto=false)),a,auto=false)),env))
   }
 
@@ -903,7 +903,8 @@ class TestDen {
     lazy val cons = NormalConstructorItem(A,List(S),Nil)
     implicit val env = localEnv().extend(Array(A,cons,B,C),Map(A->1,B->1,C->1))
     test("x = new<C>A<B>","x",x =>
-      VarStmt(Nil,A.generic(List(B)),r,(x,ApplyExp(TypeApply(NewDen(r,None,cons,r,Some(Grouped(List(B),a))),List(C),a,hide=false),Nil,a,auto=true)),env))
+      VarStmt(Nil,A.generic(List(B)),r,(x,
+        ApplyExp(TypeApply(NewDen(r,None,cons,r,SomeArgs(List(B),a,hide=false)),List(C),a,hide=false),Nil,a,auto=true)),env))
   }
 
   @Test def classInPackage() = {
@@ -946,7 +947,8 @@ class TestDen {
     test("A<Integer> x = new B<Long>","x",x =>
       VarStmt(Nil,A.generic(List(LongType.box)),r(0,10),
               VarDecl(x,r(11,12),Nil,Some(r(13,14),
-                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(LongType.box),a(20,26)))),Nil,a(26,26),auto=true)),env),env))
+                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),
+                  SomeArgs(List(LongType.box),a(20,26),hide=false)),Nil,a(26,26),auto=true)),env),env))
   }
 
   @Test def fixTypeGenericLeftToRight() = {
@@ -963,7 +965,8 @@ class TestDen {
     test("A<Integer> x = new B<Long>","x",x =>
       VarStmt(Nil,A.generic(List(IntType.box)),r(0,10),
               VarDecl(x,r(11,12),Nil,Some(r(13,14),
-                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),Some(Grouped(List(IntType.box),a(20,20)))),Nil,a(20,20),auto=true)),env),env))
+                ApplyExp(NewDen(r(19,19),None,cons,r(19,20),
+                  SomeArgs(List(IntType.box),a(20,20),hide=true)),Nil,a(20,20),auto=true)),env),env))
   }
 
   @Test def fillTypeGeneric() = {
@@ -974,7 +977,7 @@ class TestDen {
     lazy val cons = DefaultConstructorItem(B)
     implicit val env = localEnvWithBase().extendLocal(Array(A,B))
     test("A<Integer> x = new B","x",x =>
-      VarStmt(Nil,A.generic(List(IntType.box)),r,(x,ApplyExp(NewDen(r,None,cons,r,Some(Grouped(List(IntType.box),a))),Nil,a,auto=true)),env))
+      VarStmt(Nil,A.generic(List(IntType.box)),r,(x,ApplyExp(NewDen(r,None,cons,r,SomeArgs(List(IntType.box),a,hide=true)),Nil,a,auto=true)),env))
   }
 
   @Test def fillTypeTernary() = {
@@ -991,8 +994,9 @@ class TestDen {
     test("A<Integer> x = f ? new B : (new C)","x",x => {
       val is = List(IntType.box)
       val t = A.generic(is)
-      VarStmt(Nil,t,r,(x,CondExp(f,r,ApplyExp(NewDen(r,None,consB,r,Some(is)),Nil,a,auto=true),
-                               r,ParenExp(ApplyExp(NewDen(r,None,consC,r,Some(is)),Nil,a,auto=true),a),t)),env)
+      val args = SomeArgs(is,a,hide=true)
+      VarStmt(Nil,t,r,(x,CondExp(f,r,ApplyExp(NewDen(r,None,consB,r,args),Nil,a,auto=true),
+                               r,ParenExp(ApplyExp(NewDen(r,None,consC,r,args),Nil,a,auto=true),a),t)),env)
     })
   }
 
@@ -1249,7 +1253,7 @@ class TestDen {
     for (static <- List(false,true)) {
       val f = NormalMethodItem("f",A,Nil,B,Nil,isStatic=static)
       implicit val env = baseEnv.extend(Array(A,B,This,f),Map(B->1,This->1)).move(PlaceInfo(f))
-      test("return new B",ReturnStmt(r,ApplyExp(NewDen(r,if (static) This else None,cons,r,None),Nil,a,auto=true),env))
+      test("return new B",ReturnStmt(r,ApplyExp(NewDen(r,if (static) This else None,cons,r),Nil,a,auto=true),env))
     }
   }
 
@@ -1259,7 +1263,7 @@ class TestDen {
     val cons = NormalConstructorItem(IntegerItem,Nil,List(IntType))
     IntegerItem.constructors = Array(cons)
     test("x = Integer(4)", "x", x =>
-      VarStmt(Nil,IntegerItem,r,List(VarDecl(x,r,0,Some((r,ApplyExp(NewDen(r,None,cons,r,None),List(4),a,auto=false))),env)),env))
+      VarStmt(Nil,IntegerItem,r,List(VarDecl(x,r,0,Some((r,ApplyExp(NewDen(r,None,cons,r),List(4),a,auto=false))),env)),env))
   }
 
   @Test def arrayLength() = {
@@ -1298,7 +1302,7 @@ class TestDen {
     lazy val B: ClassItem = NormalClassItem("BBBBB",parent=A,constructors=Array(cons))
     lazy val cons = DefaultConstructorItem(B)
     implicit val env = localEnvWithBase().extend(Array(A,B),Map(A->2))
-    test("BBBBB",ApplyExp(NewDen(r,None,cons,r,None),Nil,a,auto=true))
+    test("BBBBB",ApplyExp(NewDen(r,None,cons,r),Nil,a,auto=true))
   }
 
   @Test def abstractClass() = {
@@ -1425,5 +1429,14 @@ class TestDen {
     val x = NormalLocal("x",A.generic(List(B)))
     implicit val env = localEnvWithBase(A,B,x)
     test("if x instanceof A<B>",IfStmt(r,InstanceofExp(x,r,A.raw,r),a,h))
+  }
+
+  @Test def diamond() = {
+    lazy val A: ClassItem = NormalClassItem("A",tparams=List(SimpleTypeVar("T")),constructors=Array(cons))
+    lazy val cons = DefaultConstructorItem(A)
+    implicit val env = localEnvWithBase(A)
+    test("A<Integer> x = new A<>()","x",x =>
+      VarStmt(Nil,A.generic(List(IntegerItem)),r,(x,
+        ApplyExp(NewDen(r,None,cons,r,SomeArgs(List(IntegerItem),a,hide=true)),Nil,a,auto=false)),env))
   }
 }
