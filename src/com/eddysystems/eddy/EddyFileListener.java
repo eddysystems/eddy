@@ -230,7 +230,7 @@ public class EddyFileListener implements CaretListener, DocumentListener {
               int use_offset = Math.min(offset, editor.getDocument().getTextLength());
               HintManagerImpl.getInstanceImpl().showQuestionHint(editor, use_offset, use_offset, active_hint, action, HintManager.ABOVE);
               // remember that we actually showed a hint
-              Memory.log(Memory.eddyHint(basics,Memory.now(),output.input.getInputTokens(),output.results),Utility.onError);
+              Memory.log(Memory.eddyHint(basics,Memory.now(),output.input.getLine(),output.input.getInputTokens(),output.results),Utility.onError);
             } catch (NullPointerException e) {
               // silence null pointer exceptions in HintUtil
             }

@@ -66,13 +66,15 @@ public class Eddy {
 
   public static class Input {
     final TextRange range;
+    final int line;
     final List<Loc<Token>> input;
     final PsiElement place;
     final String before_text;
     final boolean atEOL;
 
-    Input(final TextRange range, final List<Loc<Token>> input, final PsiElement place, final String before_text, final boolean atEOL) {
+    Input(final TextRange range, final int line, final List<Loc<Token>> input, final PsiElement place, final String before_text, final boolean atEOL) {
       this.range = range;
+      this.line = line;
       this.input = input;
       this.place = place;
       this.before_text = before_text;
@@ -80,6 +82,8 @@ public class Eddy {
     }
 
     public boolean isAtEOL() { return atEOL; }
+
+    public int getLine() { return line; }
 
     public String getText() {
       return before_text;
@@ -184,7 +188,7 @@ public class Eddy {
       // Automatically apply the best found result
       String code = format(0, fullShowFlags());
       int offset = rawApply(eddy.document, code);
-      Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.input, results, code), Utility.onError);
+      Memory.log(Memory.eddyAutoApply(eddy.base, Memory.now(), input.line, input.input, results, code), Utility.onError);
       return offset;
     }
 
@@ -279,14 +283,15 @@ public class Eddy {
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.input,results,index), Utility.onError);
+      Memory.log(Memory.eddyApply(eddy.base,Memory.now(),input.line,input.input,results,index), Utility.onError);
     }
 
     public static void logSuggestion(final @NotNull Project project, final @Nullable Output output, final @NotNull String suggestion) {
       Memory.Info base = output != null ? output.eddy.base : EddyPlugin.basics(project);
+      int line = output != null ? output.input.line : -1;
       List<Loc<Token>> input = output != null ? output.input.input : null;
       List<Alt<ShowStmts>> results = output != null ? output.results : null;
-      Memory.log(Memory.eddySuggestion(base, Memory.now(), input, results, suggestion), Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
+      Memory.log(Memory.eddySuggestion(base, Memory.now(), line, input, results, suggestion), Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
         @Override
         public Void apply(Try<BoxedUnit> v) {
           final String title, msg;
@@ -528,7 +533,7 @@ public class Eddy {
     // find out whether we're functionally at the end of the line (not counting whitespace)
     boolean atEOL = editor.getDocument().getText(new TextRange(cursor, range.getEndOffset())).trim().isEmpty();
 
-    return new Input(trim,tokens,place,before,atEOL);
+    return new Input(trim, line, tokens, place, before, atEOL);
   }
 
   public Env env(final Input input, final int lastEdit) {
@@ -608,6 +613,7 @@ public class Eddy {
           }
         } finally {
           Memory.log(Memory.eddyProcess(base,start,
+                                        input==null ? -1 : input.line,
                                         input==null ? null : input.input,
                                         results,
                                         delays).error(error), Utility.onError);

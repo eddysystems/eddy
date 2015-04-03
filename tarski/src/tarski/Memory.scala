@@ -56,7 +56,8 @@ object Memory {
   case class Info(install: String, fs: List[Item => Item]) {
     def itemNow(): Item = {
       val n = now()
-      fs.foldRight((new Item).withPrimaryKey("install",install,"time",n).withString("date",(n/86400).toInt.toString))(_(_))
+      fs.foldRight((new Item).withPrimaryKey("install",install,"time",n)
+        .withString("date",(n/86400).toInt.toString))(_(_))
     }
     def add[A](k: String, v: A)(implicit to: Safe[A]): Info = {
       val s = safe(v)
@@ -66,17 +67,19 @@ object Memory {
   }
 
   // Basic information about an install and a project
-  def basics(install: String, version: String, project: String): Info =
+  def basics(install: String, version: String, project: String, ideaVersion: String): Info =
     Info(install,Nil).add("version",version)
                      .add("project",project)
+                     .add("ideaVersion",ideaVersion)
 
-  def eddyBase(base: Info, start: Double, kind: String, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) = {
+  def eddyBase(base: Info, start: Double, kind: String, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[String] = if (results==null) null else results.asScala.map(_.x.den)
     val tokens: Seq[Alt[String]] = if (results==null) null else results.asScala.map(_ map (_.show))
     val formatted: Seq[String]   = if (results==null) null else results.asScala.map(_.x.abbrev)
     base.add("kind",kind)
         .add("start",start)
+        .add("line",line)
         .add("input",input)
         .add("results",tokens)
         .add("denotations",denotations) // same order as results
@@ -84,23 +87,23 @@ object Memory {
   }
 
   // Specific kinds of messages
-  def eddyApply(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: Int) =
-    eddyBase(base, start, "Eddy.Apply", input, results)
+  def eddyApply(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: Int) =
+    eddyBase(base, start, "Eddy.Apply", line, input, results)
       .add("choice",choice)
 
-  def eddyAutoApply(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) =
-    eddyBase(base, start, "Eddy.AutoApply", input, results)
+  def eddyAutoApply(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) =
+    eddyBase(base, start, "Eddy.AutoApply", line, input, results)
       .add("choice",choice)
 
-  def eddyProcess(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], delays: JList[java.lang.Double]) =
-    eddyBase(base, start, "Eddy.process", input, results)
+  def eddyProcess(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], delays: JList[java.lang.Double]) =
+    eddyBase(base, start, "Eddy.process", line, input, results)
       .add("delay",delays)
 
-  def eddyHint(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) =
-    eddyBase(base, start, "Eddy.hint", input, results)
+  def eddyHint(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) =
+    eddyBase(base, start, "Eddy.hint", line, input, results)
 
-  def eddySuggestion(base: Info, start: Double, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], suggestion: String) =
-    eddyBase(base, start, "Eddy.suggestion", input, results)
+  def eddySuggestion(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], suggestion: String) =
+    eddyBase(base, start, "Eddy.suggestion", line, input, results)
       .add("suggestion",suggestion)
 
   def eddyProps(base: Info, autoApply: Boolean, autoApplyThreshold: Double, autoApplyFactor: Double,

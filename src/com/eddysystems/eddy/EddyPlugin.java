@@ -7,6 +7,7 @@ import com.eddysystems.eddy.engine.TypeNameItemNamePair;
 import com.intellij.ide.PowerSaveMode;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
+import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.components.ProjectComponent;
@@ -63,9 +64,13 @@ public class EddyPlugin implements ProjectComponent {
     return _install;
   }
 
+  private static String ideaVersion() {
+    return ApplicationInfo.getInstance().getBuild().asStringWithAllDetails();
+  }
+
   // Basic information for logging
   public static Memory.Info basics(final @Nullable Project project) {
-    return Memory.basics(installKey(), getVersion() + " - " + getBuild(), project != null ? project.getName() : null);
+    return Memory.basics(installKey(), getVersion() + " - " + getBuild(), project != null ? project.getName() : null, ideaVersion());
   }
 
   private static Boolean _emailRequested = null;

@@ -11,7 +11,7 @@ import org.testng.annotations.Test
 class TestMemory {
   // A large random string for unit test purposes
   val install = "46240bbb2d11736a1a0fd86ac0d31c37bab17e13d02bde533668d0f8"
-  val base = Memory.basics(install=install,version="0.1",project="TestMemory")
+  val base = Memory.basics(install=install,version="0.1",project="TestMemory",ideaVersion="test")
 
   @Test def remember() = {
     val log = Memory.log(base.add("kind","TestMemory.remember").add("input","x = 3"))
