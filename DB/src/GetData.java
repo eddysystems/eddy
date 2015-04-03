@@ -11,22 +11,12 @@
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.model.AttributeValue;
-import com.amazonaws.services.dynamodbv2.model.ReturnConsumedCapacity;
-import com.amazonaws.services.dynamodbv2.model.ScanRequest;
-import com.amazonaws.services.dynamodbv2.model.ScanResult;
+import com.amazonaws.services.dynamodbv2.model.*;
+import com.amazonaws.util.json.JSONException;
 import com.sun.deploy.util.StringUtils;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.PrintWriter;
-import java.io.RandomAccessFile;
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 
 import static java.lang.Math.max;
 import static java.lang.Thread.sleep;
@@ -86,96 +76,153 @@ public class GetData {
 
     try {
       // retrieve only new objects (database is write only from the plugin, updates are guaranteed to not happen ever)
-      Map<String, AttributeValue> lastKeyEvaluated = null;
-      if (!restart) {
-        try {
-          RandomAccessFile fi = new RandomAccessFile(filename + ".csv", "r");
+      int lastDate = 0;
+      double lastTime = 0;
 
-          // this is terribly inefficient, should really buffer. But our lines are short, so who cares.
-          long fileLength = fi.length() - 1;
-          StringBuilder sb = new StringBuilder();
-          for (long filePointer = fileLength; filePointer != -1; filePointer--){
-            fi.seek(filePointer);
-            int readByte = fi.readByte();
-            if (readByte == 0xA) {
-              if (filePointer != fileLength)
-                break;
-            } else if(readByte == 0xD) {
-              if( filePointer != fileLength - 1 )
-                break;
-            }
-            sb.append((char) readByte);
+      if (!restart) {
+
+        // find the last timestamp we saw in the data
+        BufferedReader br = new BufferedReader(new FileReader(filename + ".json"));
+
+        String line;
+        int lineNumber = 0;
+        do {
+          lineNumber++;
+          try {
+            line = br.readLine();
+          } catch (IOException e) {
+            break;
           }
 
-          // parse the line into install,time and make a key object
-          String s = sb.reverse().toString().trim();
+          if (line == null)
+            break;
 
-          System.out.println("Last key (raw): " + s);
+          // parse line as JSON
+          try {
+            Record record = new Record(line);
 
-          int comma = s.indexOf(',');
+            // find max date and time fields
+            double time = record.time();
+            int date = record.date();
 
-          if (comma == -1)
-            throw new ParseException("s", -1);
+            lastDate = max(date, lastDate);
+            lastTime = max(time, lastTime);
 
-          lastKeyEvaluated = new HashMap<>(2);
-          lastKeyEvaluated.put("install", new AttributeValue().withS(s.substring(0,comma)));
-          lastKeyEvaluated.put("time", new AttributeValue().withN(s.substring(comma+1)));
-        } catch (Throwable t) {
-          // can't get the last index? fine.
-          System.err.println("Can't get the last key. Starting from scratch.");
-        }
+          } catch (JSONException e) {
+            System.err.println("failed to parse line " + lineNumber + ": " + line + ": " + e);
+          }
+        } while (true);
+
+        System.out.println("continuing, last date/time retrieved: " + lastDate + ", " + lastTime);
+
       } else {
         System.out.println("restarting from scratch, existing data will be deleted.");
       }
 
       // append to existing file
-      PrintWriter fo = new PrintWriter(new FileOutputStream(filename + ".csv", !restart));
       PrintWriter full_fo = new PrintWriter(new FileOutputStream(filename + ".json", !restart));
 
       int nrequests = 0;
       int count = 0, totalCount = 0;
       double consumed = 0;
       long start = System.nanoTime(), last=start;
+      Map<String, AttributeValue> lastKeyEvaluated = null;
 
-      do {
-        ScanRequest scanRequest = new ScanRequest();
-        scanRequest.withTableName("eddy-log").withLimit(maxFullItems);
-        scanRequest.withExclusiveStartKey(lastKeyEvaluated);
-        scanRequest.setReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
+      if (restart) {
+        // for pagination
+        do {
+          ScanRequest scanRequest = new ScanRequest();
+          scanRequest.withTableName("eddy-log").withLimit(maxFullItems);
+          scanRequest.withExclusiveStartKey(lastKeyEvaluated);
+          scanRequest.setReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
 
-        ScanResult result = client.scan(scanRequest);
-        System.out.println("got " + result.getCount() + '/' + result.getScannedCount() + " items using " + result.getConsumedCapacity().getCapacityUnits() + " capacity");
+          ScanResult result = client.scan(scanRequest);
+          System.out.println("got " + result.getCount() + '/' + result.getScannedCount() + " items using " + result.getConsumedCapacity().getCapacityUnits() + " capacity");
 
-        nrequests++;
-        count += result.getCount();
-        totalCount += result.getScannedCount();
-        consumed += result.getConsumedCapacity().getCapacityUnits();
+          nrequests++;
+          count += result.getCount();
+          totalCount += result.getScannedCount();
+          consumed += result.getConsumedCapacity().getCapacityUnits();
 
-        for (Map<String, AttributeValue> item : result.getItems()) {
-          full_fo.println(toJSON(item));
-          fo.println(item.get("install").getS() + ',' + item.get("time").getN());
-        }
-        lastKeyEvaluated = result.getLastEvaluatedKey();
-
-        if (lastKeyEvaluated != null) {
-          System.out.println("last key: ");
-          for (final Map.Entry<String, AttributeValue> e : lastKeyEvaluated.entrySet()) {
-            System.out.println("  " + e.getKey() + ": " + e.getValue());
+          for (Map<String, AttributeValue> item : result.getItems()) {
+            full_fo.println(toJSON(item));
           }
+          lastKeyEvaluated = result.getLastEvaluatedKey();
+
+          if (lastKeyEvaluated != null) {
+            System.out.println("last key: ");
+            for (final Map.Entry<String, AttributeValue> e : lastKeyEvaluated.entrySet()) {
+              System.out.println("  " + e.getKey() + ": " + e.getValue());
+            }
+          }
+
+          long next = System.nanoTime();
+          try {
+            full_fo.flush();
+            sleep((int) (max(0., 1000. / maxRequestRate - 1e-6 * (next - last))));
+          } catch (InterruptedException e) {
+            error("interrupted.");
+          }
+          last=next;
+        } while (lastKeyEvaluated != null);
+
+      } else {
+
+        int today = new Double(Util.now/86400.).intValue();
+
+        // ask for all days from the last one we saw to today (inclusive)
+        for (int date = lastDate; date <= today; ++date) {
+
+          System.out.println("getting items for date " + date + " (today is " + today + ')');
+
+          do {
+            QueryRequest query = new QueryRequest("eddy-log");
+            query.withIndexName("date-index").withLimit(maxFullItems);
+            query.withExclusiveStartKey(lastKeyEvaluated);
+            query.setReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
+
+            Map<String,Condition> cond = new HashMap<>();
+            cond.put("date", new Condition()
+              .withComparisonOperator(ComparisonOperator.EQ)
+              .withAttributeValueList(new AttributeValue(String.format(filename, "%d", date))));
+            query.withKeyConditions(cond);
+
+            QueryResult result = client.query(query);
+
+            System.out.println("got " + result.getCount() + '/' + result.getScannedCount() + " items for date " + date + " using " + result.getConsumedCapacity().getCapacityUnits() + " capacity");
+
+            nrequests++;
+            count += result.getCount();
+            totalCount += result.getScannedCount();
+            consumed += result.getConsumedCapacity().getCapacityUnits();
+
+            for (Map<String, AttributeValue> item : result.getItems()) {
+              int used = 0;
+              if (item.containsKey("time") && Double.parseDouble(item.get("time").getN()) > lastTime) {
+                used++;
+                full_fo.println(toJSON(item));
+              }
+              if (used < result.getCount()) {
+                System.out.println("  used " + used + '/' + result.getCount() + " items.");
+              }
+            }
+
+            long next = System.nanoTime();
+            try {
+              full_fo.flush();
+              sleep((int) (max(0., 1000. / maxRequestRate - 1e-6 * (next - last))));
+            } catch (InterruptedException e) {
+              error("interrupted.");
+            }
+            last=next;
+
+            lastKeyEvaluated = result.getLastEvaluatedKey();
+          } while (lastKeyEvaluated != null);
+
         }
 
-        long next = System.nanoTime();
-        try {
-          fo.flush();
-          full_fo.flush();
-          sleep((int) (max(0., 1000. / maxRequestRate - 1e-6 * (next - last))));
-        } catch (InterruptedException e) {
-          error("interrupted.");
-        }
-        last=next;
-      } while (lastKeyEvaluated != null);
+      }
 
-      fo.close();
       full_fo.close();
 
       double time = 1e-9*(System.nanoTime() - start);

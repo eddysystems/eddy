@@ -12,15 +12,10 @@ public class Stats {
   // don't consider logs and ignore all installations that appear before this date
   static Calendar launchCal = new GregorianCalendar(2015,Calendar.FEBRUARY,22,0,0,0);
   static double launchDate = launchCal.getTimeInMillis() * 1e-3;
-  static double now = System.currentTimeMillis() * 1e-3;
-  static int nhours = (int)((now - launchDate) / 3600.);
-
-  static double toTime(String s) {
-    return Double.parseDouble(s);
-  }
+  static int nhours = (int)((Util.now - launchDate) / 3600.);
 
   static int hourIndex(double time) {
-    return (int)((time - launchDate) / (now - launchDate) * nhours);
+    return (int)((time - launchDate) / (Util.now - launchDate) * nhours);
   }
 
   // data about eddy actions
@@ -30,7 +25,7 @@ public class Stats {
   }
 
   static class InstallData {
-    double activeSince = now;
+    double activeSince = Util.now;
     double lastActive = 0; // last user action
     double lastSeen = 0; // last user or automatic action
 
@@ -40,17 +35,22 @@ public class Stats {
     Map<String,ActionData> actions = new HashMap<>();
   }
 
-  static String show(JSONArray tokens) throws JSONException {
-    StringBuilder sb = new StringBuilder();
+  static class Suggestion {
+    Suggestion(String i, double t, String in, String s) {
+      install = i;
+      time = t;
+      input = in;
+      suggestion = s;
+    }
 
-    for (int i = 0; i < tokens.length(); ++i)
-      sb.append(tokens.getJSONObject(i).getJSONObject("x").getString("s"));
+    final String install;
+    final double time;
+    final String input;
+    final String suggestion;
 
-    return sb.toString();
-  }
-
-  static boolean sameIgnoringWhiteSpace(String input, String output) {
-    return input.replaceAll("\\s*","").equals(output.replaceAll("\\s*", ""));
+    public String toString() {
+      return install + ":" + time + " " + input + " => " + suggestion;
+    }
   }
 
   static boolean wasShown(JSONObject obj) throws JSONException {
@@ -65,7 +65,7 @@ public class Stats {
       return false;
     for (int i = 0; i < formatted.length(); ++i) {
       String output = formatted.getString(i);
-      if (sameIgnoringWhiteSpace(show(input),output)) {
+      if (Util.sameIgnoringWhiteSpace(Util.show(input), output)) {
         return true;
       }
     }
@@ -84,6 +84,9 @@ public class Stats {
     // project names
     Set<String> projectNames = new HashSet<String>();
 
+    // suggestions
+    List<Suggestion> suggestions = new ArrayList<>();
+
     final GregorianCalendar weekAgoC = new GregorianCalendar();
     weekAgoC.add(GregorianCalendar.WEEK_OF_YEAR, -1);
     final double weekAgo = weekAgoC.getTimeInMillis() * 1e-3;
@@ -98,18 +101,13 @@ public class Stats {
         lineNumber++;
         try {
           // parse JSON
-          JSONObject obj = new JSONObject(line);
+          Record record = new Record(line);
 
           // prefilter
           Set<String> preLaunchInstalls = new HashSet<>();
 
-          String time = obj.getString("time");
-          String install = obj.getString("install");
-
-          double ts = toTime(time);
-
-          String project = obj.getString("project");
-          projectNames.add(project);
+          double ts = record.time();
+          String install = record.install();
 
           // ignore actions before launch
           if (ts < launchDate) {
@@ -117,8 +115,8 @@ public class Stats {
             continue;
           }
 
-          if (ts >= now) {
-            System.err.println("found time in the future (now = " + now + ") for entry: " + obj.toString(2));
+          if (ts >= Util.now) {
+            System.err.println("found time in the future (now = " + Util.now + ") for entry: " + record.obj.toString(2));
             continue;
           }
 
@@ -127,17 +125,20 @@ public class Stats {
             continue;
           }
 
+          // ignore all tarski tests (some old error entries (up to 0.3) have no kind)
+          String action = record.kind();
+          if (action.startsWith("TestMemory.")) {
+            continue;
+          }
+
+          String project = record.project();
+
           // ignore all IntelliJ tests (everything in which the project is light_temp_*)
-          //String project = obj.getString("project");
           if (project.startsWith("light_temp_")) {
             continue;
           }
 
-          // ignore all tarski tests (some old error entries (up to 0.3) have no kind)
-          String action = obj.optString("kind", "Eddy.error");
-          if (action.startsWith("TestMemory.")) {
-            continue;
-          }
+          projectNames.add(project);
 
           // global action count
           ActionData adata = actionData.get(action);
@@ -148,7 +149,7 @@ public class Stats {
           adata.count += 1;
           actionCount += 1;
 
-          if (action.equals("Eddy.process") && wasShown(obj)) {
+          if (action.equals("Eddy.process") && wasShown(record.obj)) {
             action = "Eddy.process (shown)";
             adata = actionData.get(action);
             if (adata == null) {
@@ -156,6 +157,10 @@ public class Stats {
               actionData.put(action, adata);
             }
             adata.count += 1;
+          }
+
+          if (action.equals("Eddy.suggestion")) {
+            suggestions.add(new Suggestion(install, ts, record.inputString(), record.suggestion()));
           }
 
           // install data
@@ -166,7 +171,7 @@ public class Stats {
           }
           idata.activeSince = Double.min(ts, idata.activeSince);
           idata.lastSeen = Double.max(ts, idata.lastSeen);
-          String version = obj.getString("version");
+          String version = record.version();
           double versionSeen = ts;
           if (idata.versions.containsKey(version)) {
             versionSeen = Double.max(ts,idata.versions.get(version));
@@ -211,14 +216,14 @@ public class Stats {
       System.out.println("new installations last 7 days: " + wni);
 
       // project statistics
-      int nprojects = 0;
+      System.out.println("projects: " + projectNames.size());
       for (final String p : projectNames)
-        if (!p.startsWith("light_temp_"))
-          nprojects++;
-      System.out.println("projects: " + projectNames.size() + ", without tests: " + nprojects);
-      for (final String p : projectNames)
-        if (!p.startsWith("light_temp_"))
-          System.out.println("  " + p);
+        System.out.println("  " + p);
+
+      // suggestions
+      System.out.println("suggestions: ");
+      for (final Suggestion s : suggestions)
+        System.out.println(s);
 
       // print action statistics (this is pretty coarse, we may want this on a weekly basis too)
       for (final Map.Entry<String, ActionData> e : actionData.entrySet()) {
