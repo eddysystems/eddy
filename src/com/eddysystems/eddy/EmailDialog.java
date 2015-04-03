@@ -23,7 +23,7 @@ public class EmailDialog extends DialogWrapper {
     setTitle("eddy - Email Contact");
     Document doc = weWouldLoveToTextPane.getDocument();
     try {
-      doc.insertString(0, "We would love to be able to contact you and ask for your feedback.\n\nPlease enter your email address if you'd like to participate.\n\nYou can always change or remove your email address in the plugin preferences.", new SimpleAttributeSet());
+      doc.insertString(0, "We would love to be able to contact you and ask for your feedback.\n\nPlease enter your email address if you'd like to participate (or leave blank if you don't).\n\nYou can always change or remove your email address in the plugin preferences.", new SimpleAttributeSet());
     } catch (BadLocationException e) {
       Utility.log("cannot instantiate email dialog: " + e);
       throw new RuntimeException(e);
