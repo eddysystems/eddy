@@ -1,6 +1,8 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.source.tree.ChildRole;
 import com.intellij.psi.impl.source.tree.CompositeElement;
@@ -9,7 +11,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-public class EddyPsiListener implements PsiTreeChangeListener {
+public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbModeListener {
+
+  final Set<PsiElement> queuedElements = new HashSet<PsiElement>();
 
   final ChangeTracker<String> nameTracker;
   final ChangeTracker<TypeNameItemNamePair> valueTracker;
@@ -150,6 +154,12 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   }
 
   private void addElement(PsiElement elem) {
+    // in dumb mode, don't try to resolve types etc.
+    if (DumbService.getInstance(elem.getProject()).isDumb()) {
+      queuedElements.add(elem);
+      return;
+    }
+
     if (elem instanceof PsiField || elem instanceof PsiMethod && !((PsiMethod)elem).isConstructor() || elem instanceof PsiClass) {
       String name = ((PsiNamedElement)elem).getName();
       //log("add name " + name);
@@ -223,5 +233,20 @@ public class EddyPsiListener implements PsiTreeChangeListener {
   @Override
   public void propertyChanged(@NotNull PsiTreeChangeEvent event) {
     //log("property " + event.getPropertyName() + " changed in " + event.getElement());
+  }
+
+  @Override
+  public void enteredDumbMode() {
+  }
+
+  @Override
+  public void exitDumbMode() {
+    // process all queued elements
+    ApplicationManager.getApplication().assertIsDispatchThread();
+    for (final PsiElement elem : queuedElements) {
+      if (elem.isValid())
+        addElement(elem);
+    }
+    queuedElements.clear();
   }
 }
