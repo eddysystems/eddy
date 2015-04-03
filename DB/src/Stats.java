@@ -125,7 +125,7 @@ public class Stats {
             continue;
           }
 
-          // ignore all tarski tests (some old error entries (up to 0.3) have no kind)
+          // ignore all tarski tests
           String action = record.kind();
           if (action.startsWith("TestMemory.")) {
             continue;
