@@ -14,6 +14,7 @@ import scala.collection.JavaConversions;
 import tarski.Environment;
 import tarski.Items;
 import tarski.Items.*;
+import tarski.Items.Package;
 import tarski.Types.*;
 import utility.JavaUtils;
 
@@ -138,13 +139,13 @@ class Converter {
    }
 
    ParentItem addContainer(PsiElement elem) {
+     if (elem == null)
+       return LocalPkg$.MODULE$;
      {
        Item i = lookup(elem);
        if (i != null)
          return (ParentItem)i;
      }
-     if (elem == null)
-       return LocalPkg$.MODULE$;
 
      // local classes
      if (elem instanceof PsiMethod) {
@@ -156,9 +157,8 @@ class Converter {
        final String name = pkg.getName();
        if (name == null)
          return LocalPkg$.MODULE$;
-       final PsiPackage parent = pkg.getParentPackage();
-       final ParentItem item = parent==null ? new RootPackage(name)
-         : new ChildPackage((tarski.Items.Package)addContainer(parent),name);
+       final Package parent = (Package)addContainer(pkg.getParentPackage());
+       final ParentItem item = parent==LocalPkg$.MODULE$ ? new RootPackage(name) : new ChildPackage(parent,name);
        put(pkg,item);
        return item;
      }
@@ -193,7 +193,7 @@ class Converter {
       }
 
      @Override
-     public Items.Package pkg() { return (Items.Package)converter.addContainer(Place.getElementPackage(elem, converter.project)); }
+     public Package pkg() { return (Package)converter.addContainer(Place.getElementPackage(elem, converter.project)); }
    }
 
    static protected class UnresolvedClassItem extends ClassItem implements PsiEquivalent {
@@ -216,7 +216,7 @@ class Converter {
        this.env = env;
        this.cls = cls;
        PsiPackage pkg = Place.getElementPackage(cls.getReference(), env.project);
-       _parent = parent == null ? pkg == null ? LocalPkg$.MODULE$ : (tarski.Items.Package)env.addContainer(pkg) : parent;
+       _parent = parent == null ? pkg == null ? LocalPkg$.MODULE$ : (Package)env.addContainer(pkg) : parent;
 
        if (cls instanceof PsiModifierListOwner) {
          _isFinal = ((PsiModifierListOwner)cls).hasModifierProperty(PsiModifier.FINAL);

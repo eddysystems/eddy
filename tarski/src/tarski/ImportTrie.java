@@ -58,7 +58,7 @@ public final class ImportTrie {
       stack[count++] = item.name();
       if (item instanceof Member)
         item = ((Member)item).parent();
-      else if (item instanceof RootPackage || item instanceof LocalPkg$)
+      else if (item instanceof RootPackage)
         break;
       else
         return 0; // Anonymous
