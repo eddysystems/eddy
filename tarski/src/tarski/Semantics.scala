@@ -31,10 +31,10 @@ object Semantics {
     def f[A,B](v: String, c: String => A)(t: (A,String,SRange) => B) = t(c(under(v)),v,r)
     x match {
       case IntALit(v,_) =>
-        val n = under(v).toLong
+        val n = JavaParse.parseLongLit(v)
         val i = n.toInt
         if (i == n) single(IntLit(i,v,r),Pr.intLit) else single(LongLit(n,v+'L',r),Pr.longIntLit)
-      case LongALit(v,_) =>   single(f(v,_.dropRight(1).toLong)(LongLit), Pr.longLit)
+      case LongALit(v,_) =>   single(LongLit(JavaParse.parseLongLit(v),v,r), Pr.longLit)
       case FloatALit(v,_) =>  single(f(v,_.toFloat)(FloatLit), Pr.floatLit)
       case DoubleALit(v,_) => single(f(v,_.toDouble)(DoubleLit), Pr.doubleLit)
       case CharALit(v,_) =>   single(CharLit(unescapeJava(v.slice(1,v.size-1)).charAt(0),v,r), Pr.charLit)
@@ -78,15 +78,15 @@ object Semantics {
       case _ if n==0 => known((ts: List[TypeArg]) => known(f))
       case _:Exp|_:PackageDen => fail(s"${show(f)}: expressions and packages take no type arguments")
       case f:TypeApply => fail(s"${show(f)} expects no more type arguments, got $n")
-      case NewDen(nr,p,f,fr,None) =>
+      case NewDen(nr,p,f,fr,NoArgs) =>
         val v0 = f.parent.tparams
         val v1 = f.tparams
         val n0 = v0.size
         val n1 = v1.size
-        if (n == n0) known(absorb(v0,ts => NewDen(nr,p,f,fr,Some(Grouped(ts,a)))))
+        if (n == n0) known(absorb(v0,ts => NewDen(nr,p,f,fr,SomeArgs(ts,a,hide=false))))
         else if (n == n0+n1) known(absorb(v0++v1,ts => {
           val (ts0,ts1) = ts splitAt n0
-          TypeApply(NewDen(nr,p,f,fr,Some(Grouped(ts0,a))),ts1,a,hide=false)
+          TypeApply(NewDen(nr,p,f,fr,SomeArgs(ts0,a,hide=false)),ts1,a,hide=false)
         })) else fail(s"${show(f)} expects $n0 or ${n0+n1} type arguments, got $n")
       case f:NotTypeApply =>
         val vs = f.tparams
@@ -604,7 +604,7 @@ object Semantics {
       }
       case _ => Nil
     }
-    def left(x: ParentDen) = fail(s"${show(error)}: ${show(x)} has no field similar to $f found")
+    def left(x: ParentDen) = fail(s"${show(error)}: ${show(x)} has no field similar to $f")
     link(xs,fs)(items,_.parent,left) flatMap {case (p,f) => f match {
       case f:Value => if (!mc.exp) fail(s"Value $f doesn't match mode $mc") else (p,f) match {
         case (x:PackageDen,_) => fail("Values aren't members of packages")

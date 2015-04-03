@@ -3,6 +3,7 @@ package tarski
 import tarski.Denotations.Stmt
 import tarski.Environment.{LazyEnv, PlaceInfo, Env}
 import tarski.Items.Item
+import tarski.Levels.LangLevel
 import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
@@ -23,8 +24,9 @@ object Tarski {
     Trie(jvalues)
 
   def environment(trie0: Queriable[Item], trie1: Queriable[Item], byItem: ValueByItemQuery,
-                  imports: ImportTrie, scope: java.util.Map[Item,Integer], place: PlaceInfo): Env =
-    new LazyEnv(trie0, trie1, QueriableItemList.empty, byItem, imports, scope.asScala.toMap.mapValues(_.intValue), place)
+                  imports: ImportTrie, scope: java.util.Map[Item,Integer], place: PlaceInfo, level: Int): Env =
+    new LazyEnv(trie0, trie1, QueriableItemList.empty, byItem, LangLevel(level),
+                imports, scope.asScala.toMap.mapValues(_.intValue), place)
 
   def print(is: Iterable[Alt[Item]]): Unit = {
     is foreach { case Alt(p,i) =>

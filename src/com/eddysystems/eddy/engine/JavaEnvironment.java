@@ -568,10 +568,14 @@ public class JavaEnvironment {
         smallTrie = new Tries.LazyTrie<Item>(smallStructure,smallGenerator);
       } finally { popScope(); }
 
+      // Grab any information we have about imports
       final ImportTrie imports = this.imports != null ? this.imports : tarski.Pr.defaultImports();
 
+      // Find the language level for this file
+      final int level = Levels.parseLevelJava(((PsiJavaFile) place.getContainingFile()).getLanguageLevel().getName());
+
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
-      return Tarski.environment(bigTrie, smallTrie, vbi, imports, ep.scopeItems, ep.placeInfo);
+      return Tarski.environment(bigTrie, smallTrie, vbi, imports, ep.scopeItems, ep.placeInfo, level);
     } finally { popScope(); }
   }
 

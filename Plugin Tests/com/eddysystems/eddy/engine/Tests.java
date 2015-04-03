@@ -217,9 +217,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private void checkBest(final Eddy.Output output, final String best, final double margin, final ShowFlags f) {
-    dumpResults(output,best);
-    final List<String> ss = output.formats(f,false);
-    final String got = ss.isEmpty() ? "<none>" : ss.get(0);
+    dumpResults(output, best);
+    final List<String> ss = output != null ? output.formats(f, false) : new ArrayList<String>();
+    final String got = output == null ? "<null>" : ss.isEmpty() ? "<none>" : ss.get(0);
     assertTrue("checkBest failed:\n  wanted = '"+best+"'\n  got    = '"+got+'\'', best.equals(got));
     if (ss.size() >= 2) {
       final List<Alt<ShowStmts>> rs = output.results;
@@ -614,5 +614,13 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testGetClass() {
     testMargin("getClass.java", "Class<? extends Test> cls = getClass();", .9);
+  }
+
+  public void testInts() {
+    testMargin("ints.java", "int x = 0XB, y = 0x7aF;", .9);
+  }
+
+  public void testLongPackage() {
+    testMargin("longPackage.java", "com.sun.org.apache.xalan.internal.xsltc.compiler.util.Util.println(\"hello\");", .9);
   }
 }

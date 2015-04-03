@@ -2,6 +2,7 @@ package tarski
 
 import tarski.AST._
 import tarski.Arounds._
+import tarski.Levels._
 import tarski.Mods._
 import tarski.Denotations._
 import tarski.Items._
@@ -21,6 +22,7 @@ object Pretty {
   // Pretty only needs a small part of the environment
   abstract class Scope {
     def inScope(i: Item): Boolean
+    def level: LangLevel
   }
 
   // Fixity and precedence: to parenthesize or not to parenthesize
@@ -441,11 +443,11 @@ object Pretty {
   }
 
   // Denotations
-  implicit def prettyLit(x: Lit): FixTokens = (HighestFix, List(Loc(x match {
-    case ByteLit(v,s,_) => IntLitTok(s)
-    case ShortLit(v,s,_) => IntLitTok(s)
-    case IntLit(v,s,_) => IntLitTok(s)
-    case LongLit(v,s,_) => LongLitTok(s)
+  implicit def prettyLit(x: Lit)(implicit env: Scope): FixTokens = (HighestFix, List(Loc(x match {
+    case ByteLit(v,s,_) => IntLitTok(safeIntLit(s))
+    case ShortLit(v,s,_) => IntLitTok(safeIntLit(s))
+    case IntLit(v,s,_) => IntLitTok(safeIntLit(s))
+    case LongLit(v,s,_) => LongLitTok(safeIntLit(s))
     case FloatLit(v,s,_) => FloatLitTok(s)
     case DoubleLit(v,s,_) => DoubleLitTok(s)
     case BooleanLit(b,_) => BoolLitTok(b)
@@ -453,6 +455,9 @@ object Pretty {
     case StringLit(v,s,_) => StringLitTok(s)
     case NullLit(_) => NullTok
   },x.r)))
+  private def safeIntLit(s: String)(implicit env: Scope): String =
+    if (env.level == Java6) JavaParse.longLitToJava6(s)
+    else s
   implicit def prettyClassBody(b:ClassBody): FixTokens = (HighestFix, b match {
     case TokClassBody(t,r) => List(Loc(t,r))
   })
@@ -511,7 +516,7 @@ object Pretty {
     def methodTs[A <: HasRange](x: A, dot: SRange, ts: List[TypeArg], a: SGroup, f: Item, fr: SRange)(implicit p: Pretty[A]): FixTokens =
       fix(ApplyFix,left(_,x) ::: Loc(DotTok,dot) :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
     def gnu(nr: SRange, qe: Option[Exp], c: ConstructorItem, cr: SRange,
-            ts0: Option[Grouped[List[TypeArg]]], ts1: List[TypeArg], a1: => SGroup): FixTokens = {
+            ts0: ClassArgs, ts1: List[TypeArg], a1: => SGroup): FixTokens = {
       (NewFix, (qe match {
         case None => Nil
         case Some(p) => tokens(p)(prettyExp(_)(env)) ::: List(Loc(DotTok,cr))
@@ -520,7 +525,7 @@ object Pretty {
         case Some(p) => prettyName(c.parent.name, cr) // qualified: this is an inner class, and we can simply state its name
       })._2 ::: tokensTypeArgs(ts0))
     }
-    def forward(x: ThisOrSuper, xr: SRange, c: ConstructorItem, ts: Option[Grouped[List[TypeArg]]]) = {
+    def forward(x: ThisOrSuper, xr: SRange, c: ConstructorItem, ts: ClassArgs) = {
       val forward = Loc(x match {
         case _:ThisItem => ThisTok
         case _:SuperItem => SuperTok
@@ -539,8 +544,8 @@ object Pretty {
         else (FieldFix,prettyItem(f.parent)(env,fr)._2 ::: Loc(DotTok,fr) :: tokensTypeArgs(ts,a) ::: tokens(f.name,fr))
       case           NewDen(nr,qe,c,cr,ts0) => gnu(nr,qe,c,cr,ts0,Nil,impossible)
       case TypeApply(NewDen(nr,qe,c,cr,ts0),ts1,a1,_) => gnu(nr,qe,c,cr,ts0,ts1,a1)
-      case           ForwardDen(x,xr,c) => forward(x,xr,c,None)
-      case TypeApply(ForwardDen(x,xr,c),ts,a,_) => forward(x,xr,c,Some(Grouped(ts,a)))
+      case           ForwardDen(x,xr,c) => forward(x,xr,c,NoArgs)
+      case TypeApply(ForwardDen(x,xr,c),ts,a,_) => forward(x,xr,c,SomeArgs(ts,a,hide=false))
     }
   }
   def prettyNewArrayDen(f: NewArrayDen)(implicit env: Scope): FixTokens = f match {
@@ -555,9 +560,10 @@ object Pretty {
     case ts => implicit val tr = a.r
                Loc(LtTok,a.l) :: commasApprox(ts,tr) ::: List(Loc(GtTok,a.r))
   }
-  def tokensTypeArgs(ts: Option[Grouped[List[TypeArg]]])(implicit env: Scope): Tokens = ts match {
-    case None => Nil
-    case Some(Grouped(ts,a)) => tokensTypeArgs(ts,a)
+  def tokensTypeArgs(ts: ClassArgs)(implicit env: Scope): Tokens = ts match {
+    case NoArgs => Nil
+    case SomeArgs(_,a,true) if env.level >= Java7 => List(Loc(LtTok,a.l),Loc(GtTok,a.r))
+    case SomeArgs(ts,a,_) => tokensTypeArgs(ts,a)
   }
   def prettyInit(e: Exp)(implicit env: Scope): FixTokens = e match {
     case ArrayExp(_,_,_,xs,a) => prettyArrayExp(xs,a)
