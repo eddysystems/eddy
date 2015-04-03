@@ -130,6 +130,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
     pushScope("setup eddy");
     try {
       myFixture.configureByFiles(filename);
+
+      assert myFixture.getEditor().getCaretModel().getOffset() != 0 : "Caret on position 0, probably not set up in test file (put a <caret> where you want it).";
+
       if (lastEdit < 0)
         lastEdit = myFixture.getEditor().getCaretModel().getOffset();
 
