@@ -43,4 +43,7 @@ public class Record {
       return Util.show(input);
   }
   public String suggestion() throws JSONException { return obj.getString("suggestion"); }
+
+  // for indexing
+  public String key() throws JSONException { return install() + '-' + timeString(); }
 }

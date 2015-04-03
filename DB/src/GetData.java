@@ -78,6 +78,8 @@ public class GetData {
       // retrieve only new objects (database is write only from the plugin, updates are guaranteed to not happen ever)
       int lastDate = 0;
       double lastTime = 0;
+      int duplicates = 0;
+      Set<String> known = new HashSet<>();
 
       if (!restart) {
 
@@ -101,10 +103,15 @@ public class GetData {
           try {
             Record record = new Record(line);
 
+            // remember everything we already know
+            String key = record.key();
+            if (known.contains(key))
+              duplicates++;
+            known.add(key);
+
             // find max date and time fields
             double time = record.time();
             int date = record.date();
-
             lastDate = max(date, lastDate);
             lastTime = max(time, lastTime);
 
@@ -113,8 +120,7 @@ public class GetData {
           }
         } while (true);
 
-        System.out.println("continuing, last date/time retrieved: " + lastDate + ", " + lastTime);
-
+        System.out.println("continuing, last date/time retrieved: " + lastDate + ", " + lastTime + ", " + duplicates + '/' + known.size() + " records duplicated.");
       } else {
         System.out.println("restarting from scratch, existing data will be deleted.");
       }
@@ -170,8 +176,20 @@ public class GetData {
 
         int today = new Double(Util.now/86400.).intValue();
 
+        AttributeValue lastTimeValue = new AttributeValue().withN(String.format(Locale.US, "%f", lastTime));
+        Map<String,Condition> filter = new HashMap<>();
+        filter.put("time", new Condition()
+          .withComparisonOperator(ComparisonOperator.GT)
+          .withAttributeValueList(lastTimeValue));
+
         // ask for all days from the last one we saw to today (inclusive)
         for (int date = lastDate; date <= today; ++date) {
+
+          AttributeValue dateValue = new AttributeValue(String.format(Locale.US, "%d", date));
+          Map<String,Condition> cond = new HashMap<>();
+          cond.put("date", new Condition()
+            .withComparisonOperator(ComparisonOperator.EQ)
+            .withAttributeValueList(dateValue));
 
           System.out.println("getting items for date " + date + " (today is " + today + ')');
 
@@ -181,11 +199,8 @@ public class GetData {
             query.withExclusiveStartKey(lastKeyEvaluated);
             query.setReturnConsumedCapacity(ReturnConsumedCapacity.TOTAL);
 
-            Map<String,Condition> cond = new HashMap<>();
-            cond.put("date", new Condition()
-              .withComparisonOperator(ComparisonOperator.EQ)
-              .withAttributeValueList(new AttributeValue(String.format(filename, "%d", date))));
             query.withKeyConditions(cond);
+            query.withQueryFilter(filter);
 
             QueryResult result = client.query(query);
 
@@ -196,15 +211,19 @@ public class GetData {
             totalCount += result.getScannedCount();
             consumed += result.getConsumedCapacity().getCapacityUnits();
 
+            int used = 0;
             for (Map<String, AttributeValue> item : result.getItems()) {
-              int used = 0;
+              if (known.contains(item.get("install").getS() + '-' + item.get("time").getN()))
+                continue;
               if (item.containsKey("time") && Double.parseDouble(item.get("time").getN()) > lastTime) {
                 used++;
                 full_fo.println(toJSON(item));
+              } else {
+                System.out.println("  didn't use because of time (lastTime = " + lastTime + "): " + item.get("time") + ' ' + item.get("install"));
               }
-              if (used < result.getCount()) {
-                System.out.println("  used " + used + '/' + result.getCount() + " items.");
-              }
+            }
+            if (used < result.getCount()) {
+              System.out.println("  used " + used + '/' + result.getCount() + " items.");
             }
 
             long next = System.nanoTime();
