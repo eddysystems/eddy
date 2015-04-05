@@ -205,7 +205,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private void checkResult(final Eddy.Output output, final String expected) {
-    dumpResults(output,expected);
+    dumpResults(output, expected);
     assertTrue("eddy did not find correct solution: " + expected,
       output.formats(abbrevShowFlags(), false).contains(expected));
   }
@@ -248,7 +248,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   private void checkFail(final Eddy.Output output) {
     if (output == null)
       return;
-    dumpResults(output,null);
+    dumpResults(output, null);
     throw new AssertionError("Expected null output");
   }
 
@@ -265,16 +265,16 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   private void testMarginFull(final String filename, final String best, final double margin) {
-    checkBest(setupEddy(null,-1,filename),best,margin,fullShowFlags());
+    checkBest(setupEddy(null, -1, filename), best, margin, fullShowFlags());
   }
 
   private void testPriority(String filename, String hi, String lo) {
-    checkPriority(setupEddy(null,-1,filename),hi,lo);
+    checkPriority(setupEddy(null, -1, filename), hi, lo);
   }
 
   // actual tests
   public void testCreateEddy() throws Exception {
-    setupEddy(null,-1,"dummy.java");
+    setupEddy(null, -1, "dummy.java");
   }
 
   public void testProbLE1() {
@@ -622,5 +622,9 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testLongPackage() {
     testMargin("longPackage.java", "com.sun.org.apache.xalan.internal.xsltc.compiler.util.Util.println(\"hello\");", .9);
+  }
+
+  public void testStringFormat() {
+    testMargin("stringFormat.java", "s = String.format(Locale.US, \"%f\", f);", .9);
   }
 }
