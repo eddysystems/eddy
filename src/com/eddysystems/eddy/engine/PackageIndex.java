@@ -78,4 +78,8 @@ public class PackageIndex {
     Set<String> res = toQualified.get(shortName);
     return res != null ? res : Collections.<String>emptySet();
   }
+
+  String[] getNames() {
+    return toQualified.keySet().toArray(new String[toQualified.size()]);
+  }
 }

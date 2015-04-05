@@ -205,7 +205,7 @@ public class JavaEnvironment {
       if (indicator != null)
         indicator.setText2("building trie");
 
-      nameTrie = prepareNameTrie(fieldNames);
+      nameTrie = prepareNameTrie(fieldNames, packageIndex.getNames());
 
       pushScope("forget names");
       try {
@@ -309,7 +309,7 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  private int[] prepareNameTrie(String[] fieldNames) {
+  private int[] prepareNameTrie(String[] fieldNames, String[] packageNames) {
     pushScope("prepare lazy trie");
     try {
       if (updateFuture.isCancelled())
@@ -329,7 +329,7 @@ public class JavaEnvironment {
       if (updateFuture.isCancelled())
         return null;
 
-      final String[] allNames = concatenate(classNames,fieldNames,methodNames);
+      final String[] allNames = concatenate(classNames,fieldNames,methodNames,packageNames);
 
       if (updateFuture.isCancelled())
         return null;
