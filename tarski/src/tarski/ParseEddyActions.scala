@@ -151,11 +151,13 @@ object ParseEddyActions {
   def ClassBody0(x1: AnonBodyTok, x1r: Range): AClassBody = AAnonClassBody(x1,x1r)
   def Commas1_StmtHelperBS0(x1: AStmt, x3: CommaList1[AStmt], x2r: Range): CommaList1[AStmt] = x3.preComma(x1,x2r)
   def Commas1_StmtHelperBS1(x1: AStmt): CommaList1[AStmt] = SingleList(x1)
+  def Commas1_StmtHelperBS2(x1: AStmt): CommaList1[AStmt] = SingleList(x1)
   def Option_ExpAssign0(x1: AExp): Option[AExp] = Some(x1)
   def Option_ExpAssign1(): Option[AExp] = None
   def ArrayInterior__Right0(x1: KList[AExp], x2: Loc[Group]): (KList[AExp],Loc[Group]) = (x1,x2)
   def Commas1_Type0(x1: AExp, x3: CommaList1[AExp], x2r: Range): CommaList1[AExp] = x3.preComma(x1,x2r)
   def Commas1_Type1(x1: AExp): CommaList1[AExp] = SingleList(x1)
+  def Commas1_Type2(x1: AExp): CommaList1[AExp] = SingleList(x1)
   def ParenExp0(x1: Loc[Group], x2: (AExp,Loc[Group])): (AExp,Around) = (x2._1,Around(x1,x2._2))
   def FinallyBlock0(x3: AStmt, x1r: Range): (SRange,AStmt) = (x1r,x3)
   def Type__Right__MaybeColon__MaybeStmt0(x1: (AExp,Loc[Group]), x2: AStmt): (AExp,Loc[Group],AStmt) = (x1._1,x1._2,x2)
@@ -175,11 +177,13 @@ object ParseEddyActions {
   def ExpHighNP1(x1: AExp): AExp = x1
   def Commas1_ExpAssignNC0(x1: AExp, x3: CommaList1[AExp], x2r: Range): CommaList1[AExp] = x3.preComma(x1,x2r)
   def Commas1_ExpAssignNC1(x1: AExp): CommaList1[AExp] = SingleList(x1)
+  def Commas1_ExpAssignNC2(x1: AExp): CommaList1[AExp] = SingleList(x1)
   def MaybeThen__Stmt0(x2: AStmt): AStmt = x2
   def Option_Type0(x1: AExp): Option[AExp] = Some(x1)
   def Option_Type1(): Option[AExp] = None
   def Commas1_ExpCond_ExpJuxt0(x1: AExp, x3: CommaList1[AExp], x2r: Range): CommaList1[AExp] = x3.preComma(x1,x2r)
   def Commas1_ExpCond_ExpJuxt1(x1: AExp): CommaList1[AExp] = SingleList(x1)
+  def Commas1_ExpCond_ExpJuxt2(x1: AExp): CommaList1[AExp] = SingleList(x1)
   def ExpAndAnd_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(AndAndOp,x2r,x1,x3)
   def ExpAndAnd_ExpWild1(x1: AExp): AExp = x1
   def ExpHigh0(x1: AExp): AExp = x1
@@ -380,6 +384,7 @@ object ParseEddyActions {
   def CatchTok__Juxts0_Mod__Type0(x2: List[Loc[Mod]], x3: AExp, x1r: Range): (Long,List[Loc[Mod]],AExp) = (x1r,x2,x3)
   def Commas1_VarDecl0(x1: AVarDecl, x3: CommaList1[AVarDecl], x2r: Range): CommaList1[AVarDecl] = x3.preComma(x1,x2r)
   def Commas1_VarDecl1(x1: AVarDecl): CommaList1[AVarDecl] = SingleList(x1)
+  def Commas1_VarDecl2(x1: AVarDecl): CommaList1[AVarDecl] = SingleList(x1)
   def Block0(x2: List[AStmt], x3: Loc[Group], x1r: Range): AStmt = BlockAStmt(x2,SGroup(x1r,x3.r))
   def Block1(x1: StmtTok, x1r: Range): AStmt = TokAStmt(x1,x1r)
   def ExpAnd_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(AndOp,x2r,x1,x3)

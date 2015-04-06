@@ -3183,11 +3183,18 @@ class ParseEddy {
           }
         }
       }
+      if (hi-lo>=2 && type[hi-1]==iCommaTok) {
+        final long s1 = slices.get(iExpAssignNC<<24|lo<<12|hi-1);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(Commas1_ExpAssignNC1((AExp)values.get((int)(s1>>32)+k)));
+        }
+      }
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpAssignNC<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Commas1_ExpAssignNC1((AExp)values.get((int)(s1>>32)+k)));
+            values.add(Commas1_ExpAssignNC2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
@@ -3535,11 +3542,18 @@ class ParseEddy {
           }
         }
       }
+      if (hi-lo>=2 && type[hi-1]==iCommaTok) {
+        final long s1 = slices.get(iStmtHelperBS<<24|lo<<12|hi-1);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(Commas1_StmtHelperBS1((AStmt)values.get((int)(s1>>32)+k)));
+        }
+      }
       if (hi-lo>=1) {
         final long s1 = slices.get(iStmtHelperBS<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Commas1_StmtHelperBS1((AStmt)values.get((int)(s1>>32)+k)));
+            values.add(Commas1_StmtHelperBS2((AStmt)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
@@ -3834,11 +3848,18 @@ class ParseEddy {
           }
         }
       }
+      if (hi-lo>=2 && type[hi-1]==iCommaTok) {
+        final long s1 = slices.get(iExpCond_ExpJuxt<<24|lo<<12|hi-1);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(Commas1_ExpCond_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
+        }
+      }
       if (hi-lo>=1) {
         final long s1 = slices.get(iExpCond_ExpJuxt<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Commas1_ExpCond_ExpJuxt1((AExp)values.get((int)(s1>>32)+k)));
+            values.add(Commas1_ExpCond_ExpJuxt2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
@@ -4543,11 +4564,18 @@ class ParseEddy {
           }
         }
       }
+      if (hi-lo>=2 && type[hi-1]==iCommaTok) {
+        final long s1 = slices.get(iType<<24|lo<<12|hi-1);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(Commas1_Type1((AExp)values.get((int)(s1>>32)+k)));
+        }
+      }
       if (hi-lo>=1) {
         final long s1 = slices.get(iType<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Commas1_Type1((AExp)values.get((int)(s1>>32)+k)));
+            values.add(Commas1_Type2((AExp)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;
@@ -5574,11 +5602,18 @@ class ParseEddy {
           }
         }
       }
+      if (hi-lo>=2 && type[hi-1]==iCommaTok) {
+        final long s1 = slices.get(iVarDecl<<24|lo<<12|hi-1);
+        if (s1 != 0) {
+          for (int k=0;k<(s1&vMask);k++)
+            values.add(Commas1_VarDecl1((AVarDecl)values.get((int)(s1>>32)+k)));
+        }
+      }
       if (hi-lo>=1) {
         final long s1 = slices.get(iVarDecl<<24|lo<<12|hi);
         if (s1 != 0) {
           for (int k=0;k<(s1&vMask);k++)
-            values.add(Commas1_VarDecl1((AVarDecl)values.get((int)(s1>>32)+k)));
+            values.add(Commas1_VarDecl2((AVarDecl)values.get((int)(s1>>32)+k)));
         }
       }
       final int count = values.size()-prev;

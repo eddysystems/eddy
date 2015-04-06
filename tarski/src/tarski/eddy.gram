@@ -44,6 +44,7 @@ Option[a] Option[a]
 // Lists
 Commas1[a] CommaList1[a]
   a                              { SingleList($1) }
+  a CommaTok                     { SingleList($1) }
   a CommaTok Commas1[a]          { $3.preComma($1,$2r) }
 Commas2[a] CommaList2[a]
   a CommaTok Commas1[a]          { $3.preComma($1,$2r) }

@@ -1457,4 +1457,7 @@ class TestDen {
     implicit val env = localEnvWithBase(A,a)
     test("A x =","x",x => VarStmt(Nil,A,r,(x,a),env))
   }
+
+  @Test def trailingComma() = test("int x,y,","x","y",(x,y) =>
+    VarStmt(Nil,IntType,r,List(VarDecl(x,r,Nil,None,env),VarDecl(y,r,Nil,None,env)),env))
 }
