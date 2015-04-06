@@ -23,10 +23,10 @@ object Scores {
   }
 
   // Probabilities are either simple doubles (normally), or structures declared in Java (for debugging with names)
-  type Prob = Double
-  @inline def Prob(name: => String, p: Prob): Prob = p
-  //type Prob = DebugProb
-  //def Prob(name: String, p: Double): Prob = new NameProb(name,p)
+  //type Prob = Double
+  //@inline def Prob(name: => String, p: Prob): Prob = p
+  type Prob = DebugProb
+  @inline def Prob(name: String, p: Double): Prob = new NameProb(name,p)
 
   // Probabilities
   case class Alt[+A](dp: Prob, x: A) extends HasProb { // Explicit class to avoid boxing the probability
