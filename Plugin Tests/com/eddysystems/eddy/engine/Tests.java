@@ -627,4 +627,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testStringFormat() {
     testMargin("stringFormat.java", "s = String.format(Locale.US, \"%f\", f);", .9);
   }
+
+  public void testShadowInAnon() {
+    testMargin("shadowInAnon.java", "boolean x = true;", .9);
+  }
 }
