@@ -531,8 +531,17 @@ class TestDen {
     BlockStmt(List(VarStmt(Nil,IntType,r,(x,7),env),
                    VarStmt(Nil,DoubleType,r,(y,8.1),env),
                    ForStmt(r,Nil,Some(t),r,Nil,a,h)),a,env))
-  @Test def foreach()     = test("for (x : 1,2)", "x", x => {
-    assertFinal(x); ForeachStmt(r,Final,IntType,r,x,r,ArrayExp(r,IntType,r,List(1,2),a),a,h,env) })
+  def forResult(x: Local, fin: Boolean=true): Stmt = {
+    assertEquals(fin,x.isFinal)
+    ForeachStmt(r,if (fin) Final else Nil,IntType,r,x,r,ArrayExp(r,IntType,r,List(1,2),a),a,h,env)
+  }
+  @Test def foreach() = test("for (x : 1,2)", "x", x => forResult(x))
+
+  // Python colons
+  @Test def ifpy() = testX("if true: x=1 else: x=2",(x,y) => IfElseStmt(r,t,a,x,r,y))
+  @Test def whilepy() = testX("while true: x=1",(x,y) => WhileStmt(r,t,a,x))
+  @Test def forpy1() = test("for x in 1,2:","x",x => forResult(x))
+  @Test def forpy2() = test("for int x in 1,2:","x",x => forResult(x,fin=false))
 
   @Test def sideEffects() = {
     lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
@@ -1439,4 +1448,16 @@ class TestDen {
       VarStmt(Nil,A.generic(List(IntegerItem)),r,(x,
         ApplyExp(NewDen(r,None,cons,r,SomeArgs(List(IntegerItem),a,hide=true)),Nil,a,auto=false)),env))
   }
+
+  @Test def trueVar() = testFail("int true = 1")
+
+  @Test def complete() = {
+    val A = NormalClassItem("A")
+    val a = NormalLocal("a",A)
+    implicit val env = localEnvWithBase(A,a)
+    test("A x =","x",x => VarStmt(Nil,A,r,(x,a),env))
+  }
+
+  @Test def trailingComma() = test("int x,y,","x","y",(x,y) =>
+    VarStmt(Nil,IntType,r,List(VarDecl(x,r,Nil,None,env),VarDecl(y,r,Nil,None,env)),env))
 }

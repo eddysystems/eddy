@@ -214,7 +214,8 @@ class TestParse {
     ApplyAExp(NewAExp(None,r,None,"int",List(Grouped(None,a))),commas(1,2,3),curlys))
 
   @Test def booleanEqTrue() = testAST("boolean x = true;",
-    SemiAStmt(VarAStmt(Nil,"boolean",AVarDecl("x",r,0,Some(r,"true":AExp))),r),
+    SemiAStmt(VarAStmt(Nil,"boolean",AVarDecl("x",r,0,Some(r,"true":Option[AExp]))),r),
+    SemiAStmt(VarAStmt(Nil,"boolean",juxts(AVarDecl("x",r,0,Some((r,None))),AVarDecl("true",r,0,None))),r),
     SemiAStmt(AssignAExp(None,r,ApplyAExp("boolean","x",NoAround(r)),"true"),r))
 
   @Test def tryFinallyStmt() = testAST("try x = 1 finally ",

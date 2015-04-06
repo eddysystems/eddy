@@ -222,11 +222,6 @@ object Base {
   val baseSet = baseItems.toSet
   val baseEnv = silenced(Env(baseItems))
 
-  // Base environment with all class/interface items at scope level 7
-  val testEnv = silenced(Env(baseEnv.allItems, (baseEnv.allItems collect {
-    case t@(_:Package|_:ClassItem) => (t,7)
-  }).toMap))
-
   // Things that EnvironmentProcessor won't add on its own
   val extraItems = Array(
     trueLit,falseLit,nullLit,
@@ -234,6 +229,12 @@ object Base {
     lengthItem
   )
 
-  val extraEnv = silenced(Env(extraItems))
+  // Put all classes and similar at scope level 7
+  private def inScopeEnv(items: Array[Item]) = Env(items, (items collect {
+    case t@(_:Package|_:ClassItem|_:LangTypeItem|_:LitValue) => (t,7)
+  }).toMap)
+
+  val testEnv = silenced(inScopeEnv(baseEnv.allItems))
+  val extraEnv = silenced(inScopeEnv(extraItems))
   val extraByItem = valuesByItem(extraItems, false)
 }

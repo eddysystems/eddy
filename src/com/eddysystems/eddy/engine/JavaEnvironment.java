@@ -30,6 +30,7 @@ import tarski.Items.BaseItem;
 import tarski.Items.ClassItem;
 import tarski.Items.ConstructorItem;
 import tarski.Items.Item;
+import tarski.Items.*;
 
 import java.util.*;
 import java.util.concurrent.CancellationException;
@@ -573,6 +574,11 @@ public class JavaEnvironment {
 
       // Find the language level for this file
       final int level = Levels.parseLevelJava(((PsiJavaFile) place.getContainingFile()).getLanguageLevel().getName());
+
+      // Add relevant extraItems to scopeItems
+      for (final Item i : tarski.Base.extraItems())
+        if (i instanceof LitValue || i instanceof LangTypeItem)
+          ep.scopeItems.put(i, 0);
 
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
       return Tarski.environment(bigTrie, smallTrie, vbi, imports, ep.scopeItems, ep.placeInfo, level);

@@ -27,6 +27,9 @@ object Items {
     def accessible(place: PlaceInfo) = true
   }
 
+  // If one of these is in scope, we can't declare a variable with the same name
+  sealed trait BlocksName
+
   // Something which we can be inside
   sealed trait ParentItem extends Item with PackageOrMember {
     def inside: Parent
@@ -108,7 +111,7 @@ object Items {
     def simple: Type
     def simpleSafe: Boolean // Is it safe to call simple?
   }
-  abstract class LangTypeItem extends TypeItem {
+  abstract class LangTypeItem extends TypeItem with BlocksName {
     def ty: LangType
     val name = ty.name
     def supers = Nil
@@ -337,7 +340,7 @@ object Items {
     def item: TypeItem // The item of our type
     def isFinal: Boolean
   }
-  abstract class Local extends Value {
+  abstract class Local extends Value with BlocksName {
     override def toString = "local:" + name
     def ty: Type
     def item = ty.item
@@ -367,7 +370,7 @@ object Items {
     def inside: Type
     def item = inside.item
   }
-  case class LitValue(f: SRange => Lit) extends Value {
+  case class LitValue(f: SRange => Lit) extends Value with BlocksName {
     private[this] val x = f(SRange.unknown)
     val name = x.show
     val ty = x.ty

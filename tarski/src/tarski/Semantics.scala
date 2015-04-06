@@ -481,20 +481,12 @@ object Semantics {
     (denoteExp(e,Some(to)) filter (assignsTo(_,to),s"Can't assign anything available to type ${show(to)}")) ++ (
       if (isZero(e)) single(castZero(to,e.r), Pr.assignCastZero) else Empty)
 
-  /*
-    // Optional check that e assigns to a type
-  def expect(e: Exp, expects: Type): Scored[Exp] =
-    if (!assignsTo(e,expects)) fail(s"Can't assign ${show(e)} to type ${show(expects)}")
-    else known(e)
-  def expect(e: Exp, expects: Option[Type]): Scored[Exp] = expects match {
-    case Some(t) if !assignsTo(e,t) => fail(s"Can't assign ${show(e)} to type ${show(t)}")
-    case _ => known(e)
+  def denoteAssignsTo(r: SRange, e: Option[AExp], to: Type)(implicit env: Env): Scored[Exp] = e match {
+    case Some(e) => denoteAssignsTo(e,to)
+    case None => valuesOfItem(to.item,r,Nil) flatMap (x =>
+      if (assignsTo(x,to)) known(x)
+      else fail(s"Type ${show(x.ty)} incompatible with type ${show(to)}"))
   }
-  def expect(e: Scored[Exp], expects: Option[Type]): Scored[Exp] = expects match {
-    case Some(t) => e filter (assignsTo(_,t),s"Can't assign anything to type ${show(t)}")
-    case None => e
-  }
-  */
 
   def denoteNewArray(m: Mode, expects: Option[Type], nr: SRange, x: AExp, ns: ADimExps)(implicit env: Env) = {
     // Split ns into [e] and [] parts
@@ -759,7 +751,7 @@ object Semantics {
       case VarAStmt(m,t,ds) => modifiers(m,Final) flatMap (isFinal => {
         def process(d: AVarDecl)(env: Env, x: NormalLocal): Scored[VarDecl] = d match {
           case AVarDecl(_,xr,k,None) => known(VarDecl(x,xr,k,None,env))
-          case AVarDecl(_,xr,k,Some((eq,i))) => denoteAssignsTo(i,x.ty)(env) map (i => VarDecl(x,xr,k,Some(eq,i),env))
+          case AVarDecl(_,xr,k,Some((eq,i))) => denoteAssignsTo(eq,i,x.ty)(env) map (i => VarDecl(x,xr,k,Some(eq,i),env))
         }
         val useType = t match {
           case None => Empty
@@ -772,7 +764,7 @@ object Semantics {
               })))
         }
         ds.list match {
-          case List(AVarDecl(v,vr,Nil,Some((eq,e)))) => // For T v = i, allow T to change
+          case List(AVarDecl(v,vr,Nil,Some((eq,Some(e))))) => // For T v = i, allow T to change
             val (p,tr) = t match {
               case None => (Pr.ignoreMissingType,vr)
               case Some(t) => val tr = t.r

@@ -348,7 +348,8 @@ object Pretty {
   implicit def prettyAStmts(ss: List[AStmt]): FixTokens = (SemiFix, ss.map(tokens(_)).flatten)
   implicit def prettyAVar(d: AVarDecl): FixTokens = d match {
     case AVarDecl(x,xr,n,None) => prettyDims(x,xr,n)
-    case AVarDecl(x,xr,n,Some((eqr,e))) => fix(AssignFix, prettyDims(x,xr,n)._2 ::: spaceAround(EqTok,eqr) ::: right(_,e))
+    case AVarDecl(x,xr,n,Some((eqr,e))) => fix(AssignFix,s => prettyDims(x,xr,n)._2 ::: spaceAround(EqTok,eqr) :::
+      (e match { case None => Nil; case Some(e) => right(s,e) }))
   }
   implicit def prettyFor(i: ForInfo): FixTokens = (LowestExpFix,i match {
     case For(i,_,c,r1,u) => tokens(i) ::: tokens(c) ::: Loc(SemiTok,r1) :: tokens(u)
