@@ -678,7 +678,7 @@ object Types {
                  form: Inference.Form, context: (Type,Type) => Boolean): Option[List[TypeArg]] = {
     val ps = f.params.slice(0,ts.size)
     if (f.tparams.isEmpty)
-      if ((ps,ts).zipped forall {case (p,t) => context(t,p)}) Some(Nil)
+      if ((ts,ps).zipped forall {case (t,p) => context(t,p)}) Some(Nil)
       else None
     else {
       expects match {
