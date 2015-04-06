@@ -58,8 +58,8 @@ public class QueriableItemList implements Tries.Queriable<Item>, ValueByItemQuer
     for (final Item item : items) {
       final String meant = item.name();
       if (!meant.equals(typed)) {
-        final JavaScores.DebugProb p = Pr.typoProbability(meant,typed);
-        //final double/*Prob*/ p = Pr.typoProbability(meant,typed);
+        //final JavaScores.DebugProb p = Pr.typoProbability(meant,typed);
+        final double p = Pr.typoProbability(meant,typed);
         if (pp(p) > Pr.minimumProbability())
           results = $colon$colon$.MODULE$.apply(new Alt<Item>(p,item),results);
       }
