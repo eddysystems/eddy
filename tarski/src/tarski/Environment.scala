@@ -86,13 +86,12 @@ object Environment {
 
     // Is an item in scope and not shadowed by another item?
     private lazy val _inScope: java.util.Set[Item] = {
-      val set = new java.util.HashSet[Item]
-      Base.extraEnv.allItems foreach { case t:LangTypeItem => set.add(t); case _ => () }
       val best = new mutable.HashMap[String,(Int,List[Item])]
       scope foreach { case (i,n) =>
         val (m,is) = best.getOrElse(i.name,(n,Nil))
         if (n <= m) best(i.name) = (n,i :: (if (n==m) is else Nil))
       }
+      val set = new java.util.HashSet[Item]
       best foreach { case (_,(n,is)) => is foreach set.add }
       set
     }
@@ -106,7 +105,7 @@ object Environment {
       val set = names.toSet
       if (set.size < names.size) fail(s"Duplicate name among ${names mkString ", "}")
       else place.place match {
-        case c:CallableItem => scope collect { case (v:Local,_) if set.contains(v.name) => v.name } match {
+        case c:CallableItem => scope collect { case (v:BlocksName,_) if set.contains(v.name) => v.name } match {
           case Nil => known((ts: List[Type]) => {
             @tailrec def loop(as: List[A], env: Env, ns: List[String], ts: List[Type], fs: List[(Env,NormalLocal) => A]): (Env,List[A]) = (ns,ts,fs) match {
               case (Nil,Nil,Nil) => (env,as.reverse)
