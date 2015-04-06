@@ -179,11 +179,11 @@ AfterIfB PreIf
   ExpAssignNP                                                { { val er = $1.r; PreIf(ir => IfElseAStmt(ir,$1,NoAround(er),EmptyAStmt(er.after),er.after,HoleAStmt(er.after))) } }
   ParenExp MaybeThen MaybeStmt ElseTok MaybeColon Stmt       { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$6)) }
   ParenExp MaybeThen MaybeStmt ElifTok MaybeColon AfterIf    { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$6($4r))) }
-  ExpAssignNP Then MaybeStmt ElseTok MaybeColon Stmt      { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$6)) }
-  ExpAssignNP Then MaybeStmt ElifTok MaybeColon AfterIf   { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$6($4r))) }
+  ExpAssignNP Then MaybeStmt ElseTok MaybeColon Stmt         { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$6)) }
+  ExpAssignNP Then MaybeStmt ElifTok MaybeColon AfterIf      { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$6($4r))) }
 VarDecl AVarDecl
-  Ident Dims                     { AVarDecl($1.x,$1.r,$2,None) }
-  Ident Dims EqTok ExpCommas     { AVarDecl($1.x,$1.r,$2,Some(($3r:SRange,$4))) }
+  Ident Dims                                                 { AVarDecl($1.x,$1.r,$2,None) }
+  Ident Dims EqTok Option[ExpCommas]                         { AVarDecl($1.x,$1.r,$2,Some(($3r:SRange,$4))) }
 WhileUntil Loc[Boolean]
   WhileTok                                                   { Loc(false,$1r) }
   UntilTok                                                   { Loc(true,$1r) }

@@ -1448,4 +1448,13 @@ class TestDen {
       VarStmt(Nil,A.generic(List(IntegerItem)),r,(x,
         ApplyExp(NewDen(r,None,cons,r,SomeArgs(List(IntegerItem),a,hide=true)),Nil,a,auto=false)),env))
   }
+
+  @Test def trueVar() = testFail("int true = 1")
+
+  @Test def complete() = {
+    val A = NormalClassItem("A")
+    val a = NormalLocal("a",A)
+    implicit val env = localEnvWithBase(A,a)
+    test("A x =","x",x => VarStmt(Nil,A,r,(x,a),env))
+  }
 }

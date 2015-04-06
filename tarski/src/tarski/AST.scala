@@ -21,8 +21,8 @@ object AST {
   type Block = List[AStmt]
   type ADims = List[SGroup]
   type ADimExps = List[Grouped[Option[AExp]]]
-  case class AVarDecl(x: Name, xr: SRange, n: ADims, i: Option[(SRange,AExp)]) extends HasRange {
-    def r = i match { case None => xr; case Some((_,e)) => xr union e.r }
+  case class AVarDecl(x: Name, xr: SRange, n: ADims, i: Option[(SRange,Option[AExp])]) extends HasRange {
+    def r = i match { case None => xr; case Some((r,e)) => xr union r unionR e }
   }
 
   sealed abstract class AStmt extends HasRange

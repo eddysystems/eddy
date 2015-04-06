@@ -92,7 +92,7 @@ object ParseEddyActions {
   def CatchBlocks1(): List[(CatchInfo,AStmt)] = Nil
   def CatchBlocks__Option_FinallyBlock0(x1: List[(CatchInfo,AStmt)], x2: Option[(SRange,AStmt)]): (List[(CatchInfo,AStmt)],Option[(SRange,AStmt)]) = (x1,x2)
   def ForTok__Left__ForInfo0(x2: Loc[Group], x3: ForInfo, x1r: Range): (Long,Loc[Group],ForInfo) = (x1r,x2,x3)
-  def VarDecl0(x1: Loc[String], x2: (List[SGroup],Long,AExp)): AVarDecl = AVarDecl(x1.x,x1.r,x2._1,Some((x2._2:SRange,x2._3)))
+  def VarDecl0(x1: Loc[String], x2: (List[SGroup],Long,Option[AExp])): AVarDecl = AVarDecl(x1.x,x1.r,x2._1,Some((x2._2:SRange,x2._3)))
   def VarDecl1(x1: Loc[String], x2: List[SGroup]): AVarDecl = AVarDecl(x1.x,x1.r,x2,None)
   def WildcardBounds0(x2: AExp, x1r: Range): Option[WildBound] = Some(WildBound(Super,x1r,x2))
   def WildcardBounds1(x2: AExp, x1r: Range): Option[WildBound] = Some(WildBound(Extends,x1r,x2))
@@ -142,8 +142,11 @@ object ParseEddyActions {
   def Do__Stmt0(x2: AStmt): AStmt = x2
   def SingleJuxt1_ExpWildNA0(x1: List[AExp]): JuxtList[AExp] = JuxtList2(x1)
   def SingleJuxt1_ExpWildNA1(x1: AExp): JuxtList[AExp] = SingleList(x1)
+  def Dims__EqTok__Option_ExpCommas0(x1: List[SGroup], x3: Option[AExp], x2r: Range): (List[SGroup],Long,Option[AExp]) = (x1,x2r,x3)
   def AfterIf0(x1: PreIf): PreIf = x1
   def AfterIf1(x1: PreIf): PreIf = x1
+  def Option_ExpCommas0(x1: AExp): Option[AExp] = Some(x1)
+  def Option_ExpCommas1(): Option[AExp] = None
   def MaybeStmt__ElifTok__MaybeColon__AfterIf0(x1: AStmt, x2: (Loc[ElifTok],PreIf)): (AStmt,Loc[ElifTok],PreIf) = (x1,x2._1,x2._2)
   def ClassBody0(x1: AnonBodyTok, x1r: Range): AClassBody = AAnonClassBody(x1,x1r)
   def Commas1_StmtHelperBS0(x1: AStmt, x3: CommaList1[AStmt], x2r: Range): CommaList1[AStmt] = x3.preComma(x1,x2r)
@@ -351,7 +354,6 @@ object ParseEddyActions {
   def ExpUnary_ExpWild1(x1: Loc[UnaryOp], x2: AExp): AExp = UnaryAExp(x1.x,x1.r,x2)
   def ExpUnary_ExpWild2(x1: AExp, x2: Loc[UnaryOp]): AExp = UnaryAExp(x2.x,x2.r,x1)
   def ExpUnary_ExpWild3(x1: AExp): AExp = x1
-  def Dims__EqTok__ExpCommas0(x1: List[SGroup], x3: AExp, x2r: Range): (List[SGroup],Long,AExp) = (x1,x2r,x3)
   def ExpHigh__DotTok__NewTok__Option_TypeArgs0(x1: AExp, x4: Option[Grouped[KList[AExp]]], x3r: Range): (AExp,Long,Option[Grouped[KList[AExp]]]) = (x1,x3r,x4)
   def ExpJuxtNP0(x1: AExp, x2: JuxtList[AExp]): AExp = /* null */ { val a = NoAround(x2.list.head.r union x2.list.last.r); filterJuxtApply(x1,x2)(ApplyAExp(x1,_,a)) }
   def ExpJuxtNP1(x1: AExp): AExp = x1
