@@ -1366,6 +1366,7 @@ class TestDen {
   @Test def booleanArrayExp(): Unit = {
     val B = NormalLocal("boxedVariable", BooleanType.box)
     implicit val env = localEnvWithBase(B)
+    assert(assignsTo(BooleanType.box,BooleanType))
     test("boolean[] x = {};", "x", x => SemiStmt(VarStmt(Nil, ArrayType(BooleanType), r, List(VarDecl(x, r, 0, Some((r,ArrayExp(r,BooleanType,r,Nil,a))), env)),env),r))
     test("boolean[] x = new boolean [] {};", "x", x => SemiStmt(VarStmt(Nil, ArrayType(BooleanType), r, List(VarDecl(x, r, 0, Some((r,ArrayExp(r,BooleanType,r,Nil,a))), env)),env),r))
     test("boolean[] x = new boolean [] { boxedVariable };", "x", x => SemiStmt(VarStmt(Nil, ArrayType(BooleanType), r, List(VarDecl(x, r, 0, Some((r,ArrayExp(r,BooleanType,r,List(B),a))), env)),env),r))
@@ -1388,7 +1389,7 @@ class TestDen {
     test("unboxFunction(unboxedBoolean)", ApplyExp(MethodDen(None,None,f2,r),List(ArrayExp(r,BooleanType,r,List(b),a)),a,auto=false))
     test("unboxFunction(boxedVariable)", ApplyExp(MethodDen(None,None,f2,r),List(ArrayExp(r,BooleanType,r,List(B),a)),a,auto=false))
     // Object[]
-    test("objectFunction(unboxedBoolean)", ApplyExp(MethodDen(None,None,f3,r),List(ArrayExp(r,BooleanType,r,List(b),a)),a,auto=false))
+    test("objectFunction(unboxedBoolean)", ApplyExp(MethodDen(None,None,f3,r),List(ArrayExp(r,BooleanType.box,r,List(b),a)),a,auto=false))
     test("objectFunction(unboxedBoolean, objectVar)", ApplyExp(MethodDen(None,None,f3,r),List(ArrayExp(r,ObjectType,r,List(b,o),a)),a,auto=false))
   }
 

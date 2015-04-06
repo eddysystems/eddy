@@ -463,9 +463,13 @@ object Semantics {
       }}
     }
 
-    case ArrayAExp(xs,a) if m.exp =>
+    case ArrayAExp(xs,a) if m.exp => biased(Pr.arrayExp,{
       val r = a.a.l.before
-      biased(Pr.arrayExp,product(xs.list map (denoteExp(_))) map (is => ArrayExp(r,condTypes(is map (_.ty)),r,is,a.a)))
+      expects match {
+        case Some(ArrayType(t)) => product(xs.list map (denoteAssignsTo(_,t))) map (ArrayExp(r,t,r,_,a.a))
+        case _ => product(xs.list map (denoteExp(_))) map (is => ArrayExp(r,condTypes(is map (_.ty)),r,is,a.a))
+      }
+    })
 
     // first denote a new-callable, make an ApplyExp using the provided args, and replace the ApplyExp with an AnonClassExp
     case AAnonClassExp(x,as,aa,AAnonClassBody(b,br)) if m.exp => denoteAnonNew(x,expects) flatMap { x =>

@@ -465,7 +465,7 @@ object Types {
       val fb = f.box
       fb == t || widensRefTo(fb,t)
     case (f: RefType, t: PrimType) => f.unbox match {
-      case Some(fp) => widensPrimTo(fp,t)
+      case Some(fp) => fp==t || widensPrimTo(fp,t)
       case None => false
     }
   }
