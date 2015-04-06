@@ -2,7 +2,6 @@ package tarski
 
 import tarski.Denotations._
 import tarski.Environment.Env
-import tarski.Items.ArrayItem
 import tarski.JavaScores.multiple
 import tarski.Scores._
 import tarski.Types._
@@ -47,41 +46,58 @@ object ArgMatching {
           // add x to the list of arguments
           val straightAdd = processNext(used :+ x, revAppend(prev,next))
 
-          // TODO: use looseCompatible(f,tys,effectiveExpects) earlier to check whether it's legal to avoid generating tons of useless options
           val arrayAdd = if (dimensions(f.params(k)) <= dimensions(x.ty)) Empty else {
             val variadicParam = f.variadic && k == np-1
             val effectiveExpects = if (checkExpectedEarly || prev.isEmpty && next.isEmpty) expects else None
 
-            // add new x.ty[]{x} to the list of arguments
-            val singleton = ArrayExp(x.r.before,x.ty,x.r.before,List(x),SGroup(x.r.before,x.r.after))
-            val args = used :+ singleton
-            if (looseCompatible(f,args map (_.ty),effectiveExpects).isEmpty) Empty
-            else {
-              val singletonArray = biased(if (variadicParam) Pr.reasonable else Pr.convertToArray, processNext(args,revAppend(prev,next)))
+            // add new ctype[]{x} to the list of arguments, and try to add as many arguments to that as we can
+            // for primitives for boxable/unboxable x.ty, we will call this for both boxed and unboxed version
+            def checkArrays(ctype: Type): Scored[A] = {
+              val singleton = ArrayExp(x.r.before,ctype,x.r.before,List(x),SGroup(x.r.before,x.r.after))
+              val args = used :+ singleton
+              if (looseCompatible(f,args map (_.ty),effectiveExpects).isEmpty) Empty
+              else {
+                val singletonArray = biased(if (variadicParam) Pr.reasonable else Pr.convertToArray, processNext(args,revAppend(prev,next)))
 
-              // try to use as many arguments as possible for the array we made (but don't use more than we can afford to lose)
-              val minLeft: Int = if (useEnv) 0 else np - prev.size - k - 1 // we have to have at least this many things left in next: np - k - prev - 1
-              val multipleArray = biased(if (variadicParam) Pr.reasonable else Pr.arrayContract, {
-                  val usedtys = used map (_.ty)
-                  def useMore(lastArray: ArrayExp, next: List[Scored[Exp]]): Scored[A] = if (next.size>minLeft) next match {
-                    case Nil => Empty
-                    case xden::next => xden flatMap { x =>
-                      val ty = commonType(lastArray.t, x.ty)
-                      val effectiveExpects = if (checkExpectedEarly || prev.isEmpty && next.isEmpty) expects else None
-                      if (looseCompatible(f,usedtys:+ArrayType(ty),effectiveExpects).isEmpty) Empty
-                      else {
-                        val array = ArrayExp(lastArray.nr,ty,lastArray.tr,lastArray.i :+ x,SGroup(lastArray.a.l,x.r.after))
-                        // if we have to resort to making Object[], penalize some more
-                        biased(if (ty==ObjectType && lastArray.t != ObjectType) Pr.contractToObjectArray else Pr.reasonable,
-                          processNext(used :+ array, revAppend(prev,next)) ++ useMore(array,next))
+                // try to use as many arguments as possible for the array we made (but don't use more than we can afford to lose)
+                val minLeft: Int = if (useEnv) 0 else np - prev.size - k - 1 // we have to have at least this many things left in next: np - k - prev - 1
+                val multipleArray = biased(if (variadicParam) Pr.reasonable else Pr.arrayContract, {
+                    val usedtys = used map (_.ty)
+                    def useMore(lastArray: ArrayExp, next: List[Scored[Exp]]): Scored[A] = if (next.size>minLeft) next match {
+                      case Nil => Empty
+                      case xden::next => xden flatMap { x =>
+                        // if lastArray.t is not a primitive type, and commonType returns an unboxed type (which it prefers), go back to boxed (which we prefer)
+                        // (we have the unboxed version in another branch, in case that is also valid)
+                        val ty:Type = commonType(lastArray.t, x.ty) match {
+                          case cty:PrimType if !lastArray.t.isInstanceOf[PrimType] => cty.box
+                          case cty:Type => cty
+                        }
+                        val effectiveExpects = if (checkExpectedEarly || prev.isEmpty && next.isEmpty) expects else None
+                        if (looseCompatible(f,usedtys:+ArrayType(ty),effectiveExpects).isEmpty) Empty
+                        else {
+                          val array = ArrayExp(lastArray.nr,ty,lastArray.tr,lastArray.i :+ x,SGroup(lastArray.a.l,x.r.after))
+                          // if we have to resort to making Object[], penalize some more
+                          biased(if (ty==ObjectType && lastArray.t != ObjectType) Pr.contractToObjectArray else Pr.reasonable,
+                            processNext(used :+ array, revAppend(prev,next)) ++ useMore(array,next))
+                        }
                       }
-                    }
-                  } else Empty
-                  useMore(singleton,next)
-                })
+                    } else Empty
+                    useMore(singleton,next)
+                  })
 
-              singletonArray ++ multipleArray
+                singletonArray ++ multipleArray
+              }
             }
+
+            // check if we can make an array of the argument, or make an array of the boxed/unboxed argument type
+            // one or two of these options are used
+            (x.ty.unbox match {
+              case None => Empty
+              case Some(ctype:Type) => checkArrays(ctype)
+            }) ++ checkArrays(x.ty) ++ (x.ty match {
+              case ctype:PrimType => checkArrays(ctype.box)
+              case _ => Empty
+            })
           }
 
           straightAdd ++ arrayAdd
