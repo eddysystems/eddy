@@ -205,7 +205,9 @@ object Grammar {
           val r = m.group(2).nonEmpty
           if (i-1 < k) "\\$1"+f0(i-1,r) else "\\$2"+f1(i-k-1,r)
         }
-        val r = (n,(List(n0,n1),"""\$(?:(\d+)(r?))""".r.replaceAllIn(a,convert(_))))
+        val a1 = """\$(\d+)(r?)""".r.replaceAllIn(a,convert(_))
+        val a2 = """\bLoc\((\$\d+\._\d+),\1\.r\)""".r.replaceAllIn(a1,m => "\\"+m.group(1)) // Terrible hack: Loc($2._3,$2._3.r) -> $2._3
+        val r = (n,(List(n0,n1),a2))
         ((n,t)::t0:::t1,r::r0:::r1)
       }
     }

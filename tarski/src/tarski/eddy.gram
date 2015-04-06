@@ -137,8 +137,8 @@ StmtHelper AStmt
   StmtHelperBS                                               { $1 }
   IfTok AfterIfA                                             { $2($1r) }
   WhileUntil MaybeParenExp MaybeDo                           { WhileAStmt($1.r,$1.x,$2._1,$2._2,HoleAStmt($2._2.r.union($3).after)) }
-  ForTok Left ForInfo Right                                  { ForAStmt($1r,$3,Around($2,$4),HoleAStmt($4.r.after)) }
-  ForTok ForInfo                                             { { val ir = $2.r; ForAStmt($1r,$2,NoAround(ir),HoleAStmt(ir.after)) } }
+  ForTok Left ForInfo Right MaybeDo                          { ForAStmt($1r,$3,Around($2,$4),HoleAStmt($4.r.after)) }
+  ForTok ForInfo MaybeDo                                     { { val ir = $2.r; ForAStmt($1r,$2,NoAround(ir),HoleAStmt(ir.after)) } }
   SynchronizedTok MaybeParenExp MaybeDo                      { SyncAStmt($1r,$2._1,$2._2,HoleAStmt($2._2.r.after)) }
 StmtHelperBS AStmt
   Type List1[VarDecl]                                        { VarAStmt(Nil,Some($1),$2) }
@@ -154,15 +154,14 @@ StmtHelperBS AStmt
   // LabelStmt
   IfTok AfterIfB                                             { $2($1r) }
   WhileUntil ParenExp MaybeDo Stmt                           { WhileAStmt($1.r,$1.x,$2._1,$2._2,$4) }
-  WhileUntil ExpAssignNP DoTok Stmt                          { WhileAStmt($1.r,$1.x,$2,NoAround($4.r),$4) }
+  WhileUntil ExpAssignNP Do Stmt                             { WhileAStmt($1.r,$1.x,$2,NoAround($4.r),$4) }
   WhileUntil ExpAssignNP                                     { /* null */ { val er = $2.r; filterNoStartsWithParen[AStmt]($2)(WhileAStmt($1.r,$1.x,_,NoAround(er),EmptyAStmt(er.after))) } }
-  DoTok MaybeStmt WhileUntil MaybeParenExp                   { DoAStmt($1r,$2,$3.r,$3.x,$4._1,$4._2) }
-  ForTok Left ForInfo Right Stmt                             { ForAStmt($1r,$3,Around($2,$4),$5) }
-  ForTok ForInfo DoTok Stmt                                  { ForAStmt($1r,$2,NoAround($2.r),$4) }
+  DoTok MaybeColon MaybeStmt WhileUntil MaybeParenExp        { DoAStmt($1r,$3,$4.r,$4.x,$5._1,$5._2) }
+  ForTok Left ForInfo Right MaybeDo Stmt                     { ForAStmt($1r,$3,Around($2,$4),$6) }
+  ForTok ForInfo Do Stmt                                     { ForAStmt($1r,$2,NoAround($2.r),$4) }
   SynchronizedTok ParenExp MaybeDo Stmt                      { SyncAStmt($1r,$2._1,$2._2,$4) }
-  SynchronizedTok ExpAssignNP DoTok Stmt                     { SyncAStmt($1r,$2,NoAround($2.r),$4) }
-  SynchronizedTok ExpAssignNP Stmt                           { SyncAStmt($1r,$2,NoAround($2.r),$3) }
-  TryTok Stmt CatchBlocks Option[FinallyBlock]               { TryAStmt($1r,$2,$3,$4) }
+  SynchronizedTok ExpAssignNP MaybeDo Stmt                   { SyncAStmt($1r,$2,NoAround($2.r),$4) }
+  TryTok MaybeColon Stmt CatchBlocks Option[FinallyBlock]    { TryAStmt($1r,$3,$4,$5) }
   // TODO: Switch
   LParenTok Stmt Right                                       { ParenAStmt($2,Around(Paren,$1r,$3)) }
 AfterIf PreIf
@@ -170,30 +169,43 @@ AfterIf PreIf
   AfterIfB                                                   { $1 }
 AfterIfA PreIf
   MaybeParenExp MaybeThen                                    { PreIf(ir => IfAStmt(ir,$1._1,$1._2,HoleAStmt($1._2.r.union($2).after))) }
-  ParenExp MaybeThen MaybeStmt ElseTok                       { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,HoleAStmt($4r.after))) }
-  ExpAssignNP ThenTok MaybeStmt ElseTok                      { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,HoleAStmt($4r.after))) }
+  ParenExp MaybeThen MaybeStmt ElseTok MaybeColon            { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,HoleAStmt($4r.after))) }
+  ExpAssignNP Then MaybeStmt ElseTok MaybeColon              { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,HoleAStmt($4r.after))) }
 AfterIfB PreIf
   ParenExp MaybeThen Stmt                                    { PreIf(ir => IfAStmt(ir,$1._1,$1._2,$3)) }
-  ExpAssignNP ThenTok Stmt                                   { PreIf(ir => IfAStmt(ir,$1,NoAround($1.r),$3)) }
+  ExpAssignNP Then Stmt                                      { PreIf(ir => IfAStmt(ir,$1,NoAround($1.r),$3)) }
   ExpAssignNP Block                                          { PreIf(ir => IfAStmt(ir,$1,NoAround($1.r),$2)) }
   ExpAssignNP                                                { { val er = $1.r; PreIf(ir => IfAStmt(ir,$1,NoAround(er),EmptyAStmt(er.after))) } }
   ExpAssignNP                                                { { val er = $1.r; PreIf(ir => IfElseAStmt(ir,$1,NoAround(er),EmptyAStmt(er.after),er.after,HoleAStmt(er.after))) } }
-  ParenExp MaybeThen MaybeStmt ElseTok Stmt                  { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$5)) }
-  ParenExp MaybeThen MaybeStmt ElifTok AfterIf               { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$5($4r))) }
-  ExpAssignNP ThenTok MaybeStmt ElseTok Stmt                 { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$5)) }
-  ExpAssignNP ThenTok MaybeStmt ElifTok AfterIf              { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$5($4r))) }
+  ParenExp MaybeThen MaybeStmt ElseTok MaybeColon Stmt       { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$6)) }
+  ParenExp MaybeThen MaybeStmt ElifTok MaybeColon AfterIf    { PreIf(ir => IfElseAStmt(ir,$1._1,$1._2,$3,$4r,$6($4r))) }
+  ExpAssignNP Then MaybeStmt ElseTok MaybeColon Stmt      { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$6)) }
+  ExpAssignNP Then MaybeStmt ElifTok MaybeColon AfterIf   { PreIf(ir => IfElseAStmt(ir,$1,NoAround($1.r),$3,$4r,$6($4r))) }
 VarDecl AVarDecl
   Ident Dims                     { AVarDecl($1.x,$1.r,$2,None) }
   Ident Dims EqTok ExpCommas     { AVarDecl($1.x,$1.r,$2,Some(($3r:SRange,$4))) }
 WhileUntil Loc[Boolean]
   WhileTok                                                   { Loc(false,$1r) }
   UntilTok                                                   { Loc(true,$1r) }
+Then Unit
+  ThenTok                                                    { () }
+  ColonTok                                                   { () }
+  ThenTok ColonTok                                           { () }
 MaybeThen Option[SRange]
   ""                                                         { None }
   ThenTok                                                    { Some($1r) }
+  ColonTok                                                   { Some($1r) }
+  ThenTok ColonTok                                           { Some($1r union $2r) }
+Do Unit
+  DoTok                                                      { () }
+  ColonTok                                                   { () }
 MaybeDo Option[SRange]
   ""                                                         { None }
   DoTok                                                      { Some($1r) }
+  ColonTok                                                   { Some($1r) }
+MaybeColon Unit
+  ""                                                         { () }
+  ColonTok                                                   { () }
 ForInfo ForInfo
   Commas0[StmtHelperBS] SemiTok Option[ExpAssign] SemiTok Commas0[ExpAssignNC]  { For($1,$2r,$3,$4r,$5) }
   Juxts0[Mod] Option[Type] Ident Dims ForeachSep ExpAssign                      { Foreach($1,$2,$3.x,$3.r,$4,$5,$6) }
@@ -211,15 +223,15 @@ CatchBlocks List[(CatchInfo,AStmt)]
   ""                                                         { Nil }
   CatchBlock CatchBlocks                                     { $1 :: $2 }
 CatchBlock (CatchInfo,AStmt)
-// technically, the catch parameter looks like it can be an array in the spec, but that's useless because arrays are not Throwable, so it cannot.
-  CatchTok EllipsisTok MaybeStmt                             { (CatchInfo($1r,Nil,None,None,NoAround($2r),false),$3) }
-  CatchTok Left EllipsisTok Right MaybeStmt                  { (CatchInfo($1r,Nil,None,None,Around($2,$4),false),$5) }
-  CatchTok Juxts0[Mod] Type Ident MaybeStmt                  { (CatchInfo($1r,$2,Some($3),Some($4),NoAround($2.headOption.map(_.r).getOrElse($3r) union $4r),false),$5) }
-  CatchTok Left Juxts0[Mod] Type Ident Right MaybeStmt       { (CatchInfo($1r,$3,Some($4),Some($5),Around($2,$6),false),$7) }
-  CatchTok Ident ColonTok Juxts0[Mod] Type MaybeStmt         { (CatchInfo($1r,$4,Some($5),Some($2),NoAround($2r union $5r),true),$6) }
-  CatchTok Left Ident ColonTok Juxts0[Mod] Type Right MaybeStmt { (CatchInfo($1r,$5,Some($6),Some($3),Around($2,$7),true),$8) }
+  // Technically, the catch parameter looks like it can be an array in the spec, but that's useless because arrays are not Throwable, so it cannot.
+  CatchTok EllipsisTok MaybeColon MaybeStmt                  { (CatchInfo($1r,Nil,None,None,NoAround($2r),false),$4) }
+  CatchTok Left EllipsisTok Right MaybeColon MaybeStmt       { (CatchInfo($1r,Nil,None,None,Around($2,$4),false),$6) }
+  CatchTok Juxts0[Mod] Type Ident MaybeColon MaybeStmt       { (CatchInfo($1r,$2,Some($3),Some($4),NoAround($2.headOption.map(_.r).getOrElse($3r) union $4r),false),$6) }
+  CatchTok Left Juxts0[Mod] Type Ident Right MaybeColon MaybeStmt { (CatchInfo($1r,$3,Some($4),Some($5),Around($2,$6),false),$8) }
+  CatchTok Ident ColonTok Juxts0[Mod] Type MaybeColon MaybeStmt { (CatchInfo($1r,$4,Some($5),Some($2),NoAround($2r union $5r),true),$7) }
+  CatchTok Left Ident ColonTok Juxts0[Mod] Type Right MaybeColon MaybeStmt { (CatchInfo($1r,$5,Some($6),Some($3),Around($2,$7),true),$9) }
 FinallyBlock (SRange,AStmt)
-  FinallyTok MaybeStmt                                       { ($1r,$2) }
+  FinallyTok MaybeColon MaybeStmt                            { ($1r,$3) }
 
 // Expressions, lowest to highest precedence
 // Suffixes: NJ is no juxtaposition, NC is no commas, NA is no args, NP is no parens (or commas)

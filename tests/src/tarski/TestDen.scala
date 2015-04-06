@@ -531,8 +531,17 @@ class TestDen {
     BlockStmt(List(VarStmt(Nil,IntType,r,(x,7),env),
                    VarStmt(Nil,DoubleType,r,(y,8.1),env),
                    ForStmt(r,Nil,Some(t),r,Nil,a,h)),a,env))
-  @Test def foreach()     = test("for (x : 1,2)", "x", x => {
-    assertFinal(x); ForeachStmt(r,Final,IntType,r,x,r,ArrayExp(r,IntType,r,List(1,2),a),a,h,env) })
+  def forResult(x: Local, fin: Boolean=true): Stmt = {
+    assertEquals(fin,x.isFinal)
+    ForeachStmt(r,if (fin) Final else Nil,IntType,r,x,r,ArrayExp(r,IntType,r,List(1,2),a),a,h,env)
+  }
+  @Test def foreach() = test("for (x : 1,2)", "x", x => forResult(x))
+
+  // Python colons
+  @Test def ifpy() = testX("if true: x=1 else: x=2",(x,y) => IfElseStmt(r,t,a,x,r,y))
+  @Test def whilepy() = testX("while true: x=1",(x,y) => WhileStmt(r,t,a,x))
+  @Test def forpy1() = test("for x in 1,2:","x",x => forResult(x))
+  @Test def forpy2() = test("for int x in 1,2:","x",x => forResult(x,fin=false))
 
   @Test def sideEffects() = {
     lazy val X: ClassItem = NormalClassItem("X",LocalPkg,constructors=Array(cons))
