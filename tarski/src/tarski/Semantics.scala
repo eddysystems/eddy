@@ -206,12 +206,14 @@ object Semantics {
 
   // Turn f into f(), etc.
   // TODO: Make Pr.missingArgList much higher for explicit new
-  def bareCall(f: Callable, expects: Option[Type])(implicit env: Env): Scored[Exp] =
-    biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,SGroup.approx(f.r),expects,auto=true,checkExpectedEarly=true,ArgMatching.useAll))
+  def bareCall(f: Callable, expects: Option[Type])(implicit env: Env): Scored[Exp] = f match {
+    case f:NewArrayDen => known(makeApply(f,Nil,SGroup.approx(f.r.after),auto=false))
+    case _ => biased(Pr.missingArgList,ArgMatching.fiddleCall(f,Nil,SGroup.approx(f.r.after),expects,auto=true,checkExpectedEarly=true,ArgMatching.useAll))
+  }
   def fixCall(m: Mode, expects: Option[Type], f: => Scored[Den])(implicit env: Env): Scored[Den] =
     if (m.call) f
     else f flatMap {
-      case f:Callable => biased(Pr.missingArgList, ArgMatching.fiddleCall(f,Nil,SGroup.approx(f.r.after),expects,auto=true,checkExpectedEarly=true,ArgMatching.useAll))
+      case f:Callable => bareCall(f,expects)
       case f => known(f)
     }
 
@@ -306,6 +308,7 @@ object Semantics {
             product(args map (_ filter (assignsTo(_,t),error))) map (makeApply(f,_,around.a,auto=false))
           }
           f match {
+            case _:NewDen|_:NewArrayDen if around.isBracks => fail(s"${show(e)}: (new A)[...] is bad; it should parse as a new array")
             case f:NewArrayDen => array(f.t)
             case _ => ArgMatching.fiddleCall(f,args,around.a,expects,auto=false,checkExpectedEarly=true,ArgMatching.useAll)
           }

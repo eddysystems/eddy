@@ -1460,4 +1460,10 @@ class TestDen {
 
   @Test def trailingComma() = test("int x,y,","x","y",(x,y) =>
     VarStmt(Nil,IntType,r,List(VarDecl(x,r,Nil,None,env),VarDecl(y,r,Nil,None,env)),env))
+
+  @Test def stringArrayArray() = {
+    implicit val env = localEnvWithBase()
+    test("x = new String[10][]","x",x => VarStmt(Nil,arrays(StringType,2),r,(x,
+      EmptyArrayExp(r,ArrayType(StringType),r,List(Grouped(10,a)))),env))
+  }
 }
