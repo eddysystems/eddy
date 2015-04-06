@@ -340,7 +340,7 @@ object Items {
     def item: TypeItem // The item of our type
     def isFinal: Boolean
   }
-  abstract class Local extends Value with BlocksName {
+  abstract class Local extends Value {
     override def toString = "local:" + name
     def ty: Type
     def item = ty.item

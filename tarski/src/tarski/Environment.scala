@@ -100,12 +100,18 @@ object Environment {
     // Enter a block scope
     def pushScope: Env
 
+    // depth of the method we're in
+    def placeDepth: Int = scope.get(place.place).get // this had better be in scope
+
     // Add variables and fields.  Each variable is consumed by one of the fs.
     def newVariables[A](names: List[String], isFinal: Boolean, fs: List[(Env,NormalLocal) => A]): Scored[List[Type] => (Env,List[A])] = {
       val set = names.toSet
       if (set.size < names.size) fail(s"Duplicate name among ${names mkString ", "}")
       else place.place match {
-        case c:CallableItem => scope collect { case (v:BlocksName,_) if set.contains(v.name) => v.name } match {
+        case c:CallableItem => scope collect {
+          case (v:BlocksName,_) if set.contains(v.name) => v.name // literals and built-in type names are keywords and cannot be used
+          case (v:Local,depth) if depth < placeDepth && set.contains(v.name) => v.name // locals block a name unless declared in a different method
+        } match {
           case Nil => known((ts: List[Type]) => {
             @tailrec def loop(as: List[A], env: Env, ns: List[String], ts: List[Type], fs: List[(Env,NormalLocal) => A]): (Env,List[A]) = (ns,ts,fs) match {
               case (Nil,Nil,Nil) => (env,as.reverse)
