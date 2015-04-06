@@ -481,21 +481,6 @@ object Semantics {
     (denoteExp(e,Some(to)) filter (assignsTo(_,to),s"Can't assign anything available to type ${show(to)}")) ++ (
       if (isZero(e)) single(castZero(to,e.r), Pr.assignCastZero) else Empty)
 
-  /*
-    // Optional check that e assigns to a type
-  def expect(e: Exp, expects: Type): Scored[Exp] =
-    if (!assignsTo(e,expects)) fail(s"Can't assign ${show(e)} to type ${show(expects)}")
-    else known(e)
-  def expect(e: Exp, expects: Option[Type]): Scored[Exp] = expects match {
-    case Some(t) if !assignsTo(e,t) => fail(s"Can't assign ${show(e)} to type ${show(t)}")
-    case _ => known(e)
-  }
-  def expect(e: Scored[Exp], expects: Option[Type]): Scored[Exp] = expects match {
-    case Some(t) => e filter (assignsTo(_,t),s"Can't assign anything to type ${show(t)}")
-    case None => e
-  }
-  */
-
   def denoteNewArray(m: Mode, expects: Option[Type], nr: SRange, x: AExp, ns: ADimExps)(implicit env: Env) = {
     // Split ns into [e] and [] parts
     val (is,ds) = takeCollect(ns){case Grouped(Some(i),a) => denoteExp(i) flatMap denoteIndex map (Grouped(_,a))}
