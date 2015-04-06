@@ -1363,6 +1363,35 @@ class TestDen {
     test("function(boolVar,otherBooleanVar,intVar,exVar,otherExVar,stringVar)", ApplyExp(f, List(i,ArrayExp(r,BooleanType,r,List(b1,b2),a),s,ArrayExp(r,ExceptionType,r,List(e1,e2),a)),a,false))
   }
 
+  @Test def booleanArrayExp(): Unit = {
+    val B = NormalLocal("boxedVariable", BooleanType.box)
+    implicit val env = localEnvWithBase(B)
+    test("boolean[] x = {};", "x", x => SemiStmt(VarStmt(Nil, ArrayType(BooleanType), r, List(VarDecl(x, r, 0, Some((r,ArrayExp(r,BooleanType,r,Nil,a))), env)),env),r))
+    test("boolean[] x = new boolean [] {};", "x", x => SemiStmt(VarStmt(Nil, ArrayType(BooleanType), r, List(VarDecl(x, r, 0, Some((r,ArrayExp(r,BooleanType,r,Nil,a))), env)),env),r))
+    test("boolean[] x = new boolean [] { boxedVariable };", "x", x => SemiStmt(VarStmt(Nil, ArrayType(BooleanType), r, List(VarDecl(x, r, 0, Some((r,ArrayExp(r,BooleanType,r,List(B),a))), env)),env),r))
+  }
+
+  @Test def arrayArgUnboxing(): Unit = {
+    val X = NormalClassItem("X")
+    val b = NormalLocal("unboxedBoolean", BooleanType)
+    val B = NormalLocal("boxedVariable", BooleanType.box)
+    val o = NormalLocal("objectVar", ObjectType)
+    val f1 = NormalMethodItem("boxProc", X, Nil, VoidType, List(ArrayType(BooleanType.box)),isStatic=true,variadic=false)
+    val f2 = NormalMethodItem("unboxFunction", X, Nil, VoidType, List(ArrayType(BooleanType)),isStatic=true,variadic=false)
+    val f3 = NormalMethodItem("objectFunction", X, Nil, VoidType, List(ArrayType(ObjectType)),isStatic=true,variadic=false)
+    implicit val env = localEnvWithBase(X,b,B,o,f1,f2,f3)
+    // Boolean[]
+    test("boxProc(unboxedBoolean)", ApplyExp(MethodDen(None,None,f1,r),List(ArrayExp(r,BooleanType.box,r,List(b),a)),a,auto=false))
+    test("boxProc(boxedVariable)", ApplyExp(MethodDen(None,None,f1,r),List(ArrayExp(r,BooleanType.box,r,List(B),a)),a,auto=false))
+    test("boxProc(boxedVariable, unboxedBoolean)", ApplyExp(MethodDen(None,None,f1,r),List(ArrayExp(r,BooleanType.box,r,List(B,b),a)),a,auto=false))
+    // boolean[]
+    test("unboxFunction(unboxedBoolean)", ApplyExp(MethodDen(None,None,f2,r),List(ArrayExp(r,BooleanType,r,List(b),a)),a,auto=false))
+    test("unboxFunction(boxedVariable)", ApplyExp(MethodDen(None,None,f2,r),List(ArrayExp(r,BooleanType,r,List(B),a)),a,auto=false))
+    // Object[]
+    test("objectFunction(unboxedBoolean)", ApplyExp(MethodDen(None,None,f3,r),List(ArrayExp(r,BooleanType,r,List(b),a)),a,auto=false))
+    test("objectFunction(unboxedBoolean, objectVar)", ApplyExp(MethodDen(None,None,f3,r),List(ArrayExp(r,ObjectType,r,List(b,o),a)),a,auto=false))
+  }
+
   @Test def escapingTypeVariable() = {
     val Ea = SimpleTypeVar("Ea")
     val Eb = SimpleTypeVar("Eb")
