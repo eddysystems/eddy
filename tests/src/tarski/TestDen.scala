@@ -1498,8 +1498,20 @@ class TestDen {
       EmptyArrayExp(r,ArrayType(StringType),r,List(Grouped(10,a)))),env))
   }
 
-  @Test def mixedArrayLiteral() = {
-    implicit val env = localEnvWithBase()
-    test("x = 1,2,3.0,null", "x", x => VarStmt(Nil,arrays(DoubleType.box,1),r,(x,ArrayExp(r,DoubleType.box,r,List(1,2,3.0,NullLit(r)),a)),env))
+  @Test def arrayLiteralTypes() = {
+    // Test condTypes directly
+    assertEquals(IntegerItem.simple,commonType(IntType,NullType))
+    assertEquals(IntType,commonType(IntType,IntegerItem.simple))
+    assertEquals(IntegerItem.simple,condTypes(List(IntType,IntType,NullType)))
+    assertEquals(SerializableType,condTypes(List(IntType,BooleanType)))
+    for (t <- List(BooleanType,IntType,FloatType))
+      assertEquals(t,condTypes(List(t,t.box)))
+    assertEquals(FloatType,condTypes(List(IntType.box,FloatType)))
+
+    // Some actual array literals
+    test("x = 1,2,null","x",x => VarStmt(Nil,ArrayType(IntegerItem),r,(x,
+      ArrayExp(r,IntegerItem,r,List(1,2,NullLit(r)),a)),env))
+    test("x = 1,2,3.0,null","x",x => VarStmt(Nil,ArrayType(NumberItem),r,(x,
+      ArrayExp(r,NumberItem,r,List(1,2,3.0,NullLit(r)),a)),env))
   }
 }

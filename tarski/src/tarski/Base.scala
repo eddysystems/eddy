@@ -155,6 +155,7 @@ object Base {
     val superItems = supers map (_.item)
     override val unbox = Some(ty)
     override def unboxNumeric = Some(ty)
+    override def unboxesToNumeric = true
     def isFinal = true
   }
   sealed abstract class IntegralClassItem(name: Name, override val ty: IntegralType) extends NumberClassItem(name,ty) {

@@ -605,9 +605,14 @@ object Types {
   // Combine a bunch of types into a single type (for array literal purposes)
   // TODO: This function is a bit strange, since array literals do not exist in Java.
   def condTypes(ts: List[Type]): Type = ts match {
-    case Nil => ObjectType // TODO: Doesn't handle zero size primitive type arrays
+    case Nil => ObjectType
     case List(x) => x
-    case x :: xs => commonType(x,condTypes(xs))
+    case _ if ts forall (_.isInstanceOf[RefType]) => lub(ts.asInstanceOf[List[RefType]])
+    case x::xs if ts forall (_.unboxesToNumeric) => xs.foldLeft(x.unbox.get:Type)((a,b) => commonType(a,b.unbox.get))
+    case _ if ts forall (_.unboxesToBoolean) => BooleanType
+    case x::xs =>
+      def box(t: Type) = t match { case t:PrimType => t.box; case _ => t }
+      xs.foldLeft(box(x))((a,b) => commonType(a,box(b)))
   }
 
   // Is t0 op= t1 valid?
