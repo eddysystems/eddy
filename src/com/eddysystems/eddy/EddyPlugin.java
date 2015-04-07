@@ -65,7 +65,7 @@ public class EddyPlugin implements ProjectComponent {
   }
 
   private static String ideaVersion() {
-    return ApplicationInfo.getInstance().getBuild().asStringWithAllDetails();
+    return ApplicationInfo.getInstance().getBuild().asString();
   }
 
   // Basic information for logging
