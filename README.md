@@ -50,19 +50,22 @@ IAM login link: https://909287615191.signin.aws.amazon.com/console
 
 When releasing, do at least these things: 
 
-- Change the version number in both `.idea13/plugin.xml` and `.idea14/plugin.xml`.
-- Add release notes to both plugin.xml files.
+- Add release notes to the `plugin.xml` template.
+- Make sure the 141 JDK is selected (selecting a different one before final commit will mess with the build number)
 - Commit and push. The build will include -dirty and/or -local for the build id if you don't do that.
 - Create a tag called release-<version> and push that
-- For both Idea13 and Idea14 do
-  - Rebuild project
-  - Make sure `resources/eddy.properties` was properly generated (the version and build number is correct)
-  - Run all tests
-  - Run as plugin and make sure something works
-  - Run "Prepare plugin module eddy for deployment" from the Build menu
-  - Run `make eddy.jar` from the command line
-  - Install the resulting jar as plugin, restart, and check that it works
-  - Copy the resulting .jar file to website/download/eddy-<version>-(13|14).jar
-  - Upload the resulting .jar file to [plugin repository](http://plugins.jetbrains.com/plugin/7688?pr=idea)
-- Push website and pull from mt to make the version available for download immediately
-- Make a forum post with the release notes (can/should be more verbose than the plugin.xml version)
+- Rebuild the project (you cannot trust the build system!)
+- Make sure `resources/eddy.properties` was properly generated (the version and build number is correct)
+- Run all tests
+- Run "Prepare plugin module eddy for deployment" from the Build menu
+- Run `make eddy.jar` from the command line
+- For each of IntelliJ 13, IntelliJ 14, IntelliJ 14.1
+  - Install `eddy.jar` as plugin, restart, and check that it works
+    - Try to see each bubble at least once (pink and blue)
+    - accept via enter, alt-enter, and through lightbulb menu at least once
+- Copy the resulting .jar file to `website/download/eddy-<version>.jar`
+  - Upload `eddy-<version>.jar` to the [plugin repository](http://plugins.jetbrains.com/plugin/7688?pr=idea)
+- Push `website` and pull from mt 
+- Edit `download/index.html` to point to the new version
+- Make a forum post with the release notes (can/should be more verbose than the `plugin.xml` version)
+- Write a tweet and pin it
