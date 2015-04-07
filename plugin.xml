@@ -21,12 +21,19 @@
     ]]></description>
 
   <change-notes><![CDATA[
-    <p>0.5.1:</p>
-    <ul>
+    <p>0.6</p><ul>
+    <li>use per project package probabilities</li>
+    <li>fix an issue causing some packages to not be found</li>
+    <li>fix variadic function resolution</li>
+    <li>fix shadowing rules</li>
+    <li>predictive variable initialization</li>
+    <li>grammar improvements (trailing commas, python ':' syntax)</li>
+    <li>stability and performance improvements</li>
+    </ul>
+    <p>0.5.1:</p><ul>
     <li>fix an issue with some non-US system locales</li>
     </ul>
-    <p>0.5:</p>
-    <ul>
+    <p>0.5:</p><ul>
     <li>add feedback email preference</li>
     <li>remove unnecessary generated upcasts</li>
     <li>fix some (caught but logged) NPEs</li>
