@@ -12,8 +12,8 @@ import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.document.Item;
 import com.amazonaws.services.dynamodbv2.model.*;
+import com.amazonaws.util.StringUtils;
 import com.amazonaws.util.json.JSONException;
-import com.sun.deploy.util.StringUtils;
 
 import java.io.*;
 import java.util.*;
@@ -254,7 +254,7 @@ public class GetData {
 
   private static void usage(String[] args) {
     System.out.println(
-      "usage: accessDB restart|continue <basename> (got " + StringUtils.join(Arrays.asList(args)," ") + ")\n" +
+      "usage: accessDB restart|continue <basename> (got " + StringUtils.join(" ", args) + ")\n" +
       "Gets eddy usage data from dynamoDB and stores it in <basename>.csv (for stats) and <basename>.json (for full data).\n" +
       "  restart : get all data. This overwrites any existing csv/json file of the same name.\n" +
       "  full    : get new data. The last index is read from <basename>.csv. If reading the last index fails, bail.\n");

@@ -1,7 +1,7 @@
+import com.amazonaws.util.StringUtils;
 import com.amazonaws.util.json.JSONArray;
 import com.amazonaws.util.json.JSONException;
 import com.amazonaws.util.json.JSONObject;
-import com.sun.deploy.util.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -254,7 +254,7 @@ public class Stats {
 
   private static void usage(String[] args) {
     System.out.println(
-      "usage: stats <filename> (got " + StringUtils.join(Arrays.asList(args), " ") + ")\n" +
+      "usage: stats <filename> (got " + StringUtils.join(" ", args) + ")\n" +
       "Compute metrics based on the DB data stored in <filename>. The data in the file is expected to have one row per line.\n" +
       "Each line should contain one JSON object, whose fields are the columns of the table.\n");
   }
