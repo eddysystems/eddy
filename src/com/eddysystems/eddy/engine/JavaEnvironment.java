@@ -12,6 +12,7 @@ import com.intellij.openapi.roots.ContentIterator;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
 import com.intellij.psi.impl.java.stubs.index.JavaFullClassNameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -26,10 +27,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
 import tarski.*;
-import tarski.Items.BaseItem;
-import tarski.Items.ClassItem;
-import tarski.Items.ConstructorItem;
-import tarski.Items.Item;
 import tarski.Items.*;
 
 import java.util.*;
@@ -572,8 +569,16 @@ public class JavaEnvironment {
       // Grab any information we have about imports
       final ImportTrie imports = this.imports != null ? this.imports : tarski.Pr.defaultImports();
 
-      // Find the language level for this file
-      final int level = Levels.parseLevelJava(((PsiJavaFile) place.getContainingFile()).getLanguageLevel().getName());
+      // Find the language level for this file (don't go through strings, API changed)
+      final LanguageLevel llevel = ((PsiJavaFile) place.getContainingFile()).getLanguageLevel();
+      final int level =
+        llevel.isAtLeast(LanguageLevel.JDK_1_8) ? 8 :
+        llevel.isAtLeast(LanguageLevel.JDK_1_7) ? 7 :
+        llevel.isAtLeast(LanguageLevel.JDK_1_6) ? 6 :
+        llevel.isAtLeast(LanguageLevel.JDK_1_5) ? 5 :
+        llevel.isAtLeast(LanguageLevel.JDK_1_4) ? 4 :
+        llevel.isAtLeast(LanguageLevel.JDK_1_3) ? 3 :
+        -1;
 
       // Add relevant extraItems to scopeItems
       for (final Item i : tarski.Base.extraItems())
