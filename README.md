@@ -53,16 +53,14 @@ When releasing, do at least these things:
 - Add release notes to the `plugin.xml` template.
 - Make sure the 141 JDK is selected (selecting a different one before final commit will mess with the build number)
 - Commit and push. The build will include -dirty and/or -local for the build id if you don't do that.
-- Create a tag called release-<version> and push that
+- Create a tag called `release-<version>` and push that
 - Rebuild the project (you cannot trust the build system!)
 - Make sure `resources/eddy.properties` was properly generated (the version and build number is correct)
 - Run all tests
 - Run "Prepare plugin module eddy for deployment" from the Build menu
 - Run `make eddy.jar` from the command line
-- For each of IntelliJ 13, IntelliJ 14, IntelliJ 14.1
-  - Install `eddy.jar` as plugin, restart, and check that it works
-    - Try to see each bubble at least once (pink and blue)
-    - accept via enter, alt-enter, and through lightbulb menu at least once
+- For each of IntelliJ 13, IntelliJ 14, IntelliJ 14.1, install `eddy.jar` as plugin and check that it works
+  - Use `Plugin Tests/src/LiveTests.java` and follow the instructions contained therein
 - Copy the resulting .jar file to `website/download/eddy-<version>.jar`
   - Upload `eddy-<version>.jar` to the [plugin repository](http://plugins.jetbrains.com/plugin/7688?pr=idea)
 - Push `website` and pull from mt 
