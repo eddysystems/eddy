@@ -631,4 +631,8 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   public void testShadowInAnon() {
     testMargin("shadowInAnon.java", "boolean x = true;", .9);
   }
+
+  public void testAddedByItem() {
+    testMargin("addedByItem.java", "for (final X x : set) if (x.valid())", .9);
+  }
 }
