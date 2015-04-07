@@ -572,13 +572,13 @@ public class JavaEnvironment {
       // Find the language level for this file (don't go through strings, API changed)
       final LanguageLevel llevel = ((PsiJavaFile) place.getContainingFile()).getLanguageLevel();
       final int level =
-        llevel.isAtLeast(LanguageLevel.JDK_1_8) ? 8 :
-        llevel.isAtLeast(LanguageLevel.JDK_1_7) ? 7 :
-        llevel.isAtLeast(LanguageLevel.JDK_1_6) ? 6 :
-        llevel.isAtLeast(LanguageLevel.JDK_1_5) ? 5 :
-        llevel.isAtLeast(LanguageLevel.JDK_1_4) ? 4 :
-        llevel.isAtLeast(LanguageLevel.JDK_1_3) ? 3 :
-        -1;
+        llevel.isAtLeast(LanguageLevel.JDK_1_8) ? Levels$.MODULE$.Java8() :
+        llevel.isAtLeast(LanguageLevel.JDK_1_7) ? Levels$.MODULE$.Java7() :
+        llevel.isAtLeast(LanguageLevel.JDK_1_6) ? Levels$.MODULE$.Java6() :
+        llevel.isAtLeast(LanguageLevel.JDK_1_5) ? Levels$.MODULE$.Java5() :
+        llevel.isAtLeast(LanguageLevel.JDK_1_4) ? Levels$.MODULE$.Java1_4() :
+        llevel.isAtLeast(LanguageLevel.JDK_1_3) ? Levels$.MODULE$.Java1_3() :
+        Levels$.MODULE$.Unknown();
 
       // Add relevant extraItems to scopeItems
       for (final Item i : tarski.Base.extraItems())

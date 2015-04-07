@@ -6,6 +6,7 @@ object Levels {
     def >=(x: LangLevel): Boolean = level >= x.level
   }
 
+  val Unknown = LangLevel(-1)
   val Java1_3 = LangLevel(3)
   val Java1_4 = LangLevel(4)
   val Java5 = LangLevel(5)
