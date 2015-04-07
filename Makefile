@@ -33,15 +33,11 @@ eddy.jar: eddy.zip shrink.pro
 
 .PHONY: install
 install: eddy.jar
-	cp eddy.jar "${HOME}/Library/Application Support/IdeaIC13"
+	find "${HOME}/Library/Application Support" -name "IdeaIC*" -print0 | xargs -0 -n 1 cp eddy.jar
 
-.PHONY: install14
-install14: eddy.jar
-	cp eddy.jar "${HOME}/Library/Application Support/IdeaIC14"
-
-.PHONY: uninstall14
-uninstall14:
-	rm "${HOME}/Library/Application Support/IdeaIC14/eddy.jar"
+.PHONY: uninstall
+uninstall:
+	find "${HOME}/Library/Application Support" -path "*/IdeaIC*/eddy.jar" -print0 | xargs -0 rm
 
 .PHONY: clean
 clean:
