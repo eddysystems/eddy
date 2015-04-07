@@ -18,7 +18,7 @@ public class LiveTests {
 
     // type this:
     // ints = null
-    // a hint should come up (auto-apply), accept it.
+    // a hint should come up (auto-apply if at the end of the line), accept it.
 
     // type this:
     // println ""
