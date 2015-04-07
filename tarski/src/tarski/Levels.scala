@@ -2,6 +2,10 @@ package tarski
 
 // Language levels
 object Levels {
+
+  // to avoid Java confusion
+  def getLevel(l: LangLevel): Int = l.level
+
   case class LangLevel(level: Int) extends AnyVal {
     def >=(x: LangLevel): Boolean = level >= x.level
   }
