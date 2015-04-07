@@ -1497,4 +1497,9 @@ class TestDen {
     test("x = new String[10][]","x",x => VarStmt(Nil,arrays(StringType,2),r,(x,
       EmptyArrayExp(r,ArrayType(StringType),r,List(Grouped(10,a)))),env))
   }
+
+  @Test def mixedArrayLiteral() = {
+    implicit val env = localEnvWithBase()
+    test("x = 1,2,3.0,null", "x", x => VarStmt(Nil,arrays(DoubleType.box,1),r,(x,ArrayExp(r,DoubleType.box,r,List(1,2,3.0,NullLit(r)),a)),env))
+  }
 }
