@@ -24,6 +24,21 @@ public class Stats {
     int count = 0;
   }
 
+  static class EmailInfo implements Comparable<EmailInfo> {
+    String email; // empty for removal
+    double time;
+
+    EmailInfo(String email, double time) {
+      this.email = email;
+      this.time = time;
+    }
+
+    @Override
+    public int compareTo(EmailInfo o) {
+      return Double.compare(time,o.time);
+    }
+  }
+
   static class InstallData {
     double activeSince = Util.now;
     double lastActive = 0; // last user action
@@ -33,6 +48,9 @@ public class Stats {
     Map<String,Double> versions = new HashMap<>();
 
     Map<String,ActionData> actions = new HashMap<>();
+
+    // email info (sorted by time so we know what the most current info is)
+    TreeSet<EmailInfo> emails = new TreeSet<>();
   }
 
   static class Suggestion {
@@ -79,6 +97,7 @@ public class Stats {
     Map<String,InstallData> installData = new HashMap<String,InstallData>();
 
     // by hour activity stats
+    int[] hourlyData = new int[nhours];
     int[] hourlyActivity = new int[nhours];
 
     // project names
@@ -116,7 +135,7 @@ public class Stats {
           }
 
           if (ts >= Util.now) {
-            System.err.println("found time in the future (now = " + Util.now + ") for entry: " + record.obj.toString(2));
+            System.err.println("found time in the future (now = " + Util.now + "), ignoring.");
             continue;
           }
 
@@ -178,8 +197,17 @@ public class Stats {
           }
           idata.versions.put(version,versionSeen);
 
-          if (action.equals("Eddy.AutoApply") || action.equals("Eddy.Apply") || action.equals("Eddy.preferences") || action.equals("Eddy.suggestion"))
+          if (action.equals("Eddy.preferences")) {
+            // remember email data
+            EmailInfo ed = new EmailInfo(record.email(), ts);
+            if (idata.emails.isEmpty() || !idata.emails.last().email.equals(ed.email))
+              idata.emails.add(ed);
+          }
+
+          if (action.equals("Eddy.AutoApply") || action.equals("Eddy.Apply") || action.equals("Eddy.preferences") || action.equals("Eddy.suggestion")) {
             idata.lastActive = Double.max(ts, idata.lastActive);
+            hourlyActivity[hourIndex(ts)] += 1;
+          }
           // install action count
           ActionData iadata = idata.actions.get(action);
           if (iadata == null) {
@@ -189,7 +217,7 @@ public class Stats {
           iadata.count += 1;
 
           // activity
-          hourlyActivity[hourIndex(ts)] += 1;
+          hourlyData[hourIndex(ts)] += 1;
 
         } catch (JSONException e) {
           System.err.println("failed to parse line " + lineNumber + ": " + line + ": " + e);
@@ -203,6 +231,7 @@ public class Stats {
       System.out.println("total installations: " + installData.size());
 
       int wai = 0, wni = 0, wau = 0;
+      Set<String> emails = new HashSet<String>();
       for (final InstallData i : installData.values()) {
         if (i.lastSeen > weekAgo)
           wai++;
@@ -210,6 +239,8 @@ public class Stats {
           wau++;
         if (i.activeSince > weekAgo)
           wni++;
+        if (!i.emails.isEmpty() && !i.emails.last().email.isEmpty())
+          emails.add(i.emails.last().email);
       }
       System.out.println("active installations last 7 days: " + wai);
       System.out.println("active users last 7 days: " + wau);
@@ -219,6 +250,11 @@ public class Stats {
       System.out.println("projects: " + projectNames.size());
       for (final String p : projectNames)
         System.out.println("  " + p);
+
+      // collected emails
+      System.out.println("collected emails: " + emails.size());
+      for (final String e : emails)
+        System.out.println(e);
 
       // suggestions
       System.out.println("suggestions: ");
@@ -233,14 +269,20 @@ public class Stats {
 
       // print time based usage for visualization
       int[] dailyActivity = new int[nhours/24+1];
+      int[] dailyData = new int[nhours/24+1];
       for (int i = 0; i < nhours; ++i) {
         dailyActivity[i/24] += hourlyActivity[i];
+        dailyData[i/24] += hourlyData[i];
       }
+      JSONArray dd = new JSONArray(dailyData);
+      System.out.println("daily data     (" + dd.length() + " days): " + dd.toString());
       JSONArray da = new JSONArray(dailyActivity);
-      System.out.println("daily data (" + da.length() + " days): " + da.toString());
+      System.out.println("daily activity (" + da.length() + " days): " + da.toString());
 
+      JSONArray hd = new JSONArray(hourlyData);
+      System.out.println("hourly data     (" + hd.length() + " hours): " + hd.toString());
       JSONArray ha = new JSONArray(hourlyActivity);
-      System.out.println("hourly data (" + ha.length() + " hours): " + ha.toString());
+      System.out.println("hourly activity (" + ha.length() + " hours): " + ha.toString());
 
     } catch (Exception e) {
       error(e.toString());

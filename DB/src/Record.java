@@ -43,6 +43,7 @@ public class Record {
       return Util.show(input);
   }
   public String suggestion() throws JSONException { return obj.getString("suggestion"); }
+  public String email() throws JSONException { return obj.optString("email", ""); } // empty if not set
 
   // for indexing
   public String key() throws JSONException { return install() + '-' + timeString(); }
