@@ -258,4 +258,13 @@ object Utility {
   def tuple[A,B,C,D](a: A, b: B, c: C, d: D): (A,B,C,D) = (a,b,c,d)
 
   def capitalize(s: Array[Char]): Array[Char] = if (s.length == 0) s else s.updated(0,s(0).toUpper)
+
+  // For low effort debug logging
+  def appender(path: String): String => Unit = {
+    val f = new java.io.FileWriter(path,true)
+    (s: String) => {
+      f.write(s+"\n")
+      f.flush()
+    }
+  }
 }
