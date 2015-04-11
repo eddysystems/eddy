@@ -40,7 +40,7 @@ public class ChangeTracker<A> {
   }
 
   // Add a new value.  Always very fast.
-  public void add(final A x) {
+  public void add(final @NotNull A x) {
     synchronized (recentLock) {
       recent.add(x);
     }

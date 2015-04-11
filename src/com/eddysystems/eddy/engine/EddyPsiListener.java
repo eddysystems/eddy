@@ -115,10 +115,11 @@ public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbM
   private void addValue(PsiField f) {
     // put this field into the string map for its type and all its supertypes
     String name = f.getName();
-    for (String type : superTypes(f.getType())) {
-      //log("add value " + f);
-      valueTracker.add(new TypeNameItemNamePair(type, name));
-    }
+    if (name != null)
+      for (String type : superTypes(f.getType())) {
+        //log("add value " + f);
+        valueTracker.add(new TypeNameItemNamePair(type, name));
+      }
   }
 
   // all fields of this type (or any subtype) have to appear in the new superclasses
@@ -163,10 +164,13 @@ public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbM
     if (elem instanceof PsiField || elem instanceof PsiMethod && !((PsiMethod)elem).isConstructor() || elem instanceof PsiClass) {
       String name = ((PsiNamedElement)elem).getName();
       //log("add name " + name);
-      nameTracker.add(name);
+      if (name != null)
+        nameTracker.add(name);
     } else if (isName(elem)) {
       //log("add name " + elem.getText());
-      nameTracker.add(elem.getText());
+      String text = elem.getText();
+      if (text != null)
+        nameTracker.add(elem.getText());
       if (elem.getParent() instanceof PsiField)
         addValue((PsiField)elem.getParent());
     }
