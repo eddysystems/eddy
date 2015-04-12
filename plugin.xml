@@ -21,6 +21,9 @@
     ]]></description>
 
   <change-notes><![CDATA[
+    <p>0.6.1</p><ul>
+    <li>fix bug causing eddy to stop suggesting fixes after some code modifications</li>
+    </ul>
     <p>0.6</p><ul>
     <li>use per project package probabilities</li>
     <li>fix an issue causing some packages to not be found</li>
