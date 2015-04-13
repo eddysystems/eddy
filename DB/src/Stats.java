@@ -13,7 +13,11 @@ public class Stats {
   static Calendar launchCal = new GregorianCalendar(2015,Calendar.FEBRUARY,22,0,0,0);
   static double launchDate = launchCal.getTimeInMillis() * 1e-3;
   static int nhours = (int)((Util.now - launchDate) / 3600.);
+  static int ndays = nhours/24+1;
 
+  static int dayIndex(double time) {
+    return (int)((time-launchDate) / (Util.now - launchDate) * ndays);
+  }
   static int hourIndex(double time) {
     return (int)((time - launchDate) / (Util.now - launchDate) * nhours);
   }
@@ -97,6 +101,8 @@ public class Stats {
     Map<String,InstallData> installData = new HashMap<String,InstallData>();
 
     // by hour activity stats
+    HashSet<String>[] dailySeen = new HashSet[ndays];
+    HashSet<String>[] dailyActive = new HashSet[ndays];
     int[] hourlyData = new int[nhours];
     int[] hourlyActivity = new int[nhours];
 
@@ -204,10 +210,27 @@ public class Stats {
               idata.emails.add(ed);
           }
 
+          // remember daily active installations
+          HashSet<String> seenToday = dailySeen[dayIndex(ts)];
+          if (seenToday == null) {
+            seenToday = new HashSet<>();
+            dailySeen[dayIndex(ts)] = seenToday;
+          }
+          seenToday.add(install);
+
           if (action.equals("Eddy.AutoApply") || action.equals("Eddy.Apply") || action.equals("Eddy.preferences") || action.equals("Eddy.suggestion")) {
             idata.lastActive = Double.max(ts, idata.lastActive);
             hourlyActivity[hourIndex(ts)] += 1;
+
+            // remember daily active users
+            HashSet<String> activeToday = dailyActive[dayIndex(ts)];
+            if (activeToday == null) {
+              activeToday = new HashSet<>();
+              dailyActive[dayIndex(ts)] = activeToday;
+            }
+            activeToday.add(install);
           }
+
           // install action count
           ActionData iadata = idata.actions.get(action);
           if (iadata == null) {
@@ -230,21 +253,21 @@ public class Stats {
       System.out.println("all numbers exclude installation active before launch: " + launchCal.getTime().toString());
       System.out.println("total installations: " + installData.size());
 
-      int wai = 0, wni = 0, wau = 0;
+      //int wai = 0, wni = 0, wau = 0;
       Set<String> emails = new HashSet<String>();
       for (final InstallData i : installData.values()) {
-        if (i.lastSeen > weekAgo)
-          wai++;
-        if (i.lastActive > weekAgo)
-          wau++;
-        if (i.activeSince > weekAgo)
-          wni++;
+//        if (i.lastSeen > weekAgo)
+//          wai++;
+//        if (i.lastActive > weekAgo)
+//          wau++;
+//        if (i.activeSince > weekAgo)
+//          wni++;
         if (!i.emails.isEmpty() && !i.emails.last().email.isEmpty())
           emails.add(i.emails.last().email);
       }
-      System.out.println("active installations last 7 days: " + wai);
-      System.out.println("active users last 7 days: " + wau);
-      System.out.println("new installations last 7 days: " + wni);
+      //System.out.println("active installations last 7 days: " + wai);
+      //System.out.println("active users last 7 days: " + wau);
+      //System.out.println("new installations last 7 days: " + wni);
 
       // project statistics
       System.out.println("projects: " + projectNames.size());
@@ -266,10 +289,11 @@ public class Stats {
         System.out.println("number of " + e.getKey() + " actions: " + e.getValue().count);
       }
       System.out.println("total actions: " + actionCount);
+      System.out.println("ratio of hints to applies: " + (100.*actionData.get("Eddy.hint").count / (actionData.get("Eddy.Apply").count + actionData.get("Eddy.AutoApply").count)) + '%');
 
       // print time based usage for visualization
-      int[] dailyActivity = new int[nhours/24+1];
-      int[] dailyData = new int[nhours/24+1];
+      int[] dailyActivity = new int[ndays];
+      int[] dailyData = new int[ndays];
       for (int i = 0; i < nhours; ++i) {
         dailyActivity[i/24] += hourlyActivity[i];
         dailyData[i/24] += hourlyData[i];
@@ -283,6 +307,39 @@ public class Stats {
       System.out.println("hourly data     (" + hd.length() + " hours): " + hd.toString());
       JSONArray ha = new JSONArray(hourlyActivity);
       System.out.println("hourly activity (" + ha.length() + " hours): " + ha.toString());
+
+      int[] daiData = new int[ndays];
+      int[] dauData = new int[ndays];
+      for (int i = 0; i < ndays; ++i) {
+        daiData[i] = dailySeen[i] == null ? 0 : dailySeen[i].size();
+        dauData[i] = dailyActive[i] == null ? 0 : dailyActive[i].size();
+      }
+      JSONArray dai = new JSONArray(daiData);
+      System.out.println("daily active installations: " + dai.toString());
+      JSONArray dau = new JSONArray(dauData);
+      System.out.println("daily active users        : " + dau.toString());
+
+      int[] waiData = new int[ndays-6];
+      int[] wauData = new int[ndays-6];
+      HashSet<String> tmpi = new HashSet<>();
+      HashSet<String> tmpu = new HashSet<>();
+      for (int i = 0; i < ndays-6; ++i) {
+        tmpi.clear();
+        tmpu.clear();
+        for (int k = 0; k < 7; ++k) {
+          if (dailySeen[i+k] != null)
+            tmpi.addAll(dailySeen[i+k]);
+          if (dailyActive[i+k] != null)
+            tmpu.addAll(dailyActive[i+k]);
+        }
+        waiData[i] = tmpi.size();
+        wauData[i] = tmpu.size();
+      }
+
+      JSONArray wai = new JSONArray(waiData);
+      System.out.println("weekly active installations: " + wai.toString());
+      JSONArray wau = new JSONArray(wauData);
+      System.out.println("weekly active users        : " + wau.toString());
 
     } catch (Exception e) {
       error(e.toString());
