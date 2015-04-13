@@ -71,7 +71,7 @@ public class Stats {
     final String suggestion;
 
     public String toString() {
-      return install + ":" + time + " " + input + " => " + suggestion;
+      return install + ":" + Util.toDate(time) + " " + input + " => " + suggestion;
     }
   }
 
@@ -289,7 +289,7 @@ public class Stats {
         System.out.println("number of " + e.getKey() + " actions: " + e.getValue().count);
       }
       System.out.println("total actions: " + actionCount);
-      System.out.println("ratio of hints to applies: " + (100.*actionData.get("Eddy.hint").count / (actionData.get("Eddy.Apply").count + actionData.get("Eddy.AutoApply").count)) + '%');
+      System.out.println("ratio of hints to applies: " + (100. / actionData.get("Eddy.hint").count * (actionData.get("Eddy.Apply").count + actionData.get("Eddy.AutoApply").count)) + '%');
 
       // print time based usage for visualization
       int[] dailyActivity = new int[ndays];
