@@ -41,9 +41,9 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
     application.invokeAndWait(new Runnable() {
       @Override
       public void run() {
-      application.runWriteAction(action);
-    }
-      }, application.getDefaultModalityState());
+        application.runWriteAction(action);
+      }
+    }, application.getDefaultModalityState());
   }
 
   interface FileVisitor {
@@ -109,23 +109,22 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
       final LibraryEx.ModifiableModelEx libraryModel = library.getModifiableModel();
 
       // recurse into maven repository and find all jars (and add the ones we need)
-      Stack<VirtualFile> toProcess = new Stack<VirtualFile>();
-      VirtualFile mavenDir = LocalFileSystem.getInstance().findFileByPath("/Users/martin/.m2");
-      toProcess.push(mavenDir);
+      LocalFileSystem lfs = LocalFileSystem.getInstance();
+      Stack<String> toProcess = new Stack<String>();
+      toProcess.push("/Users/martin/.m2");
 
       while (!toProcess.isEmpty()) {
-        VirtualFile file = toProcess.pop();
+        File file = new File(toProcess.pop());
 
         // recurse file hierarchy
         if (file.isDirectory()) {
-          for (final VirtualFile child : file.getChildren())
-            toProcess.push(child);
-          continue;
-        }
-
-        // add jar files as libraries
-        if ("jar".equals(file.getExtension())) {
-          //log("processing maven jar " + file.getName());
+          // shocking, but true -- the VirtualFile.getChildren method does not work reliably.
+          // for (final VirtualFile child : file.getChildren()) {
+          for (final String child : file.list())
+            toProcess.push(new File(file, child).getAbsolutePath());
+        } else if (file.getName().endsWith(".jar")) {
+          // add jars a libraries
+          log("adding maven jar " + file.getName());
           libraryModel.addRoot("jar://" + file.getPath() + "!/", OrderRootType.CLASSES);
         }
       }
@@ -203,7 +202,7 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
       CALL, // methods
       WRITE, READ, READ_WRITE, // fields (also methods in method refs)
       PACKAGE_STMT, STAR_IMPORT, IMPORT, // classes, packages
-      EXTENDS, IMPLEMENTS, TYPE_BOUND, THROWS, TYPE_PARAM, PARAM_DECL, FIELD_DECL, LOCAL_DECL, RETURN_TYPE, CAST, INSTANCEOF, NEW // types
+      EXTENDS, IMPLEMENTS, TYPE_BOUND, THROWS, TYPE_PARAM, PARAM_DECL, FIELD_DECL, LOCAL_DECL, RETURN_TYPE, CAST, INSTANCEOF, CLASS_OBJECT, NEW // types
     };
 
     public static Context getContext(PsiJavaCodeReferenceElement reference, PsiElement parent) {
@@ -236,6 +235,8 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
           return Context.READ; // initializer
         else if (parent instanceof PsiStatement)
           return Context.READ; // throw, return, assert, if, while ...
+        else if (parent instanceof PsiNameValuePair)
+          return Context.READ; // annotation value: @Thing(stuff=value)
         else {
           assert parent instanceof PsiExpressionList : "unexpected parent " + parent + " of expression " + reference;
           return Context.READ; // passed to a function as argument
@@ -277,6 +278,8 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
             return Context.CAST;
           else if (pp instanceof PsiInstanceOfExpression) // (Type)stuff
             return Context.INSTANCEOF;
+          else if (pp instanceof PsiClassObjectAccessExpression) // Type.class
+            return Context.CLASS_OBJECT;
           else {
             assert pp instanceof PsiTypeElement : "unexpected grandparent " + pp + " of " + parent; // ? extends Type
             return Context.TYPE_BOUND;
@@ -392,15 +395,7 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
 
     log("  base path is " + dir.getCanonicalPath());
 
-    final Map<String,ReferenceInfo> references = new HashMap<String, ReferenceInfo>();
-    final PsiRecursiveElementVisitor visitor = new PsiRecursiveElementVisitor() {
-      @Override
-      public void visitElement(PsiElement element) {
-        if (SymbolScanner.this.visitElement(references, element))
-          super.visitElement(element);
-      }
-    };
-
+    // add all possible roots for package finding
     final List<ContentEntry> roots = new ArrayList<ContentEntry>();
     final ModifiableRootModel model = ModuleRootManager.getInstance(myModule).getModifiableModel();
     traverse(dir, new FileVisitor() {
@@ -409,6 +404,7 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
         if (file.isDirectory() && "java".equals(file.getName())) {
           log("adding root " + file.getCanonicalPath());
           ContentEntry entry = model.addContentEntry(file);
+          entry.addSourceFolder(file,false);
           roots.add(entry);
           return false;
         } else {
@@ -423,6 +419,17 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
       }
     });
 
+    // make visitor for traversal
+    final Map<String,ReferenceInfo> references = new HashMap<String, ReferenceInfo>();
+    final PsiRecursiveElementVisitor visitor = new PsiRecursiveElementVisitor() {
+      @Override
+      public void visitElement(PsiElement element) {
+        if (SymbolScanner.this.visitElement(references, element))
+          super.visitElement(element);
+      }
+    };
+
+    // traverse directories to find java files and visit their Psi nodes
     traverse(dir, new FileVisitor() {
       @Override
       public boolean visit(VirtualFile file) {
