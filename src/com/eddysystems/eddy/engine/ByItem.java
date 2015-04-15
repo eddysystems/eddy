@@ -17,6 +17,7 @@ import tarski.JavaScores.LazyBiased;
 import tarski.Scores.Best;
 import tarski.Scores.Empty$;
 import tarski.Scores.Scored;
+import utility.Interrupts;
 
 import java.util.*;
 
@@ -59,7 +60,7 @@ public class ByItem implements ValueByItemQuery {
             if (thread != null && thread.canceled())
               return false;
             final Value i = converter.addField(field);
-            if (!seen.contains(i) && Types.isSubitem(i.item(),type))
+            if (!seen.contains(i))
               results.add(i);
             return true;
           }
@@ -81,6 +82,18 @@ public class ByItem implements ValueByItemQuery {
             psiCache.processFieldsWithName(tn.item, proc, scope, filter);
             if (thread != null) thread.popSoftInterrupts();
           }
+
+        // Filter out values that aren't subitems of our desired type.
+        // Putting this logic in proc might cause deadlocks since isSubitem can trigger Scala plugin code.
+        final int fullSize = results.size();
+        int size = fullSize;
+        for (int i=size-1;i>=0;i--) {
+          if (Interrupts.pending != 0) Interrupts.checkInterrupts();
+          if (!Types.isSubitem(results.get(i).item(),type))
+            results.set(i, results.get(--size));
+        }
+        if (size != fullSize)
+          results.subList(size, fullSize).clear();
 
         return JavaScores.uniformThen(JavaScores.one,results,(Scored)Empty$.MODULE$);
       }

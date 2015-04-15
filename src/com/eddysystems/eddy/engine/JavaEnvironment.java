@@ -1,6 +1,7 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
+import static com.eddysystems.eddy.engine.Utility.*;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileTypes.StdFileTypes;
 import com.intellij.openapi.progress.ProcessCanceledException;
@@ -141,8 +142,7 @@ public class JavaEnvironment {
   private synchronized void scheduleUpdate(@Nullable final ProgressIndicator indicator) {
     needUpdate = false;
     updateFuture = ApplicationManager.getApplication().executeOnPooledThread(new Runnable() {
-      @Override
-      public void run() {
+      @Override public void run() {
         backgroundUpdate(indicator);
       }
     });
@@ -159,8 +159,7 @@ public class JavaEnvironment {
 
         // don't throw inside there -- Catch and rethrow to avoid logging
         RuntimeException error = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<RuntimeException>() {
-          @Override
-          public RuntimeException compute() {
+          @Override public RuntimeException compute() {
             try {
               if (indicator != null)
                 indicator.setText2("adding base environment");
@@ -194,11 +193,13 @@ public class JavaEnvironment {
       if (indicator != null)
         indicator.setText2("computing field names");
 
-      final String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
-        nameSnap[0] = nameTracker.snapshot();
-        valueSnap[0] = valueTracker.snapshot();
-        return PsiShortNamesCache.getInstance(project).getAllFieldNames();
-      }});
+      final String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<String[]>() {
+        @Override public String[] compute() {
+          nameSnap[0] = nameTracker.snapshot();
+          valueSnap[0] = valueTracker.snapshot();
+          return PsiShortNamesCache.getInstance(project).getAllFieldNames();
+        }
+      });
 
       if (indicator != null)
         indicator.setText2("building trie");
@@ -313,9 +314,11 @@ public class JavaEnvironment {
       if (updateFuture.isCancelled())
         return null;
 
-      final String[] classNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
-        return PsiShortNamesCache.getInstance(project).getAllClassNames();
-      }});
+      final String[] classNames = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<String[]>() {
+        @Override public String[] compute() {
+          return PsiShortNamesCache.getInstance(project).getAllClassNames();
+        }
+      });
 
       if (updateFuture.isCancelled())
         return null;
@@ -344,10 +347,6 @@ public class JavaEnvironment {
   private Map<String, Set<String>> makeProjectValuesByItem(String[] fieldNames, @Nullable ProgressIndicator indicator) {
     pushScope("make project values by item");
 
-    // Prepare to grab index write locks to avoid crazy deadlocks.  This is a terrible hack around broken OPC.
-    final Lock fqnLock = ((StubIndexImpl)StubIndex.getInstance())
-      .getWriteLock(JavaFullClassNameIndex.getInstance().getKey());
-
     try {
       final Map<String,Set<String>> result = new HashMap<String,Set<String>>();
 
@@ -357,13 +356,11 @@ public class JavaEnvironment {
         final Stack<PsiType> work = new Stack<PsiType>();
         final Set<PsiType> seen = new HashSet<PsiType>();
 
-        @Override
-        public boolean process(final PsiField f) {
+        @Override public boolean process(final PsiField f) {
           // check if we've been cancelled
           if (updateFuture.isCancelled())
             return false;
 
-          fqnLock.lock();
           try {
             // restrict this to only public fields, FieldItems in scope (protected or private) are added to vByItem
             if (!f.hasModifierProperty(PsiModifier.PUBLIC))
@@ -403,13 +400,10 @@ public class JavaEnvironment {
                 }
               }
             }
-
           } catch (AssertionError e) {
             // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
             if (utility.Utility.fromScalaPlugin(e)) logError("makeProjectValuesByItem()",e);
             else throw e;
-          } finally {
-            fqnLock.unlock();
           }
           return true;
         }
@@ -431,7 +425,7 @@ public class JavaEnvironment {
             done = true;
             lock.acquire();
             try {
-              cache.processFieldsWithName(s, proc, scope, filter);
+              safeProcessFieldsWithName(cache, s, proc, scope, filter);
             } catch (AssertionError e) {
               // If we're in the Scala plugin, log and squash the error. Don't retry. Otherwise, rethrow.
               if (utility.Utility.fromScalaPlugin(e)) {
