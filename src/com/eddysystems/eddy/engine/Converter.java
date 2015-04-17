@@ -386,7 +386,8 @@ class Converter {
      LazyClass(Converter env, PsiClass cls) {
        this.env = env;
        this.cls = cls;
-       this._name = cls.getName();
+       final String name = cls.getName();
+       this._name = name != null ? name : "";
        this._isFinal = cls.hasModifierProperty(PsiModifier.FINAL);
        this._isAbstract = cls.isInterface() || cls.hasModifierProperty(PsiModifier.ABSTRACT);
        this._isStatic = Place.isStatic(cls);
