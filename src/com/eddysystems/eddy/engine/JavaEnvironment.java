@@ -616,7 +616,7 @@ public class JavaEnvironment {
       // Add relevant extraItems to scopeItems
       for (final Item i : tarski.Base.extraItems())
         if (i instanceof LitValue || i instanceof LangTypeItem)
-          ep.scopeItems.put(i, 0);
+          ep.scopeItems.put(i, 1);
 
       log("environment with " + ep.scopeItems.size() + " scope items taken at " + ep.placeInfo);
       return Tarski.environment(bigTrie, smallTrie, vbi, imports, ep.scopeItems, ep.placeInfo, level);

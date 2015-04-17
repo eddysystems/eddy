@@ -1,6 +1,7 @@
 package tarski
 
 import com.intellij.psi.PsiElement
+import gnu.trove.TObjectIntHashMap
 import tarski.Levels._
 import utility.Interrupts
 import utility.Utility._
@@ -80,17 +81,19 @@ object Environment {
       extend(things,(things map ((_,scope))).toMap)
 
     // Is an item in scope and not shadowed by another item?
-    private lazy val _inScope: java.util.Set[Item] = {
+    private lazy val _bestScope: TObjectIntHashMap[Item] = {
       val best = new mutable.HashMap[String,(Int,List[Item])]
       scope foreach { case (i,n) =>
+        assert(n > 0, s"Nonpositive scope level $n for $i: levels must be positive since 0 is used as a sentinel")
         val (m,is) = best.getOrElse(i.name,(n,Nil))
         if (n <= m) best(i.name) = (n,i :: (if (n==m) is else Nil))
       }
-      val set = new java.util.HashSet[Item]
-      best foreach { case (_,(n,is)) => is foreach set.add }
-      set
+      val map = new TObjectIntHashMap[Item]
+      best foreach { case (_,(n,is)) => is foreach (map.put(_,n)) }
+      map
     }
-    @inline final def inScope(i: Item): Boolean = _inScope.contains(i)
+    @inline final def inScope(i: Item): Boolean = _bestScope.contains(i)
+    @inline final def scopeLevel(i: Item): Int = _bestScope.get(i) // 0 for out of scope, otherwise scope level.
 
     // Enter a block scope
     def pushScope: Env
@@ -112,7 +115,7 @@ object Environment {
               case (Nil,Nil,Nil) => (env,as.reverse)
               case (n::ns,t::ts,f::fs) =>
                 val x = NormalLocal(n,t,isFinal)
-                val e = env.add(x,0)
+                val e = env.add(x,1)
                 loop(f(env,x)::as,e,ns,ts,fs)
               case _ => impossible
             }

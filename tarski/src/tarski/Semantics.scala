@@ -130,15 +130,12 @@ object Semantics {
     } else v
   }
 
-  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[ChildItem])(implicit env: Env): Scored[Exp] =
-    biased(Pr.omitQualifier(c),valuesOfItem(c,cr,qualifiers))
-
   // Turn a non-static field or method into an expression by filling in the LHS
   def denoteChildItem(i: ChildItem, ir: SRange, qualifiers: List[ChildItem])(implicit env: Env): Scored[Exp] = {
     val c = i.parent
     if (qualifiers.size >= 3) fail("Automatic field depth exceeded")
     else if (qualifiers contains i) fail(s"qualification loop $i -> $qualifiers")
-    else qualifiersOfItem(c,ir,i::qualifiers) map (x => parentDotChild(Some(x),i,ir))
+    else biased(Pr.omitQualifier, valuesOfItem(c,ir,i::qualifiers) map (x => parentDotChild(Some(x),i,ir)))
   }
 
   // x.f, where f is either a field or a nullary method
@@ -153,7 +150,8 @@ object Semantics {
   // If the last name component has already been penalized (e.g. if the user typed it), leave knowName true.
   // If i is a method, we assume it has already been penalized for being auto-applied.
   def denoteValue(i: ValueOrMethod, ir: SRange, qualifiers: List[ChildItem], knowName: Boolean=true)(implicit env: Env): Scored[Exp] = i match {
-    case i:Local => if (env.inScope(i)) known(LocalExp(i,ir))
+    case i:Local => val n = env.scopeLevel(i)
+                    if (n > 0) single(LocalExp(i,ir),Pr.scopeLevel(n))
                     else fail(s"Local $i is shadowed")
 
     // We can always access this, static fields, or enums.
@@ -165,7 +163,7 @@ object Semantics {
   }
 
   def denoteMethod(i: MethodItem, ir: SRange)(implicit env: Env): Scored[MethodDen] =
-    qualifiersOfItem(i.parent,ir,Nil) map (x => MethodDen(Some(x),i,ir))
+    biased(Pr.omitQualifier, valuesOfItem(i.parent,ir,Nil) map (x => MethodDen(Some(x),i,ir)))
 
   case class Mode(m: Int) extends AnyVal {
     def exp:     Boolean = (m&1)!=0
@@ -291,9 +289,9 @@ object Semantics {
           addTypeArgs(ts,
             if (t.item.isStatic) cons map (NewDen(nr,None,_,x.r)) // Drop q.  Probability penalized above in xs.
             else if (member) cons map (NewDen(nr,Some(q),_,x.r)) // All good, t is a member of q
-            else // t isn't a member of q, so we need to find something else (highly unlikely)
-              qualifiersOfItem(t.parent.asInstanceOf[ClassItem],qe.r,Nil) flatMap (x =>
-                fixCall(m,expects,cons map (NewDen(nr.before,Some(x),_,nr))))))
+            else biased(Pr.omitQualifier, // t isn't a member of q, so we need to find something else (highly unlikely)
+              valuesOfItem(t.parent.asInstanceOf[ClassItem],qe.r,Nil) flatMap (x =>
+                fixCall(m,expects,cons map (NewDen(nr.before,Some(x),_,nr)))))))
       }}
       fixCall(m,expects,dens)
     }
@@ -542,8 +540,8 @@ object Semantics {
 
   // find objects to qualify a new statement
   def qualifyNew(qualifierItem: ClassItem, qr: SRange, newItem: ClassItem, nr: SRange)(implicit env: Env) =
-    qualifiersOfItem(qualifierItem,qr,Nil) flatMap (x =>
-      uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr)))
+    biased(Pr.omitQualifier, valuesOfItem(qualifierItem,qr,Nil) flatMap (x =>
+      uniformGood(Pr.constructor,newItem.constructors(env.place)) map (NewDen(qr,Some(x),_,nr))))
 
   def denoteName(n: Name, nr: SRange, m: Mode, expects: Option[Type])(implicit env: Env): Scored[Den] =
     env.lookup(n) flatMap {

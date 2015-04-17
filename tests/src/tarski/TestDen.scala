@@ -1535,4 +1535,14 @@ class TestDen {
     test("is = x is A || x instance B || x isinstance C","is",is => VarStmt(Nil,BooleanType,r,(is,
       BinaryExp(OrOrOp,r,BinaryExp(OrOrOp,r,InstanceofExp(x,r,A,r),InstanceofExp(x,r,B,r)),InstanceofExp(x,r,C,r))),env))
   }
+
+  @Test def scopeLevel() = {
+    val A = NormalClassItem("A")
+    val x = NormalLocal("x",A)
+    val y = NormalLocal("y",A)
+    for ((xs,ys,z) <- List((3,1,y),(1,3,x))) {
+      implicit val env = localEnvWithBase().extend(Array(A,x,y),Map(A->5,x->xs,y->ys))
+      test("A a =","a",a => VarStmt(Nil,A,r,(a,z),env),margin=.999)
+    }
+  }
 }
