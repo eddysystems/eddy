@@ -87,6 +87,7 @@ object ParseEddyActions {
   def ExpWild0(x2: Option[WildBound], x1r: Range): AExp = WildAExp(x1r,x2)
   def ExpWild1(x1: AExp): AExp = x1
   def Juxts0_Mod__Option_Type__Ident0(x1: List[Loc[Mod]], x2: (Option[AExp],Loc[String])): (List[Loc[Mod]],Option[AExp],Loc[String]) = (x1,x2._1,x2._2)
+  def Instanceof__Type0(x1: Loc[String], x2: AExp): (Loc[String],AExp) = (x1,x2)
   def ForeachSep__ExpAssign0(x1: Long, x2: AExp): (Long,AExp) = (x1,x2)
   def CatchBlocks0(x1: (CatchInfo,AStmt), x2: List[(CatchInfo,AStmt)]): List[(CatchInfo,AStmt)] = x1 :: x2
   def CatchBlocks1(): List[(CatchInfo,AStmt)] = Nil
@@ -304,7 +305,7 @@ object ParseEddyActions {
   def ExpOr_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(OrOp,x2r,x1,x3)
   def ExpOr_ExpWild1(x1: AExp): AExp = x1
   def ExpRel_ExpJuxt0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GtOp,x2r,x1,x3)
-  def ExpRel_ExpJuxt1(x1: AExp, x3: AExp, x2r: Range): AExp = InstanceofAExp(x1,x2r,x3)
+  def ExpRel_ExpJuxt1(x1: AExp, x2: (Loc[String],AExp)): AExp = InstanceofAExp(x1,x2._1.r,x2._2)
   def ExpRel_ExpJuxt2(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LtOp,x2r,x1,x3)
   def ExpRel_ExpJuxt3(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GeOp,x2r,x1,x3)
   def ExpRel_ExpJuxt4(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LeOp,x2r,x1,x3)
@@ -313,7 +314,7 @@ object ParseEddyActions {
   def Ident__Right0(x1: Loc[String], x2: Loc[Group]): (Loc[String],Loc[Group]) = (x1,x2)
   def Juxts0_Mod__Type0(x1: List[Loc[Mod]], x2: AExp): (List[Loc[Mod]],AExp) = (x1,x2)
   def ExpRel_ExpJuxtNP0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GtOp,x2r,x1,x3)
-  def ExpRel_ExpJuxtNP1(x1: AExp, x3: AExp, x2r: Range): AExp = InstanceofAExp(x1,x2r,x3)
+  def ExpRel_ExpJuxtNP1(x1: AExp, x2: (Loc[String],AExp)): AExp = InstanceofAExp(x1,x2._1.r,x2._2)
   def ExpRel_ExpJuxtNP2(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LtOp,x2r,x1,x3)
   def ExpRel_ExpJuxtNP3(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GeOp,x2r,x1,x3)
   def ExpRel_ExpJuxtNP4(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LeOp,x2r,x1,x3)
@@ -342,7 +343,7 @@ object ParseEddyActions {
   def SynchronizedTok__ParenExp0(x2: (AExp,Around), x1r: Range): (Long,(AExp,Around)) = (x1r,x2)
   def AssignOp__ExpAssign0(x1: Loc[Option[AssignOp]], x2: AExp): (Loc[Option[AssignOp]],AExp) = (x1,x2)
   def ExpRel_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GtOp,x2r,x1,x3)
-  def ExpRel_ExpWild1(x1: AExp, x3: AExp, x2r: Range): AExp = InstanceofAExp(x1,x2r,x3)
+  def ExpRel_ExpWild1(x1: AExp, x2: (Loc[String],AExp)): AExp = InstanceofAExp(x1,x2._1.r,x2._2)
   def ExpRel_ExpWild2(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LtOp,x2r,x1,x3)
   def ExpRel_ExpWild3(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(GeOp,x2r,x1,x3)
   def ExpRel_ExpWild4(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(LeOp,x2r,x1,x3)
@@ -389,6 +390,10 @@ object ParseEddyActions {
   def Block1(x1: StmtTok, x1r: Range): AStmt = TokAStmt(x1,x1r)
   def ExpAnd_ExpWild0(x1: AExp, x3: AExp, x2r: Range): AExp = BinaryAExp(AndOp,x2r,x1,x3)
   def ExpAnd_ExpWild1(x1: AExp): AExp = x1
+  def Instanceof0(x1r: Range): Loc[String] = Loc("is", x1r)
+  def Instanceof1(x1r: Range): Loc[String] = Loc("instance", x1r)
+  def Instanceof2(x1r: Range): Loc[String] = Loc("isinstance",x1r)
+  def Instanceof3(x1r: Range): Loc[String] = Loc("instanceof",x1r)
   def Right0(r: Range): Loc[Group] = Loc(Curly,r)
   def Right1(r: Range): Loc[Group] = Loc(Brack,r)
   def Right2(r: Range): Loc[Group] = Loc(Paren,r)
@@ -406,12 +411,15 @@ object ParseEddyActions {
   def CatchBlock4(x4: AStmt, x1r: Range, x2r: Range): (CatchInfo,AStmt) = (CatchInfo(x1r,Nil,None,None,NoAround(x2r),false),x4)
   def CatchBlock5(x1: (Long,Loc[Group],List[Loc[Mod]],AExp), x2: (Loc[String],Loc[Group],AStmt)): (CatchInfo,AStmt) = (CatchInfo(x1._1,x1._3,Some(x1._4),Some(x2._1),Around(x1._2,x2._2),false),x2._3)
   def Ident0(x1r: Range): Loc[String] = Loc("until",x1r)
-  def Ident1(x1r: Range): Loc[String] = Loc("in",x1r)
-  def Ident2(x1r: Range): Loc[String] = Loc("then",x1r)
-  def Ident3(x1: ElifTok, x1r: Range): Loc[String] = Loc(x1.s,x1r)
-  def Ident4(x1: IdentTok, x1r: Range): Loc[String] = Loc(x1.name,x1r)
-  def Ident5(x1r: Range): Loc[String] = Loc("super",x1r)
-  def Ident6(x1r: Range): Loc[String] = Loc("this",x1r)
+  def Ident1(x1r: Range): Loc[String] = Loc("instance",x1r)
+  def Ident2(x1r: Range): Loc[String] = Loc("in",x1r)
+  def Ident3(x1r: Range): Loc[String] = Loc("then",x1r)
+  def Ident4(x1: ElifTok, x1r: Range): Loc[String] = Loc(x1.s,x1r)
+  def Ident5(x1: IdentTok, x1r: Range): Loc[String] = Loc(x1.name,x1r)
+  def Ident6(x1r: Range): Loc[String] = Loc("super",x1r)
+  def Ident7(x1r: Range): Loc[String] = Loc("is",x1r)
+  def Ident8(x1r: Range): Loc[String] = Loc("isinstance",x1r)
+  def Ident9(x1r: Range): Loc[String] = Loc("this",x1r)
   def ForeachSep0(x1r: Range): Long = x1r
   def ForeachSep1(x1r: Range): Long = x1r
   def ForeachSep2(x1r: Range): Long = x1r

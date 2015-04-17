@@ -1525,4 +1525,14 @@ class TestDen {
       implicit val env = localEnvWithBase().extend(Array(A,B,x,f),Map(A->3,B->3,x->1))
       test("B y =","y",y => VarStmt(Nil,B,r,(y,ApplyExp(MethodDen(x,f,r),Nil,a,auto=true)),env))
     }
+
+  @Test def instanceofSynonyms() = {
+    val x = NormalLocal("x",ObjectType)
+    val A = NormalClassItem("A")
+    val B = NormalClassItem("B")
+    val C = NormalClassItem("C")
+    implicit val env = localEnvWithBase(x,A,B,C)
+    test("is = x is A || x instance B || x isinstance C","is",is => VarStmt(Nil,BooleanType,r,(is,
+      BinaryExp(OrOrOp,r,BinaryExp(OrOrOp,r,InstanceofExp(x,r,A,r),InstanceofExp(x,r,B,r)),InstanceofExp(x,r,C,r))),env))
+  }
 }
