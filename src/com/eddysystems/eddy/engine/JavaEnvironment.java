@@ -504,8 +504,7 @@ public class JavaEnvironment {
 
     pushScope("get local environment");
     try {
-      final Map<PsiElement,Item> items = new HashMap<PsiElement,Item>();
-      final Converter converter = new Converter(project, items);
+      final Converter converter = new Converter(project, new HashMap<PsiElement,Item>());
 
       // we could cache the result of addBase, but it doesn't seem like it's worth it.
       addBase(converter);
