@@ -6,15 +6,19 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import com.intellij.psi.PsiField;
+import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.search.PsiShortNamesCache;
+import com.intellij.util.Processor;
+import com.intellij.util.indexing.IdFilter;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import tarski.Memory;
 import tarski.Memory.OnError;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 
 public class Utility {
   static long last_queue_process_events = System.nanoTime();
@@ -191,4 +195,23 @@ public class Utility {
       log("failed to log " + i + ": " + e);
     }
   };
+
+  // Doing complicated stuff in processFieldsWithName causes nasty deadlocks if we accidentally
+  // call into the Scala plugin.  Instead, we collect the fields into a list and process them afterwards.
+  public static boolean safeProcessFieldsWithName(final PsiShortNamesCache cache,
+                                                  final @NotNull String name,
+                                                  final @NotNull Processor<? super PsiField> processor,
+                                                  final @NotNull GlobalSearchScope scope,
+                                                  final @Nullable IdFilter filter) {
+    final List<PsiField> fields = new ArrayList<PsiField>();
+    final Processor<PsiField> quick = new Processor<PsiField>() { @Override public boolean process(final PsiField f) {
+      fields.add(f);
+      return true;
+    }};
+    cache.processFieldsWithName(name, quick, scope, filter);
+    for (final PsiField f : fields)
+      if (!processor.process(f))
+        return false;
+    return true;
+  }
 }
