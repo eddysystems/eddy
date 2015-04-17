@@ -38,6 +38,7 @@ import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
 import static com.eddysystems.eddy.engine.Utility.log;
 import static com.eddysystems.eddy.engine.Utility.logError;
 import static utility.JavaUtils.*;
+import static tarski.Flags.nullaryMethods;
 
 // a class storing information about the environment.
 public class JavaEnvironment {
@@ -247,7 +248,7 @@ public class JavaEnvironment {
         fieldTracker.forget(fieldSnap[0]);
       } finally { popScope(); }
 
-      if (ValueByItemQuery.nullaryMethods) {
+      if (nullaryMethods) {
         pushScope("make project methods by item");
         try {
           final ByItemMethodProc methodProc = new ByItemMethodProc();

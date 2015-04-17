@@ -3,6 +3,7 @@ package tarski
 import utility.Utility._
 import scala.annotation.tailrec
 import tarski.JavaScores._
+import tarski.Flags.trackErrors
 
 object Scores {
   /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability

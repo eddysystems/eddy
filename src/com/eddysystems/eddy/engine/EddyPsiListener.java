@@ -9,9 +9,9 @@ import com.intellij.psi.impl.source.tree.CompositeElement;
 import com.intellij.psi.impl.source.tree.JavaElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import tarski.ValueByItemQuery;
 
 import java.util.*;
+import static tarski.Flags.nullaryMethods;
 
 public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbModeListener {
 
@@ -129,7 +129,7 @@ public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbM
 
   // a new method appeared (or a method changed its name)
   private void addMethod(final PsiMethod m) {
-    if (ValueByItemQuery.nullaryMethods) {
+    if (nullaryMethods) {
       final PsiType type = m.getReturnType();
       if (ByItem.considerMethod(m, type)) {
         // put this method into the string map for its type and all its supertypes
@@ -137,9 +137,9 @@ public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbM
         for (final String sup : superTypes(type)) {
           //log("add method " + f);
           methodTracker.add(new TypeNameItemNamePair(sup, name));
-        }
       }
     }
+  }
   }
 
   // all fields of this type (or any subtype) have to appear in the new superclasses

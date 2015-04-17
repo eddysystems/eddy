@@ -6,6 +6,8 @@ import tarski.Types.*;
 import tarski.Scores.*;
 import java.util.*;
 
+import static tarski.Flags.nullaryMethods;
+
 public class JavaItems {
 
   public static final class ByItemMaps implements ValueByItemQuery {
@@ -57,7 +59,7 @@ public class JavaItems {
       final TypeItem t;
       if (i instanceof Value)
         t = ((Value)i).item();
-      else if (ValueByItemQuery.nullaryMethods && i instanceof MethodItem) {
+      else if (nullaryMethods && i instanceof MethodItem) {
         final MethodItem m = (MethodItem)i;
         t = m.retItem();
         if (!considerMethod(m,t))

@@ -21,6 +21,7 @@ import tarski.Scores.Scored;
 import utility.Interrupts;
 
 import java.util.*;
+import static tarski.Flags.nullaryMethods;
 
 public class ByItem implements ValueByItemQuery {
   private final Map<TypeItem,Scored<ValueOrMethod>> cache = new HashMap<TypeItem,Scored<ValueOrMethod>>();

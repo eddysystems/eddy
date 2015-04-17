@@ -5,6 +5,7 @@ import utility.Locations._
 import tarski.AST._
 import tarski.Base._
 import tarski.Denotations._
+import tarski.Flags._
 import tarski.Environment._
 import tarski.Items._
 import tarski.JavaScores._
@@ -1516,7 +1517,7 @@ class TestDen {
   }
 
   @Test def methodByItem() =
-    if (ValueByItemQuery.nullaryMethods) {
+    if (nullaryMethods) {
       val A = NormalClassItem("A")
       val x = NormalLocal("x",A)
       val B = NormalClassItem("B")

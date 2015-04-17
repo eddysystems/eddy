@@ -43,6 +43,7 @@ import static com.eddysystems.eddy.engine.Utility.log;
 import static tarski.Tokens.abbrevShowFlags;
 import static tarski.Tokens.fullShowFlags;
 import static utility.JavaUtils.*;
+import static tarski.Flags.*;
 
 public class Tests extends LightCodeInsightFixtureTestCase {
   // Keep track of how long each test takes
@@ -638,7 +639,7 @@ public class Tests extends LightCodeInsightFixtureTestCase {
   }
 
   public void testMethodByItem() {
-    if (ValueByItemQuery.nullaryMethods)
+    if (nullaryMethods)
       testMargin("methodByItem.java", "x.foo().bar();", .9);
   }
 }

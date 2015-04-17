@@ -12,6 +12,7 @@ import tarski.Scores.Alt
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
+import tarski.Flags._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
 import scala.collection.JavaConverters._

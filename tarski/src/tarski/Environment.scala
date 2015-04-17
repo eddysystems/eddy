@@ -17,9 +17,6 @@ import scala.collection.mutable
 import scala.annotation.tailrec
 
 object Environment {
-  // Turn on to skip all approximate lookups
-  val exactOnly = false
-
   // Implicit pretty printing
   private implicit val showFlags = abbrevShowFlags
   private implicit val showRange = SRange.unknown
@@ -156,7 +153,7 @@ object Environment {
     protected def _lookup(typed: Array[Char]): Scored[Item] = {
       def error = s"Name ${typed mkString ""} not found"
       uniformThen(Pr.exact,_exactQuery(typed),
-                  if (exactOnly) fail(error)
+                  if (Flags.exactOnly) fail(error)
                   else orError(  biased(Pr.modifiedName, _modifiedQuery(typed))
                               ++ biased(Pr.typo, _typoQuery(typed)), error))
     }
