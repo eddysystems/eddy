@@ -333,10 +333,11 @@ object Items {
   trait ClassMember extends Member {
     def parent: ClassOrArrayItem
   }
-  trait ChildItem extends ClassMember // FieldItem or MethodItem
+  trait ValueOrMethod extends Item // Value or MethodItem
+  trait ChildItem extends ClassMember with ValueOrMethod // FieldItem or MethodItem
 
   // Values
-  sealed abstract class Value extends Item {
+  sealed abstract class Value extends Item with ValueOrMethod {
     def item: TypeItem // The item of our type
     def isFinal: Boolean
   }
@@ -398,6 +399,7 @@ object Items {
   }
   abstract class MethodItem extends CallableItem with ChildItem {
     def retVal: Type
+    def retItem = retVal.item
   }
   abstract class ConstructorItem extends CallableItem {
     def name = parent.name
@@ -413,13 +415,13 @@ object Items {
   }
 
   case object StringEqualsItem extends MethodItem {
-    override def retVal = BooleanType
-    override def variadic = false
-    override def params = List(ObjectType)
-    override def parent = StringItem
-    override def tparams = Nil
-    override def isStatic = false
-    override def name = "equals"
+    def retVal = BooleanType
+    def variadic = false
+    def params = List(ObjectType)
+    def parent = StringItem
+    def tparams = Nil
+    def isStatic = false
+    def name = "equals"
   }
 
   case object ClassObjectItem extends BaseItem {
@@ -436,13 +438,14 @@ object Items {
   }
 
   case object GetClassItem extends MethodItem {
-    override def retVal = ClassObjectItem.generic(List(WildSub()))
-    override def variadic = false
-    override def params = Nil
-    override def parent = ObjectItem
-    override def tparams = Nil
-    override def isStatic = false
-    override def name = "getClass"
+    def retVal = ClassObjectItem.generic(List(WildSub()))
+    override def retItem = ClassObjectItem
+    def variadic = false
+    def params = Nil
+    def parent = ObjectItem
+    def tparams = Nil
+    def isStatic = false
+    def name = "getClass"
   }
 
   case class DefaultConstructorItem(parent: ClassItem) extends ConstructorItem {

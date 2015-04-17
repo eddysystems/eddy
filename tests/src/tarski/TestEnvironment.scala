@@ -154,7 +154,9 @@ class TestEnvironment {
       }
       val items = Array.tabulate(n)(randomItem)
       val values = items collect {case v:Local => v}
-      val by = valuesByItem(items,false).asScala
+      val maps = valuesByItem(items,false)
+      assert(maps.methods.isEmpty)
+      val by = maps.values.asScala
 
       // All values should be included
       assertSetsEqual(values,by.values.flatten)

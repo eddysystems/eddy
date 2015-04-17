@@ -211,7 +211,7 @@ public class JavaScores {
     }
     return then;
   }
-  static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<A> xs, Scored<A> then) {
+  static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<? extends A> xs, Scored<A> then) {
     assert pp(p) >= then.p();
     if (xs.isEmpty())
       return then;
@@ -223,7 +223,7 @@ public class JavaScores {
     }
     return then;
   }
-  static public <A> Scored<A> uniformThen(double/*Prob*/ p, Collection<A> xs, Scored<A> then) {
+  static public <A> Scored<A> uniformThen(double/*Prob*/ p, Collection<? extends A> xs, Scored<A> then) {
     assert pp(p) >= then.p();
     if (xs.isEmpty())
       return then;

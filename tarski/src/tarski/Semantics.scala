@@ -118,7 +118,7 @@ object Semantics {
     case _ => false
   }
 
-  def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] = {
+  def valuesOfItem(c: TypeItem, cr: SRange, qualifiers: List[ChildItem])(implicit env: Env): Scored[Exp] = {
     def v = env.byItem(c) flatMap (denoteValue(_,cr,qualifiers,knowName=false)) map (x => {
       // Ensure that we return *exactly* item c.  We'll clean up the casts later if they turn out unnecessary.
       if (c == x.item) x
@@ -130,27 +130,37 @@ object Semantics {
     } else v
   }
 
-  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[Exp] =
+  def qualifiersOfItem(c: ClassOrArrayItem, cr: SRange, qualifiers: List[ChildItem])(implicit env: Env): Scored[Exp] =
     biased(Pr.omitQualifier(c),valuesOfItem(c,cr,qualifiers))
 
-  def denoteFieldItem(i: FieldItem, ir: SRange, qualifiers: List[FieldItem])(implicit env: Env): Scored[FieldExp] = {
+  // Turn a non-static field or method into an expression by filling in the LHS
+  def denoteChildItem(i: ChildItem, ir: SRange, qualifiers: List[ChildItem])(implicit env: Env): Scored[Exp] = {
     val c = i.parent
     if (qualifiers.size >= 3) fail("Automatic field depth exceeded")
     else if (qualifiers contains i) fail(s"qualification loop $i -> $qualifiers")
-    else qualifiersOfItem(c,ir,i::qualifiers) map (x => FieldExp(Some(x),i,ir))
+    else qualifiersOfItem(c,ir,i::qualifiers) map (x => parentDotChild(Some(x),i,ir))
+  }
+
+  // x.f, where f is either a field or a nullary method
+  // If f is a method, we assume it has already been penalized for being auto-applied.
+  def parentDotChild(x: Option[Exp], f: ChildItem, fr: SRange)(implicit env: Env): Exp = f match {
+    case f:FieldItem => FieldExp(x,f,fr)
+    case f:MethodItem => assert(f.tparams.isEmpty && f.arity==0)
+                         ApplyExp(MethodDen(x,f,fr),Nil,SGroup.approx(fr.after),auto=true)
   }
 
   // If knowName is false, the last component of the name is penalized based on how out-of-scope it is.
   // If the last name component has already been penalized (e.g. if the user typed it), leave knowName true.
-  def denoteValue(i: Value, ir: SRange, qualifiers: List[FieldItem], knowName: Boolean=true)(implicit env: Env): Scored[Exp] = i match {
+  // If i is a method, we assume it has already been penalized for being auto-applied.
+  def denoteValue(i: ValueOrMethod, ir: SRange, qualifiers: List[ChildItem], knowName: Boolean=true)(implicit env: Env): Scored[Exp] = i match {
     case i:Local => if (env.inScope(i)) known(LocalExp(i,ir))
                     else fail(s"Local $i is shadowed")
 
     // We can always access this, static fields, or enums.
     // Pretty-printing takes care of finding a proper name, but we reduce score for out of scope items.
     case LitValue(f) => known(f(ir))
-    case i:FieldItem => if (i.isStatic || env.inScope(i)) single(FieldExp(None,i,ir),Pr.scope(i,knowName=knowName))
-                        else denoteFieldItem(i,ir,qualifiers)
+    case i:ChildItem => if (i.isStatic || env.inScope(i)) single(parentDotChild(None,i,ir),Pr.scope(i,knowName=knowName))
+                        else denoteChildItem(i,ir,qualifiers)
     case i:ThisOrSuper => single(ThisOrSuperExp(i,ir),Pr.scope(i))
   }
 

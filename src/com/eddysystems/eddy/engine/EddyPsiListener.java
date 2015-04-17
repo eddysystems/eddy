@@ -8,6 +8,8 @@ import com.intellij.psi.impl.source.tree.ChildRole;
 import com.intellij.psi.impl.source.tree.CompositeElement;
 import com.intellij.psi.impl.source.tree.JavaElementType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import tarski.ValueByItemQuery;
 
 import java.util.*;
 
@@ -16,11 +18,14 @@ public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbM
   final Set<PsiElement> queuedElements = new HashSet<PsiElement>();
 
   final ChangeTracker<String> nameTracker;
-  final ChangeTracker<TypeNameItemNamePair> valueTracker;
+  final ChangeTracker<TypeNameItemNamePair> fieldTracker, methodTracker;
 
-  public EddyPsiListener(final ChangeTracker<String> nameTracker, final ChangeTracker<TypeNameItemNamePair> valueTracker) {
+  public EddyPsiListener(final ChangeTracker<String> nameTracker,
+                         final ChangeTracker<TypeNameItemNamePair> fieldTracker,
+                         final ChangeTracker<TypeNameItemNamePair> methodTracker) {
     this.nameTracker = nameTracker;
-    this.valueTracker = valueTracker;
+    this.fieldTracker = fieldTracker;
+    this.methodTracker = methodTracker;
   }
 
   private boolean isObject(PsiType t) {
@@ -112,14 +117,29 @@ public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbM
   }
 
   // a new field appeared (or a field changed its name)
-  private void addValue(PsiField f) {
+  private void addField(final PsiField f) {
     // put this field into the string map for its type and all its supertypes
-    String name = f.getName();
+    final @Nullable String name = f.getName();
     if (name != null)
-      for (String type : superTypes(f.getType())) {
-        //log("add value " + f);
-        valueTracker.add(new TypeNameItemNamePair(type, name));
+      for (final String type : superTypes(f.getType())) {
+        //log("add field " + f);
+        fieldTracker.add(new TypeNameItemNamePair(type, name));
       }
+  }
+
+  // a new method appeared (or a method changed its name)
+  private void addMethod(final PsiMethod m) {
+    if (ValueByItemQuery.nullaryMethods) {
+      final PsiType type = m.getReturnType();
+      if (ByItem.considerMethod(m, type)) {
+        // put this method into the string map for its type and all its supertypes
+        final @NotNull String name = m.getName();
+        for (final String sup : superTypes(type)) {
+          //log("add method " + f);
+          methodTracker.add(new TypeNameItemNamePair(sup, name));
+        }
+      }
+    }
   }
 
   // all fields of this type (or any subtype) have to appear in the new superclasses
@@ -162,24 +182,29 @@ public class EddyPsiListener implements PsiTreeChangeListener, DumbService.DumbM
     }
 
     if (elem instanceof PsiField || elem instanceof PsiMethod && !((PsiMethod)elem).isConstructor() || elem instanceof PsiClass) {
-      String name = ((PsiNamedElement)elem).getName();
+      final String name = ((PsiNamedElement)elem).getName();
       //log("add name " + name);
       if (name != null)
         nameTracker.add(name);
     } else if (isName(elem)) {
       //log("add name " + elem.getText());
-      String text = elem.getText();
+      final String text = elem.getText();
       if (text != null)
         nameTracker.add(elem.getText());
-      if (elem.getParent() instanceof PsiField)
-        addValue((PsiField)elem.getParent());
+      final PsiElement parent = elem.getParent();
+      if (parent instanceof PsiField)
+        addField((PsiField)parent);
+      else if (parent instanceof PsiMethod)
+        addMethod((PsiMethod)parent);
     }
 
-    if (elem instanceof PsiField) {
-      addValue((PsiField)elem);
-    } else if (isBase(elem) && isImplements(elem)) {
+    if (elem instanceof PsiField)
+      addField((PsiField) elem);
+    else if (elem instanceof PsiMethod)
+      addMethod((PsiMethod)elem);
+    else if (isBase(elem) && isImplements(elem))
       updateInheritance((PsiClass)elem.getParent().getParent());
-    } else if (isName(elem) && elem.getParent() instanceof PsiClass) {
+    else if (isName(elem) && elem.getParent() instanceof PsiClass) {
       // TODO: update class name (but old class name is not available here, needs to be remembered
     }
   }

@@ -15,26 +15,24 @@ import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
-import com.intellij.psi.impl.java.stubs.index.JavaFullClassNameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.PsiShortNamesCache;
-import com.intellij.psi.stubs.StubIndex;
-import com.intellij.psi.stubs.StubIndexImpl;
 import com.intellij.util.Processor;
 import com.intellij.util.SmartList;
 import com.intellij.util.indexing.IdFilter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.NotImplementedError;
+import scala.Tuple2;
 import tarski.*;
 import tarski.Items.*;
 
+import java.awt.EventQueue;
 import java.util.*;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.locks.Lock;
 
 import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
 import static com.eddysystems.eddy.engine.Utility.log;
@@ -52,11 +50,11 @@ public class JavaEnvironment {
 
   @NotNull final Project project;
   @NotNull final ChangeTracker<String> nameTracker;
-  @NotNull final ChangeTracker<TypeNameItemNamePair> valueTracker;
+  @NotNull final ChangeTracker<TypeNameItemNamePair> fieldTracker, methodTracker;
 
   // scope and id filter for byItem lookups
-  @NotNull final GlobalSearchScope scope;
-  @NotNull final IdFilter filter;
+  @NotNull final GlobalSearchScope byItemScope;
+  @NotNull final IdFilter byItemFilter;
 
   final int rebuildByItemThreshold = 100;
   final int rebuildNamesThreshold = 100;
@@ -74,8 +72,9 @@ public class JavaEnvironment {
   // a trie encapsulating the global list of all names. This is never edited, so it's safe to use without a lock
   private int[] nameTrie = null;
 
-  // map types to items of that type.
-  private Map<String, Set<String>> pByItem = null;
+  // map types to fields and methods of that type.
+  private Map<String, Set<String>> pByItemFields = null;
+  private Map<String, Set<String>> pByItemMethods = null;
 
   // map package short names (e.g. math) to a list of all qualified names (java.math, com.google.common.math)
   private PackageIndex packageIndex = null;
@@ -87,13 +86,19 @@ public class JavaEnvironment {
   private Future<?> updateFuture = null;
   private boolean needUpdate = false;
 
-  public JavaEnvironment(@NotNull Project project, @NotNull ChangeTracker<String> nameTracker, @NotNull ChangeTracker<TypeNameItemNamePair> valueTracker) {
+  public JavaEnvironment(@NotNull Project project,
+                         @NotNull ChangeTracker<String> nameTracker,
+                         @NotNull ChangeTracker<TypeNameItemNamePair> fieldTracker,
+                         @NotNull ChangeTracker<TypeNameItemNamePair> methodTracker) {
     this.project = project;
     this.nameTracker = nameTracker;
-    this.valueTracker = valueTracker;
+    this.fieldTracker = fieldTracker;
+    this.methodTracker = methodTracker;
 
-    scope = ProjectScope.getProjectScope(project);
-    filter = IdFilter.getProjectIdFilter(project, true);
+    final boolean extremelySlow = false; // TODO: Would be really nice if searching everything wasn't extremely slow
+    byItemScope = extremelySlow ? ProjectScope.getAllScope(project)
+                                : ProjectScope.getProjectScope(project);
+    byItemFilter = IdFilter.getProjectIdFilter(project, true);
   }
 
   // make sure our background updater is done before we disappear
@@ -187,31 +192,38 @@ public class JavaEnvironment {
         packageIndex = new PackageIndex(project);
       } finally { popScope(); }
 
-      final Snapshot[] nameSnap = new Snapshot[1];
-      final Snapshot[] valueSnap = new Snapshot[1];
-
       if (indicator != null)
         indicator.setText2("computing field names");
-
+      final Snapshot[] nameSnap = new Snapshot[1];
+      final Snapshot[] fieldSnap = new Snapshot[1];
+      final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
       final String[] fieldNames = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<String[]>() {
         @Override public String[] compute() {
           nameSnap[0] = nameTracker.snapshot();
-          valueSnap[0] = valueTracker.snapshot();
-          return PsiShortNamesCache.getInstance(project).getAllFieldNames();
+          fieldSnap[0] = fieldTracker.snapshot();
+          return cache.getAllFieldNames();
+        }
+      });
+
+      if (updateFuture.isCancelled())
+        return;
+
+      if (indicator != null)
+        indicator.setText2("computing method names");
+      final Snapshot[] methodSnap = new Snapshot[1];
+      final String[] methodNames = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<String[]>() {
+        @Override public String[] compute() {
+          methodSnap[0] = methodTracker.snapshot();
+          return cache.getAllMethodNames();
         }
       });
 
       if (indicator != null)
         indicator.setText2("building trie");
+      nameTrie = prepareNameTrie(fieldNames, methodNames, packageIndex.getNames());
+      nameTracker.forget(nameSnap[0]);
 
-      nameTrie = prepareNameTrie(fieldNames, packageIndex.getNames());
-
-      pushScope("forget names");
-      try {
-        nameTracker.forget(nameSnap[0]);
-      } finally { popScope(); }
-
-      // we're initialized starting here, we can live without the makeProjectValuesByItem for a while
+      // we're initialized starting here, we can live without byItem for a while
       _initialized = true;
 
       if (indicator != null)
@@ -223,18 +235,36 @@ public class JavaEnvironment {
         indicator.setIndeterminate(false);
       }
 
+      pushScope("make project fields by item");
       try {
-        pByItem = makeProjectValuesByItem(fieldNames, indicator);
-        pushScope("forget values");
-        try {
-          valueTracker.forget(valueSnap[0]);
-        } finally { popScope(); }
-      } finally {
-        if (indicator != null)
-          indicator.setIndeterminate(true);
-      }
+        final ByItemFieldProc fieldProc = new ByItemFieldProc();
+        readLockLoop(fieldNames,indicator,new Processor<String>() {
+          public boolean process(final String name) {
+            return safeProcessFieldsWithName(cache, name, fieldProc, byItemScope, byItemFilter);
+          }
+        });
+        pByItemFields = fieldProc.result;
+        fieldTracker.forget(fieldSnap[0]);
+      } finally { popScope(); }
 
-    } finally { popScope(); }
+      if (ValueByItemQuery.nullaryMethods) {
+        pushScope("make project methods by item");
+        try {
+          final ByItemMethodProc methodProc = new ByItemMethodProc();
+          readLockLoop(methodNames, indicator, new Processor<String>() {
+            public boolean process(final String name) {
+              return safeProcessMethodsWithName(cache, name, methodProc, byItemScope, byItemFilter);
+            }
+          });
+          pByItemMethods = methodProc.result;
+          methodTracker.forget(methodSnap[0]);
+        } finally { popScope(); }
+      }
+    } finally {
+      popScope();
+      if (indicator != null)
+        indicator.setIndeterminate(true);
+    }
 
     // schedule the next update immediately if we've had another update request while we
     // were in here
@@ -308,24 +338,18 @@ public class JavaEnvironment {
     } finally { popScope(); }
   }
 
-  private int[] prepareNameTrie(String[] fieldNames, String[] packageNames) {
+  private int[] prepareNameTrie(final String[] fieldNames, final String[] methodNames, final String[] packageNames) {
     pushScope("prepare lazy trie");
     try {
       if (updateFuture.isCancelled())
         return null;
 
       final String[] classNames = DumbService.getInstance(project).runReadActionInSmartMode(new Computable<String[]>() {
-        @Override public String[] compute() {
+        @Override
+        public String[] compute() {
           return PsiShortNamesCache.getInstance(project).getAllClassNames();
         }
       });
-
-      if (updateFuture.isCancelled())
-        return null;
-
-      final String[] methodNames = DumbService.getInstance(project).runReadActionInSmartMode( new Computable<String[]>() { @Override public String[] compute() {
-        return PsiShortNamesCache.getInstance(project).getAllMethodNames();
-      }});
 
       if (updateFuture.isCancelled())
         return null;
@@ -344,122 +368,134 @@ public class JavaEnvironment {
   // TODO: this should use the same pause mechanism as EddyThread (counted)
   public static Pause pause = new Pause();
 
-  private Map<String, Set<String>> makeProjectValuesByItem(String[] fieldNames, @Nullable ProgressIndicator indicator) {
-    pushScope("make project values by item");
+  private static abstract class ByItemProc<A extends PsiMember> implements Processor<A> {
+    final Map<String,Set<String>> result = new HashMap<String,Set<String>>();
+    private final Stack<PsiType> work = new Stack<PsiType>();
+    private final Set<PsiType> seen = new HashSet<PsiType>();
 
-    try {
-      final Map<String,Set<String>> result = new HashMap<String,Set<String>>();
-
-      final PsiShortNamesCache cache = PsiShortNamesCache.getInstance(project);
-      final Processor<PsiField> proc = new Processor<PsiField>() {
-
-        final Stack<PsiType> work = new Stack<PsiType>();
-        final Set<PsiType> seen = new HashSet<PsiType>();
-
-        @Override public boolean process(final PsiField f) {
-          // check if we've been cancelled
-          if (updateFuture.isCancelled())
-            return false;
-
-          try {
-            // restrict this to only public fields, FieldItems in scope (protected or private) are added to vByItem
-            if (!f.hasModifierProperty(PsiModifier.PUBLIC))
-              return true;
-
-            // put this field into the string map for its type and all its supertypes
-            String name = f.getName();
-            seen.clear();
-            work.clear();
-            work.push(f.getType());
-            while (!work.isEmpty()) {
-              PsiType t = work.pop();
-              // we don't want generics in here
-              if (t instanceof PsiClassType) {
-                // never add java.lang.Object
-                if (((PsiClassType)t).getClassName().equals("Object")) {
-                  PsiClass tc = ((PsiClassType)t).resolve();
-                  if (tc != null && "java.lang.Object".equals(tc.getQualifiedName()))
-                      continue;
-                }
-                t = ((PsiClassType)t).rawType();
-              }
-
-              // add to map
-              String type = t.getCanonicalText();
-              Set<String> values = result.get(type);
-              if (values == null) {
-                values = new HashSet<String>();
-                result.put(type,values);
-              }
-              values.add(name);
-
-              for (final PsiType s : t.getSuperTypes()) {
-                if (!seen.contains(s)) {
-                  seen.add(s);
-                  work.push(s);
-                }
-              }
-            }
-          } catch (AssertionError e) {
-            // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
-            if (utility.Utility.fromScalaPlugin(e)) logError("makeProjectValuesByItem()",e);
-            else throw e;
+    // Put this name into the string map for its type and all its supertypes
+    void absorb(final String name, final PsiType type) {
+      seen.clear();
+      work.clear();
+      work.push(type);
+      while (!work.isEmpty()) {
+        PsiType t = work.pop();
+        // we don't want generics in here
+        if (t instanceof PsiClassType) {
+          // never add java.lang.Object
+          if (((PsiClassType)t).getClassName().equals("Object")) {
+            PsiClass tc = ((PsiClassType)t).resolve();
+            if (tc != null && "java.lang.Object".equals(tc.getQualifiedName()))
+                continue;
           }
-          return true;
-        }
-      };
-
-      final Utility.SmartReadLock lock = new Utility.SmartReadLock(project);
-      int i = 0;
-      final double n = fieldNames.length;
-      try {
-        for (final String s : fieldNames) {
-          if (indicator != null) {
-            indicator.checkCanceled();
-            indicator.setFraction(i++/n);
-          }
-
-          // pretend we're doing a big read action here, if we get stumped by a dumb mode, repeat until it passes
-          boolean done = false;
-          while (!done) {
-            done = true;
-            lock.acquire();
-            try {
-              safeProcessFieldsWithName(cache, s, proc, scope, filter);
-            } catch (AssertionError e) {
-              // If we're in the Scala plugin, log and squash the error. Don't retry. Otherwise, rethrow.
-              if (utility.Utility.fromScalaPlugin(e)) {
-                logError("makeProjectValuesByItem()",e);
-              }
-              else throw e;
-            } catch (IndexNotReadyException e) {
-              // we entered a dumb mode while processing this name, try again
-              done = false;
-            } finally {
-              // only release the lock if a write action is trying to start
-              if (pause.paused()) {
-                lock.release();
-                // yield to other threads to start the write action
-                try {
-                  pause.waitForEnd();
-                } catch (ThreadDeath e) {
-                  throw new ProcessCanceledException();
-                }
-              }
-            }
-
-            if (updateFuture.isCancelled())
-              throw new ProcessCanceledException();
-          }
+          t = ((PsiClassType)t).rawType();
         }
 
-        // don't need synchronized, access functions should copy pointer before working on it
-        return result;
-      } finally {
-        // make sure the lock is released
-        lock.release();
+        // add to map
+        final String typeName = t.getCanonicalText();
+        Set<String> values = result.get(typeName);
+        if (values == null) {
+          values = new HashSet<String>();
+          result.put(typeName,values);
+        }
+        values.add(name);
+
+        for (final PsiType s : t.getSuperTypes()) {
+          if (!seen.contains(s)) {
+            seen.add(s);
+            work.push(s);
+          }
+        }
       }
-    } finally { popScope(); }
+    }
+  }
+  private final class ByItemFieldProc extends ByItemProc<PsiField> {
+    public boolean process(final PsiField f) {
+      if (updateFuture.isCancelled())
+        return false;
+      try {
+        // Restrict to only public fields, those in scope (protected or private) are added to vByItem
+        if (f.hasModifierProperty(PsiModifier.PUBLIC))
+          absorb(f.getName(),f.getType());
+      } catch (AssertionError e) {
+        // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
+        if (utility.Utility.fromScalaPlugin(e)) logError("makeProjectValuesByItem()",e);
+        else throw e;
+      }
+      return true;
+    }
+  }
+  private final class ByItemMethodProc extends ByItemProc<PsiMethod> {
+    public boolean process(final PsiMethod m) {
+      if (updateFuture.isCancelled())
+        return false;
+      try {
+        // Restrict to only public methods, those in scope (protected or private) are added to vByItem
+        if (m.hasModifierProperty(PsiModifier.PUBLIC)) {
+          final PsiType type = m.getReturnType();
+          if (ByItem.considerMethod(m,type))
+            absorb(m.getName(),type);
+        }
+      } catch (AssertionError e) {
+        // If we're in the Scala plugin, log and squash the error.  Otherwise, rethrow.
+        if (utility.Utility.fromScalaPlugin(e)) logError("makeProjectValuesByItem()",e);
+        else throw e;
+      }
+      return true;
+    }
+  }
+
+  // Do something for every element of a list, with a bunch of complex logic for handling temporary failure
+  private <A> boolean readLockLoop(final A[] values, final @Nullable ProgressIndicator indicator, final Processor<A> proc) {
+    final Utility.SmartReadLock lock = new Utility.SmartReadLock(project);
+    final double n = values.length;
+    int i = 0;
+    try {
+      for (final A s : values) {
+        if (indicator != null) {
+          indicator.checkCanceled();
+          indicator.setFraction(i++/n);
+        }
+
+        // pretend we're doing a big read action here, if we get stumped by a dumb mode, repeat until it passes
+        boolean done = false;
+        while (!done) {
+          done = true;
+          lock.acquire();
+          try {
+            if (!proc.process(s))
+              return false;
+          } catch (AssertionError e) {
+            // If we're in the Scala plugin, log and squash the error. Don't retry. Otherwise, rethrow.
+            if (utility.Utility.fromScalaPlugin(e)) {
+              logError("makeProjectValuesByItem()",e);
+            }
+            else throw e;
+          } catch (IndexNotReadyException e) {
+            // we entered a dumb mode while processing this name, try again
+            done = false;
+          } finally {
+            // only release the lock if a write action is trying to start
+            if (pause.paused()) {
+              lock.release();
+              // yield to other threads to start the write action
+              try {
+                pause.waitForEnd();
+              } catch (ThreadDeath e) {
+                throw new ProcessCanceledException();
+              }
+            }
+          }
+
+          if (updateFuture.isCancelled())
+            throw new ProcessCanceledException();
+        }
+      }
+    } finally {
+      // make sure the lock is released
+      lock.release();
+    }
+    return true;
   }
 
   // get a combined environment at the given place
@@ -470,6 +506,8 @@ public class JavaEnvironment {
       final Map<PsiElement,Item> items = new HashMap<PsiElement,Item>();
       final Converter converter = new Converter(project, items);
 
+      ApplicationManager.getApplication().assertIsDispatchThread();
+
       // we could cache the result of addBase, but it doesn't seem like it's worth it.
       addBase(converter);
       
@@ -477,20 +515,23 @@ public class JavaEnvironment {
       final EnvironmentProcessor ep = new EnvironmentProcessor(converter, place, lastEdit);
 
       // stuff from trackers
-      final List<TypeNameItemNamePair> newValuePairs = valueTracker.values();
+      final List<TypeNameItemNamePair> newFieldPairs = fieldTracker.values();
+      final List<TypeNameItemNamePair> newMethodPairs = methodTracker.values();
       final List<String> newNames = nameTracker.values();
 
       // schedule a background update if the trackers get too large
       // TODO: split requestUpdate into two
-      if (newValuePairs.size() > rebuildByItemThreshold || newNames.size() > rebuildNamesThreshold) {
-        log("requesting background update for " + newValuePairs.size() + " values, " + newNames.size() + " names.");
+      if (newFieldPairs.size()+newMethodPairs.size() > rebuildByItemThreshold || newNames.size() > rebuildNamesThreshold) {
+        log("requesting background update for " + newFieldPairs.size() + " fields, "
+          + newMethodPairs.size() + " methods, " + newNames.size() + " names.");
         requestUpdate();
       }
 
       pushScope("make ValueByItemQuery");
       final ValueByItemQuery vbi;
       try {
-        vbi = new ByItem(converter,pByItem,newValuePairs,ep.localItems);
+        vbi = new ByItem(converter,pByItemFields,pByItemMethods,newFieldPairs,newMethodPairs,
+                         ep.localItems,byItemScope,byItemFilter);
       } finally { popScope(); }
 
       // Make trie for global/project name lookup

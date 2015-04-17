@@ -34,6 +34,7 @@ import tarski.Tokens;
 import tarski.Tokens.ShowFlags;
 import tarski.Tokens.Token;
 import tarski.Types;
+import tarski.ValueByItemQuery;
 import utility.Locations.Loc;
 
 import java.util.*;
@@ -634,5 +635,10 @@ public class Tests extends LightCodeInsightFixtureTestCase {
 
   public void testAddedByItem() {
     testMargin("addedByItem.java", "for (final X x : set) if (x.valid())", .9);
+  }
+
+  public void testMethodByItem() {
+    if (ValueByItemQuery.nullaryMethods)
+      testMargin("methodByItem.java", "x.foo().bar();", .9);
   }
 }

@@ -1,81 +1,76 @@
 package tarski;
 
+import com.intellij.util.SmartList;
 import tarski.Items.*;
-import scala.collection.immutable.List;
-import gnu.trove.TObjectIntHashMap;
+import tarski.Types.*;
+import tarski.Scores.*;
 import java.util.*;
 
 public class JavaItems {
 
-  public static Map<TypeItem, Value[]> valuesByItem(Map<Item,Integer> vs, boolean addObject) {
-    int n = vs.size();
-    Item[] a = new Item[n];
-    n = 0;
-    for (Map.Entry<Item,Integer> e : vs.entrySet()) {
-      a[n++] = e.getKey();
+  public static final class ByItemMaps implements ValueByItemQuery {
+    final public Map<TypeItem,Value[]> values;
+    final public Map<TypeItem,MethodItem[]> methods;
+
+    ByItemMaps(final Map<TypeItem,Value[]> values, final Map<TypeItem,MethodItem[]> methods) {
+      this.values = values;
+      this.methods = methods;
     }
-    return valuesByItem(a, addObject);
+
+    public Scored<ValueOrMethod> query(final TypeItem ty) {
+      Scored<ValueOrMethod> s = (Scored)Empty$.MODULE$;
+      if (nullaryMethods) {
+        final MethodItem[] ms = methods.get(ty);
+        if (ms != null)
+          for (int i=0;i<ms.length;i++)
+            s = new Best<ValueOrMethod>(Pr.methodByItem(),ms[i],s);
+      }
+      final Value[] vs = values.get(ty);
+      if (vs != null)
+        for (int i=0;i<vs.length;i++)
+          s = new Best<ValueOrMethod>(JavaScores.one,vs[i],s);
+      return s;
+    }
   }
 
-  public static Map<TypeItem, Value[]> valuesByItem(java.util.List<Item> vs, boolean addObject) {
+  public static ByItemMaps valuesByItem(final List<Item> vs, final boolean addObject) {
     return valuesByItem(vs.toArray(new Item[vs.size()]), addObject);
   }
 
-  public static <V extends Item> Map<TypeItem,Value[]> valuesByItem(V[] vs, boolean addObject) {
-    // Turn debugging on or off
-    final boolean debug = false;
+  // Is a method suitable for by item lookup?
+  // IMPORTANT: Must match ByItem.considerMethod
+  static public boolean considerMethod(final MethodItem m, final TypeItem ret) {
+    return ret != Base.ubVoidItem$.MODULE$ && m.tparams().isEmpty() && m.arity()==0;
+  }
 
+  public static <V extends Item> ByItemMaps valuesByItem(final V[] vs, final boolean addObject) {
     // Helpers for superItems loops
     final Stack<RefTypeItem> work = new Stack<RefTypeItem>();
     final Set<TypeItem> seen = new HashSet<TypeItem>();
 
-    // Count values corresponding to each item
-    final TObjectIntHashMap<TypeItem> count = new TObjectIntHashMap<TypeItem>(vs.length);
+    // We build into a temporary map first, then partition into separate values and methods maps later
+    final Map<TypeItem,List<ValueOrMethod>> both = new HashMap<TypeItem,List<ValueOrMethod>>();
     for (final Item i : vs) {
-      if (!(i instanceof Value) || i instanceof SuperItem) // Always use this instead of super
+      if (!(i instanceof ValueOrMethod) || i instanceof SuperItem) // Always use this instead of super
         continue;
-      final Value v = (Value)i;
-      final TypeItem t = v.item();
-      if (t instanceof LangTypeItem)
-        count.put(t,count.get(t)+1);
-      else {
-        seen.clear();
-        work.clear();
-        work.push((RefTypeItem)t);
-        while (!work.isEmpty()) {
-          final RefTypeItem s = work.pop();
-          if (!addObject && s == ObjectItem$.MODULE$)
-            continue;
-          count.put(s,count.get(s)+1);
-          List<RefTypeItem> ss = s.superItems();
-          while (!ss.isEmpty()) {
-            final RefTypeItem h = ss.head();
-            if (!seen.contains(h)) {
-              seen.add(h);
-              work.push(h);
-            }
-            ss = (List<RefTypeItem>)ss.tail();
-          }
-        }
-      }
-    }
-
-    // Add values corresponding to each item
-    final Map<TypeItem,Value[]> results = new HashMap<TypeItem,Value[]>(count.size());
-    for (final Item i : vs) {
-      if (!(i instanceof Value) || i instanceof SuperItem) // Always use this instead of super
+      final ValueOrMethod v = (ValueOrMethod)i;
+      final TypeItem t;
+      if (i instanceof Value)
+        t = ((Value)i).item();
+      else if (ValueByItemQuery.nullaryMethods && i instanceof MethodItem) {
+        final MethodItem m = (MethodItem)i;
+        t = m.retItem();
+        if (!considerMethod(m,t))
+          continue;
+      } else
         continue;
-      final Value v = (Value)i;
-      final TypeItem t = v.item();
       if (t instanceof LangTypeItem) {
-        final int n = count.get(t);
-        Value[] va = results.get(t);
+        List<ValueOrMethod> va = both.get(t);
         if (va == null) {
-          va = new Value[n];
-          results.put(t,va);
+          va = new SmartList<ValueOrMethod>();
+          both.put(t,va);
         }
-        va[n-1] = v;
-        count.put(t,n-1);
+        va.add(v);
       } else {
         seen.clear();
         work.clear();
@@ -84,37 +79,49 @@ public class JavaItems {
           final RefTypeItem s = work.pop();
           if (!addObject && s == ObjectItem$.MODULE$)
             continue;
-          final int n = count.get(s);
-          Value[] va = results.get(s);
+          List<ValueOrMethod> va = both.get(s);
           if (va == null) {
-            va = new Value[n];
-            results.put(s,va);
+            va = new SmartList<ValueOrMethod>();
+            both.put(s, va);
           }
-          va[n-1] = v;
-          count.put(s,n-1);
-          List<RefTypeItem> ss = s.superItems();
+          va.add(v);
+          scala.collection.immutable.List<RefTypeItem> ss = s.superItems();
           while (!ss.isEmpty()) {
             final RefTypeItem h = ss.head();
             if (!seen.contains(h)) {
               seen.add(h);
               work.push(h);
             }
-            ss = (List<RefTypeItem>)ss.tail();
+            ss = (scala.collection.immutable.List<RefTypeItem>)ss.tail();
           }
         }
       }
     }
 
-    // In debug mode, check that counts are exactly zero
-    if (debug) {
-      for (Object o : count.keys()) {
-        TypeItem t = (TypeItem)o;
-        int n = count.get(t);
-        assert n==0 : "Bad count: t "+t+", n "+n;
+    // Split into separate maps for values and methods
+    final Map<TypeItem, Value[]> values = new HashMap<TypeItem, Value[]>();
+    final Map<TypeItem, MethodItem[]> methods = new HashMap<TypeItem, MethodItem[]>();
+    for (final Map.Entry<TypeItem, List<ValueOrMethod>> e : both.entrySet()) {
+      final TypeItem t = e.getKey();
+      final List<ValueOrMethod> xs = e.getValue();
+      final int nBoth = xs.size();
+      int nValues = 0;
+      for (int i=0;i<nBoth;i++)
+        if (xs.get(i) instanceof Value)
+          nValues++;
+      int nMethods = nBoth - nValues;
+      final Value[] va = nValues != 0 ? new Value[nValues] : null;
+      final MethodItem[] ma = nMethods != 0 ? new MethodItem[nMethods] :  null;
+      for (int i=0;i<nBoth;i++) {
+        final ValueOrMethod x = xs.get(i);
+        if (x instanceof Value) va[--nValues] = (Value)x;
+        else ma[--nMethods] = (MethodItem)x;
       }
+      if (va != null) values.put(t, va);
+      if (ma != null) methods.put(t, ma);
     }
 
     // All done!
-    return results;
+    return new ByItemMaps(values,methods);
   }
 }

@@ -1448,7 +1448,7 @@ class TestDen {
     val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
     val tA = ThisItem(A)
-    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f)).addScope((GetClassItem,3))
+    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f)).add(GetClassItem,3)
     test("getClass()", ApplyExp(MethodDen(None,GetClassItem,r),Nil,a,auto=false))
   }
 
@@ -1457,7 +1457,7 @@ class TestDen {
     val x = NormalLocal("x",StringType,isFinal=true)
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
     val tA = ThisItem(A)
-    implicit val env = localEnvWithBase(A,f,x,tA).addScope((GetClassItem,3)).move(PlaceInfo(f))
+    implicit val env = localEnvWithBase(A,f,x,tA).add(GetClassItem,3).move(PlaceInfo(f))
     test("Class<? extends A> cls = getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(A.raw))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(None,Some(A.inside),GetClassItem,r),Nil,a,false))),env)),env))
     test("Class<? extends A> cls = this.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(A.raw))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(tA,GetClassItem,r),Nil,a,false))),env)),env))
     test("Class<? extends String> cls = x.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(StringType))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(x,GetClassItem,r),Nil,a,false))),env)),env))
@@ -1514,4 +1514,14 @@ class TestDen {
     test("x = 1,2,3.0,null","x",x => VarStmt(Nil,ArrayType(NumberItem),r,(x,
       ArrayExp(r,NumberItem,r,List(1,2,3.0,NullLit(r)),a)),env))
   }
+
+  @Test def methodByItem() =
+    if (ValueByItemQuery.nullaryMethods) {
+      val A = NormalClassItem("A")
+      val x = NormalLocal("x",A)
+      val B = NormalClassItem("B")
+      val f = NormalMethodItem("f",A,Nil,B,Nil,isStatic=false)
+      implicit val env = localEnvWithBase().extend(Array(A,B,x,f),Map(A->3,B->3,x->1))
+      test("B y =","y",y => VarStmt(Nil,B,r,(y,ApplyExp(MethodDen(x,f,r),Nil,a,auto=true)),env))
+    }
 }
