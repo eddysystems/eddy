@@ -12,12 +12,12 @@ object StringMatching {
   val doubleTypeMin = 1.0f
   val doubleTypeMax = 4.0f
   val deleteCostConst = 1.0f
-  val insertAddShiftStroke = 2.0f // a spurious isolated capital letter
-  val insertOmitShiftStroke = 2.0f // a lowercase letter that should've been uppercase in the middle of two uppercase letters
-  val replaceAddShiftStroke = 0.5f // a spurious isolated capital letter
-  val replaceOmitShiftStroke = 0.5f // a lowercase letter that should've been uppercase in the middle of two uppercase letters
-  val extendShift = .3f // shift key held down too long or let go too quickly
-  val swapCostConst = .3f // the cost of swapping two adjacent letters
+  val insertAddShiftStroke = 0.2f // a spurious isolated capital letter
+  val insertOmitShiftStroke = 0.2f // a lowercase letter that should've been uppercase in the middle of two uppercase letters
+  val replaceAddShiftStroke = 0.2f // a spurious isolated capital letter
+  val replaceOmitShiftStroke = 0.2f // a lowercase letter that should've been uppercase in the middle of two uppercase letters
+  val extendShift = .1f // shift key held down too long or let go too quickly
+  val swapCostConst = .2f // the cost of swapping two adjacent letters
   val minSwapCost = swapCostConst // the minimum cost of a swap operation (for lower bounds)
   val minInsertCost = doubleTypeCost(1.0f)
 
