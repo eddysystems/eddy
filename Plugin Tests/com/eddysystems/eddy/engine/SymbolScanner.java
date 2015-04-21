@@ -9,7 +9,9 @@ import com.intellij.openapi.fileTypes.StdFileTypes;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleType;
 import com.intellij.openapi.module.StdModuleTypes;
+import com.intellij.openapi.projectRoots.ProjectJdkTable;
 import com.intellij.openapi.projectRoots.Sdk;
+import com.intellij.openapi.projectRoots.SimpleJavaSdkType;
 import com.intellij.openapi.projectRoots.impl.JavaAwareProjectJdkTableImpl;
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl;
 import com.intellij.openapi.roots.*;
@@ -20,6 +22,7 @@ import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
 import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.testFramework.fixtures.LightCodeInsightFixtureTestCase;
+import com.intellij.util.ArrayUtil;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 
@@ -72,6 +75,8 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
   }
 
   static class ProjectDesc implements LightProjectDescriptor {
+    boolean jdk_initialized = false;
+
     @Override
     public ModuleType getModuleType() {
       return StdModuleTypes.JAVA;
@@ -84,13 +89,24 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
 
         Sdk[] sdks = jdkTable.getAllJdks();
         for (final Sdk sdk : sdks)
-          System.out.println("found sdk: " + sdk.getName() + " " + sdk.getVersionString() + " " + sdk.getSdkType());
+          System.out.println("found sdk: " + sdk.getName() + ' ' + sdk.getVersionString() + ' ' + sdk.getSdkType());
 
         // just the internal one for now
         ProjectJdkImpl jdk = (ProjectJdkImpl) jdkTable.getInternalJdk().clone();
-        jdk.setName("JDK");
+        jdk.setName("Internal JDK");
 
-        System.out.println("using sdk: " + jdk.getName() + " " + jdk.getVersionString() + " " + jdk.getSdkType());
+        if (!jdk_initialized) {
+          System.out.println("internal jdk: " + jdk.getName() + ' ' + jdk.getVersionString() + ' ' + jdk.getSdkType() + " at " + jdk.getHomePath());
+          jdkTable.addJdk(jdk);
+
+          Sdk jdk18 = new SimpleJavaSdkType().createJdk("Java 1.8", "/Library/Java/JavaVirtualMachines/jdk1.8.0_20.jdk/Contents");
+          jdk18.getSdkModificator().addRoot(...);
+          jdk18.getSdkModificator().commitChanges();
+          System.out.println("adding sdk: " + jdk18.getName() + ' ' + jdk18.getVersionString() + ' ' + jdk18.getSdkType());
+          jdkTable.addJdk(jdk18);
+        }
+        jdk_initialized = true;
+
         return jdk;
       } catch (CloneNotSupportedException e) {
         log("cloning not supported: " + e);
@@ -200,9 +216,9 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
     public enum Context {
       ANNOTATION,
       CALL, // methods
-      WRITE, READ, READ_WRITE, // fields (also methods in method refs)
+      WRITE, READ, ARRAY_READ, ARRAY_WRITE, ARRAY_LENGTH, READ_WRITE, // fields (also methods in method refs)
       PACKAGE_STMT, STAR_IMPORT, IMPORT, // classes, packages
-      EXTENDS, IMPLEMENTS, TYPE_BOUND, THROWS, TYPE_PARAM, PARAM_DECL, FIELD_DECL, LOCAL_DECL, RETURN_TYPE, CAST, INSTANCEOF, CLASS_OBJECT, NEW // types
+      EXTENDS, IMPLEMENTS, ANONYMOUS_CLASS, TYPE_BOUND, THROWS, TYPE_PARAM, PARAM_DECL, FIELD_DECL, LOCAL_DECL, RETURN_TYPE, CAST, INSTANCEOF, CLASS_OBJECT, NEW, THIS // types
     };
 
     public static Context getContext(PsiJavaCodeReferenceElement reference, PsiElement parent) {
@@ -224,15 +240,27 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
         } else if (parent instanceof PsiPostfixExpression)
           return Context.READ_WRITE; // postfix ++ and --
         else if (parent instanceof PsiConditionalExpression)
-          return Context.READ;
+          return Context.READ; // a ? b : c
+        else if (parent instanceof PsiPolyadicExpression)
+          return Context.READ; // a + b + c + ...
         else if (parent instanceof PsiTypeCastExpression)
-          return Context.READ;
+          return Context.READ; // (Type)exp
         else if (parent instanceof PsiInstanceOfExpression)
-          return Context.READ;
+          return Context.READ; // exp instanceof Type
+        else if (parent instanceof PsiArrayInitializerExpression)
+          return Context.READ; // Type arr[] = {exp, ...}
+        else if (parent instanceof PsiArrayAccessExpression) {
+          PsiElement gp = parent.getParent();
+          if (gp instanceof PsiAssignmentExpression && ((PsiAssignmentExpression) gp).getLExpression() == parent)
+            return Context.ARRAY_WRITE; // exp[...] = ...
+          else
+            return Context.ARRAY_READ; // exp[...]
+        } else if (parent instanceof PsiNewExpression)
+          return Context.READ; // new Type[exp]
         else if (parent instanceof PsiLocalVariable)
-          return Context.READ; // initializer
+          return Context.READ; // Type x = exp
         else if (parent instanceof PsiField)
-          return Context.READ; // initializer
+          return Context.READ; // Type x = exp
         else if (parent instanceof PsiStatement)
           return Context.READ; // throw, return, assert, if, while ...
         else if (parent instanceof PsiNameValuePair)
@@ -286,9 +314,16 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
           }
         } else if (parent instanceof PsiNewExpression)
           return Context.NEW;
-        else {
-          assert parent instanceof PsiAnnotation : "unexpected parent " + parent + " of non-expression " + reference;
+        else if (parent instanceof PsiThisExpression)
+          return Context.THIS; // used in Type.this
+        else if (parent instanceof PsiAnonymousClass)
+          return Context.ANONYMOUS_CLASS; // name is used to instantiate an anonymous class (could be extends or implements)
+        else if (parent instanceof PsiAnnotation)
           return Context.ANNOTATION;
+        else {
+          // rest is comments, which we should never be called on
+          assert false : "unexpected parent " + parent + " of non-expression " + reference;
+          return null;
         }
       }
     }
@@ -315,11 +350,107 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
     }
   }
 
+  private void doVisitElement(final Map<String,ReferenceInfo> references, PsiJavaCodeReferenceElement element, PsiElement parent, ReferenceInfo.Context context) {
+    PsiElement referenced = element.resolve();
+    String fqn = null;
+    ReferenceInfo.Kind kind = null;
+    if (referenced == null) {
+      if (context == ReferenceInfo.Context.IMPORT && element instanceof PsiImportStaticReferenceElement) {
+        // if we statically import an overloaded method when there is no field of the same name, it will not resolve.
+        // Make sure it exists and consider this a reference to its class instead (nothing better to do anyway)
+        PsiElement cls = ((PsiImportStaticReferenceElement) element).getClassReference().resolve();
+        if (cls instanceof PsiClass) {
+          PsiMethod[] methods = ((PsiClass)cls).findMethodsByName(element.getReferenceName(),false);
+          if (methods.length > 0) {
+            // there should have been more than one for this resolve to fail
+            assert methods.length > 1;
+            fqn = element.getQualifiedName();
+            kind = ReferenceInfo.Kind.METHOD;
+            referenced = cls;
+          }
+        }
+      }
+
+      if (fqn == null)
+        log(logger, Level.WARN, "cannot resolve reference " + element.getCanonicalText() + " in context " + context);
+    } else {
+      // get fully qualified name
+      if (referenced instanceof PsiField || referenced instanceof PsiMethod) {
+        PsiClass cls = ((PsiMember) referenced).getContainingClass();
+        fqn = cls != null ? cls.getQualifiedName() : null;
+        if (fqn != null)
+          fqn += '.' + ((PsiMember) referenced).getName();
+      } else if (referenced instanceof PsiQualifiedNamedElement) {
+        fqn = ((PsiQualifiedNamedElement) referenced).getQualifiedName();
+      }
+    }
+
+    // ignore local or unresolved symbols
+    if (fqn == null)
+      return;
+
+    // find the kind (if not specifically set above already)
+    if (kind == null)
+      kind = ReferenceInfo.getKind(referenced);
+
+    // is the symbol from this project?
+    boolean sameProject;
+    if (referenced instanceof PsiPackage) {
+      // if it's a package, and we're referencing it from a package statement, it counts as a same file reference,
+      // otherwise, it's foreign (getContainingFile won't be resolvable for packages)
+      sameProject = context == ReferenceInfo.Context.PACKAGE_STMT;
+    } else {
+      // check if we're referencing an array length
+      VirtualFile file = referenced.getContainingFile().getVirtualFile();
+
+      if (file == null) {
+        // the only synthetic element in Java should be .length
+        assert fqn.equals("_Dummy_.__Array__.length");
+
+        // if it is a direct array length reference, evaluate the base reference, and set context to ARRAY_LENGTH
+        if (element.getFirstChild() instanceof PsiJavaCodeReferenceElement)
+          doVisitElement(references, (PsiJavaCodeReferenceElement) element.getFirstChild(), element, ReferenceInfo.Context.ARRAY_LENGTH);
+        return;
+      }
+
+      sameProject = ProjectRootManager.getInstance(getProject()).getFileIndex().getContentRootForFile(file) != null;
+    }
+
+    // get or add info (and check kind)
+    String idx = fqn + (kind == ReferenceInfo.Kind.METHOD ? "()" : "");
+    ReferenceInfo referenceInfo = references.get(idx);
+    if (referenceInfo != null) {
+      referenceInfo = new ReferenceInfo(kind, sameProject);
+      references.put(idx, referenceInfo);
+    } else {
+      assert referenceInfo.kind == kind;
+    }
+
+    // check if same file reference
+    if (referenced.getContainingFile() == element.getContainingFile()) {
+      referenceInfo.sameFileReferences++;
+    }
+
+    if (context != null) {
+      Integer count = referenceInfo.counts.get(context);
+      if (count == null)
+        count = 0;
+      referenceInfo.counts.put(context, count+1);
+    } else {
+      log("ignoring reference in uninteresting context: " + element);
+    }
+  }
+
   private boolean visitElement(final Map<String,ReferenceInfo> references, PsiElement element) {
+
+    // ignore comments
+    if (element instanceof PsiComment)
+      return false;
 
     if (element instanceof PsiJavaCodeReferenceElement) {
 
       PsiElement parent = element.getParent();
+
       // nested or invalid reference, ignore inner parts
       if (parent == null || parent instanceof PsiReference)
         return false;
@@ -327,63 +458,7 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
       // find out in what context it's being referenced
       ReferenceInfo.Context context = ReferenceInfo.getContext((PsiJavaCodeReferenceElement) element, parent);
 
-      // find out what we referenced
-      PsiElement referenced = ((PsiReference)element).resolve();
-      String fqn = null;
-      if (referenced == null) {
-        log(logger, Level.WARN, "cannot resolve reference " + ((PsiReference) element).getCanonicalText() + " in context " + context);
-      } else {
-        // get fully qualified name
-        if (referenced instanceof PsiField || referenced instanceof PsiMethod) {
-          PsiClass cls = ((PsiMember) referenced).getContainingClass();
-          fqn = cls != null ? cls.getQualifiedName() : null;
-          if (fqn != null)
-            fqn += '.' + ((PsiMember) referenced).getName();
-        } else if (referenced instanceof PsiQualifiedNamedElement) {
-          fqn = ((PsiQualifiedNamedElement) referenced).getQualifiedName();
-        }
-      }
-
-      if (fqn != null) {
-
-        // find the kind
-        ReferenceInfo.Kind kind = ReferenceInfo.getKind(referenced);
-
-        // is the symbol from this project?
-        boolean sameProject;
-        if (referenced instanceof PsiPackage) {
-          // if it's a package, and we're referencing it from a package statement, it counts as a same file reference,
-          // otherwise, it's foreign (getContainingFile won't be resolvable for packages)
-          sameProject = context == ReferenceInfo.Context.PACKAGE_STMT;
-        } else {
-          sameProject = ProjectRootManager.getInstance(getProject()).getFileIndex().getContentRootForFile(referenced.getContainingFile().getVirtualFile()) != null;
-        }
-
-        // get or add info (and check kind)
-        ReferenceInfo referenceInfo = references.get(fqn);
-        if (referenceInfo == null) {
-          referenceInfo = new ReferenceInfo(kind, sameProject);
-          references.put(fqn, referenceInfo);
-        } else {
-          assert referenceInfo.kind == kind;
-        }
-
-        // check if same file reference
-        if (referenced.getContainingFile() == element.getContainingFile()) {
-          referenceInfo.sameFileReferences++;
-        }
-
-        if (context != null) {
-          Integer count = referenceInfo.counts.get(context);
-          if (count == null)
-            count = 0;
-          referenceInfo.counts.put(context, count+1);
-        } else {
-          log("ignoring reference in uninteresting context: " + element);
-        }
-      } else {
-        log("ignoring local symbol: " + element + " in context " + context);
-      }
+      doVisitElement(references, (PsiJavaCodeReferenceElement) element, parent, context);
     }
     return true;
   }
@@ -395,23 +470,30 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
 
     log("  base path is " + dir.getCanonicalPath());
 
-    // add all possible roots for package finding
-    final List<ContentEntry> roots = new ArrayList<ContentEntry>();
     final ModifiableRootModel model = ModuleRootManager.getInstance(myModule).getModifiableModel();
+
+    // set the proper SDK for this test
+    model.setSdk(ProjectJdkTable.getInstance().findJdk("Java 1.8"));
+    Sdk jdk = model.getSdk();
+    System.out.println("using sdk: " + jdk.getName() + ' ' + jdk.getVersionString() + ' ' + jdk.getSdkType());
+
+    // add all possible roots for package finding
+    final List<VirtualFile> roots = new ArrayList<VirtualFile>();
     traverse(dir, new FileVisitor() {
       @Override
       public boolean visit(final VirtualFile file) {
         if (file.isDirectory() && "java".equals(file.getName())) {
           log("adding root " + file.getCanonicalPath());
           ContentEntry entry = model.addContentEntry(file);
-          entry.addSourceFolder(file,false);
-          roots.add(entry);
+          entry.addSourceFolder(file, false);
+          roots.add(file);
           return false;
         } else {
           return true;
         }
       }
     });
+
     doWriteAction(new Runnable() {
       @Override
       public void run() {
@@ -451,11 +533,21 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
     });
 
     // clean up (simply delete the file, and remove the root entries)
-    doWriteAction(new Runnable(){
-      @Override public void run() {
+    doWriteAction(new Runnable() {
+      @Override
+      public void run() {
         try {
-          for (final ContentEntry entry : roots)
-            ModuleRootManager.getInstance(myModule).getModifiableModel().removeContentEntry(entry);
+          ModifiableRootModel model = ModuleRootManager.getInstance(myModule).getModifiableModel();
+          // awful double loop to find entries we added and delete them
+          for (final ContentEntry entry : model.getContentEntries())
+            for (final VirtualFile root : roots)
+              if (ArrayUtil.contains(entry.getSourceFolderFiles(), root)) {
+                model.removeContentEntry(entry);
+                continue;
+              }
+          model.commit();
+
+          // get rid of the source code
           dir.delete(null);
         } catch (IOException e) {
           log("failed to clean up after scan of " + basepath);
