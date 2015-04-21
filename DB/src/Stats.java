@@ -5,6 +5,7 @@ import com.amazonaws.util.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.PrintWriter;
 import java.util.*;
 
 public class Stats {
@@ -55,23 +56,36 @@ public class Stats {
 
     // email info (sorted by time so we know what the most current info is)
     TreeSet<EmailInfo> emails = new TreeSet<>();
+
+    String getEmail() {
+      if (!emails.isEmpty() && !emails.last().email.isEmpty())
+        return emails.last().email;
+      else
+        return null;
+    }
   }
 
   static class Suggestion {
     Suggestion(String i, double t, String in, String s) {
+      email = null;
       install = i;
       time = t;
       input = in;
       suggestion = s;
     }
 
+    String email;
     final String install;
     final double time;
     final String input;
     final String suggestion;
 
+    public void setEmail(String email) {
+      this.email = email;
+    }
+
     public String toString() {
-      return install + ":" + Util.toDate(time) + " " + input + " => " + suggestion;
+      return (email == null ? install + ':' + Util.toDate(time) : email) + ' ' + input + " => " + suggestion;
     }
   }
 
@@ -262,8 +276,7 @@ public class Stats {
 //          wau++;
 //        if (i.activeSince > weekAgo)
 //          wni++;
-        if (!i.emails.isEmpty() && !i.emails.last().email.isEmpty())
-          emails.add(i.emails.last().email);
+        emails.add(i.getEmail());
       }
       //System.out.println("active installations last 7 days: " + wai);
       //System.out.println("active users last 7 days: " + wau);
@@ -281,8 +294,10 @@ public class Stats {
 
       // suggestions
       System.out.println("suggestions: ");
-      for (final Suggestion s : suggestions)
+      for (final Suggestion s : suggestions) {
+        s.setEmail(installData.get(s.install).getEmail());
         System.out.println(s);
+      }
 
       // print action statistics (this is pretty coarse, we may want this on a weekly basis too)
       for (final Map.Entry<String, ActionData> e : actionData.entrySet()) {
@@ -341,6 +356,29 @@ public class Stats {
       JSONArray wau = new JSONArray(wauData);
       System.out.println("weekly active users        : " + wau.toString());
 
+      int dow = launchCal.get(Calendar.DAY_OF_WEEK);
+
+      PrintWriter pf = new PrintWriter("plot.py");
+      pf.println("from pylab import *");
+      pf.println();
+      pf.println("dai = " + dai.toString());
+      pf.println("dau = " + dau.toString());
+      pf.println("wai = [0,0,0,0,0,0] + " + wai.toString());
+      pf.println("wau = [0,0,0,0,0,0] + " + wau.toString());
+      pf.println();
+      pf.println("plot(dai, label=\"daily active installs\")");
+      pf.println("plot(dau, label=\"daily active users\")");
+      pf.println("plot(wai, label=\"weekly active installs\")");
+      pf.println("plot(wau, label=\"weekly active users\")");
+      pf.println("N=7");
+      pf.println("ig = np.convolve(dai, np.ones((N,))/N, mode='valid')");
+      pf.println("plot(append([0,]*(len(dai)-len(ig)), ig), label=\"weekly average daily installs\")");
+      pf.println("plot(100.*array(wau,dtype=float32)/maximum(wai,1.),label=\"engagement%\")");
+      pf.println("xticks(arange(0," + dd.length() + ", 7), arange(0," + dd.length() + ", 7)/7)");
+      pf.println("legend(loc=\"upper left\")");
+      pf.println("show()");
+      pf.flush();
+      pf.close();
     } catch (Exception e) {
       error(e.toString());
     }

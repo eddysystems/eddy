@@ -8,3 +8,4 @@ javadoc/
 .*.swp
 eddy.csv
 eddy.json
+plot.py
