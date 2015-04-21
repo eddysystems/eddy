@@ -1,7 +1,6 @@
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
-import static com.eddysystems.eddy.engine.Utility.*;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.fileTypes.StdFileTypes;
 import com.intellij.openapi.progress.ProcessCanceledException;
@@ -15,12 +14,9 @@ import com.intellij.openapi.util.Computable;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
-import com.intellij.psi.impl.java.stubs.index.JavaFullClassNameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.ProjectScope;
 import com.intellij.psi.search.PsiShortNamesCache;
-import com.intellij.psi.stubs.StubIndex;
-import com.intellij.psi.stubs.StubIndexImpl;
 import com.intellij.util.Processor;
 import com.intellij.util.SmartList;
 import com.intellij.util.indexing.IdFilter;
@@ -34,11 +30,9 @@ import java.util.*;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.locks.Lock;
 
 import static com.eddysystems.eddy.engine.ChangeTracker.Snapshot;
-import static com.eddysystems.eddy.engine.Utility.log;
-import static com.eddysystems.eddy.engine.Utility.logError;
+import static com.eddysystems.eddy.engine.Utility.*;
 import static utility.JavaUtils.*;
 
 // a class storing information about the environment.
@@ -467,8 +461,7 @@ public class JavaEnvironment {
 
     pushScope("get local environment");
     try {
-      final Map<PsiElement,Item> items = new HashMap<PsiElement,Item>();
-      final Converter converter = new Converter(project, items);
+      final Converter converter = new Converter(project, new HashMap<PsiElement,Item>());
 
       // we could cache the result of addBase, but it doesn't seem like it's worth it.
       addBase(converter);
