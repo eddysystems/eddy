@@ -2,6 +2,7 @@ package tarski
 
 import utility.Utility._
 import utility.JavaUtils.hash
+import tarski.Flags._
 import tarski.JavaScores._
 import tarski.Scores._
 import tarski.Scores.fail

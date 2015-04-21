@@ -18,11 +18,9 @@ import utility.Interrupts;
 import java.util.*;
 
 import static java.lang.Math.max;
+import static tarski.Flags.trackErrors;
 
 public class JavaScores {
-  // If true, failure causes are tracked via Bad.  If false, only Empty and Best are used.
-  static final boolean trackErrors = false;
-
   // To enable probability tracking, swap the comment blocks below and make the substitution
   //   double /*Prob*/   ->   DebugProb
   // except without the space.  Also swap the definition of Prob in Scores, and fix the compile error in JavaTrie.
@@ -211,7 +209,7 @@ public class JavaScores {
     }
     return then;
   }
-  static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<A> xs, Scored<A> then) {
+  static public <A> Scored<A> uniformThen(double/*Prob*/ p, List<? extends A> xs, Scored<A> then) {
     assert pp(p) >= then.p();
     if (xs.isEmpty())
       return then;
@@ -223,7 +221,7 @@ public class JavaScores {
     }
     return then;
   }
-  static public <A> Scored<A> uniformThen(double/*Prob*/ p, Collection<A> xs, Scored<A> then) {
+  static public <A> Scored<A> uniformThen(double/*Prob*/ p, Collection<? extends A> xs, Scored<A> then) {
     assert pp(p) >= then.p();
     if (xs.isEmpty())
       return then;

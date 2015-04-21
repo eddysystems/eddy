@@ -94,7 +94,7 @@ object Tarski {
         fullTokens=tokens)
     })
     // Complain if there's an error
-    if (trackErrors) sc.strict match {
+    if (Flags.trackErrors) sc.strict match {
       case e:EmptyOrBad => println("fixJava failed:\n"+e.error.prefixed("  error: "))
       case _:Best[_] => ()
     }

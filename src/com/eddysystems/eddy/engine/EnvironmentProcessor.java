@@ -192,7 +192,7 @@ class EnvironmentProcessor {
     private final @NotNull Place place;
 
     // State for walking
-    private int currentLevel = 0;
+    private int currentLevel = 1; // Start positive so that 0 can be a sentinel value
     private boolean inStaticScope = false; // Did we go through a static scope?
 
     // Things that are in scope (not all these are accessible! things may be private, or not static while we are)

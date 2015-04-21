@@ -122,6 +122,9 @@ object Tokens {
   case object UntilTok extends FixedToken("until") with FakeToken
   case class ElifTok(s: String) extends SimpleToken with FakeToken
   case object InTok extends FixedToken("in") with FakeToken
+  case object IsTok extends FixedToken("is") with FakeToken
+  case object InstanceTok extends FixedToken("instance") with FakeToken
+  case object IsinstanceTok extends FixedToken("isinstance") with FakeToken
 
   // Literals: 3.10
   case class IntLitTok(s: String) extends SimpleToken
@@ -249,6 +252,9 @@ object Tokens {
       case "until" => UntilTok
       case "elif"|"elsif"|"elseif" => ElifTok(s)
       case "in" => InTok
+      case "is" => IsTok
+      case "instance" => InstanceTok
+      case "isinstance" => IsinstanceTok
       case _ => t
     })
     case t:ToIdentToken => List(IdentTok(t.s))

@@ -14,13 +14,16 @@ preamble import utility.Locations._
 
 // Identifiers, including fake keywords
 Ident Loc[String]
-  IdentTok { Loc($1.name,$1r) }
-  ElifTok  { Loc($1.s,$1r) }
-  ThenTok  { Loc("then",$1r) }
-  UntilTok { Loc("until",$1r) }
-  InTok    { Loc("in",$1r) }
-  ThisTok  { Loc("this",$1r) }
-  SuperTok { Loc("super",$1r) }
+  IdentTok      { Loc($1.name,$1r) }
+  ElifTok       { Loc($1.s,$1r) }
+  ThenTok       { Loc("then",$1r) }
+  UntilTok      { Loc("until",$1r) }
+  InTok         { Loc("in",$1r) }
+  IsTok         { Loc("is",$1r) }
+  InstanceTok   { Loc("instance",$1r) }
+  IsinstanceTok { Loc("isinstance",$1r) }
+  ThisTok       { Loc("this",$1r) }
+  SuperTok      { Loc("super",$1r) }
 
 // Modifiers
 Mod Loc[Mod]
@@ -282,7 +285,7 @@ ExpRel[a] AExp
   ExpRel[EJ] GtTok ExpShift[EJ]                             { BinaryAExp(GtOp,$2r,$1,$3) }
   ExpRel[EJ] LeTok ExpShift[EJ]                             { BinaryAExp(LeOp,$2r,$1,$3) }
   ExpRel[EJ] GeTok ExpShift[EJ]                             { BinaryAExp(GeOp,$2r,$1,$3) }
-  ExpRel[EJ] InstanceofTok Type                             { InstanceofAExp($1,$2r,$3) }
+  ExpRel[EJ] Instanceof Type                                { InstanceofAExp($1,$2.r,$3) }
 ExpShift[a] AExp
   ExpAdd[a]                                                 { $1 }
   ExpShift[EJ] LShiftTok ExpAdd[EJ]                         { BinaryAExp(LShiftOp,$2r,$1,$3) }
@@ -403,3 +406,9 @@ AssignOp Loc[Option[AssignOp]]
   AndEqTok             { Loc(Some(AndOp),$r) }
   XorEqTok             { Loc(Some(XorOp),$r) }
   OrEqTok              { Loc(Some(OrOp),$r) }
+
+Instanceof Loc[String]
+  InstanceofTok { Loc("instanceof",$1r) }
+  IsinstanceTok { Loc("isinstance",$1r) }
+  InstanceTok   { Loc("instance",  $1r) }
+  IsTok         { Loc("is",        $1r) }

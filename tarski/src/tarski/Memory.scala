@@ -34,24 +34,24 @@ object Memory {
   def safe[A](x: A)(implicit s: Safe[A]): Object = if (x == null) null else s(x).x
   type JList[A] = java.util.List[A]
 
-  implicit def safeString(x: String) = S(x)
-  implicit def safeInt(x: Int) = S(x:java.lang.Integer)
-  implicit def safeBoolean(x: Boolean) = S(x:java.lang.Boolean)
-  implicit def safeDouble(x: Double) = S(x:java.lang.Double)
-  implicit def safeDouble(x: java.lang.Double) = S(x)
-  implicit def safeSeq[A](x: Seq[A])(implicit s: Safe[A]) = S(x.map(safe(_)).asJava : java.util.List[Object])
-  implicit def safeList[A](x: JList[A])(implicit s: Safe[A]) = S(x.asScala.map(safe(_)).asJava)
-  implicit def safeArray[A](x: Array[A])(implicit s: Safe[A]) = {
+  implicit def safeString(x: String): S = S(x)
+  implicit def safeInt(x: Int): S = S(x:java.lang.Integer)
+  implicit def safeBoolean(x: Boolean): S = S(x:java.lang.Boolean)
+  implicit def safeDouble(x: Double): S = S(x:java.lang.Double)
+  implicit def safeDouble(x: java.lang.Double): S = S(x)
+  implicit def safeSeq[A](x: Seq[A])(implicit s: Safe[A]): S = S(x.map(safe(_)).asJava : java.util.List[Object])
+  implicit def safeList[A](x: JList[A])(implicit s: Safe[A]): S = S(x.asScala.map(safe(_)).asJava)
+  implicit def safeArray[A](x: Array[A])(implicit s: Safe[A]): S = {
     val y = new java.util.ArrayList[Object]
     x foreach (x => y.add(safe(x)))
     S(y)
   }
-  implicit def safeSLoc(x: SLoc) = S(x.raw:java.lang.Integer)
-  implicit def safeLocated[A](x: Loc[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"lo"->safe(x.r.lo),"hi"->safe(x.r.hi)).asJava)
-  implicit def safeAlt[A](x: Alt[A])(implicit s: Safe[A]) = S(Map("x"->safe(x.x),"p"->safe(x.p)).asJava)
-  implicit def safeToken(x: Token) = S(Map("c"->x.getClass.getName,"s"->x.show).asJava)
-  implicit def safeException(x: Throwable) = S(Map("c"->x.getClass.getName,"s"->x.getMessage).asJava)
-  implicit def safeStack(x: StackTraceElement) = S(x.toString)
+  implicit def safeSLoc(x: SLoc): S = S(x.raw:java.lang.Integer)
+  implicit def safeLocated[A](x: Loc[A])(implicit s: Safe[A]): S = S(Map("x"->safe(x.x),"lo"->safe(x.r.lo),"hi"->safe(x.r.hi)).asJava)
+  implicit def safeAlt[A](x: Alt[A])(implicit s: Safe[A]): S = S(Map("x"->safe(x.x),"p"->safe(x.p)).asJava)
+  implicit def safeToken(x: Token): S = S(Map("c"->x.getClass.getName,"s"->x.show).asJava)
+  implicit def safeException(x: Throwable): S = S(Map("c"->x.getClass.getName,"s"->x.getMessage).asJava)
+  implicit def safeStack(x: StackTraceElement): S = S(x.toString)
 
   case class Info(install: String, fs: List[Item => Item]) {
     def itemNow(): Item = {

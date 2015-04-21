@@ -12,6 +12,7 @@ import tarski.Scores.Alt
 import tarski.Tokens._
 import tarski.Tries._
 import tarski.Types._
+import tarski.Flags._
 import org.testng.annotations.Test
 import org.testng.AssertJUnit._
 import scala.collection.JavaConverters._
@@ -154,7 +155,9 @@ class TestEnvironment {
       }
       val items = Array.tabulate(n)(randomItem)
       val values = items collect {case v:Local => v}
-      val by = valuesByItem(items,false).asScala
+      val maps = valuesByItem(items,false)
+      assert(maps.methods.isEmpty)
+      val by = maps.values.asScala
 
       // All values should be included
       assertSetsEqual(values,by.values.flatten)

@@ -1,6 +1,7 @@
 package tarski
 
 import com.intellij.psi.PsiElement
+import gnu.trove.TObjectIntHashMap
 import tarski.Levels._
 import utility.Interrupts
 import utility.Utility._
@@ -17,9 +18,6 @@ import scala.collection.mutable
 import scala.annotation.tailrec
 
 object Environment {
-  // Turn on to skip all approximate lookups
-  val exactOnly = false
-
   // Implicit pretty printing
   private implicit val showFlags = abbrevShowFlags
   private implicit val showRange = SRange.unknown
@@ -81,21 +79,21 @@ object Environment {
     // Add local objects (they all appear in inScope with priority scope)
     def extendLocal(things: Array[Item], scope: Int = 1): Env =
       extend(things,(things map ((_,scope))).toMap)
-    // add an existing item to scope
-    def addScope(things: (Item,Int)*): Env
 
     // Is an item in scope and not shadowed by another item?
-    private lazy val _inScope: java.util.Set[Item] = {
+    private lazy val _bestScope: TObjectIntHashMap[Item] = {
       val best = new mutable.HashMap[String,(Int,List[Item])]
       scope foreach { case (i,n) =>
+        assert(n > 0, s"Nonpositive scope level $n for $i: levels must be positive since 0 is used as a sentinel")
         val (m,is) = best.getOrElse(i.name,(n,Nil))
         if (n <= m) best(i.name) = (n,i :: (if (n==m) is else Nil))
       }
-      val set = new java.util.HashSet[Item]
-      best foreach { case (_,(n,is)) => is foreach set.add }
-      set
+      val map = new TObjectIntHashMap[Item]
+      best foreach { case (_,(n,is)) => is foreach (map.put(_,n)) }
+      map
     }
-    @inline final def inScope(i: Item): Boolean = _inScope.contains(i)
+    @inline final def inScope(i: Item): Boolean = _bestScope.contains(i)
+    @inline final def scopeLevel(i: Item): Int = _bestScope.get(i) // 0 for out of scope, otherwise scope level.
 
     // Enter a block scope
     def pushScope: Env
@@ -117,7 +115,7 @@ object Environment {
               case (Nil,Nil,Nil) => (env,as.reverse)
               case (n::ns,t::ts,f::fs) =>
                 val x = NormalLocal(n,t,isFinal)
-                val e = env.add(x,0)
+                val e = env.add(x,1)
                 loop(f(env,x)::as,e,ns,ts,fs)
               case _ => impossible
             }
@@ -158,13 +156,13 @@ object Environment {
     protected def _lookup(typed: Array[Char]): Scored[Item] = {
       def error = s"Name ${typed mkString ""} not found"
       uniformThen(Pr.exact,_exactQuery(typed),
-                  if (exactOnly) fail(error)
+                  if (Flags.exactOnly) fail(error)
                   else orError(  biased(Pr.modifiedName, _modifiedQuery(typed))
                               ++ biased(Pr.typo, _typoQuery(typed)), error))
     }
 
     // Lookup by type.item
-    def byItem(t: TypeItem): Scored[Value]
+    def byItem(t: TypeItem): Scored[ValueOrMethod]
 
     // Convenience aliases taking String (only used in tests)
     @inline final def exactQuery(typed: String): List[Item] = _exactQuery(typed.toCharArray)
@@ -181,9 +179,7 @@ object Environment {
   object Env {
     def apply(items: Array[Item] = Array(), scope: Map[Item,Int] = Map.empty, place: PlaceInfo = localPlace,
               imports: ImportTrie = Pr.defaultImports, level: LangLevel = Java8): TwoEnv =
-      TwoEnv(Trie(items),Trie.empty,
-             valuesByItem(items,false),new java.util.HashMap[TypeItem,Array[Value]](),
-             level,imports,scope,place)
+      TwoEnv(Trie(items),valuesByItem(items,false),QueriableItemList.empty,level,imports,scope,place)
   }
 
   case class LazyEnv(private val trie0: Queriable[Item], // creates items as they are queried
@@ -202,7 +198,7 @@ object Environment {
     def pushScope: Env = copy(scope=scope map { case (i,n) => (i,n+1) })
 
     // Lookup by type.item
-    def byItem(t: TypeItem): Scored[Value] = {
+    def byItem(t: TypeItem): Scored[ValueOrMethod] = {
       implicit val env: Env = this
       (byItem.query(t) ++ added.query(t)) filter (_.accessible(place),s"No value of type item ${show(t)} found")
     }
@@ -213,9 +209,6 @@ object Environment {
 
     def extend(things: Array[Item], scope: Map[Item, Int]): Env =
       copy(added=added.add(things),scope=this.scope++scope)
-
-    def addScope(things: (Item,Int)*): Env =
-      copy(added=added.add(things.map(_._1).toArray),scope=this.scope++things)
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] = {
       if (Interrupts.pending != 0) Interrupts.checkInterrupts()
@@ -232,27 +225,23 @@ object Environment {
   }
 
   // Store two tries and two byItems: one large one for globals, one small one for locals.
-  case class TwoEnv(private val trie0: Trie[Item],
-                    private val trie1: Trie[Item],
-                    private val byItem0: java.util.Map[TypeItem,Array[Value]],
-                    private val byItem1: java.util.Map[TypeItem,Array[Value]],
+  case class TwoEnv(private val trie: Trie[Item],
+                    private val byItem: ValueByItemQuery,
+                    private val added: QueriableItemList,
                     level: LangLevel,
                     imports: ImportTrie,
                     scope: Map[Item,Int],
                     place: PlaceInfo) extends Env {
 
     // Slow, use only for tests
-    def allItems: Array[Item] = trie0.values++trie1.values
-    def allLocalItems: Array[Item] = trie1.values
+    def allItems: Array[Item] = trie.values++added.array
+    def allLocalItems: Array[Item] = added.array
 
     // Add some new things to an existing environment
-    def add(item: Item, scope: Int) = extend(Array(item), Map(item->scope))
+    def add(item: Item, scope: Int) =
+      copy(added=added.add(item),scope=this.scope+(item->scope))
     def extend(things: Array[Item], scope: Map[Item,Int]) =
-      copy(trie1=trie1++things,byItem1=valuesByItem(trie1.values++things,true),scope=this.scope++scope)
-    def addScope(things: (Item,Int)*): Env = {
-      val ta = things.map(_._1).toArray
-      copy(trie1=trie1++ta,byItem1=valuesByItem(trie1.values++ta,true),scope=this.scope++things)
-    }
+      copy(added=added.add(things),scope=this.scope++scope)
 
     def move(to: PlaceInfo) = copy(place=to)
 
@@ -262,23 +251,15 @@ object Environment {
     // Get typo probabilities for string queries
     // TODO: should match camel-case smartly (requires word database?)
     protected override def _typoQuery(typed: Array[Char]): Scored[Item] =
-      (trie1.typoQuery(typed)++trie0.typoQuery(typed))
+      (trie.typoQuery(typed)++added.typoQuery(typed))
         .filter(_.accessible(place),s"Nothing accessible for ${typed.mkString}")
 
     protected override def _exactQuery(typed: Array[Char]): List[Item] =
-      (trie1.exact(typed) ++ trie0.exact(typed)) filter (_.accessible(place))
+      (trie.exact(typed) ++ added.exact(typed)) filter (_.accessible(place))
 
-    def byItem(t: TypeItem): Scored[Value] = {
+    def byItem(t: TypeItem): Scored[ValueOrMethod] = {
       implicit val env: Env = this
-      val v0 = byItem1.get(t)
-      val v1 = byItem0.get(t)
-      val v = if      ((v0 eq null) || v0.isEmpty) v1
-              else if ((v1 eq null) || v1.isEmpty) v0
-              else v1++v0
-      if (v != null)
-        uniform(Pr.objectOfItem,v filter (_.accessible(place)),s"Value of item ${show(t)} not found")
-      else
-        fail(s"Value of item ${show(t)} not found")
+      (byItem.query(t) ++ added.query(t)) filter (_.accessible(place),s"Value of item ${show(t)} not found")
     }
 
     // Used only for tests

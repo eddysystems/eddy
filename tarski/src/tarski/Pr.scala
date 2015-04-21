@@ -70,10 +70,8 @@ object Pr {
     typoProbability(d, typed.length) // could be meant.length, but that's inconsistent with when we don't have meant available
   }
 
-  // Generic likelihood that the user omitted the given qualifier (even though it was necessary)
-  def omitQualifier(choice: ClassOrArrayItem): Prob =
-    if (Items.inPackage(choice,Base.JavaPkg)) Prob("omit java.*",.8) // stuff in java.lang or java.io (like System.out)
-    else Prob("omit other",.3) // TODO: Make this probability higher if there's only one option in values with high likelihood?
+  // Generic likelihood that the user omitted a qualifier (even though it was necessary)
+  val omitQualifier = Prob("omit qualifier",.7)
 
   def omitNestedClass(t: TypeItem, c: ClassItem, first: Boolean): Prob =
     if (first) Prob("omit first qualifier for nested class",.8)
@@ -122,18 +120,22 @@ object Pr {
   val boxType = Prob("box type",.5)
 
   // Unqualified values that are in or out of scope
-  val inScope = Prob("in scope",1)
   val outOfScope = Prob("out of scope",.8)
   private val outOfScopeSamePkg = Prob("out of scope, other class, same pkg", .7)
   private val outOfScopeOtherPackage = Prob("out of scope, other package",.6)
-  def scope(i: ChildItem, knowName: Boolean=true)(implicit env: Env): Prob =
-    if (env.inScope(i)) Pr.inScope
+  def scopeLevel(n: Int) = Prob(s"scope level $n",Math.pow(.99,n))
+  def scope(i: ChildItem, knowName: Boolean=true)(implicit env: Env): Prob = {
+    val n = env.scopeLevel(i)
+    if (n > 0) scopeLevel(n)
     else if (inClass(env.place.place,i.parent)) Pr.outOfScope
     else if (pkg(env.place.place) == pkg(i.parent)) Pr.outOfScopeSamePkg
     else pmul(Pr.outOfScopeOtherPackage,Pr.qualifiedPrior(i,skip=if (knowName) 1 else 0))
-  def scope(i: ThisOrSuper)(implicit env: Env): Prob =
-    if (env.inScope(i)) Pr.inScope
+  }
+  def scope(i: ThisOrSuper)(implicit env: Env): Prob = {
+    val n = env.scopeLevel(i)
+    if (n > 0) scopeLevel(n)
     else Pr.outOfScope
+  }
 
   // Exp.staticMethod -- an instance object is used for a static method
   val staticFieldCallableWithObject = Prob("static field callable with object",.9)
@@ -218,9 +220,8 @@ object Pr {
   val exact = Prob("exact",1)
   val typo = Prob("typo",.5)
   assert(pp(exact) > pp(typo))
-  val objectOfType = base
-  val objectOfItem = base
   val globalByItem = Prob("global by item",.6)
+  val methodByItem = Prob("method by item",.2)
 
   // ArgMatching
   def dropArgs(dropped: Int) = Prob(s"drop $dropped args",math.pow(.3, dropped))

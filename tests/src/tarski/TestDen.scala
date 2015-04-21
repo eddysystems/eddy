@@ -5,6 +5,7 @@ import utility.Locations._
 import tarski.AST._
 import tarski.Base._
 import tarski.Denotations._
+import tarski.Flags._
 import tarski.Environment._
 import tarski.Items._
 import tarski.JavaScores._
@@ -1448,7 +1449,7 @@ class TestDen {
     val A = NormalClassItem("A",tparams=List(SimpleTypeVar("T")))
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
     val tA = ThisItem(A)
-    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f)).addScope((GetClassItem,3))
+    implicit val env = localEnvWithBase(A,f,tA).move(PlaceInfo(f)).add(GetClassItem,3)
     test("getClass()", ApplyExp(MethodDen(None,GetClassItem,r),Nil,a,auto=false))
   }
 
@@ -1457,7 +1458,7 @@ class TestDen {
     val x = NormalLocal("x",StringType,isFinal=true)
     val f = NormalMethodItem("f",A,Nil,VoidType,Nil,isStatic=false)
     val tA = ThisItem(A)
-    implicit val env = localEnvWithBase(A,f,x,tA).addScope((GetClassItem,3)).move(PlaceInfo(f))
+    implicit val env = localEnvWithBase(A,f,x,tA).add(GetClassItem,3).move(PlaceInfo(f))
     test("Class<? extends A> cls = getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(A.raw))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(None,Some(A.inside),GetClassItem,r),Nil,a,false))),env)),env))
     test("Class<? extends A> cls = this.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(A.raw))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(tA,GetClassItem,r),Nil,a,false))),env)),env))
     test("Class<? extends String> cls = x.getClass()", "cls", cls => VarStmt(Nil,ClassObjectItem.generic(List(WildSub(StringType))),r,List(VarDecl(cls,r,0,Some((r,ApplyExp(MethodDen(x,GetClassItem,r),Nil,a,false))),env)),env))
@@ -1513,5 +1514,35 @@ class TestDen {
       ArrayExp(r,IntegerItem,r,List(1,2,NullLit(r)),a)),env))
     test("x = 1,2,3.0,null","x",x => VarStmt(Nil,ArrayType(NumberItem),r,(x,
       ArrayExp(r,NumberItem,r,List(1,2,3.0,NullLit(r)),a)),env))
+  }
+
+  @Test def methodByItem() =
+    if (nullaryMethods) {
+      val A = NormalClassItem("A")
+      val x = NormalLocal("x",A)
+      val B = NormalClassItem("B")
+      val f = NormalMethodItem("f",A,Nil,B,Nil,isStatic=false)
+      implicit val env = localEnvWithBase().extend(Array(A,B,x,f),Map(A->3,B->3,x->1))
+      test("B y =","y",y => VarStmt(Nil,B,r,(y,ApplyExp(MethodDen(x,f,r),Nil,a,auto=true)),env))
+    }
+
+  @Test def instanceofSynonyms() = {
+    val x = NormalLocal("x",ObjectType)
+    val A = NormalClassItem("A")
+    val B = NormalClassItem("B")
+    val C = NormalClassItem("C")
+    implicit val env = localEnvWithBase(x,A,B,C)
+    test("is = x is A || x instance B || x isinstance C","is",is => VarStmt(Nil,BooleanType,r,(is,
+      BinaryExp(OrOrOp,r,BinaryExp(OrOrOp,r,InstanceofExp(x,r,A,r),InstanceofExp(x,r,B,r)),InstanceofExp(x,r,C,r))),env))
+  }
+
+  @Test def scopeLevel() = {
+    val A = NormalClassItem("A")
+    val x = NormalLocal("x",A)
+    val y = NormalLocal("y",A)
+    for ((xs,ys,z) <- List((3,1,y),(1,3,x))) {
+      implicit val env = localEnvWithBase().extend(Array(A,x,y),Map(A->5,x->xs,y->ys))
+      test("A a =","a",a => VarStmt(Nil,A,r,(a,z),env),margin=.999)
+    }
   }
 }

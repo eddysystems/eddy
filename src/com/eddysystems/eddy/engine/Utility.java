@@ -7,6 +7,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiField;
+import com.intellij.psi.PsiMethod;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.PsiShortNamesCache;
 import com.intellij.util.Processor;
@@ -211,6 +212,25 @@ public class Utility {
     cache.processFieldsWithName(name, quick, scope, filter);
     for (final PsiField f : fields)
       if (!processor.process(f))
+        return false;
+    return true;
+  }
+
+  // Doing complicated stuff in processMethodsWithName causes nasty deadlocks if we accidentally
+  // call into the Scala plugin.  Instead, we collect the methods into a list and process them afterwards.
+  public static boolean safeProcessMethodsWithName(final PsiShortNamesCache cache,
+                                                   final @NotNull String name,
+                                                   final @NotNull Processor<? super PsiMethod> processor,
+                                                   final @NotNull GlobalSearchScope scope,
+                                                   final @Nullable IdFilter filter) {
+    final List<PsiMethod> methods = new ArrayList<PsiMethod>();
+    final Processor<PsiMethod> quick = new Processor<PsiMethod>() { @Override public boolean process(final PsiMethod m) {
+      methods.add(m);
+      return true;
+    }};
+    cache.processMethodsWithName(name, quick, scope, filter);
+    for (final PsiMethod m : methods)
+      if (!processor.process(m))
         return false;
     return true;
   }
