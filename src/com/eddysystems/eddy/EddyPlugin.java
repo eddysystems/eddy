@@ -325,6 +325,7 @@ public class EddyPlugin implements ProjectComponent {
 
     log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
     log("now is " + String.format("%f",GregorianCalendar.getInstance().getTimeInMillis()/1000.));
+    log("logging: " + Preferences.getData().getLogPreference());
 
     if (!app.isHeadlessEnvironment() && !checkTOS(false)) {
       log("TOS not accepted, starting in disabled mode.");

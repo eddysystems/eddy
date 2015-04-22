@@ -63,6 +63,8 @@ public class Preferences implements Configurable {
     data.setRemoveQualifiers(props.getBoolean("com.eddysystems.Props.removeQualifiers", PreferenceData.defaultRemoveQualifiers));
     data.setStartDelay(props.getValue("com.eddysystems.Props.startDelay", PreferenceData.defaultStartDelay));
     data.setEmail(props.getValue("com.eddysystems.Props.email", ""));
+    data.setLicenseCode(props.getValue("com.eddysystems.Props.licenseCode", "")); // must be set before logPreference is set
+    data.setLogPreference(PreferenceData.LogPreference.fromString(props.getValue("com.eddysystems.Props.logPreference", PreferenceData.defaultLogPreference.name())));
     initialized = true;
   }
 
@@ -76,6 +78,8 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.removeQualifier", Boolean.toString(data.isRemoveQualifiers()), Boolean.toString(PreferenceData.defaultRemoveQualifiers));
     props.setValue("com.eddysystems.Props.startDelay", data.getStartDelay(), PreferenceData.defaultStartDelay);
     props.setValue("com.eddysystems.Props.email", data.getEmail(), "");
+    props.setValue("com.eddysystems.Props.licenseCode", data.getLicenseCode(), "");
+    props.setValue("com.eddysystems.Props.logPreference", data.getLogPreference().name(), PreferenceData.defaultLogPreference.name());
 
     // if we ever set the email to something non-empty, don't ask for it later
     if (!"".equals(data.getEmail()))
@@ -96,6 +100,10 @@ public class Preferences implements Configurable {
     data.setMinRelativeProbability(PreferenceData.defaultMinRelativeProbability);
     data.setRemoveQualifiers(PreferenceData.defaultRemoveQualifiers);
     data.setStartDelay(PreferenceData.defaultStartDelay);
+    data.setLogPreference(PreferenceData.defaultLogPreference);
+
+    // don't reset email or license key
+
     form.setData(data);
   }
 
@@ -144,6 +152,10 @@ public class Preferences implements Configurable {
     if (!"".equals(email) && !email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2}[a-zA-Z]*$"))
       throw new ConfigurationException("Please enter a valid email address (or none at all)");
 
+    // check the license, and if it's invalid, reset the data for logging to log all
+    if (!"".equals(data.getLicenseCode()) && !data.checkLicense())
+      throw new ConfigurationException("Partner/License code is invalid (leave blank if you don't have one)");
+
     // update the data on the form
     reset();
 
@@ -160,6 +172,11 @@ public class Preferences implements Configurable {
 
   @Override
   public void disposeUIResources() {
+  }
+
+  public static boolean checkLicense(String licenseCode) {
+    // TODO: return true only if the license is valid
+    return "testing".equals(licenseCode);
   }
 
 }
