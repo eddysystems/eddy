@@ -845,14 +845,14 @@ class TestDen {
     val A = NormalClassItem("A",LocalPkg)
     val B = NormalClassItem("B",LocalPkg)
     val C = NormalClassItem("C",LocalPkg)
-    val f = NormalMethodItem("f",A,Nil,VoidType,List(B),isStatic=true)
+    val f = NormalMethodItem("func",A,Nil,VoidType,List(B),isStatic=true)
     val bx = NormalLocal("x",B,isFinal=true)
     val cx = NormalLocal("x",C,isFinal=true)
     def env(bs: Int, cs: Int) = baseEnv.extend(Array(A,B,C,f,bx,cx),
                                                Map(f->Math.min(bs,cs),bx->bs,cx->cs)).move(PlaceInfo(f))
     def unit(x: Unit) = x
-    unit({ implicit val bad = env(bs=2,cs=1); testFail("f x") })
-    unit({ implicit val good = env(bs=1,cs=2); test("f x",ApplyExp(f,List(bx),a,auto=false)) })
+    unit({ implicit val bad = env(bs=2,cs=1); testFail("func x") })
+    unit({ implicit val good = env(bs=1,cs=2); test("func x",ApplyExp(f,List(bx),a,auto=false)) })
   }
 
   @Test def memberToInfix() = {
