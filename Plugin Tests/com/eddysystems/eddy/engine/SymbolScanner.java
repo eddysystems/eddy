@@ -100,7 +100,7 @@ public class SymbolScanner extends LightCodeInsightFixtureTestCase {
           jdkTable.addJdk(jdk);
 
           Sdk jdk18 = new SimpleJavaSdkType().createJdk("Java 1.8", "/Library/Java/JavaVirtualMachines/jdk1.8.0_20.jdk/Contents");
-          jdk18.getSdkModificator().addRoot(...);
+          //TODO: jdk18.getSdkModificator().addRoot(...);
           jdk18.getSdkModificator().commitChanges();
           System.out.println("adding sdk: " + jdk18.getName() + ' ' + jdk18.getVersionString() + ' ' + jdk18.getSdkType());
           jdkTable.addJdk(jdk18);
