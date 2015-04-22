@@ -21,6 +21,12 @@
     ]]></description>
 
   <change-notes><![CDATA[
+    <p>0.6.2</p><ul>
+    <li>fix deadlock caused by interaction with Scala plugin</li>
+    <li>understand is/isinstance</li>
+    <li>fix prioritzation of parameters</li>
+    <li>reduce cost for errors in capitalization</li>
+    </ul>
     <p>0.6.1</p><ul>
     <li>fix bug causing eddy to stop suggesting fixes after some code modifications</li>
     </ul>
