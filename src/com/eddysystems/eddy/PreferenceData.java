@@ -18,7 +18,7 @@ public class PreferenceData {
   private String email;
   private String licenseCode;
 
-  enum LogPreference {
+  public enum LogPreference {
     Normal, NoCode, NoLog;
 
     static public LogPreference fromString(String s) {

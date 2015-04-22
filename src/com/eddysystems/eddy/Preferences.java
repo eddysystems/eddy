@@ -31,6 +31,14 @@ public class Preferences implements Configurable {
     return data;
   }
 
+  public static boolean noCodeLog() {
+    return getData().getLogPreference() == PreferenceData.LogPreference.NoCode;
+  }
+
+  public static boolean noLog() {
+    return getData().getLogPreference() == PreferenceData.LogPreference.NoLog;
+  }
+
   @Nls
   @Override
   public String getDisplayName() {
@@ -89,7 +97,7 @@ public class Preferences implements Configurable {
     Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
       data.isAutoApply(), data.getNumericAutoApplyThreshold(), data.getNumericAutoApplyFactor(),
       data.getNumericMinProbability(), data.getNumericMinRelativeProbability(), data.isRemoveQualifiers(),
-      data.getNumericStartDelay(), data.getEmail()), Utility.onError);
+      data.getNumericStartDelay(), data.getEmail(), data.getLicenseCode(), data.getLogPreference().name()), Preferences.noLog(), Utility.onError);
   }
 
   static public void resetToDefaults() {
@@ -175,8 +183,9 @@ public class Preferences implements Configurable {
   }
 
   public static boolean checkLicense(String licenseCode) {
-    // TODO: return true only if the license is valid
-    return "testing".equals(licenseCode);
+    String lc = licenseCode.toLowerCase().replaceAll("[^0-9a-z]","");
+    return "433707af69bf79af15f9".equals(lc) ||
+           "9fc87cbff524e24315e4".equals(lc); // unused
   }
 
 }

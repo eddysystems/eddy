@@ -14,7 +14,7 @@ class TestMemory {
   val base = Memory.basics(install=install,version="0.1",project="TestMemory",ideaVersion="test")
 
   @Test def remember() = {
-    val log = Memory.log(base.add("kind","TestMemory.remember").add("input","x = 3"))
+    val log = Memory.log(base.add("kind","TestMemory.remember").add("input","x = 3"), noLog=false)
     Await.result(log,10.second)
   }
 
@@ -33,7 +33,7 @@ class TestMemory {
   @Test def error() = {
     try throw new AssertionError("an assertion")
     catch { case e:Throwable =>
-      val log = Memory.log(base.add("kind","TestMemory.error").error(e))
+      val log = Memory.log(base.add("kind","TestMemory.error").error(e), noLog=false)
       Await.result(log,10.second)
     }
   }

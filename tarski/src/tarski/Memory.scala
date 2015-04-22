@@ -72,43 +72,48 @@ object Memory {
                      .add("project",project)
                      .add("ideaVersion",ideaVersion)
 
-  def eddyBase(base: Info, start: Double, kind: String, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) = {
+  def eddyBase(base: Info, noCode: Boolean, start: Double, kind: String, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) = {
     // Use explicit types to enforce the format of the database
     val denotations: Seq[String] = if (results==null) null else results.asScala.map(_.x.den)
     val tokens: Seq[Alt[String]] = if (results==null) null else results.asScala.map(_ map (_.show))
     val formatted: Seq[String]   = if (results==null) null else results.asScala.map(_.x.abbrev)
-    base.add("kind",kind)
-        .add("start",start)
-        .add("line",line)
-        .add("input",input)
-        .add("results",tokens)
-        .add("denotations",denotations) // same order as results
-        .add("formatted",formatted) // same order as results
+    if (noCode)
+      base.add("kind",kind)
+          .add("start",start)
+          .add("line",line)
+    else
+      base.add("kind",kind)
+          .add("start",start)
+          .add("line",line)
+          .add("input", input)
+          .add("results", tokens)
+          .add("denotations", denotations) // same order as results
+          .add("formatted",formatted) // same order as results
   }
 
   // Specific kinds of messages
-  def eddyApply(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: Int) =
-    eddyBase(base, start, "Eddy.Apply", line, input, results)
+  def eddyApply(base: Info, noCode: Boolean, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: Int) =
+    eddyBase(base, noCode, start, "Eddy.Apply", line, input, results)
       .add("choice",choice)
 
-  def eddyAutoApply(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) =
-    eddyBase(base, start, "Eddy.AutoApply", line, input, results)
+  def eddyAutoApply(base: Info, noCode: Boolean, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], choice: String) =
+    eddyBase(base, noCode: Boolean, start, "Eddy.AutoApply", line, input, results)
       .add("choice",choice)
 
-  def eddyProcess(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], delays: JList[java.lang.Double]) =
-    eddyBase(base, start, "Eddy.process", line, input, results)
+  def eddyProcess(base: Info, noCode: Boolean, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], delays: JList[java.lang.Double]) =
+    eddyBase(base, noCode, start, "Eddy.process", line, input, results)
       .add("delay",delays)
 
-  def eddyHint(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) =
-    eddyBase(base, start, "Eddy.hint", line, input, results)
+  def eddyHint(base: Info, noCode: Boolean, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]]) =
+    eddyBase(base, noCode, start, "Eddy.hint", line, input, results)
 
-  def eddySuggestion(base: Info, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], suggestion: String) =
-    eddyBase(base, start, "Eddy.suggestion", line, input, results)
+  def eddySuggestion(base: Info, noCode: Boolean, start: Double, line: Int, input: JList[Loc[Token]], results: JList[Alt[ShowStmts]], suggestion: String) =
+    eddyBase(base, noCode, start, "Eddy.suggestion", line, input, results)
       .add("suggestion",suggestion)
 
   def eddyProps(base: Info, autoApply: Boolean, autoApplyThreshold: Double, autoApplyFactor: Double,
                 minProbability: Double, minRelativeProbability: Double, removeQualifiers: Boolean,
-                startDelay: Double, email: String): Info =
+                startDelay: Double, email: String, license: String, logPreference: String): Info =
     base.add("kind","Eddy.preferences")
         .add("autoApply",autoApply)
         .add("autoApplyThreshold",autoApplyThreshold)
@@ -118,6 +123,8 @@ object Memory {
         .add("removeQualifiers",removeQualifiers)
         .add("startDelay",startDelay)
         .add("email", if ("".equals(email)) "none" else email) // none is the only non-email string to ever appear here
+        .add("license", license)
+        .add("logPreference", logPreference)
 
   def eddyError(base:Info, e: Throwable) =
     base.add("kind", "Eddy.error").error(e)
@@ -132,7 +139,7 @@ object Memory {
 
   // Log to DynamoDB
   //   PutItem: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/JavaDocumentAPIItemCRUD.html#PutDocumentAPIJava
-  def log(i: Info, onError: OnError = null): Future[Unit] = table map { table =>
+  def log(i: Info, noLog: Boolean, onError: OnError = null): Future[Unit] = if (!noLog) table map { table =>
     if (lastFailedTime < now()-waitAfterFail) {
       // Suppress exceptions to be quiet if the internet is down
       try table putItem i.itemNow()
@@ -142,5 +149,5 @@ object Memory {
           onError.error(i,e)
       }}
     }
-  }
+  } else Future[Unit]() // do nothing if no logging allowed
 }
