@@ -1545,4 +1545,22 @@ class TestDen {
       test("A a =","a",a => VarStmt(Nil,A,r,(a,z),env),margin=.999)
     }
   }
+
+  @Test def wildSuperCall() = {
+    val A = NormalClassItem("A")
+    val B = NormalClassItem("B",tparams=List(SimpleTypeVar("BT")))
+    val F = NormalClassItem("F")
+    val to = B.generic(List(WildSuper(A)))
+    val from = B.generic(List(A))
+    val f = NormalMethodItem("f",F,Nil,VoidType,List(to),isStatic=true)
+    val x = NormalLocal("x",from)
+    // Check type conversions directly
+    assert(isSubtype(from,to))
+    assert(widensRefTo(from,to))
+    assert(assignsTo(from,to))
+    assert(looseInvokeContext(from,to))
+    // Full check
+    implicit val env = localEnvWithBase(A,B,F,f,x)
+    test("f(x)",ApplyExp(MethodDen(None,f,r),List(x),a,auto=false))
+  }
 }

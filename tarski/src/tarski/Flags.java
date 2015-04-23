@@ -9,4 +9,7 @@ public class Flags {
 
   // Turn on to skip all approximate lookups
   public static final boolean exactOnly = false;
+
+  // Turn on to enable inference debugging
+  public static final boolean debugInfer = false;
 }
