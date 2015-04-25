@@ -43,6 +43,9 @@ object Types {
 
     // Recursively capture convert, producing a type with no wildcards anywhere
     def captureAll: Type
+
+    // Use only through isSubtype or isProperSubtype
+    def subtypeOfHelper(hi: Type): Boolean
   }
   sealed abstract class LangType extends Type { // Primitive or void
     def name: String
@@ -53,6 +56,7 @@ object Types {
     def substitute(implicit env: Tenv): this.type = this
     def raw = this
     def captureAll = this
+    def subtypeOfHelper(hi: Type) = false // Technically, the spec has something nontrivial here for primitives, but it is silly and never used
   }
   case object VoidType extends LangType {
     def name = "void"
@@ -131,6 +135,7 @@ object Types {
     def safe: Option[RefType]
     def raw: RefType
     def captureAll: RefType
+    def subtypeOfHelper(hi: Type) = supers.exists(isSubtype(_,hi))
   }
 
   // Classes or arrays (so that arrays can have length)
@@ -165,6 +170,7 @@ object Types {
     def safe = Some(this)
     def raw = this
     def captureAll = this
+    override def subtypeOfHelper(hi: Type) = false
   }
   case class SimpleType(item: ClassItem, parent: Parent) extends ClassType {
     def args = Nil
@@ -206,6 +212,15 @@ object Types {
     def safe = for (p <- parent.safe; a <- allSome(args map (_.safe))) yield GenericType(item,a,p)
     def raw = RawType(item,parent.raw)
     def captureAll = GenericType(item,capture(item.tparams,args map (_.captureAll),Map.empty)._2,parent)
+    override def subtypeOfHelper(hi: Type) = hi match {
+      case GenericType(i,his,p) if i==item =>
+        @tailrec def loop(los: List[TypeArg], his: List[TypeArg]): Boolean = (los,his) match {
+          case (lo::los,hi::his) => isSubTypeArg(lo,hi) && loop(los,his)
+          case _ => true
+        }
+        p==parent && loop(args,his)
+      case _ => supers.exists(isSubtype(_,hi))
+    }
   }
 
   // Type arguments are either reference types or wildcards.  4.5.1
@@ -241,6 +256,7 @@ object Types {
     def safe = Some(ObjectType) // nulltype becomes Object
     def raw = this
     def captureAll = this
+    override def subtypeOfHelper(hi: Type) = true
   }
   abstract class TypeVar extends RefType with RefTypeItem with RefEq {
     def name: Name
@@ -357,9 +373,20 @@ object Types {
     else t.substitute((vs,ts.map(Some(_))).zipped.toMap)
 
   // Is lo a subtype (or subitem) of hi?
-  def isSubtype(lo: Type, hi: Type): Boolean = lo==hi || (lo==NullType || lo.supers.exists(isSubtype(_,hi)))
-  def isProperSubtype(lo: Type, hi: Type): Boolean = lo!=hi && (lo==NullType || lo.supers.exists(isSubtype(_,hi)))
+  def isSubtype(lo: Type, hi: Type): Boolean = lo==hi || lo.subtypeOfHelper(hi)
+  def isProperSubtype(lo: Type, hi: Type): Boolean = lo!=hi && lo.subtypeOfHelper(hi)
   def isSubitem(lo: TypeItem, hi: TypeItem): Boolean = lo==hi || lo.superItems.exists(isSubitem(_,hi))
+
+  // Contains relation for type arguments, written lo <= hi in the spec.  4.5.1.
+  def isSubTypeArg(lo: TypeArg, hi: TypeArg) = (lo,hi) match {
+    case (lo:RefType,hi:RefType) => lo==hi
+    case (lo:RefType,hi:Wildcard) => lo==hi.t
+    case (_:Wildcard,_:RefType) => false
+    case (WildSub(lo),WildSub(hi)) => isSubtype(lo,hi)
+    case (WildSuper(lo),WildSuper(hi)) => isSubtype(hi,lo)
+    case (_:WildSuper,WildSub(t)) => t==ObjectType
+    case (_:WildSub,_:WildSuper) => false
+  }
 
   // Is a type throwable?
   def isThrowable(t: TypeItem): Boolean = isSubitem(t,ThrowableItem)
