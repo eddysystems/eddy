@@ -1,6 +1,7 @@
 package tarski
 
 import tarski.Base._
+import tarski.Flags.debugInfer
 import tarski.Inference.{InferError, Var, infer, looseBounds}
 import tarski.Items._
 import tarski.TestUtils._
@@ -53,6 +54,12 @@ class TestInfer {
     testInfer(T -> WildSub(NumberItem))(A.generic(List(T)))(A.generic(List(WildSub(NumberItem))))
   }
 
+  @Test def wildSuper() = {
+    val A = NormalClassItem("A",tparams=List(SimpleTypeVar("S")))
+    val B = NormalClassItem("B")
+    testInfer()(A.generic(List(WildSuper(B))))(A.generic(List(B)))
+  }
+
   @Test def arity() = {
     val A = NormalClassItem("A",tparams=List(SimpleTypeVar("A0"),SimpleTypeVar("A1")))
     val B = NormalClassItem("B",tparams=List(SimpleTypeVar("B0")))
@@ -60,5 +67,5 @@ class TestInfer {
   }
 
   // Warn if debugging is left on
-  @Test def noDebugInfer() = assertEquals(false,Inference.debug)
+  @Test def noDebugInfer() = assertEquals(false,debugInfer)
 }

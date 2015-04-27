@@ -5,6 +5,7 @@ import utility.Utility._
 import tarski.Pretty._
 import tarski.Types._
 import tarski.Tokens._
+import tarski.Flags.debugInfer
 import tarski.Environment.Env
 import scala.annotation.tailrec
 import scala.language.implicitConversions
@@ -43,13 +44,12 @@ object Inference {
   class InferError(s: String) extends RuntimeException(s)
 
   // Debugging support
-  val debug = false
-  if (debug)
+  if (debugInfer)
     println("DEBUGGING WARNING: Inference debugging enabled")
   private def log(s: => String): Unit =
-    if (debug && true) println(s)
+    if (debugInfer && true) println(s)
   @inline private def fail(s: => String): Nothing = {
-    if (debug) {
+    if (debugInfer) {
       if (true) println("fail: "+s)
       if (true) throw new InferError(s)
     }
