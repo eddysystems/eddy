@@ -1,9 +1,0 @@
-<component name="ArtifactManager">
-  <artifact build-on-make="true" name="Write eddy.properties">
-    <output-path>$PROJECT_DIR$/out/artifacts/Write_eddy_properties</output-path>
-    <properties id="ant-preprocessing">
-      <options enabled="true" />
-    </properties>
-    <root id="root" />
-  </artifact>
-</component>
