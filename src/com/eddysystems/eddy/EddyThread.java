@@ -42,21 +42,24 @@ public class EddyThread extends Thread {
 
   public static void run(final EddyThread thread) {
     // We might be grabbing the lock for a long time, so do it on a pooled thread.
-    ApplicationManager.getApplication().executeOnPooledThread(new Runnable() { public void run() {
-      synchronized (currentLock) {
-        final EddyThread previous = currentThread;
-        if (previous != null) {
-          previous.interrupt();
-          try {
-            previous.join();
-          } catch (final InterruptedException e) {
-            return;
+    Runnable runner = new Runnable() {
+      public void run() {
+        synchronized (currentLock) {
+          final EddyThread previous = currentThread;
+          if (previous != null) {
+            previous.interrupt();
+            try {
+              previous.join();
+            } catch (final InterruptedException e) {
+              return;
+            }
           }
+          currentThread = thread;
+          thread.start();
         }
-        currentThread = thread;
-        thread.start();
       }
-    }});
+    };
+    ApplicationManager.getApplication().executeOnPooledThread(runner);
   }
 
   // to pause and resume this thread
@@ -154,7 +157,7 @@ public class EddyThread extends Thread {
           eddy.process(lastEditLocation, new Eddy.Take() {
             @Override public double take(final Eddy.Output output) {
               EddyThread.this.output = output;
-              return cont.take(output);
+              return take(output);
             }
           });
         } catch (IndexNotReadyException e) {

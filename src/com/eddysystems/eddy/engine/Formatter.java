@@ -58,7 +58,7 @@ public class Formatter {
   @NotNull final LanguageLevel context_level;
 
   static private class VersionIncompatibilityCircumventer {
-    static @NotNull CommonCodeStyleSettings.IndentOptions getIndentOptions(@NotNull final CodeStyleSettings css, @NotNull final PsiFile file, @NotNull final TextRange range) {
+    static @NotNull CommonCodeStyleSettings.IndentOptions customIndentOptions(@NotNull final CodeStyleSettings css, @NotNull final PsiFile file, @NotNull final TextRange range) {
       try {
         // does css have a getIndentOptionsByFile?
         Method getter = css.getClass().getMethod("getIndentOptionsByFile",PsiFile.class,TextRange.class);
@@ -157,7 +157,7 @@ public class Formatter {
     Block block = AbstractJavaBlock.createJavaBlock(treeElement, commonSettings, customJavaSettings);
     FormattingDocumentModelImpl fmodel = new FormattingDocumentModelImpl(doc, holder);
     final FormattingModel model = new PsiBasedFormatterModelWithShiftIndentInside(holder, block, fmodel);
-    final CommonCodeStyleSettings.IndentOptions indentOptions = VersionIncompatibilityCircumventer.getIndentOptions(css,holder,range);
+    final CommonCodeStyleSettings.IndentOptions indentOptions = VersionIncompatibilityCircumventer.customIndentOptions(css, holder, range);
     if (holder.getTextLength() > 0) {
       try {
         FormatterEx.getInstanceEx().format(

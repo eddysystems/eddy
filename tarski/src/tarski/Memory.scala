@@ -149,5 +149,5 @@ object Memory {
           onError.error(i,e)
       }}
     }
-  } else Future[Unit]() // do nothing if no logging allowed
+  } else Future[Unit]({}) // do nothing if no logging allowed
 }

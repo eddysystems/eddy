@@ -184,8 +184,8 @@ public class Preferences implements Configurable {
 
   public static boolean checkLicense(String licenseCode) {
     String lc = licenseCode.toLowerCase().replaceAll("[^0-9a-z]","");
-    return "433707af69bf79af15f9".equals(lc) ||
-           "9fc87cbff524e24315e4".equals(lc); // unused
+    return "433707af69bf79af15f9".equals(lc) || // Luciad
+           "9fc87cbff524e24315e4".equals(lc); // reddit
   }
 
 }

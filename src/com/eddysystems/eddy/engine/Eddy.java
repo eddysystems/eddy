@@ -460,7 +460,8 @@ public class Eddy {
     //log("  processing line " + line + ": " + document.getText(range));
 
     // Find relevant statements and comments
-    final List<PsiElement> elems = elementsContaining(document,range,getFile().findElementAt(cursor));
+    final PsiElement atCursor = getFile().findElementAt(cursor);
+    final List<PsiElement> elems = elementsContaining(document, range, atCursor);
     if (elems.isEmpty())
       throw new Skip("Empty statement list");
     final PsiElement place = previous(elems.get(0));
