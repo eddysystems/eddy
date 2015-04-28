@@ -1,3 +1,11 @@
+/* ItemGenerator: Lazy lookup from exact string to Item
+ *
+ * The item generator is the second part of the project-wide LazyEnv
+ * inside the eddy Env object.  Since storing PsiElement instances such
+ * as PsiClass for a long time is verboten, the ItemGenerator builds these
+ * lazily via a Converter object at string lookup time.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;

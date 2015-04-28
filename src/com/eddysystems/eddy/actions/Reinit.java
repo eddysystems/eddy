@@ -1,3 +1,9 @@
+/* Reinit: Reinitialize eddy
+ *
+ * This is mostly for debugging and development purposes: in normal conditions
+ * eddy should reinitialize itself automatically as necessary.
+ */
+
 package com.eddysystems.eddy.actions;
 
 import com.eddysystems.eddy.EddyPlugin;

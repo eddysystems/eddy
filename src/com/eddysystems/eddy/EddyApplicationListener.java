@@ -1,3 +1,5 @@
+/* EddyApplicationListener: Pause the eddy thread to let write actions go through */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.JavaEnvironment;

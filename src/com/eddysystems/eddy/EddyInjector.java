@@ -1,3 +1,5 @@
+/* EddyInjector: Inject eddy's listeners into Java files */
+
 package com.eddysystems.eddy;
 
 import com.intellij.ide.highlighter.JavaFileType;

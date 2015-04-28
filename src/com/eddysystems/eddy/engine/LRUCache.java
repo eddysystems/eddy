@@ -1,3 +1,5 @@
+/* LRUCache: A fixed-size, least recently used cache */
+
 package com.eddysystems.eddy.engine;
 
 import org.jetbrains.annotations.Nullable;

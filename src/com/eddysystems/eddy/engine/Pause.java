@@ -1,3 +1,5 @@
+/* Pause: Used by EddyThread to temporarily release read locks to avoid hanging the IDE */
+
 package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.application.ApplicationManager;

@@ -1,3 +1,10 @@
+/* Eddy: Grab and process the current line
+ *
+ * This class contains the logic for extracting the line around the current
+ * cursor, feeding it to the eddy engine as a token stream, and collecting
+ * the results as they come in lazily.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;

@@ -1,3 +1,23 @@
+/* Converter: Convert from IntelliJ data structures to Items
+ *
+ * Converter contains the interface logic between IntelliJ's PsiElement
+ * data structures and the eddy engine's Item data structures.  This is
+ * interface is as lazy as possible in two ways: the Items themselves are
+ * generated only on demand during environment lookup, and most details of
+ * each item are also lazy.
+ *
+ * For example, looking up a class A and accessing A.supers generates A
+ * lazily, and then accesses IntelliJ's PsiClass data structure to find
+ * supers lazily.  If A.supers is accessed again in the same eddy run,
+ * the second access is free.
+ *
+ * There is one main feature of this lazy setup: IntelliJ data structure
+ * accesses may occur at any time during eddy's semantic analysis.  This
+ * means that the EddyThread must hold a read lock for its entire duration,
+ * with careful logic to make sure write actions aren't delayed for too
+ * long (see EddyThread for details).
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.project.Project;

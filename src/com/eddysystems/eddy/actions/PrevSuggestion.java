@@ -1,3 +1,5 @@
+/* NextSuggestion: Move to the previous suggestion in the list */
+
 package com.eddysystems.eddy.actions;
 
 import com.eddysystems.eddy.EddyFileListener;

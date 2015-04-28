@@ -1,3 +1,12 @@
+/* JavaEnvironment: Information about the project-wide environment
+ *
+ * The JavaEnvironment is the "large" part of the environment, precomputed every once
+ * in a while by scanning the entire project.  While eddy is running, and between
+ * recomputations, it is immutable.  Since storing PsiElements such as PsiClass for
+ * long periods is verboten, JavaEnvironment's data structures consist entirely of
+ * strings; these strings are converted into Items by ByItem and ItemGenerator.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;

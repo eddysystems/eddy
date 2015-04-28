@@ -1,3 +1,5 @@
+/* EddyPlugin: Toplevel plugin object (one per project) */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.ChangeTracker;

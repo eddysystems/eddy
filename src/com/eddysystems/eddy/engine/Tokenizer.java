@@ -1,3 +1,5 @@
+/* Tokenizer: Convert between IntelliJ tokens and tarski.Tokens */
+
 package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.util.TextRange;

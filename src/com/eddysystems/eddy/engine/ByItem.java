@@ -1,3 +1,11 @@
+/* ByItem: Lazy lookup of items by type
+ *
+ * The eddy environment is a mix of precomputed string tables, incremental updates to
+ * these string tables, and local values and methods already turned into tarski.Items.Item.
+ * ByItem combines all of these components together into byItem lookups, hiding the expense
+ * behind Scored laziness as much as possible.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;

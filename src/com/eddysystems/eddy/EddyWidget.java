@@ -1,3 +1,5 @@
+/* EddyWidget: eddy status icon in the status bar */
+
 package com.eddysystems.eddy;
 
 import com.intellij.ide.PowerSaveMode;

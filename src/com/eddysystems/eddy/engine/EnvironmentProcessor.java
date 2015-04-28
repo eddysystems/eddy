@@ -1,3 +1,10 @@
+/* EnvironmentProcessor: Explore the environment around a given location
+ *
+ * The environment process searches upwards from a location collecting information
+ * about the surrounding code and converting it to a format understood by the tarski
+ * engine.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
@@ -23,9 +30,6 @@ import static com.eddysystems.eddy.engine.Utility.log;
 import static utility.JavaUtils.popScope;
 import static utility.JavaUtils.pushScope;
 
-/**
- * Extract information about the environment at a given place in the code and make it available in a format understood by tarski
- */
 class EnvironmentProcessor {
   private static class Shadow<E> {
     public final E e;
