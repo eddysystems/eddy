@@ -33,7 +33,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
-import java.text.NumberFormat;
 import java.util.*;
 
 import static com.eddysystems.eddy.engine.Utility.log;
@@ -71,52 +70,6 @@ public class EddyPlugin implements ProjectComponent {
   // Basic information for logging
   public static Memory.Info basics(final @Nullable Project project) {
     return Memory.basics(installKey(), getVersion() + " - " + getBuild(), project != null ? project.getName() : null, ideaVersion());
-  }
-
-  private static Boolean _emailRequested = null;
-  public static boolean requestEmail() {
-    if (_emailRequested == null) {
-      final PropertiesComponent props = PropertiesComponent.getInstance();
-      final String name = "com.eddysystems.Props.emailRequested";
-      _emailRequested = props.getBoolean(name, false);
-      if (!_emailRequested) {
-        double installedAt = 0;
-        try {
-          try {
-            installedAt = Double.parseDouble(props.getValue("com.eddysystems.Props.installedAt", "1427240895.377"));
-          } catch (NumberFormatException e) {
-            // can't parse regular number
-            NumberFormat nf = NumberFormat.getInstance();
-            installedAt = nf.parse(props.getValue("com.eddysystems.Props.installedAt", String.format("%f", 1427240895.377))).doubleValue();
-          }
-        } catch (Exception e) {
-          // can't read installedAt value, never mind then (probably different locale when printing it)
-        }
-        final double now = GregorianCalendar.getInstance().getTimeInMillis()/1000.;
-
-        // only request email once five days since the installation are over
-        if (now - installedAt > 86400 * 5) {
-          _emailRequested = true;
-          props.setValue(name, "true");
-
-          final Runnable showRunner = new Runnable() {
-            @Override
-            public void run() {
-              final EmailDialog d = new EmailDialog();
-              d.show();
-            }
-          };
-
-          // go to dispatch to show dialog
-          if (!ApplicationManager.getApplication().isDispatchThread()) {
-            ApplicationManager.getApplication().invokeLater(showRunner);
-          } else {
-            showRunner.run();
-          }
-        }
-      }
-    }
-    return _emailRequested;
   }
 
   private static Boolean _acceptedTOS = null;
@@ -337,9 +290,6 @@ public class EddyPlugin implements ProjectComponent {
       });
       return;
     }
-
-    if (!app.isHeadlessEnvironment())
-      requestEmail();
 
     final MessageBusConnection connection = project.getMessageBus().connect();
 
