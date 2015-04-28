@@ -1,3 +1,15 @@
+/* Items: Objects that go in the environment
+ *
+ * Items includes packages, class definitions, method definitions, variables, etc.
+ * There is only one item for a given definition.  For example, given a class
+ * definition
+ *
+ *   class A<T> {}
+ *
+ * there a single item A with one type parameter, which can then be referred to
+ * from the Types module in references such as A<Integer>.
+ */
+
 package tarski
 
 import tarski.Environment.PlaceInfo

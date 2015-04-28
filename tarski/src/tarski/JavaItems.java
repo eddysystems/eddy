@@ -1,3 +1,5 @@
+/* JavaItems: Performance critical code for by-item precomputation and lookup */
+
 package tarski;
 
 import com.intellij.util.SmartList;

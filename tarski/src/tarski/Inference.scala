@@ -1,3 +1,12 @@
+/* Inference: Java type inference
+ *
+ * A mostly faithful implementation of the Java type inference algorithm, for
+ * use in resolving function calls.  Infinite types are not handled.  Note that
+ * eddy could make use of fancier type inference, but we would still need a copy
+ * of the native Java type inference algorithm to know what can be safely pretty
+ * printed.
+ */
+
 package tarski
 
 import utility.Locations._

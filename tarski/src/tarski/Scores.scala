@@ -1,3 +1,45 @@
+/* Scores: A sorted lazy list monad
+ *
+ * Scored[A] represents a sorted, lazy list of (Prob,A) pairs.  The order is decreasing:
+ * Prob = 1 is best and Prob = 0 worst.  Scored is a monad with additional structure,
+ * such as a fast(er) Cartesian product operation corresponding to Haskell's Applicative
+ * type class.
+ *
+ * When Scored instances combine monadically, their probabilities multiply.  For flatMap,
+ * you should think of conditional probabilities: an expression like
+ *
+ *   def f(x) = y
+ *   x flatMap f
+ *
+ * combines probabilities via
+ *
+ *   Pr(y) = Pr(x) * Pr(y | x)
+ *
+ * This formula is only a heuristic; eddy is not very principled about how it
+ * combines "probabilities".
+ *
+ * For speed, Scored[A] is highly lazy: an instance can be either empty (Empty), a known
+ * best value following by something else (Best), or a lazy thunk with a known probability
+ * bound (LazyScored).  When forced, LazyScored may return more laziness (another LazyScored).
+ * As an important optimization, LazyScored.force takes a bound and may force until the
+ * probability falls before the bound (or a concrete result is reached); this lets the
+ * imperative logic in JavaScores run longer without allocating heap objects or returning
+ * to slow, purely functional code.  This optimization is transparent to nearly all uses of
+ * Scored, but makes the internals significantly more complicated (and about an order of
+ * magnitude faster).
+ *
+ * Finally, if Flags.trackErrors is on, Scored[A] can also be Bad(error), where error is a
+ * lazy string representing what went wrong.  This feature is quite flaky, and only suitable
+ * for development use at this time.  The principled way of tracking errors is via
+ * Scored[Either[Error,A]], and this mechanism will be necessary if errors are to be exposed
+ * to users in the future.
+ *
+ * By pushing computations inside Scored, eddy allows nearly every aspect of its code to
+ * generate (and squash) ambiguity as it occurs, ranking different options based on local
+ * information and relying on laziness to not explore too more of an exponentially large
+ * search space.
+ */
+
 package tarski
 
 import utility.Utility._
@@ -6,12 +48,6 @@ import tarski.JavaScores._
 import tarski.Flags.trackErrors
 
 object Scores {
-  /* For now, we choose among options using frequentist statistics.  That is, we score A based on the probability
-   *
-   *   p = Pr(user chooses B | user thinks of A)
-   *
-   * where B is what we see as input.
-   */
 
   // High probabilities compare first
   abstract class HasProb extends Comparable[HasProb] {

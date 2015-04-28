@@ -1,3 +1,5 @@
+// Ambiguous Java-like grammar
+
 name ParseEddy
 start Stmts
 token Token

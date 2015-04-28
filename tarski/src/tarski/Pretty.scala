@@ -1,3 +1,14 @@
+/* Pretty: Pretty print AST and Den into valid Java
+ *
+ * Pretty is the final stage of the eddy pipeline, turning fully
+ * interpreted Denotations into valid Java.  Pretty also fills in
+ * a few features not explicitly in the Den objects, in particular
+ * turning item references into qualified names where necessary.
+ *
+ * For development and debugging purposes, we also define pretty
+ * printing for AST.
+ */
+
 package tarski
 
 import tarski.AST._

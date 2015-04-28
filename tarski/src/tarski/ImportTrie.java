@@ -1,3 +1,16 @@
+/* ImportTrie: Information about qualified names have been imported
+ *
+ * An ImportTrie represents a set of imported qualified names, plus some
+ * counts about how often these were imported.  We compute one of these
+ * for the project during eddy initialization, then use it to modify
+ * probabilities during environment lookup so that imported names are
+ * more likely.
+ *
+ * We use a trie so that if a.b.c is imported somewhere and we look up
+ * a.b.c.d.e somewhere else, we can base probabilities on the fact that
+ * 3 components were imported but not the last two.
+ */
+
 package tarski;
 
 import java.util.HashMap;

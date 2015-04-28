@@ -1,3 +1,9 @@
+/* Pr: Probabilities for use with Scored
+ *
+ * eddy interprets everything in touches into a lazy sorted list of (Prob,value) pairs.
+ * Pr contains choices that go into the Prob part.  For now, these are all hand chosen.
+ */
+
 package tarski
 
 import utility.JavaUtils.poissonPDF

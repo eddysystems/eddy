@@ -1,3 +1,26 @@
+/* Semantics: Ambiguity-friendly semantic analysis
+ *
+ * This is the semantic analysis phase of eddy, interpreting somewhat
+ * underspecified AST into Java-compatible Denotations.  All of this
+ * module lives inside the Scored monad, and can therefore freely
+ * generate or squash multiple alternatives.
+ *
+ * Intuitively, eddy is a compiler inside a lazy search monad, and
+ * Semantics is its core.
+ *
+ * Semantics mixes the typical roles of compiler semantic analysis with
+ * numerous code modification steps.  This mixing is somewhat unfortunate,
+ * but necessary for performance if we want to write native Scala instead
+ * of code generating everything.
+ *
+ * As a major optimization: the core of Semantics is the AExp elaboration
+ * routine denote, which tries to interpret an AExp as either a type, a
+ * package, a callable, or an expression.  A mode parameter determines which
+ * of these four options is allowed (or penalized) based on context.  This
+ * optimizations hides a significant amount of exponential blowup which would
+ * result if we had to decide up front what we wanted.
+ */
+
 package tarski
 
 import tarski.Arounds._

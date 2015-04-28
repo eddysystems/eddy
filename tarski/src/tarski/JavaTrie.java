@@ -1,3 +1,8 @@
+/* JavaTrie: Performance critical prefix trie helper routines
+ *
+ * Used by Tries.scala.
+ */
+
 package tarski;
 
 import com.intellij.util.SmartList;

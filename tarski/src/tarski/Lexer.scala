@@ -1,3 +1,14 @@
+/* Lexer: An extremely slow Java lexer
+ *
+ * This lexer is used only for unit test purposes so allow us to interpret
+ * strings without depending on IntelliJ.  As a consequence, it is extremely
+ * slow: quadratic time in the length of the string.
+ *
+ * All production use relies on the IntelliJ lexer for now.  The IntelliJ
+ * lexer isn't very smart (e.g., it doesn't like mismatched quotes), so this
+ * will need to be replaced at some point.
+ */
+
 package tarski
 
 import java.util.regex.Pattern

@@ -1,3 +1,11 @@
+/* JavaScores: Performance critical engines for the Scored[A] lazy search monad
+ *
+ * JavaScores contains most of the implementation logic for Scores.Scored.
+ * Although Scored is a purely functional data structure from the outside, its
+ * implementation is highly imperative in order to maximize performance and in
+ * particular eliminate unnecessary heap allocation.
+ */
+
 package tarski;
 
 import com.intellij.util.SmartList;

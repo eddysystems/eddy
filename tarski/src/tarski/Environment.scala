@@ -1,3 +1,14 @@
+/* Environment: Information about available types, variables, methods, etc.
+ *
+ * Env stores all information about the surrounding environment needed to
+ * semantically analyze a piece of Java code.  This includes types, packages,
+ * variables, methods, etc., including both in-scope and out-of-scope names,
+ * shadowing information, and information about containing functions and loops.
+ *
+ * Env also serves as the interface for fuzzy lookup, including lookup by
+ * approximate name and lookup by type item.
+ */
+
 package tarski
 
 import com.intellij.psi.PsiElement

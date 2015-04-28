@@ -1,3 +1,5 @@
+/* Tarski: Toplevel interfaces between tarski (eddy's engine) and the IntelliJ plugin code */
+
 package tarski
 
 import tarski.Denotations.Stmt
@@ -8,7 +10,7 @@ import tarski.Scores._
 import tarski.JavaScores._
 import tarski.Semantics._
 import tarski.Tokens._
-import tarski.Tries.{Queriable, Trie}
+import tarski.Tries.Queriable
 import utility.Interrupts
 import utility.Locations._
 import utility.JavaUtils.isDebug
@@ -17,12 +19,7 @@ import scala.collection.JavaConverters._
 
 object Tarski {
 
-  def makeTrie(jvalues: java.util.Collection[Item]): Trie[Item] =
-    Trie(jvalues.asScala)
-
-  def makeTrie(jvalues: Array[Item]): Trie[Item] =
-    Trie(jvalues)
-
+  // Easily Java-callable routine to build a lazy environment
   def environment(trie0: Queriable[Item], trie1: Queriable[Item], byItem: ValueByItemQuery,
                   imports: ImportTrie, scope: java.util.Map[Item,Integer], place: PlaceInfo, level: Int): Env =
     new LazyEnv(trie0, trie1, QueriableItemList.empty, byItem, LangLevel(level),
@@ -55,7 +52,8 @@ object Tarski {
     def take(rs: JResults): Double
   }
 
-  // Feed results to a take instance until it's satisfied
+  // The toplevel compiler driver for use from Java.
+  // Feed results to a take instance until it's satisfied.
   def fixTake(tokens: java.util.List[Loc[Token]], env: Env,
               format: (String,ShowFlags) => String, take: Take): Unit = {
     val toks = tokens.asScala.toList
@@ -101,6 +99,7 @@ object Tarski {
     mergeTake(sc, Map.empty)
   }
 
+  // Toplevel compiler driver for use from Scala
   def fix(tokens: List[Loc[Token]])(implicit env: Env): Scored[List[Stmt]] = {
     val asts = Mismatch.repair(prepare(tokens)) flatMap (ts => {
       val asts = ParseEddy.parse(ts)

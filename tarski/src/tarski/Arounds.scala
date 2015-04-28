@@ -1,14 +1,18 @@
+/* Arounds: Different types of grouping syntax and lists */
+
 package tarski
 
 import utility.Locations._
 
 object Arounds {
+  // A grouping token type (without side), or AnyGroup if we don't know.
   sealed abstract class Group
   case object Paren extends Group
   case object Brack extends Group
   case object Curly extends Group
   case object AnyGroup extends Group
 
+  // Possibly grouping information around some syntax
   sealed abstract class Around extends HasRange {
     def a: SGroup
     def isNo: Boolean
@@ -16,6 +20,7 @@ object Arounds {
     def isBracks: Boolean
     def isCurlys: Boolean
   }
+  // No grouped (e.g., juxtaposition apply)
   case class NoAround(r: SRange) extends Around {
     def a = SGroup.approx(r)
     def isNo = true
@@ -23,6 +28,7 @@ object Arounds {
     def isBracks = false
     def isCurlys = false
   }
+  // Explicit grouping, with possibly different types on either side
   case class YesAround(L: Group, R: Group, a: SGroup) extends Around {
     def r = a.lr
     def isNo = false

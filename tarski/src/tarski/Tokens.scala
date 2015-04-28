@@ -1,3 +1,17 @@
+/* Tokens: eddy token types and helper routines
+ *
+ * eddy's token type mostly represents conventional Java tokens, with a few
+ * tweaks to improve flexibility.  It includes a few extra keywords such as
+ * "then" and "until" which the grammar allows as both keywords and identifiers,
+ * has an "unknown" right grouping token for generation during parenthesis
+ * mismatch repair, and some "separator tokens" to stick between the characters
+ * of >> and >>> to support non-separated type bracket closure.
+ *
+ * Most of this extra functionality is set up in the "prepare" routine, which
+ * turns a raw token stream (corresponding directly to what IntelliJ produces)
+ * into a token stream suitable as input to eddy's parser.
+ */
+
 package tarski
 
 import tarski.Pretty._

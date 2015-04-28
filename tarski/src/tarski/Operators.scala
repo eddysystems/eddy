@@ -1,3 +1,5 @@
+/* Operators: Java operators for AST and Den usage */
+
 package tarski
 
 object Operators {

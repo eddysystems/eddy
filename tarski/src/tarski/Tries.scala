@@ -1,7 +1,21 @@
+/* Tries: Prefix tries for approximate symbol lookup
+ *
+ * Tries contains the core data structures used to look up symbols in
+ * an environment with typos allowed.  Queriable is the external
+ * interface (either exact or approximate lookup of a string), and
+ * LazyTrie is the main implementation used for fast project-wide lookup.
+ *
+ * Internally, the prefix trie structure of a LazyTrie is packed into an
+ * array of ints as computed by JavaTrie.  The mapping from typo-corrected
+ * string to an actual Item is broken out as a separate Generator object;
+ * this allows the IntelliJ side to store only strings and expand them into
+ * actually Item objects lazily.
+ */
+
 package tarski
 
 import java.util
-import tarski.JavaTrie.Generator;
+import tarski.JavaTrie.Generator
 import tarski.Items.Item
 import tarski.Scores._
 

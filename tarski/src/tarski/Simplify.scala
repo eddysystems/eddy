@@ -1,3 +1,14 @@
+/* Simplify: Various denotation cleanups
+ *
+ * The simplification phase occurs immediately before pretty printing,
+ * and *after* Expand lifts hidden Scored instances to toplevel.  This
+ * lifting means that Simplify is allowed to pattern much on multiple
+ * levels of denotation expressions simultaneously, even if Semantics
+ * has stuck a WhateverExp between these levels to hide exponential
+ * blowup.  Simplify assumes its input is correct, and should never
+ * fail.
+ */
+
 package tarski
 
 import tarski.Denotations._
