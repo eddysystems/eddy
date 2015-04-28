@@ -1,3 +1,5 @@
+/* JavaUtils: Miscellaneous Java utilities */
+
 package utility;
 
 import org.apache.commons.lang.StringUtils;
@@ -6,10 +8,12 @@ import scala.collection.immutable.$colon$colon$;
 import java.util.*;
 
 public class JavaUtils {
+  // Are two objects equal, handling null correctly?
   public static boolean safeEquals(final Object x, final Object y) {
     return x==y || (x!=null && x.equals(y));
   }
 
+  // Probability density of a Poisson distribution
   public static double poissonPDF(double lambda, int k) {
     // lambda^k/k! * e^-lambda
     float lk_kfac = 1;
@@ -40,6 +44,14 @@ public class JavaUtils {
   private static final Stack<Scope> scopes = initScopes();
   public static boolean skipScopes = false; // Used to silence tiny irrelevant scopes
 
+  // Push one level of timing scope
+  // This is used to track performance of expensive computations (especially precomputations).
+  // Each call to pushScope must be followed by a call to popScope, with the pattern
+  //
+  //   pushScope(name);
+  //   try {
+  //     ...
+  //   } finally { popScope(); }
   public static void pushScope(String name) {
     if (skipScopes)
       return;
@@ -51,6 +63,7 @@ public class JavaUtils {
     scopes.push(new Scope(name));
   }
 
+  // Pop one level of timing scope.
   // IMPORTANT: Always call popScope as finally { popScope() } so that grep confirms safety
   public static void popScope() {
     if (skipScopes)

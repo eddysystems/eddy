@@ -1,3 +1,5 @@
+/* Utility: Miscellaneous Scala utilities */
+
 package utility
 
 import scala.annotation.tailrec
@@ -9,6 +11,7 @@ object Utility {
   def notImplemented = throw new NotImplementedError("not implemented")
   def impossible = throw new InternalError("impossible")
 
+  // Binary search a sequence, returning Some(k) if s(k) == key, otherwise None.
   def binarySearch[A](s: Seq[A], key: A)(implicit ord: math.Ordering[A]): Option[Int] = {
     var left: Int = 0
     var right: Int = s.length - 1
@@ -25,17 +28,20 @@ object Utility {
     None
   }
 
+  // mapOrElse(x)(f,y) = x map f getOrElse y
   def mapOrElse[A,B](x: Option[A])(f: A => B, y: B): B = x match {
     case None => y
     case Some(x) => f(x)
   }
 
+  // Turn a list of pairs into a map to lists, preserving duplicates
   def toMapList[A,B](c: Iterable[(A,B)]): Map[A,List[B]] = {
     val m = mutable.Map[A,List[B]]()
     c.foreach { case (a,b) => m.update(a, b :: m.getOrElse(a,Nil)) }
     m.toMap
   }
 
+  // Update a map of lists.  Fairly slow.
   def addToMapList[A,B](m0: Map[A,List[B]], bs: Iterable[(A,B)]): Map[A,List[B]] = {
     val m = mutable.Map[A,List[B]]()
     m0.foreach { case (a,bs) => m.update(a, bs ::: m.getOrElse(a,Nil)) }
@@ -43,32 +49,38 @@ object Utility {
     m.toMap
   }
 
+  // Turn a list of pairs into a map to sets
   def toMapSet[A,B](c: Iterable[(A,B)]): Map[A,Set[B]] =
     toMapList(c) mapValues (_.toSet)
 
+  // Given two maps to sets, union their values pointwise
   def mergeMapSets[A,B](t: Map[A,Set[B]], t2: Map[A,Set[B]]): Map[A,Set[B]] =
     ((t.keySet ++ t2.keySet) map { s => (s, t.getOrElse(s,Set()) ++ t2.getOrElse(s,Set())) } ).toMap
 
+  // Call f until it returns false
   def doWhile(f: => Boolean): Unit =
     if (f) doWhile(f)
 
+  // Chop a string into pieces at whitespace
   def splitWhitespace(s: String): List[String] =
     s.split("""\s+""").toList match {
       case "" :: x => x
       case x => x
     }
 
+  // Place s between each adjacent pair in xs.  E.g., abcd => asbscsd.
   def intersperse[A](s: A, xs: List[A]): List[A] = xs match {
     case Nil => Nil
     case List(_) => xs
     case x::xs => x :: s :: intersperse(s,xs)
   }
 
+  // Do f, and turn any null pointer exception into a null result
   def silenceNulls[A >: Null](f: => A): A =
     try f catch { case _:NullPointerException => null }
 
-  @tailrec
-  def revAppend[A](xs: List[A], ys: List[A]): List[A] = xs match {
+  // xs.reverse append ys, but tail recursive
+  @tailrec def revAppend[A](xs: List[A], ys: List[A]): List[A] = xs match {
     case Nil => ys
     case x::xs => revAppend(xs,x::ys)
   }
@@ -84,6 +96,8 @@ object Utility {
     }
     loop(xs,Nil)
   }
+
+  // Expand a run-length encoded list.  unruns(runs(xs)) == xs
   def unruns[A](xs: List[(A,Int)]): List[A] = xs flatMap {case (a,n) => List.fill(n)(a)}
 
   // Chop a list up into segments equal according to a predicate
@@ -98,6 +112,7 @@ object Utility {
       loop(Nil,List(x),x,xs)
   }
 
+  // Escape a string according to Java string literal syntax
   def escape(raw: String): String =
     escapeJava(raw)
 
@@ -116,6 +131,8 @@ object Utility {
     if (x eq fx) x else fixRef(fx)(f)
   }
 
+  // Transpose the list and option monads.
+  // If xs == ys map Some, Some(ys), else None.
   def allSome[A](xs: List[Option[A]]): Option[List[A]] = xs match {
     case Nil => Some(Nil)
     case None::_ => None
@@ -124,8 +141,12 @@ object Utility {
       case Some(xs) => Some(x::xs)
     }
   }
+
+  // Transpose the set and option monads.
+  // If xs = ys map Some, Some(ys), else None.
   def allSome[A](xs: Set[Option[A]]): Option[Set[A]] = allSome(xs.toList) map (_.toSet)
 
+  // (xs collect f).headOption, but faster
   def collectOne[A,B](xs: List[A])(f: PartialFunction[A,B]): Option[B] = xs match {
     case Nil => None
     case x::_ if f.isDefinedAt(x) => Some(f(x))
@@ -234,10 +255,13 @@ object Utility {
     }
   }
 
+  // Run f inside timing scope name
   def scoped[A](name: String, f: => A): A = {
     JavaUtils.pushScope(name)
     try f finally JavaUtils.popScope()
   }
+
+  // Run f with inner timing scopes suppressed
   def silenced[A](f: => A): A = {
     val s = JavaUtils.skipScopes
     JavaUtils.skipScopes = true
