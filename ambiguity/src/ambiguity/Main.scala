@@ -1,3 +1,5 @@
+/* Main: Toplevel driver for the ambiguity parser generator */
+
 import java.io.File
 
 import ambiguity._

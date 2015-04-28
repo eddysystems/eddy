@@ -1,3 +1,10 @@
+/* Parse: Parser generator for ambiguous grammars
+ *
+ * Given a possibly ambiguous Grammar, Parse generates Java code which parses
+ * the grammar and runs all actions.  Ambiguity is isolated where possible
+ * using embedded Scored instances.
+ */
+
 package ambiguity
 
 import ambiguity.Grammar._
