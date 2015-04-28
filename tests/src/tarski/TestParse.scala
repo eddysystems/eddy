@@ -1,3 +1,12 @@
+/* TestParse: Unit tests for eddy's ambiguous parser
+ *
+ * Most of the whole engine tests in TestDen check only the best option,
+ * or the fact that the best option is well separated from the second best.
+ * However, sometimes we want to check all the parses produced, or verify
+ * that a given parse is never produced, etc.  The parsing tests are also
+ * a necessity when developing or debugging the grammar and parser generator.
+ */
+
 package tarski
 
 import utility.Locations._

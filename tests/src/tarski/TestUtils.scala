@@ -1,3 +1,11 @@
+/* TestUtils: Lots of implicit conversions to easy Denotation tests
+ *
+ * The Denotation intermediate representation is fairly verbose, and fairly painful
+ * to write when constructing unit tests.  TestUtils provides a large number of
+ * implicit conversions for making this easier, such as converting the scala literal
+ * 7 into IntLit(7,"7",SRange.unknown).
+ */
+
 package tarski
 
 import utility.Locations._

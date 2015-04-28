@@ -1,3 +1,12 @@
+/* TestPretty: Pretty-printing unit tests
+ *
+ * Since the whole-engine tests in TestDen stop at Denotations (except
+ * for the fixpoint check), we need separate unit tests to verify that
+ * pretty printing Denotations to Java works correctly.  These tests
+ * parse Denotation input, lex string input, and verify that the two
+ * match as token streams.
+ */
+
 package tarski
 
 import tarski.Arounds._

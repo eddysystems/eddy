@@ -1,3 +1,10 @@
+/* TestInfer: Unit tests for type inference
+ *
+ * Most of the functionality in this file is tested indirectly through TestDen,
+ * but inference-only unit tests are much easier to work with when developing
+ * and debugging.
+ */
+
 package tarski
 
 import tarski.Base._
