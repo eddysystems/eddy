@@ -1,3 +1,11 @@
+/* Tests: Whole-plugin tests connecting IntelliJ with the eddy engine
+ *
+ * This is the even-more-full version of TestDen: TestDen tests only the eddy
+ * engine in isolation, and Tests tests the eddy engine working inside IntelliJ.
+ * In particular, it tests the environment generation logic, including eddy
+ * initialization and exploration of the current scope.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyPlugin;
