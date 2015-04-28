@@ -1,3 +1,5 @@
+/* ArgMatching: Interpret function calls */
+
 package tarski
 
 import tarski.Denotations._
@@ -16,13 +18,29 @@ object ArgMatching {
   type Exps = List[Scored[Exp]]
   private implicit val showFlags = abbrevShowFlags
 
+  // A continuation for fiddleCall that requires all arguments to be used.
   def useAll(e: Exp, unused: Exps)(implicit env: Env): Scored[Exp] = unused match {
     case Nil => known(e)
     case _ => fail(s"${show(e)}: ${unused.size} unused arguments")
   }
 
-  // If specified, expects constraints the return type, but only if there are no unused arguments.
-  def fiddleCall[A](f: Callable, args: Exps, a: SGroup, expects: Option[Type], auto: Boolean, checkExpectedEarly: Boolean, cont: (Exp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
+  /* Given a Callable f and a list of Scored[Exp] arguments, fiddleCall tries to
+   * assemble a valid function call with any type inference complete.  The arguments
+   * are used verbatim if possible, but are also reordered, looked up in the environment
+   * if some are missing, etc.  a and auto are flags used when building the call denotation.
+   *
+   * The other arguments to fiddleCall are
+   *
+   * expects: Constraint on the return type, used to improve the accuracy of type inference.
+   *          If !checkExpectedEarly, this constraint is applied only once all arguments are filled in.
+   * checkExpectedEarly: See expects
+   *
+   * cont: Continuation called with the valid call denotation and any unused arguments.
+   *       If all arguments should be used, use cont=useAll above.  Fancier continuations
+   *       are used in Semantics to adaptively choose between juxtaposition calls and field lookup.
+   */
+  def fiddleCall[A](f: Callable, args: Exps, a: SGroup, expects: Option[Type], auto: Boolean,
+                    checkExpectedEarly: Boolean, cont: (Exp,Exps) => Scored[A])(implicit env: Env): Scored[A] = {
     // Should we find missing arguments in the environment?
     val useEnv = true
     // Incrementally add parameters and check whether the function still resolves

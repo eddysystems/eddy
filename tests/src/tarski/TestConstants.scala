@@ -1,6 +1,7 @@
+/* TestConstants: Unit tests for tarski.Constants */
+
 package tarski
 
-import tarski.Arounds._
 import tarski.Constants._
 import tarski.Denotations._
 import tarski.Operators._

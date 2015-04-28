@@ -1,3 +1,5 @@
+/* Demo: Definitions for use when demoing eddy */
+
 package com.eddysystems.eddy.engine;
 
 // need these

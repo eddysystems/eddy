@@ -1,3 +1,25 @@
+/* Denotations: Fully interpreted intermediate representation
+ *
+ * Den is an essentially Java compatible intermediate representation, ready
+ * for pretty printing into an actual Java token stream.  Unlike AST, which is
+ * fuzzy and underspecified, nearly everything in Den is filled in, with a few
+ * exception filled in my pretty printing such as qualified name references.
+ *
+ * The base Den class exists because AST does not distinguish between types,
+ * callables, and expressions, and Semantics can simultaneously interpret a
+ * piece of AST into any of the three options.  Normally, one uses
+ *
+ * TypeDen: A thin wrapper around a type
+ * Package: A thin wrapper around a package reference
+ * Callable: Something that can be falled (functions, constructors, etc.)
+ * Exp: A Java expression
+ * Stmt: A Java statement
+ *
+ * Denotations track source locations as best they can.  These locations are
+ * pulled out of the corresponding AST location where possible, or filled it
+ * approximately when not.
+ */
+
 package tarski
 
 import tarski.AST.{ParenAExp, IntALit, AExp}
@@ -16,6 +38,7 @@ import scala.language.implicitConversions
 
 object Denotations {
   // The equivalent of Any in the denotation world
+  // ExpOrType and friends are annoying Scala representations of union types (ExpOrType = Union(Exp,TypeDen))
   sealed trait Den
   sealed trait ParentDen extends Den
   sealed trait ExpOrType extends ParentDen {
@@ -47,7 +70,7 @@ object Denotations {
   case object NoArgs extends ClassArgs
   case class SomeArgs(args: List[TypeArg], a: SGroup, hide: Boolean) extends ClassArgs
 
-  // Callables
+  // Callables: stuff that can be called given some arguments
   sealed abstract class Callable extends ExpOrCallable with TypeOrCallable with Signature with HasRange {
     def tparams: List[TypeVar]
     def params: List[Type]

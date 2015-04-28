@@ -1,3 +1,17 @@
+/* Expand: Lift Scored structure out to the top level
+ *
+ * AST and Denotations both contain constructs which hide Scored[A]
+ * instances at lower levels.  This reduces exponential blowup, since
+ * it represents Cartesian product structure in an unexpanded manner.
+ *
+ * In the end, however, one usually needs to expand these low level
+ * Scored instances to produce a flat list of top level options.  This
+ * is currently necessary in two places:
+ *
+ * 1. For Den, before showing alternatives to the user.
+ * 2. In TestParse, to make it easier to write parsing unit tests.
+ */
+
 package tarski
 
 import tarski.AST._

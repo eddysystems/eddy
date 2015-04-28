@@ -1,3 +1,5 @@
+/* EddyIntention: Add eddy to the yellow lightbulb menu */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;

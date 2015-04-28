@@ -1,3 +1,12 @@
+/* ChangeTracker: Keep track of changes that may affect the environment
+ *
+ * Precomputation of eddy's environment data structures is fairly slow, so we can
+ * only afford to do it occasionally.  In between, we maintain an incremental list
+ * of changes that happened since the last environment scan.
+ *
+ * This class is thread safe.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import gnu.trove.TObjectLongHashMap;
@@ -6,8 +15,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-// Keep track of changes that may affect the environment.
-// This class is thread safe.
 public class ChangeTracker<A> {
   private long time = 1; // Current "time" for snapshot and forget purposes
   private final TObjectLongHashMap<A> all = new TObjectLongHashMap<A>(); // Tracked names and their last update time

@@ -1,3 +1,5 @@
+/* JavaParse: Parsing routines for Java literals */
+
 package tarski;
 
 import org.apache.commons.lang.StringUtils;

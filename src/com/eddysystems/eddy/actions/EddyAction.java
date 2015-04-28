@@ -1,3 +1,9 @@
+/* EddyAction: IntelliJ action showing eddy's results
+ *
+ * This action includes both the single alternative popup showing
+ * the best choice and the expanded list showing the others.
+ */
+
 package com.eddysystems.eddy.actions;
 
 import com.eddysystems.eddy.engine.Eddy;

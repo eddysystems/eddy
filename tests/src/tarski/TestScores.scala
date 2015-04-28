@@ -1,3 +1,10 @@
+/* TestScores: Unit tests for the lazy search monad
+ *
+ * Scored[A] represents a lazy sorted list of Alt[A] pairs.  These tests check that
+ * the representation is correct, even after the horrendous imperative engines of
+ * JavaScores.
+ */
+
 package tarski
 
 import utility.Utility._

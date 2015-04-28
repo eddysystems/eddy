@@ -1,3 +1,13 @@
+/* LightDocument: Oh, the humanity
+ *
+ * In IntelliJ 14 and below, there are a number of spurious assertions in DocumentImpl, in particular,
+ * it is assumed that batch processing mode is only ever invoked from the dispatch thread. Because
+ * IntelliJ's code formatting code uses the batch processing mode if there are enough changes to make,
+ * Formatting can only be performed from the dispatch thread. Because this is unacceptable, this is a
+ * minimal implementation of the Document interface, which we force the Formatter to use by polluting
+ * the document cache.
+ */
+
 package com.eddysystems.eddy;
 
 import com.intellij.openapi.Disposable;

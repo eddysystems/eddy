@@ -1,3 +1,9 @@
+/* Crypto: Interfaces to crypto primitives
+ *
+ * Currently the only actual crypto primitive is randomKey, which
+ * generates a secure random 224 bit key.
+ */
+
 package tarski
 
 import java.security.SecureRandom

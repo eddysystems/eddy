@@ -1,3 +1,20 @@
+/* EddyThread: Thread where the eddy engine runs
+ *
+ * Since eddy is a compute intensive process, some gymnastics are required
+ * to avoid deadlocking the IDE while eddy is running.  In order to access
+ * IntelliJ data structures, the eddy thread must have a read lock; and grabbing
+ * the read lock each time we need it is too slow.  Instead, we grab a read lock
+ * "for the duration" of the eddy thread, but pause the eddy thread with the read
+ * lock released if a write lock wants to start.  EddyApplicationListener listens
+ * for the start of these read actions and calls pause.
+ *
+ * Some of the time, such a write action will actually change the file we're
+ * interpreting (usually the same line of code); in this case we kill eddy and
+ * restart it later.  However, write action also occur for silly reasons (the Scala
+ * plugin is a particular offender), and eddy would kill itself too often if it died
+ * on every write action (rather than simply pausing).
+ */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Eddy;

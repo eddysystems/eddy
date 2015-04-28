@@ -1,10 +1,9 @@
+/* StringMatching: Cost routines for typos in strings */
+
 package tarski
 
 import scala.collection.mutable.ArrayBuffer
 
-/**
- * Created by martin on 11.12.14.
- */
 object StringMatching {
 
   val repeatCost = 1.0f

@@ -1,3 +1,5 @@
+/* TestGraph: Unit tests for ambiguity's Graphs module */
+
 package ambiguity
 
 import ambiguity.Graphs._

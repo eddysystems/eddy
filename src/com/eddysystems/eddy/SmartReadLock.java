@@ -1,3 +1,5 @@
+/* SmartReadLock: Grab a read lock, handling interrupts and dumb mode correctly */
+
 package com.eddysystems.eddy;
 
 import com.intellij.openapi.application.AccessToken;

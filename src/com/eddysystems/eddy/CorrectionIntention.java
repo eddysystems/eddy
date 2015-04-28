@@ -1,3 +1,5 @@
+/* CorrectionIntention: Suggestion dialog for users to suggest improvements */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Eddy;

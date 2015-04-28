@@ -1,3 +1,18 @@
+/* Constants: The constant propagation required for Java semantic analysis
+ *
+ * Java's mechanism for allowing
+ *
+ *   byte x = 1;
+ *
+ * is to first interpret 1 as having type int, then allowing an implicit
+ * narrowing conversion since 1 is a constant that fits into byte without
+ * losing information.  That is, semantic analysis requires a bit of
+ * constant propagation.  Here it is, though rather uglier than I would like.
+ *
+ * Note: We currently do not understand that references to static final
+ * variables are constant.
+ */
+
 package tarski
 
 import tarski.Denotations._

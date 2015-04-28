@@ -1,3 +1,5 @@
+/* EddyEnterHandlerDelegate: If we're sure of the correction, apply it on <enter> */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;

@@ -1,3 +1,5 @@
+/* EddyHintLabel: Colored and icon-ed hint showing eddy's suggestion */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Eddy;

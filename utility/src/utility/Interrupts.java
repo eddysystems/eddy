@@ -1,3 +1,27 @@
+/* Interrupts: A mechanism for injecting code into another thread.
+ *
+ * Java threads cannot be safely interrupted in the presence of locks,
+ * so Interrupts provides a mechanism for injecting death, pauses, etc.
+ * into an appropriately listening thread.  Since it is intended for use
+ * in performance critical kernels, and the performance critical kernels
+ * of eddy are single threaded, Interrupts is not thread safe and not
+ * scalable to a large number of interruptible threads.
+ *
+ * To accept interrupts, the target thread to be interrupted must create an
+ * Interrupter instance and register() it on that thread.  The target should
+ * then periodically run
+ *
+ *   if (Interrupts.pending != 0) Interrupts.checkInterrupts();
+ *
+ * To detect and run new interrupts.  To inject an interrupt into a target thread,
+ * any other thread can call interrupter.add(f) with an appropriate Runnable.
+ * Currently, this mechanism is used to inject two actions into the EddyThread:
+ *
+ * 1. Kill orders (throw ThreadDeath)
+ * 2. Pauses: release a held lock, wait for someone else to do something with that
+ *    lock, grab the lock again (all inside the Runnable passed to interrupter.add).
+ */
+
 package utility;
 
 public class Interrupts {

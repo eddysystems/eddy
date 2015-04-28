@@ -1,3 +1,11 @@
+/* Mismatch: Repair mismatched parentheses in token streams
+ *
+ * Mismatch is activated only if the grouping in a token stream doesn't
+ * add up, in which case it attempts to add or remove grouping tokens to
+ * best fix the problem.  Currently, grouping is added only adjacent to
+ * grouping which is already there, or at the beginning or end of the string.
+ */
+
 package tarski
 
 import utility.Utility._
@@ -8,7 +16,6 @@ import tarski.Tokens._
 import scala.annotation.tailrec
 import scala.math._
 
-// Repair mismatches parentheses in token streams
 object Mismatch {
   case class Seg(t: Token, r: SRange, after: Boolean, ps: List[Loc[Token]])
   type Segments = List[Seg]

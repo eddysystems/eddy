@@ -1,3 +1,21 @@
+/* Base: Standard Java items (primitives, java.lang stuff, etc.)
+ *
+ * Base includes special objects for any part of the standard library that
+ * interacts directly with language semantics.  For example, Java arrays are
+ * part of the language but inherit from the standard library interface
+ * Serializable, and Java foreach loops know about the interface Iterable.
+ * Most of these objects must be present in the environment for the tarski
+ * engine to work reasonably.
+ *
+ * In addition to standard class and interface definitions, Base includes a
+ * few objects for the environment that the Java language treats as primitive
+ * but eddy thinks of as normal objects.  These include the primitive types
+ * such as boolean and int, which eddy looks up in the environment rather than
+ * treating as separate tokens.  It also includes explicit literal objects for
+ * true, false, and null.  By including these in the environment, the same
+ * mechanism used to correct typos in identifiers can turn treu into true.
+ */
+
 package tarski
 
 import tarski.AST._

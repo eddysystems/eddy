@@ -1,3 +1,5 @@
+/* TestMemory: Units tests for tarski.Memory logging */
+
 package tarski
 
 import utility.Utility._
@@ -9,7 +11,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import org.testng.annotations.Test
 
 class TestMemory {
-  // A large random string for unit test purposes
+  // A large random string for unit test purposes.  Guaranteed random.
   val install = "46240bbb2d11736a1a0fd86ac0d31c37bab17e13d02bde533668d0f8"
   val base = Memory.basics(install=install,version="0.1",project="TestMemory",ideaVersion="test")
 

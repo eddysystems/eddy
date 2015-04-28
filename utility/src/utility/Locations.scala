@@ -1,3 +1,27 @@
+/* Locations: locations and ranges in source files
+ *
+ * For speed and memory usage, locations are stored as opaque 32-bit integers.
+ * We rely on IntelliJ (or some other context) to interpret the meaning of
+ * the integer location.  All types are as unboxed as possible, using Scala
+ * value types and half-unboxed pairs to reduce heap allocation.
+ *
+ * SLoc is an single location, representing either a slot between two characters
+ * or the character after it.  SRange is a half-open range of locations, stored
+ * internally as an unboxed 64-bit integer which can be expanded to two SLoc's
+ * via .lo and .hi.  Since tokens typically cover more than one character, SRange
+ * is much more commonly used than SLoc.
+ *
+ * For clarity, ranges corresponding to grouping (parentheses, etc.) have a special
+ * SGroup type with the same internal representation as SRange.  This serves to
+ * improve self-documentation of data structures involving grouping, and also reflects
+ * the fact that Java grouping tokens are 1 character so that an SGroup takes 64
+ * instead of 128 bits.
+ *
+ * Most uses of SRange and SGroup are unboxed, but for simple situations the types
+ * Loc[A] and Grouped[A] are pairs (SRange,A) and (SGroup,A) with the first part
+ * unboxed.
+ */
+
 package utility
 
 object Locations {
@@ -81,6 +105,7 @@ object Locations {
     val empty = approx(SRange.empty)
   }
 
+  // An object with a range
   trait HasRange {
     def r: SRange
   }

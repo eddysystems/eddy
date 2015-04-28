@@ -1,3 +1,5 @@
+/* EddyFileListener: Listen for file changes and incrementally update the environment accordingly */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.actions.EddyAction;

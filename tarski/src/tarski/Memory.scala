@@ -1,3 +1,5 @@
+/* Memory: Log what eddy sees to a write-only Amazon DynamoDB */
+
 package tarski
 
 import tarski.Scores.Alt

@@ -1,3 +1,9 @@
+/* Types: Properties of types according to the Java spec, without extra intelligence
+ *
+ * The Types module contains data structures and logic for Java's type system, including
+ * the various kinds of conversations, subtyping, etc.
+ */
+
 package tarski
 
 import utility.Utility._
@@ -10,7 +16,6 @@ import tarski.Operators._
 
 import scala.annotation.tailrec
 
-// Properties of types according to the Java spec, without extra intelligence
 object Types {
 
   // Types

@@ -1,3 +1,5 @@
+/* Mods: Java modifiers for AST and Den usage */
+
 package tarski
 
 import AST.Name

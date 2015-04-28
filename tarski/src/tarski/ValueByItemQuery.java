@@ -1,3 +1,5 @@
+/* ValueByItemQuery: Look up items by their type */
+
 package tarski;
 
 import tarski.Items.ValueOrMethod;

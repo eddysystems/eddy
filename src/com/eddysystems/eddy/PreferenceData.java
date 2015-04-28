@@ -1,3 +1,5 @@
+/* PreferenceData: Storage for eddy's preferences */
+
 package com.eddysystems.eddy;
 
 import org.jetbrains.annotations.NotNull;

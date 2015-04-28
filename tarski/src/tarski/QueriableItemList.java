@@ -1,3 +1,15 @@
+/* QueriableItemList: A small piece of the environment
+ *
+ * Most of the environment is large and unchanging throughout eddy's semantic
+ * analysis.  However, sometimes the environment needs to change, such as in
+ *
+ *   int x = 1, y = x;
+ *
+ * Here "y = x" needs to look up x in the environment.  Since the number of
+ * variables added in this manner is always small, QueriableItemList uses a
+ * flat array and linear search for all lookups.
+ */
+
 package tarski;
 
 import com.intellij.util.SmartList;

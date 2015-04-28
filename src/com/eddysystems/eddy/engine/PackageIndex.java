@@ -1,3 +1,5 @@
+/* PackageIndex: An index of all package names for environment purposes */
+
 package com.eddysystems.eddy.engine;
 
 import com.intellij.openapi.project.Project;

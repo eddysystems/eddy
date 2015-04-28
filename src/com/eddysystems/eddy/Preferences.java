@@ -1,3 +1,5 @@
+/* Preferences */
+
 package com.eddysystems.eddy;
 
 import com.eddysystems.eddy.engine.Utility;
@@ -10,9 +12,6 @@ import tarski.Memory;
 
 import javax.swing.*;
 
-/**
-* Created by martin on 02.02.15.
-*/
 public class Preferences implements Configurable {
   static boolean initialized = false;
   static final private PreferencesForm form = new PreferencesForm();

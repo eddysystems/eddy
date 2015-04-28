@@ -1,3 +1,12 @@
+/* Flags: Compile-time flags controlling debug features
+ *
+ * These flags should be turned on only for debugging purposes, then
+ * turning off before commit.
+ *
+ * Except for nullaryMethods, that is, which we will hopefully be able
+ * to turn on permanently after some speed improvements.
+ */
+
 package tarski;
 
 public class Flags {

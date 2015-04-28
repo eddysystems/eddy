@@ -1,3 +1,5 @@
+/* Utility: Miscellaneous utilities */
+
 package com.eddysystems.eddy.engine;
 
 import com.intellij.ide.IdeEventQueue;

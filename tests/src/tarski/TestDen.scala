@@ -1,3 +1,17 @@
+/* TestDen: Whole-engine tests for tarski
+ *
+ * These tests use the entire tarski engine from parsing through fuzzy semantics analysis.
+ * The test inputs are typically small environments and a string of pseudo-Java, and the
+ * expected output is an explicit Denotations object.  They are more properly regression
+ * tests than unit tests.
+ *
+ * Most tests also include a fixpoint check: after the string is parsed and interpreted
+ * into a denotation, we pretty print it back into a string and parse and interpret it
+ * once more.  The resulting denotations should be the same.  The fixpoint check is useful
+ * to insure that eddy understands all the syntax it can generate.  However, if the fixpoint
+ * check breaks, one should usually add a test which breaks before the fixpoint step as well.
+ */
+
 package tarski
 
 import tarski.Mods.Final

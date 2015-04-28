@@ -1,3 +1,8 @@
+/* Formatter: A hack around the bugs in the atrocious formatting mess inside Intellij
+ *
+ * See LightDocument for back story.
+ */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.LightDocument;
@@ -34,9 +39,6 @@ import java.util.List;
 
 import static com.eddysystems.eddy.engine.Utility.logError;
 
-/**
- * A hack around the bugs in the atrocious formatting mess inside intellij
- */
 public class Formatter {
 
   @NotNull final Project project;

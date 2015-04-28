@@ -1,3 +1,12 @@
+/* Grammar: Context free grammar definitions and code
+ *
+ * The Grammar type represents a context free grammar plus actions for
+ * each production.  The Grammar module also knows how to read a Grammar
+ * from a .gram file and perform various simplification operations
+ * including polyinstantiation of parameterized nonterminals (complete)
+ * and binarization (binarize).
+ */
+
 package ambiguity
 
 import utility.Utility
@@ -13,6 +22,7 @@ object Grammar {
   type Type = String
   type Prod = (List[Symbol],Action)
 
+  // A context free grammar with actions for productions
   case class Grammar(name: String,
                      preamble: List[String],
                      start: Symbol,
@@ -67,6 +77,7 @@ object Grammar {
     })
   }
 
+  // Check validity of a grammar
   def check(G: Grammar, generic: Boolean = false) = {
     // Nonterminal lists must match
     val typeOnly = G.types.keySet -- G.prods.keySet
@@ -111,6 +122,7 @@ object Grammar {
       sortNons(G)
   }
 
+  // Expand away all parameterized nonterminals (those of the form A[B])
   def complete(G: Grammar): Grammar = {
     // Find the generic symbols
     val pat = """^(\w+)\[([\w\[\]]+)\]$""".r
@@ -149,6 +161,7 @@ object Grammar {
     G.modify(types.toMap,prods.toMap)
   }
 
+  // Binarize a grammar: the result has at most two nonterminals per production
   def binarize(G: Grammar): Grammar = {
     def sym(ss: List[Symbol]) = ss mkString "__"
     def split(indent: String, n: Symbol, t: Type, p: List[Symbol], a: Action): (List[(Symbol,Type)],List[(Symbol,Prod)]) = {
@@ -265,6 +278,7 @@ object Grammar {
     sorted.reverse
   }
 
+  // Parse a grammar from the contents of a .gram file
   def read(file: String): Grammar = {
     var name: Option[Symbol] = None
     var preamble: List[String] = Nil

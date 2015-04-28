@@ -1,3 +1,5 @@
+/* EddyPsiListener: Watch for psi changes and update environment change trackers accordingly */
+
 package com.eddysystems.eddy.engine;
 
 import com.eddysystems.eddy.EddyThread;
