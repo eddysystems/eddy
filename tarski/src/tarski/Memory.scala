@@ -114,15 +114,13 @@ object Memory {
       .add("suggestion",suggestion)
 
   def eddyProps(base: Info, autoApply: Boolean, autoApplyThreshold: Double, autoApplyFactor: Double,
-                minProbability: Double, minRelativeProbability: Double, removeQualifiers: Boolean,
-                startDelay: Double, email: String, logPreference: String): Info =
+                minProbability: Double, minRelativeProbability: Double, startDelay: Double, email: String, logPreference: String): Info =
     base.add("kind","Eddy.preferences")
         .add("autoApply",autoApply)
         .add("autoApplyThreshold",autoApplyThreshold)
         .add("autoApplyFactor",autoApplyFactor)
         .add("minProbability",minProbability)
         .add("minRelativeProbability",minRelativeProbability)
-        .add("removeQualifiers",removeQualifiers)
         .add("startDelay",startDelay)
         .add("email", if ("".equals(email)) "none" else email) // none is the only non-email string to ever appear here
         .add("logPreference", logPreference)

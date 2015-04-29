@@ -67,7 +67,6 @@ public class Preferences implements Configurable {
     data.setAutoApplyFactor(props.getValue("com.eddysystems.Props.autoApplyFactor", PreferenceData.defaultAutoApplyFactor));
     data.setMinProbability(props.getValue("com.eddysystems.Props.minProbability", PreferenceData.defaultMinProbability));
     data.setMinRelativeProbability(props.getValue("com.eddysystems.Props.minRelativeProbability", PreferenceData.defaultMinRelativeProbability));
-    data.setRemoveQualifiers(props.getBoolean("com.eddysystems.Props.removeQualifiers", PreferenceData.defaultRemoveQualifiers));
     data.setStartDelay(props.getValue("com.eddysystems.Props.startDelay", PreferenceData.defaultStartDelay));
     data.setEmail(props.getValue("com.eddysystems.Props.email", ""));
     data.setLogPreference(PreferenceData.LogPreference.fromString(props.getValue("com.eddysystems.Props.logPreference", PreferenceData.defaultLogPreference.name())));
@@ -81,7 +80,6 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.autoApplyFactor", data.getAutoApplyFactor(), PreferenceData.defaultAutoApplyFactor);
     props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
     props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
-    props.setValue("com.eddysystems.Props.removeQualifier", Boolean.toString(data.isRemoveQualifiers()), Boolean.toString(PreferenceData.defaultRemoveQualifiers));
     props.setValue("com.eddysystems.Props.startDelay", data.getStartDelay(), PreferenceData.defaultStartDelay);
     props.setValue("com.eddysystems.Props.email", data.getEmail(), "");
     props.setValue("com.eddysystems.Props.logPreference", data.getLogPreference().name(), PreferenceData.defaultLogPreference.name());
@@ -93,7 +91,7 @@ public class Preferences implements Configurable {
     // Log
     Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
       data.isAutoApply(), data.getNumericAutoApplyThreshold(), data.getNumericAutoApplyFactor(),
-      data.getNumericMinProbability(), data.getNumericMinRelativeProbability(), data.isRemoveQualifiers(),
+      data.getNumericMinProbability(), data.getNumericMinRelativeProbability(),
       data.getNumericStartDelay(), data.getEmail(), data.getLogPreference().name()), Preferences.noLog(), Utility.onError);
   }
 
@@ -103,7 +101,6 @@ public class Preferences implements Configurable {
     data.setAutoApplyFactor(PreferenceData.defaultAutoApplyFactor);
     data.setMinProbability(PreferenceData.defaultMinProbability);
     data.setMinRelativeProbability(PreferenceData.defaultMinRelativeProbability);
-    data.setRemoveQualifiers(PreferenceData.defaultRemoveQualifiers);
     data.setStartDelay(PreferenceData.defaultStartDelay);
     data.setLogPreference(PreferenceData.defaultLogPreference);
 

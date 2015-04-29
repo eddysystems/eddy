@@ -14,7 +14,6 @@ public class PreferenceData {
   private double numericMinProbability;
   private String minRelativeProbability;
   private double numericMinRelativeProbability;
-  private boolean removeQualifiers;
   private String startDelay;
   private double numericStartDelay;
   private String email;
@@ -141,14 +140,6 @@ public class PreferenceData {
     } catch (NumberFormatException e) {
       this.numericMinRelativeProbability = toNumber(defaultMinRelativeProbability);
     }
-  }
-
-  public boolean isRemoveQualifiers() {
-    return removeQualifiers;
-  }
-
-  public void setRemoveQualifiers(final boolean removeQualifiers) {
-    this.removeQualifiers = removeQualifiers;
   }
 
   public double getNumericStartDelay() {

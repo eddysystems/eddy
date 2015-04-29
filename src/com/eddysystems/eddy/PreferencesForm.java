@@ -13,7 +13,6 @@ public class PreferencesForm {
   private JTextField minProbabilityTextField;
   private JTextField minRelativeProbability;
   private JButton resetButton;
-  private JCheckBox removeQualifiersCheckBox;
   private JTextField startDelay;
   private JTextField contactEmailTextField;
   private JRadioButton logNormallyRadioButton;
@@ -59,7 +58,6 @@ public class PreferencesForm {
     autoApplyFactorTextField.setText(data.getAutoApplyFactor());
     minProbabilityTextField.setText(data.getMinProbability());
     minRelativeProbability.setText(data.getMinRelativeProbability());
-    removeQualifiersCheckBox.setSelected(data.isRemoveQualifiers());
     startDelay.setText(data.getStartDelay());
     contactEmailTextField.setText(data.getEmail());
     setLogPreference(data.getLogPreference());
@@ -71,7 +69,6 @@ public class PreferencesForm {
     data.setAutoApplyFactor(autoApplyFactorTextField.getText());
     data.setMinProbability(minProbabilityTextField.getText());
     data.setMinRelativeProbability(minRelativeProbability.getText());
-    data.setRemoveQualifiers(removeQualifiersCheckBox.isSelected());
     data.setStartDelay(startDelay.getText());
     data.setEmail(contactEmailTextField.getText());
     data.setLogPreference(getLogPreference());
@@ -87,7 +84,6 @@ public class PreferencesForm {
       return true;
     if (minRelativeProbability.getText() != null ? !minRelativeProbability.getText().equals(data.getMinRelativeProbability()) : data.getMinRelativeProbability() != null)
       return true;
-    if (removeQualifiersCheckBox.isSelected() != data.isRemoveQualifiers()) return true;
     if (startDelay.getText() != null ? !startDelay.getText().equals(data.getStartDelay()) : data.getStartDelay() != null)
       return true;
     if (contactEmailTextField.getText() != null ? !contactEmailTextField.getText().equals(data.getEmail()) : data.getEmail() != null)
