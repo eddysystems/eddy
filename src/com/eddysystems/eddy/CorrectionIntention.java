@@ -28,7 +28,7 @@ public class CorrectionIntention implements IntentionAction, Iconable {
 
   @Override
   public boolean isAvailable(@NotNull Project project, Editor editor, @NotNull PsiFile file) {
-    return !Preferences.noLog() && file instanceof PsiJavaFile && EddyPlugin.getInstance(project).isInitialized();
+    return file instanceof PsiJavaFile && EddyPlugin.getInstance(project).isInitialized();
   }
 
   @Override
