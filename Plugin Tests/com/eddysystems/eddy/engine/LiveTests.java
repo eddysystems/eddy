@@ -7,9 +7,9 @@ import java.util.Set;
  * to the comments, the delete everything you wrote to leave it in good condition for the next test.
  */
 public class LiveTests {
-  void f(Set<Integer> ints) {
+  void f(Set<Integer> set_ints) {
     // type this:
-    // for i in ints:
+    // for i in set_ints
     // a hint should come up (only one option), accept it.
 
     // type this:
@@ -17,7 +17,7 @@ public class LiveTests {
     // a hint should come up (multiple options), accept it.
 
     // type this:
-    // ints = null
+    // set_ints = null
     // a hint should come up (auto-apply if at the end of the line), accept it.
 
     // type this:
