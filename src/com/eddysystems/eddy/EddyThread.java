@@ -174,7 +174,7 @@ public class EddyThread extends Thread {
           eddy.process(lastEditLocation, new Eddy.Take() {
             @Override public double take(final Eddy.Output output) {
               EddyThread.this.output = output;
-              return take(output);
+              return cont.take(output);
             }
           });
         } catch (IndexNotReadyException e) {
