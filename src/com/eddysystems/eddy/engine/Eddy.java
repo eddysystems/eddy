@@ -297,7 +297,7 @@ public class Eddy {
       int line = output != null ? output.input.line : -1;
       List<Loc<Token>> input = output != null ? output.input.input : null;
       List<Alt<ShowStmts>> results = output != null ? output.results : null;
-      Memory.log(Memory.eddySuggestion(base, Preferences.noCodeLog(), Memory.now(), line, input, results, suggestion), Preferences.noLog(), Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
+      Memory.log(Memory.eddySuggestion(base, false, Memory.now(), line, input, results, suggestion), false, Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
         @Override
         public Void apply(Try<BoxedUnit> v) {
           final String title, msg;
