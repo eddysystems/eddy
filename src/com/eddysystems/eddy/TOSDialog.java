@@ -21,15 +21,16 @@ import static com.eddysystems.eddy.engine.Utility.log;
 
 public class TOSDialog extends DialogWrapper {
   private JPanel contentPane;
-  private JRadioButton iAcceptTheTermsRadioButton;
-  private JRadioButton iDoNotAcceptRadioButton;
+  private JRadioButton loggingOkButton;
+  private JRadioButton noLoggingButton;
   private JTextPane TOSTextPane;
+  private JRadioButton noCodeLoggingButton;
   private ButtonGroup acceptGroup;
 
   public TOSDialog() {
     super(null, false, IdeModalityType.IDE);
     init();
-    setTitle("eddy - Terms Of Service");
+    setTitle("eddy - Logging preferences");
     setCrossClosesWindow(false);
     // get TOS page out of our jar or directory
     final String pathname = PathUtil.getJarPathForClass(TOSDialog.class);
@@ -37,15 +38,15 @@ public class TOSDialog extends DialogWrapper {
     try {
       final URL url;
       if (path.isDirectory()) {
-        url = new File(path, "terms-of-service.html").toURI().toURL();
+        url = new File(path, "intro.html").toURI().toURL();
       } else {
-        url = ResourceUtil.getResource(TOSDialog.class, "", "terms-of-service.html");
+        url = ResourceUtil.getResource(TOSDialog.class, "", "intro.html");
       }
       TOSTextPane.setPage(url);
     } catch (MalformedURLException e) {
-      throw new RuntimeException("Cannot load terms of service. Please try reinstalling.", e);
+      throw new RuntimeException("Cannot load intro text. Please try reinstalling.", e);
     } catch (IOException e) {
-      throw new RuntimeException("Cannot load terms of service. Please try reinstalling.", e);
+      throw new RuntimeException("Cannot load intro text. Please try reinstalling.", e);
     }
 
     HyperlinkListener l = new HyperlinkListener() {
@@ -68,14 +69,19 @@ public class TOSDialog extends DialogWrapper {
     TOSTextPane.addHyperlinkListener(l);
   }
 
-  public boolean isAccepted() {
-    return acceptGroup.isSelected(iAcceptTheTermsRadioButton.getModel());
+  public PreferenceData.LogPreference logging() {
+    if (acceptGroup.isSelected(loggingOkButton.getModel()))
+      return PreferenceData.LogPreference.Normal;
+    else if (acceptGroup.isSelected(noCodeLoggingButton.getModel()))
+      return PreferenceData.LogPreference.NoCode;
+    else
+      return PreferenceData.LogPreference.NoLog;
   }
 
   @Override
   protected ValidationInfo doValidate() {
     if (acceptGroup.getSelection() == null) {
-      return new ValidationInfo("Please accept or reject the Terms Of Service (actually, please accept them).", iDoNotAcceptRadioButton);
+      return new ValidationInfo("Please choose whether and how eddy may log activity", noLoggingButton);
     }
     return null;
   }

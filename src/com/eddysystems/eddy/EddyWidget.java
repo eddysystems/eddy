@@ -25,7 +25,6 @@ class EddyWidget implements StatusBarWidget {
   static private Icon eddyIcon;
   static private Icon eddyIconGray;
   static private Icon eddyIconSleep;
-  static private Icon eddyIconDisabled;
 
   static public Icon getIcon() {
     if (eddyIcon == null) {
@@ -45,13 +44,6 @@ class EddyWidget implements StatusBarWidget {
     }
     return eddyIconSleep;
   }
-  static public Icon getIconDisabled() {
-    if (eddyIconDisabled == null) {
-      makeIcons();
-    }
-    return eddyIconDisabled;
-  }
-
   static private void makeIcons() {
     final String pathname = PathUtil.getJarPathForClass(EddyWidget.class);
     final File path = new File(pathname);
@@ -61,16 +53,13 @@ class EddyWidget implements StatusBarWidget {
       eddyIcon = new ImageIcon(new File(path, "eddy-icon-16.png").getPath());
       eddyIconGray = new ImageIcon(new File(path, "eddy-icon-16-gray.png").getPath());
       eddyIconSleep = new ImageIcon(new File(path, "eddy-icon-16-sleep.png").getPath());
-      eddyIconDisabled = new ImageIcon(new File(path, "eddy-icon-16-disabled.png").getPath());
     } else {
       final URL colorurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16.png");
       final URL greyurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-gray.png");
       final URL sleepurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-sleep.png");
-      final URL disabledurl = ResourceUtil.getResource(EddyWidget.class, "", "eddy-icon-16-disabled.png");
       eddyIcon = new ImageIcon(colorurl);
       eddyIconGray = new ImageIcon(greyurl);
       eddyIconSleep = new ImageIcon(sleepurl);
-      eddyIconDisabled = new ImageIcon(disabledurl);
     }
   }
 
@@ -85,9 +74,7 @@ class EddyWidget implements StatusBarWidget {
 
     @Nullable @Override
     public String getTooltipText() {
-      if (!EddyPlugin.checkTOS(false))
-        return "eddy is disabled.";
-      else if (PowerSaveMode.isEnabled())
+      if (PowerSaveMode.isEnabled())
         return "eddy is disabled in power save mode.";
       else if (busy()) {
         if (plugin.isInitialized())
@@ -103,15 +90,7 @@ class EddyWidget implements StatusBarWidget {
     }
 
     @Nullable @Override public Consumer<MouseEvent> getClickConsumer() {
-      return new Consumer<MouseEvent>() {
-        @Override
-        public void consume(MouseEvent mouseEvent) {
-          if (!EddyPlugin.checkTOS(false) && EddyPlugin.checkTOS(true)) {
-            // they accepted now, initialize all the EddyPlugin instances
-            EddyPlugin.initAll();
-          }
-        }
-      };
+      return null;
     }
   }
 
@@ -120,9 +99,7 @@ class EddyWidget implements StatusBarWidget {
     @NotNull
     @Override
     public Icon getIcon() {
-      if (!EddyPlugin.checkTOS(false))
-        return getIconDisabled();
-      else if (PowerSaveMode.isEnabled())
+      if (PowerSaveMode.isEnabled())
         return getIconSleep();
       else if (busy())
         return EddyWidget.getIcon();

@@ -18,7 +18,6 @@ public class PreferenceData {
   private String startDelay;
   private double numericStartDelay;
   private String email;
-  private String licenseCode;
 
   public enum LogPreference {
     Normal, NoCode, NoLog;
@@ -39,7 +38,7 @@ public class PreferenceData {
   public static final String defaultMinRelativeProbability = "0.1%";
   public static final boolean defaultRemoveQualifiers = true;
   public static final String defaultStartDelay = "0.2";
-  public static final LogPreference defaultLogPreference = LogPreference.Normal;
+  public static final LogPreference defaultLogPreference = LogPreference.NoCode;
 
   public PreferenceData() {
   }
@@ -177,27 +176,11 @@ public class PreferenceData {
     this.email = email;
   }
 
-  public String getLicenseCode() {
-    return licenseCode;
-  }
-
-  public void setLicenseCode(final String licenseCode) {
-    this.licenseCode = licenseCode;
-  }
-
-  public boolean checkLicense() {
-    return Preferences.checkLicense(this.licenseCode);
-  }
-
   public LogPreference getLogPreference() {
     return logPreference;
   }
 
-  public void setLogPreference(final LogPreference lp) {
-    // check the license before allowing this (set to default otherwise)
-    if (!checkLicense())
-      this.logPreference = defaultLogPreference;
-    else
-      this.logPreference = lp;
+  public void setLogPreference(LogPreference lp) {
+    this.logPreference = lp;
   }
 }

@@ -74,48 +74,48 @@ public class EddyPlugin implements ProjectComponent {
     return Memory.basics(installKey(), getVersion() + " - " + getBuild(), project != null ? project.getName() : null, ideaVersion());
   }
 
-  private static Boolean _acceptedTOS = null;
-  public static boolean checkTOS(boolean force) {
-    if (force || _acceptedTOS == null) {
-      final PropertiesComponent props = PropertiesComponent.getInstance();
-      final String name = "com.eddysystems.Props.acceptedTOS";
-      String accepted = props.getValue(name);
-      if (force || accepted == null) {
-        final Object done = new Object();
-        final Runnable showRunner = new Runnable() {
+  private static void checkLogging() {
+    // if no logging preference saved, make the user select one
+    final PropertiesComponent props = PropertiesComponent.getInstance();
+    final String name = "com.eddysystems.Props.checkedLogging";
+    String checked = props.getValue(name);
+
+    log("logging state: " + checked);
+
+    if (checked == null || !checked.equals("true")) {
+
+      // we haven't checked before, check now and save to Preferences
+      final Object done = new Object();
+      final Runnable showRunner = new Runnable() {
           @Override
           public void run() {
             final TOSDialog d = new TOSDialog();
             d.showAndGet();
-            _acceptedTOS = d.isAccepted();
+            Preferences.getData().setLogPreference(d.logging());
+            Preferences.save();
             synchronized (done) {
               done.notifyAll();
             }
           }
-        };
+      };
 
-        // go to dispatch to show dialog
-        if (!ApplicationManager.getApplication().isDispatchThread()) {
-          // we have to wait manually, because getting the current modality isn't a thing that 13 lets us do outside of
-          // dispatch
-          ApplicationManager.getApplication().invokeLater(showRunner);
-          try {
-            synchronized (done) {
-              done.wait();
-            }
-          } catch (InterruptedException e) {
-            throw new RuntimeInterruptedException(e);
+      // go to dispatch to show dialog
+      if (!ApplicationManager.getApplication().isDispatchThread()) {
+        // we have to wait manually, because getting the current modality isn't a thing that 13 lets us do outside of
+        // dispatch
+        ApplicationManager.getApplication().invokeLater(showRunner);
+        try {
+          synchronized (done) {
+            done.wait();
           }
-        } else {
-          showRunner.run();
+        } catch (InterruptedException e) {
+          throw new RuntimeInterruptedException(e);
         }
-        accepted = _acceptedTOS ? "true" : "false";
-        props.setValue(name, accepted);
       } else {
-        _acceptedTOS = accepted.equals("true");
+        showRunner.run();
       }
+      props.setValue(name, "true");
     }
-    return _acceptedTOS;
   }
 
   static private Properties _properties = null;
@@ -279,19 +279,10 @@ public class EddyPlugin implements ProjectComponent {
   public void initComponent() {
 
     log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
-    log("now is " + String.format("%f",GregorianCalendar.getInstance().getTimeInMillis()/1000.));
-    log("logging: " + Preferences.getData().getLogPreference());
+    log("now is " + String.format("%f", GregorianCalendar.getInstance().getTimeInMillis() / 1000.));
 
-    if (!app.isHeadlessEnvironment() && !checkTOS(false)) {
-      log("TOS not accepted, starting in disabled mode.");
-      StartupManager.getInstance(project).runWhenProjectIsInitialized(new Runnable() {
-        @Override
-        public void run() {
-          widget.requestInstall();
-        }
-      });
-      return;
-    }
+    if (!app.isHeadlessEnvironment())
+      checkLogging();
 
     final MessageBusConnection connection = project.getMessageBus().connect();
 
