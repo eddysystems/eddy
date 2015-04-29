@@ -20,6 +20,12 @@
     ]]></description>
 
   <change-notes><![CDATA[
+    <p>0.7</p><ul>
+    <li>change to BSD-2 license</li>
+    <li>proper handling of super wildcards</li>
+    <li>made logging optional</li>
+    <li>added file documentation</li>
+    </ul>
     <p>0.6.2</p><ul>
     <li>fix deadlock caused by interaction with Scala plugin</li>
     <li>understand is/isinstance</li>
