@@ -25,20 +25,20 @@ we recommend developing eddy using IntelliJ 14 or higher.  These instructions fo
    [build IntelliJ using IntelliJ](http://www.jetbrains.org/pages/viewpage.action?pageId=983225),
    but watch out for:
 
-* On modern MacOS, you will have to [install JDK1.6](http://support.apple.com/kb/DL1572).
-  Once you have installed this, Java 1.6 should be in /System/Library/Java/JavaVirtualMachines.
-  If it isn't, go to developer.apple.com/downloads, search for Java, and install the Java for
-  OS X 2013-005 package, which ought to work.
-* You do not have to copy lib/tools.jar anywhere. Ignore this step.
-* You have to build IntelliJ, but we will never actually use the version of IntelliJ you built.
+   * On modern MacOS, you will have to [install JDK1.6](http://support.apple.com/kb/DL1572).
+     Once you have installed this, Java 1.6 should be in /System/Library/Java/JavaVirtualMachines.
+     If it isn't, go to developer.apple.com/downloads, search for Java, and install the Java for
+     OS X 2013-005 package, which ought to work.
+   * You do not have to copy lib/tools.jar anywhere. Ignore this step.
+   * You have to build IntelliJ, but we will never actually use the version of IntelliJ you built.
 
 3. [Configure an IntelliJ IDEA SDK](http://www.jetbrains.org/pages/viewpage.action?pageId=983225),
    but watch out for:
 
-* You must use the installation directory of the downloaded, not the built version of IntelliJ
-  (typically, /Applications/IntelliJ IDEA/Content), which fortunately should be selected by default.
-* You must use JDK 1.6 (you have named this IDEA jdk earlier) as the internal Java platform.
-* Make sure you build IntelliJ first (see 2.) before doing this.
+   * You must use the installation directory of the downloaded, not the built version of IntelliJ
+     (typically, /Applications/IntelliJ IDEA/Content), which fortunately should be selected by default.
+   * You must use JDK 1.6 (you have named this IDEA jdk earlier) as the internal Java platform.
+   * Make sure you build IntelliJ first (see 2.) before doing this.
 
 4. Clone git@github.com:eddysystems/eddy, and open it in IntelliJ.
 
