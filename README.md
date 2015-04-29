@@ -3,9 +3,8 @@ eddy: autocorrect for java
 
 eddy is a plugin for the IntelliJ Java IDE that translates pseudocode and broken Java
 into correct code as you type, making its best effort to understand what you meant to
-write.  eddy can be installed within IntelliJ: just 
-
-eddy is open source, with a [BSD 2-clause license](https://github.com/eddysystems/eddy/blob/master/LICENSE).
+write.  eddy is open source, with a
+[BSD 2-clause license](https://github.com/eddysystems/eddy/blob/master/LICENSE).
 
 ### Install
 
@@ -40,7 +39,7 @@ we recommend developing eddy using IntelliJ 14 or higher.  These instructions fo
    * You must use JDK 1.6 (you have named this IDEA jdk earlier) as the internal Java platform.
    * Make sure you build IntelliJ first (see 2.) before doing this.
 
-4. Clone git@github.com:eddysystems/eddy, and open it in IntelliJ.
+4. Clone eddy and open it in IntelliJ.
 
 5. To see debug output using the Logger class used in the eddy plugin, make sure you see the IDEA
    Log in the output, and set the debug level to "all".
