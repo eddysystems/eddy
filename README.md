@@ -47,7 +47,7 @@ we recommend developing eddy using IntelliJ 14 or higher.  These instructions fo
 ### Modifying the grammar
 
 eddy includes a parser generator called `ambiguity` which turns eddy's grammar
-specification `eddy.gram` into Java code.  Currently, whether `eddy.gram` is
+specification `eddy.gram` into Java code.  Currently, whenever `eddy.gram` is
 changed, `ambiguity` must be invoked outside of IntelliJ by running `make` in
 the toplevel eddy directory.  This should be
 [improved in future](https://github.com/eddysystems/eddy/issues/39).
