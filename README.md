@@ -44,6 +44,14 @@ we recommend developing eddy using IntelliJ 14 or higher.  These instructions fo
 5. To see debug output using the Logger class used in the eddy plugin, make sure you see the IDEA
    Log in the output, and set the debug level to "all".
 
+### Modifying the grammar
+
+eddy includes a parser generator called `ambiguity` which turns eddy's grammar
+specification `eddy.gram` into Java code.  Currently, whenever `eddy.gram` is
+changed, `ambiguity` must be invoked outside of IntelliJ by running `make` in
+the toplevel eddy directory.  This should be
+[improved in future](https://github.com/eddysystems/eddy/issues/39).
+
 ### Contributing
 
 We welcome contributions to eddy!  If you would like to contribute, it is as easy as forking the
