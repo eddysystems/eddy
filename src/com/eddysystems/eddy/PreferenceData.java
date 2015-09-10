@@ -16,28 +16,13 @@ public class PreferenceData {
   private double numericMinRelativeProbability;
   private String startDelay;
   private double numericStartDelay;
-  private String email;
-
-  public enum LogPreference {
-    Normal, NoCode, NoLog;
-
-    static public LogPreference fromString(String s) {
-      return Normal.name().equals(s) ? Normal :
-             NoCode.name().equals(s) ? NoCode :
-             NoLog.name().equals(s) ? NoLog :
-             defaultLogPreference; // default to default;
-    }
-  }
-  private LogPreference logPreference;
 
   public static final boolean defaultAutoApply = true;
   public static final String defaultAutoApplyThreshold = "90%";
   public static final String defaultAutoApplyFactor = "3";
   public static final String defaultMinProbability = "1e-6";
   public static final String defaultMinRelativeProbability = "0.1%";
-  public static final boolean defaultRemoveQualifiers = true;
   public static final String defaultStartDelay = "0.2";
-  public static final LogPreference defaultLogPreference = LogPreference.NoCode;
 
   public PreferenceData() {
   }
@@ -157,21 +142,5 @@ public class PreferenceData {
     } catch (NumberFormatException e) {
       numericStartDelay = Double.parseDouble(defaultStartDelay);
     }
-  }
-
-  public String getEmail() {
-    return email;
-  }
-
-  public void setEmail(final String email) {
-    this.email = email;
-  }
-
-  public LogPreference getLogPreference() {
-    return logPreference;
-  }
-
-  public void setLogPreference(LogPreference lp) {
-    this.logPreference = lp;
   }
 }

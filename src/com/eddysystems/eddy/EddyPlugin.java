@@ -11,7 +11,6 @@ import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.RuntimeInterruptedException;
 import com.intellij.openapi.components.ProjectComponent;
 import com.intellij.openapi.fileEditor.FileEditorManagerListener;
 import com.intellij.openapi.progress.PerformInBackgroundOption;
@@ -29,7 +28,6 @@ import com.intellij.util.ResourceUtil;
 import com.intellij.util.messages.MessageBusConnection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import tarski.Memory;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -67,55 +65,6 @@ public class EddyPlugin implements ProjectComponent {
 
   private static String ideaVersion() {
     return ApplicationInfo.getInstance().getBuild().asString();
-  }
-
-  // Basic information for logging
-  public static Memory.Info basics(final @Nullable Project project) {
-    return Memory.basics(installKey(), getVersion() + " - " + getBuild(), project != null ? project.getName() : null, ideaVersion());
-  }
-
-  private static void checkLogging() {
-    // if no logging preference saved, make the user select one
-    final PropertiesComponent props = PropertiesComponent.getInstance();
-    final String name = "com.eddysystems.Props.checkedLogging";
-    String checked = props.getValue(name);
-
-    log("logging state: " + checked);
-
-    if (checked == null || !checked.equals("true")) {
-
-      // we haven't checked before, check now and save to Preferences
-      final Object done = new Object();
-      final Runnable showRunner = new Runnable() {
-          @Override
-          public void run() {
-            final TOSDialog d = new TOSDialog();
-            d.showAndGet();
-            Preferences.getData().setLogPreference(d.logging());
-            Preferences.save();
-            synchronized (done) {
-              done.notifyAll();
-            }
-          }
-      };
-
-      // go to dispatch to show dialog
-      if (!ApplicationManager.getApplication().isDispatchThread()) {
-        // we have to wait manually, because getting the current modality isn't a thing that 13 lets us do outside of
-        // dispatch
-        ApplicationManager.getApplication().invokeLater(showRunner);
-        try {
-          synchronized (done) {
-            done.wait();
-          }
-        } catch (InterruptedException e) {
-          throw new RuntimeInterruptedException(e);
-        }
-      } else {
-        showRunner.run();
-      }
-      props.setValue(name, "true");
-    }
   }
 
   static private Properties _properties = null;
@@ -280,9 +229,6 @@ public class EddyPlugin implements ProjectComponent {
 
     log("eddy starting" + (isDebug() ? " (debug)" : "") + ": installation " + installKey() + " version " + getVersion() + " build " + getBuild());
     log("now is " + String.format("%f", GregorianCalendar.getInstance().getTimeInMillis() / 1000.));
-
-    if (!app.isHeadlessEnvironment())
-      checkLogging();
 
     final MessageBusConnection connection = project.getMessageBus().connect();
 

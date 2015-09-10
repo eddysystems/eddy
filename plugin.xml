@@ -89,11 +89,6 @@
         <category>Other</category>
         <descriptionDirectoryName>Eddy</descriptionDirectoryName>
     </intentionAction>
-    <intentionAction>
-        <className>com.eddysystems.eddy.CorrectionIntention</className>
-        <category>Other</category>
-        <descriptionDirectoryName>EddyCorrection</descriptionDirectoryName>
-    </intentionAction>
 
     <applicationConfigurable instance="com.eddysystems.eddy.Preferences">
     </applicationConfigurable>

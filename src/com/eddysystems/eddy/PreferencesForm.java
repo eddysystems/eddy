@@ -14,10 +14,6 @@ public class PreferencesForm {
   private JTextField minRelativeProbability;
   private JButton resetButton;
   private JTextField startDelay;
-  private JTextField contactEmailTextField;
-  private JRadioButton logNormallyRadioButton;
-  private JRadioButton noCodeLoggingRadioButton;
-  private JRadioButton noLoggingRadioButton;
 
   public PreferencesForm() {
     resetButton.addActionListener(new ActionListener() {
@@ -26,26 +22,6 @@ public class PreferencesForm {
         Preferences.resetToDefaults();
       }
     });
-  }
-
-  public PreferenceData.LogPreference getLogPreference() {
-    if (logNormallyRadioButton.isSelected())
-      return PreferenceData.LogPreference.Normal;
-    else if (noCodeLoggingRadioButton.isSelected())
-      return PreferenceData.LogPreference.NoCode;
-    else if (noLoggingRadioButton.isSelected())
-      return PreferenceData.LogPreference.NoLog;
-    else
-      throw new IllegalStateException();
-  }
-
-  public void setLogPreference(PreferenceData.LogPreference lp) {
-    if (lp == PreferenceData.LogPreference.Normal)
-      logNormallyRadioButton.setSelected(true);
-    else if (lp == PreferenceData.LogPreference.NoCode)
-      noCodeLoggingRadioButton.setSelected(true);
-    else if (lp == PreferenceData.LogPreference.NoLog)
-      noLoggingRadioButton.setSelected(true);
   }
 
   public JPanel getPanel() {
@@ -59,8 +35,6 @@ public class PreferencesForm {
     minProbabilityTextField.setText(data.getMinProbability());
     minRelativeProbability.setText(data.getMinRelativeProbability());
     startDelay.setText(data.getStartDelay());
-    contactEmailTextField.setText(data.getEmail());
-    setLogPreference(data.getLogPreference());
   }
 
   public void getData(PreferenceData data) {
@@ -70,8 +44,6 @@ public class PreferencesForm {
     data.setMinProbability(minProbabilityTextField.getText());
     data.setMinRelativeProbability(minRelativeProbability.getText());
     data.setStartDelay(startDelay.getText());
-    data.setEmail(contactEmailTextField.getText());
-    data.setLogPreference(getLogPreference());
   }
 
   public boolean isModified(PreferenceData data) {
@@ -85,10 +57,6 @@ public class PreferencesForm {
     if (minRelativeProbability.getText() != null ? !minRelativeProbability.getText().equals(data.getMinRelativeProbability()) : data.getMinRelativeProbability() != null)
       return true;
     if (startDelay.getText() != null ? !startDelay.getText().equals(data.getStartDelay()) : data.getStartDelay() != null)
-      return true;
-    if (contactEmailTextField.getText() != null ? !contactEmailTextField.getText().equals(data.getEmail()) : data.getEmail() != null)
-      return true;
-    if (data.getLogPreference() != getLogPreference())
       return true;
     return false;
   }

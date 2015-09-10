@@ -2,13 +2,11 @@
 
 package com.eddysystems.eddy;
 
-import com.eddysystems.eddy.engine.Utility;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.openapi.options.Configurable;
 import com.intellij.openapi.options.ConfigurationException;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.Nullable;
-import tarski.Memory;
 
 import javax.swing.*;
 
@@ -28,14 +26,6 @@ public class Preferences implements Configurable {
     if (!initialized)
       load();
     return data;
-  }
-
-  public static boolean noCodeLog() {
-    return getData().getLogPreference() == PreferenceData.LogPreference.NoCode;
-  }
-
-  public static boolean noLog() {
-    return getData().getLogPreference() == PreferenceData.LogPreference.NoLog;
   }
 
   @Nls
@@ -68,8 +58,6 @@ public class Preferences implements Configurable {
     data.setMinProbability(props.getValue("com.eddysystems.Props.minProbability", PreferenceData.defaultMinProbability));
     data.setMinRelativeProbability(props.getValue("com.eddysystems.Props.minRelativeProbability", PreferenceData.defaultMinRelativeProbability));
     data.setStartDelay(props.getValue("com.eddysystems.Props.startDelay", PreferenceData.defaultStartDelay));
-    data.setEmail(props.getValue("com.eddysystems.Props.email", ""));
-    data.setLogPreference(PreferenceData.LogPreference.fromString(props.getValue("com.eddysystems.Props.logPreference", PreferenceData.defaultLogPreference.name())));
     initialized = true;
   }
 
@@ -81,18 +69,6 @@ public class Preferences implements Configurable {
     props.setValue("com.eddysystems.Props.minProbability", data.getMinProbability(), PreferenceData.defaultMinProbability);
     props.setValue("com.eddysystems.Props.minRelativeProbability", data.getMinRelativeProbability(), PreferenceData.defaultMinRelativeProbability);
     props.setValue("com.eddysystems.Props.startDelay", data.getStartDelay(), PreferenceData.defaultStartDelay);
-    props.setValue("com.eddysystems.Props.email", data.getEmail(), "");
-    props.setValue("com.eddysystems.Props.logPreference", data.getLogPreference().name(), PreferenceData.defaultLogPreference.name());
-
-    // if we ever set the email to something non-empty, don't ask for it later
-    if (!"".equals(data.getEmail()))
-      props.setValue("com.eddysystems.Props.emailRequested", "true");
-
-    // Log
-    Memory.log(Memory.eddyProps(EddyPlugin.basics(null),
-      data.isAutoApply(), data.getNumericAutoApplyThreshold(), data.getNumericAutoApplyFactor(),
-      data.getNumericMinProbability(), data.getNumericMinRelativeProbability(),
-      data.getNumericStartDelay(), data.getEmail(), data.getLogPreference().name()), Preferences.noLog(), Utility.onError);
   }
 
   static public void resetToDefaults() {
@@ -102,10 +78,6 @@ public class Preferences implements Configurable {
     data.setMinProbability(PreferenceData.defaultMinProbability);
     data.setMinRelativeProbability(PreferenceData.defaultMinRelativeProbability);
     data.setStartDelay(PreferenceData.defaultStartDelay);
-    data.setLogPreference(PreferenceData.defaultLogPreference);
-
-    // don't reset email or license key
-
     form.setData(data);
   }
 
@@ -150,10 +122,6 @@ public class Preferences implements Configurable {
       throw new ConfigurationException("start delay must be a number between 0 and 10 (seconds)");
     }
 
-    final String email = data.getEmail();
-    if (!"".equals(email) && !email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2}[a-zA-Z]*$"))
-      throw new ConfigurationException("Please enter a valid email address (or none at all)");
-
     // update the data on the form
     reset();
 
@@ -170,12 +138,6 @@ public class Preferences implements Configurable {
 
   @Override
   public void disposeUIResources() {
-  }
-
-  public static boolean checkLicense(String licenseCode) {
-    String lc = licenseCode.toLowerCase().replaceAll("[^0-9a-z]","");
-    return "433707af69bf79af15f9".equals(lc) || // Luciad
-           "9fc87cbff524e24315e4".equals(lc); // reddit
   }
 
 }

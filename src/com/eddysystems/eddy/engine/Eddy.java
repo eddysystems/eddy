@@ -11,9 +11,6 @@ import com.eddysystems.eddy.EddyPlugin;
 import com.eddysystems.eddy.PreferenceData;
 import com.eddysystems.eddy.Preferences;
 import com.intellij.lang.ASTNode;
-import com.intellij.notification.Notification;
-import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.application.RuntimeInterruptedException;
@@ -33,13 +30,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import scala.Function2;
 import scala.Unit$;
-import scala.runtime.AbstractFunction1;
 import scala.runtime.AbstractFunction2;
-import scala.runtime.BoxedUnit;
-import scala.util.Try;
 import tarski.Environment.Env;
 import tarski.JavaScores;
-import tarski.Memory;
 import tarski.Scores.Alt;
 import tarski.Tarski;
 import tarski.Tarski.ShowStmts;
@@ -60,7 +53,6 @@ import static utility.Utility.unchecked;
 
 public class Eddy {
   final private Project project;
-  final private Memory.Info base;
   final private Editor editor;
   final private Document document;
 
@@ -194,9 +186,7 @@ public class Eddy {
     public int autoApply() {
       // Automatically apply the best found result
       String code = format(0, fullShowFlags());
-      int offset = rawApply(eddy.document, code);
-      Memory.log(Memory.eddyAutoApply(eddy.base, Preferences.noCodeLog(), Memory.now(), input.line, input.input, results, code), Preferences.noLog(), Utility.onError);
-      return offset;
+      return rawApply(eddy.document, code);
     }
 
     public boolean isConfident() {
@@ -289,29 +279,6 @@ public class Eddy {
           }.execute();
         }
       });
-      Memory.log(Memory.eddyApply(eddy.base, Preferences.noCodeLog(), Memory.now(),input.line,input.input,results,index), Preferences.noLog(), Utility.onError);
-    }
-
-    public static void logSuggestion(final @NotNull Project project, final @Nullable Output output, final @NotNull String suggestion) {
-      Memory.Info base = output != null ? output.eddy.base : EddyPlugin.basics(project);
-      int line = output != null ? output.input.line : -1;
-      List<Loc<Token>> input = output != null ? output.input.input : null;
-      List<Alt<ShowStmts>> results = output != null ? output.results : null;
-      Memory.log(Memory.eddySuggestion(base, false, Memory.now(), line, input, results, suggestion), false, Utility.onError).onComplete(new AbstractFunction1<Try<BoxedUnit>, Void>() {
-        @Override
-        public Void apply(Try<BoxedUnit> v) {
-          final String title, msg;
-          if (v.isSuccess()) {
-            title = "Suggestion processed";
-            msg = "Thank you! Your suggestion will help improve eddy!";
-          } else {
-            title = "Suggestion failed to send";
-            msg = "I'm sorry, your suggestion could not be recorded. Our servers could not be reached.";
-          }
-          Notifications.Bus.notify(new Notification("Eddy", title, msg, NotificationType.INFORMATION), project);
-          return null;
-        }
-      }, scala.concurrent.ExecutionContext.Implicits$.MODULE$.global());
     }
   }
 
@@ -324,7 +291,6 @@ public class Eddy {
     this.project = project;
     this.editor = editor;
     this.document = editor.getDocument();
-    this.base = EddyPlugin.basics(project);
   }
 
   // only used here and in tests
@@ -550,7 +516,6 @@ public class Eddy {
   public void process(final int lastEdit, final Take takeOutput) {
     // Use mutable variables so that we log more if an exception is thrown partway through
     class Helper {
-      final double start = Memory.now();
       Input input;
       List<Alt<ShowStmts>> results;
       List<Double> delays = new ArrayList<Double>(4);
@@ -603,27 +568,19 @@ public class Eddy {
       }
 
       void safe() {
-        try {
-          if (isDebug()) // Run outside try so that we can see inside exceptions
-            unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() {
-              unsafe();
-              return Unit$.MODULE$;
-            }});
-          else try {
+        if (isDebug()) // Run outside try so that we can see inside exceptions
+          unchecked(new Unchecked<Unit$>() { @Override public Unit$ apply() {
             unsafe();
-          } catch (final Throwable e) {
-            error = e;
-            if (!(e instanceof ThreadDeath) && !(e instanceof RuntimeInterruptedException))
-              logError("process()",e); // Log everything except for ThreadDeath and RuntimeInterruptedException, which happens all the time.
-            if (e instanceof Error && !(e instanceof AssertionError))
-              throw (Error)e; // Rethrow most kinds of Errors
-          }
-        } finally {
-          Memory.log(Memory.eddyProcess(base,Preferences.noCodeLog(), start,
-                                        input==null ? -1 : input.line,
-                                        input==null ? null : input.input,
-                                        results,
-                                        delays).error(error), Preferences.noLog(), Utility.onError);
+            return Unit$.MODULE$;
+          }});
+        else try {
+          unsafe();
+        } catch (final Throwable e) {
+          error = e;
+          if (!(e instanceof ThreadDeath) && !(e instanceof RuntimeInterruptedException))
+            logError("process()",e); // Log everything except for ThreadDeath and RuntimeInterruptedException, which happens all the time.
+          if (e instanceof Error && !(e instanceof AssertionError))
+            throw (Error)e; // Rethrow most kinds of Errors
         }
       }
     }

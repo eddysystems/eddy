@@ -18,8 +18,6 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Level;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import tarski.Memory;
-import tarski.Memory.OnError;
 
 import java.util.*;
 
@@ -191,13 +189,6 @@ public class Utility {
     log("trace: ");
     log(e.getStackTrace());
   }
-
-  public static OnError onError = new OnError() {
-    @Override
-    public void error(Memory.Info i, Throwable e) {
-      log("failed to log " + i + ": " + e);
-    }
-  };
 
   // Doing complicated stuff in processFieldsWithName causes nasty deadlocks if we accidentally
   // call into the Scala plugin.  Instead, we collect the fields into a list and process them afterwards.
