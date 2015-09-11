@@ -11,7 +11,7 @@
 
 ### Keep a few things
 
--keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention,com.eddysystems.eddy.CorrectionIntention {
+-keep class com.eddysystems.eddy.EddyPlugin,com.eddysystems.eddy.EddyIntention {
   <init>(...);
 }
 
