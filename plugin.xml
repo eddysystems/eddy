@@ -20,6 +20,9 @@
     ]]></description>
 
   <change-notes><![CDATA[
+    <p>0.8</p><ul>
+    <li>remove logging and suggestions</li>
+    </ul>
     <p>0.7</p><ul>
     <li>change to BSD-2 license</li>
     <li>proper handling of super wildcards</li>
