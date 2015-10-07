@@ -167,29 +167,34 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   private void updateIntentions() {
     if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
-      ApplicationManager.getApplication().invokeLater(new Runnable() {
+      PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
         @Override
         public void run() {
-          try {
-            final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
-            assert file != null;
-            ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
-            ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
-            if (!intentions.isEmpty()) {
+          ApplicationManager.getApplication().invokeLater(new Runnable() {
+            @Override
+            public void run() {
               try {
-                if (editor.getComponent().isDisplayable())
-                  IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
-              } catch (final NullPointerException e) {
-                // Log and ignore
-                log("updateIntentions: Can't show hint due to NullPointerException");
+                final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
+                assert file != null;
+                ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
+                ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
+                if (!intentions.isEmpty()) {
+                  try {
+                    if (editor.getComponent().isDisplayable())
+                      IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+                  } catch (final NullPointerException e) {
+                    // Log and ignore
+                    log("updateIntentions: Can't show hint due to NullPointerException");
+                  }
+                }
+              } catch (IndexOutOfBoundsException e) {
+                log("updateIntentions: index out of bounds.");
+                //Memory.log(Memory.eddyError(EddyPlugin.basics(project), e), Utility.onError);
               }
             }
-          } catch (IndexOutOfBoundsException e) {
-            log("updateIntentions: index out of bounds.");
-            //Memory.log(Memory.eddyError(EddyPlugin.basics(project), e), Utility.onError);
-          }
+          }, project.getDisposed());
         }
-      }, project.getDisposed());
+      });
     }
   }
 
