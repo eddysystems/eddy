@@ -167,34 +167,31 @@ public class EddyFileListener implements CaretListener, DocumentListener {
 
   private void updateIntentions() {
     if (!ApplicationManager.getApplication().isHeadlessEnvironment()) {
-      PsiDocumentManager.getInstance(project).performForCommittedDocument(document, new Runnable() {
+      ApplicationManager.getApplication().invokeLater(new Runnable() {
         @Override
         public void run() {
-          ApplicationManager.getApplication().invokeLater(new Runnable() {
-            @Override
-            public void run() {
+          try {
+            final PsiDocumentManager pdm = PsiDocumentManager.getInstance(project);
+            pdm.commitAllDocuments();
+            final PsiFile file = pdm.getPsiFile(document);
+            assert file != null;
+            ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
+            ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
+            if (!intentions.isEmpty()) {
               try {
-                final PsiFile file = PsiDocumentManager.getInstance(project).getPsiFile(document);
-                assert file != null;
-                ShowIntentionsPass.IntentionsInfo intentions = new ShowIntentionsPass.IntentionsInfo();
-                ShowIntentionsPass.getActionsToShow(editor, file, intentions, -1);
-                if (!intentions.isEmpty()) {
-                  try {
-                    if (editor.getComponent().isDisplayable())
-                      IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
-                  } catch (final NullPointerException e) {
-                    // Log and ignore
-                    log("updateIntentions: Can't show hint due to NullPointerException");
-                  }
-                }
-              } catch (IndexOutOfBoundsException e) {
-                log("updateIntentions: index out of bounds.");
-                //Memory.log(Memory.eddyError(EddyPlugin.basics(project), e), Utility.onError);
+                if (editor.getComponent().isDisplayable())
+                  IntentionHintComponent.showIntentionHint(project, file, editor, intentions, false);
+              } catch (final NullPointerException e) {
+                // Log and ignore
+                log("updateIntentions: Can't show hint due to NullPointerException");
               }
             }
-          }, project.getDisposed());
+          } catch (IndexOutOfBoundsException e) {
+            log("updateIntentions: index out of bounds.");
+            //Memory.log(Memory.eddyError(EddyPlugin.basics(project), e), Utility.onError);
+          }
         }
-      });
+      }, project.getDisposed());
     }
   }
 
