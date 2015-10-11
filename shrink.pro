@@ -39,9 +39,9 @@
 ### Libraries
 
 # Base
--libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar
--libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsse.jar
--libraryjars /System/Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jce.jar
+-libraryjars /Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/classes.jar
+-libraryjars /Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jsse.jar
+-libraryjars /Library/Java/JavaVirtualMachines/1.6.0.jdk/Contents/Classes/jce.jar
 
 -include .idea/intellij-libs.pro
 
