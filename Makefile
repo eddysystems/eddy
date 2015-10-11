@@ -11,6 +11,8 @@ DIRTY = $(if $(GITMOD),-dirty,)
 LOCAL = $(if $(GITLOC),-local,)
 VERSION = $(strip $(subst release-,,$(shell git describe --tags)))
 
+PROGUARD = proguard
+
 all: $(PARSE) $(ACTIONS)
 jar: eddy.jar
 
@@ -29,7 +31,7 @@ commit:
 	@echo $(COMMIT)$(DIRTY)$(LOCAL)
 
 eddy.jar: eddy.zip shrink.pro
-	proguard @shrink.pro
+	$(PROGUARD) @shrink.pro
 
 .PHONY: install
 install: eddy.jar
